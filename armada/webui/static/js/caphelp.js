@@ -1,0 +1,1 @@
+function mcCapHelp(s){const m=document.getElementById("mc-caphelp");if(m)m.style.display=s?"flex":"none";}

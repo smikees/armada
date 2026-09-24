@@ -1,0 +1,1 @@
+(function(){var m=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)");function a(){var on=!!(m&&m.matches);document.documentElement.classList.toggle("armada-dark",on);if(document.body)document.body.classList.toggle("armada-dark",on);}a();document.addEventListener("DOMContentLoaded",a);if(m&&m.addEventListener)m.addEventListener("change",a);})();

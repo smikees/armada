@@ -1,0 +1,1 @@
+function mcRevealSection(d){if(!d||!d.open)return;var sc=d.closest(".mc-appscroll");if(!sc)return;requestAnimationFrame(function(){var top=d.offsetTop-sc.offsetTop,h=d.offsetHeight,vh=sc.clientHeight,pad=16;var want=(h+pad*2<=vh)?Math.min(top+h+pad-vh,top-pad):top-pad;if(want>sc.scrollTop)sc.scrollTo({top:want,behavior:"smooth"});});}

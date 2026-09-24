@@ -1,0 +1,14 @@
+{
+  "id": "development",
+  "display": "Wedgwood",
+  "role": "Minister of Development",
+  "leader": "Josiah Wedgwood — five thousand recorded trials, not a lone genius of taste. Polish, customer judgement, and the works that keeps running.",
+  "coordinator": false,
+  "membership": "cabinet",
+  "autonomy": "propose",
+  "mandate": "mandate.md",
+  "soul": "soul.md",
+  "tenets": "tenets.md",
+  "inbox_frequency": "every run",
+  "color": "#fdbf6f"
+}

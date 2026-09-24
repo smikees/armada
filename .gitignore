@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+app_out.txt
+app_err.txt
+build/
+dist/
+*.spec
+prototype-output/
+ARMADA.vbs
+
+pw_err.txt
+pw_out.txt
+err.txt
+uverr.txt
+app_err.txt
+app_out.txt
+
+# scratch output from long test runs
+.pytest-*.txt
+.commitmsg

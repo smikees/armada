@@ -1,0 +1,14 @@
+# ARMADA runtime dependencies — pinned to what the beta is built and tested with (Python 3.12).
+# The installer build (ADR-009) installs exactly these into the bundled Python; THIRD_PARTY_NOTICES.md
+# lists them with their licences. Everything else ARMADA uses is the standard library.
+#
+# Direct dependency:
+pywebview==6.2.1
+# pywebview's own dependencies on Windows (pinned so a rebuild can't drift):
+bottle==0.13.4
+cffi==2.1.1
+clr-loader==0.3.1
+proxy-tools==0.1.0
+pycparser==3.0
+pythonnet==3.1.0
+typing-extensions==4.16.0

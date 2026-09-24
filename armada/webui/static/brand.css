@@ -1,0 +1,425 @@
+/* ARMADA brand overrides on top of Industry (industry.css). Navy accent, teal accent-2.
+   Extracted from the approved design handoff (ARMADA.dc.html style block). */
+
+
+:root{--color-accent:#0b3f86;--color-accent-2:#12a3b8;
+--color-accent-100:#e8eff9;--color-accent-200:#cddcf2;--color-accent-300:#a6bfe4;--color-accent-400:#7599d0;--color-accent-500:#3f6bb0;--color-accent-600:#0b3f86;--color-accent-700:#08306a;--color-accent-800:#06234d;--color-accent-900:#041733;
+--color-accent-2-100:#e2f5f8;--color-accent-2-200:#bfeaf0;--color-accent-2-300:#8dd8e2;--color-accent-2-400:#56c1d0;--color-accent-2-500:#12a3b8;--color-accent-2-600:#0e849a;--color-accent-2-700:#0b667a;--color-accent-2-800:#084a59;--color-accent-2-900:#05303a;
+--status-ok:#2e9c6a;--status-warn:#d08a1c;--status-bad:#c9463d;--status-idle:#98989b;
+--color-sand-100:#e9e9ea;--color-sand-200:#dfdfe1;--color-sand-300:#d0d0d3;--color-sand-500:#b3b3b7;--color-sand-700:#6d6d71;--color-sand-900:#3a3a3d;--r:4px}
+
+/* Derived tokens: a colour faded toward transparent. Declared on BOTH :root and .armada-dark, on
+   purpose. A custom property's var() is resolved where the property is declared, not where it is
+   used — so a token declared only on :root bakes in :root's (light) --color-text, and descendants
+   inherit that already-resolved value even under .armada-dark on <body>. Found 2026-09-24: in dark
+   mode every --text-* token was near-black ink on a near-black page. Re-declaring them on the dark
+   element makes them resolve against the dark palette there. (The old comment here claimed the
+   opposite, which is how the bug survived.) Add new derived tokens to THIS rule. */
+:root,.armada-dark{
+/* text-on-surface alpha scale: opacity of --color-text. */
+--text-strong:color-mix(in srgb,var(--color-text) 70%,transparent);--text-dim:color-mix(in srgb,var(--color-text) 60%,transparent);--text-muted:color-mix(in srgb,var(--color-text) 55%,transparent);--text-soft:color-mix(in srgb,var(--color-text) 50%,transparent);--text-faint:color-mix(in srgb,var(--color-text) 45%,transparent);--text-ghost:color-mix(in srgb,var(--color-text) 40%,transparent);
+/* Phase 2, 2.2: the rest of the alpha scale that recurred (>=2 call sites) but had no name yet —
+   numeric suffix is the opacity percentage, same var(--color-text)-against-transparent idea as above. */
+--text-6:color-mix(in srgb,var(--color-text) 6%,transparent);--text-7:color-mix(in srgb,var(--color-text) 7%,transparent);--text-8:color-mix(in srgb,var(--color-text) 8%,transparent);--text-9:color-mix(in srgb,var(--color-text) 9%,transparent);--text-10:color-mix(in srgb,var(--color-text) 10%,transparent);--text-12:color-mix(in srgb,var(--color-text) 12%,transparent);--text-30:color-mix(in srgb,var(--color-text) 30%,transparent);--text-35:color-mix(in srgb,var(--color-text) 35%,transparent);--text-38:color-mix(in srgb,var(--color-text) 38%,transparent);--text-42:color-mix(in srgb,var(--color-text) 42%,transparent);--text-62:color-mix(in srgb,var(--color-text) 62%,transparent);--text-65:color-mix(in srgb,var(--color-text) 65%,transparent);
+/* Same idea, other base colours — an accent or status colour faded toward transparent instead of --color-text. */
+--accent-13:color-mix(in srgb,var(--color-accent) 13%,transparent);--accent-38:color-mix(in srgb,var(--color-accent) 38%,transparent);--accent2-7:color-mix(in srgb,var(--color-accent-2) 7%,transparent);--status-ok-16:color-mix(in srgb,var(--status-ok) 16%,transparent);--status-warn-16:color-mix(in srgb,var(--status-warn) 16%,transparent);--status-bad-16:color-mix(in srgb,var(--status-bad) 16%,transparent);--accent-16:color-mix(in srgb,var(--color-accent) 16%,transparent);--accent2-16:color-mix(in srgb,var(--color-accent-2) 16%,transparent)}
+
+.armada-dark{--color-bg:#0f1520;--color-surface:#161e2b;--color-text:#e4e8ee;--color-neutral-200:#222b3a;--color-neutral-300:#2e3847;--color-neutral-400:#3d4757;--color-neutral-500:#5b6576;--color-neutral-600:#7d8797;--color-neutral-700:#a3abb8;--color-neutral-900:#e4e8ee;--color-divider:color-mix(in srgb,#e4e8ee 18%,transparent);--color-accent:#7599d0;--color-accent-100:#182337;--color-accent-200:#1f2f4b;--color-accent-300:#3a5a92;--color-accent-600:#8fadd9;--color-accent-700:#a9bfe2;--color-accent-800:#c9d8ef;--color-accent-2:#56c1d0;--color-accent-2-100:#0d2a30;--color-accent-2-200:#134048;--color-accent-2-300:#1d5a66;--color-accent-2-400:#56c1d0;--color-accent-2-600:#56c1d0;--color-accent-2-700:#8dd8e2;--color-accent-2-800:#a9e2ea;--color-neutral-100:#1a2230;--color-neutral-800:#c9ced6;--color-sand-100:#1c2431;--color-sand-200:#222b3a;--color-sand-300:#2e3847;--color-sand-500:#4a5568;--color-sand-700:#9aa3b2;--color-sand-900:#d5dae2;--shadow-sm:0 1px 2px rgba(0,0,0,.5);--shadow-md:0 3px 10px rgba(0,0,0,.5);--shadow-lg:0 12px 32px rgba(0,0,0,.6)}
+
+/* Phase 2, 2.2: the modal overlay/box chrome, duplicated near-verbatim across ~20 call sites —
+   the two idioms behind "modals look different page to page" when one copy drifts from another.
+   z-index, background darkness and box width are legitimately per-modal and stay inline; only the
+   part that was actually identical everywhere moved here. */
+.mc-modal-ov{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.4);align-items:center;justify-content:center}
+.mc-modal-ov-top{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.4);align-items:flex-start;justify-content:center}
+.mc-modal-box{background:var(--color-bg);border-radius:var(--r);padding:18px;box-shadow:var(--shadow-lg)}
+
+html,body{margin:0;height:100%;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)}
+*{box-sizing:border-box}
+.card,.btn,.input,.seg,.dialog,.mc-widget,.mc-auto,.tag,.mc-frame{border-radius:var(--r)}
+.mc-frame{border:1px solid var(--color-divider)}
+/* rendered Markdown in thread messages (matches the Claude app's structure) */
+/* force wrapping of long unbroken tokens (paths, URLs) so they never overflow the column */
+.mc-body{overflow-wrap:anywhere;word-break:break-word;min-width:0}
+.mc-md{font-size:13px;line-height:1.62;overflow-wrap:anywhere;word-break:break-word}
+.mc-md code{overflow-wrap:anywhere}
+.mc-md>*:first-child{margin-top:0}
+.mc-md>*:last-child{margin-bottom:0}
+.mc-md p{margin:0 0 10px}
+.mc-md strong{font-weight:650}
+.mc-md em{font-style:italic}
+.mc-md h3,.mc-md h4,.mc-md h5,.mc-md h6{font-family:var(--font-heading);font-weight:600;line-height:1.25;margin:15px 0 7px}
+.mc-md h3{font-size:17px}.mc-md h4{font-size:15px}.mc-md h5{font-size:13.5px}.mc-md h6{font-size:12.5px}
+.mc-md ul,.mc-md ol{margin:0 0 10px;padding-left:22px}
+.mc-md li{margin:3px 0}
+.mc-md li::marker{color:color-mix(in srgb,var(--color-text) 55%,transparent)}
+.mc-md code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;background:color-mix(in srgb,var(--color-text) 8%,transparent);padding:1px 5px;border-radius:4px}
+.mc-md pre.mc-md-pre{background:var(--color-sand-100);border:1px solid var(--color-sand-300);border-radius:var(--r);padding:10px 12px;overflow:auto;margin:0 0 10px}
+.mc-md pre.mc-md-pre code{font-size:12px;white-space:pre;background:none;padding:0;border-radius:0}
+.mc-md a{color:var(--color-accent);text-decoration:underline;text-underline-offset:2px}
+.mc-md table.mc-md-tbl{border-collapse:collapse;margin:0 0 10px;font-size:12.5px;display:block;overflow-x:auto}
+.mc-md .mc-md-tbl th,.mc-md .mc-md-tbl td{border:1px solid var(--color-divider);padding:5px 9px;text-align:left;vertical-align:top}
+.mc-md .mc-md-tbl th{background:color-mix(in srgb,var(--color-text) 5%,transparent);font-weight:600;white-space:nowrap}
+/* let the reader select/copy message text (overrides pywebview's app-wide text_select=False on a
+   still-open window; interactive summaries keep their own user-select:none) */
+.mc-turn, .mc-body, .mc-md, .mc-att-file{-webkit-user-select:text;user-select:text}
+/* custom right-click menu (Copy / Select All) for thread text */
+.mc-ctx{position:fixed;z-index:9999;min-width:172px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:9px;box-shadow:var(--shadow-md);padding:5px;font-size:13px;-webkit-user-select:none;user-select:none}
+.mc-ctx-i{display:flex;align-items:center;justify-content:space-between;gap:26px;padding:6px 10px;border-radius:6px;cursor:pointer;color:var(--color-text)}
+.mc-ctx-i:hover{background:color-mix(in srgb,var(--color-text) 8%,transparent)}
+.mc-ctx-k{font-size:11px;color:color-mix(in srgb,var(--color-text) 45%,transparent)}
+.mc-ctx-dis{opacity:.4;pointer-events:none}
+/* 'Done' marker shown at the bottom of the newest reply until the next prompt is sent */
+.mc-done{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;color:var(--status-ok)}
+.mc-done svg{flex:none}
+/* assistant activity trail (tool runs + thought process), Claude-app style */
+.mc-actchip{display:flex;align-items:center;gap:7px;font-size:11.5px;color:color-mix(in srgb,var(--color-text) 46%,transparent);margin:0 0 10px}
+.mc-actchip svg{opacity:.65;flex:none}
+.mc-think{margin:0 0 10px}
+.mc-think>summary{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:color-mix(in srgb,var(--color-text) 46%,transparent);cursor:pointer;list-style:none;user-select:none}
+.mc-think>summary::-webkit-details-marker{display:none}
+.mc-think>summary:hover{color:color-mix(in srgb,var(--color-text) 62%,transparent)}
+/* message attachments — thumbnails (images) and name chips (files), in composer + history */
+.mc-att-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin:0 0 6px}
+.mc-att-img{display:block;line-height:0;border-radius:10px;overflow:hidden;border:1px solid var(--color-divider);cursor:zoom-in}
+/* lightbox: view an attached image full-size in a modal (WebView2 can't open data:/file links) */
+.mc-lightbox{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:28px;cursor:zoom-out}
+.mc-lightbox img{max-width:94vw;max-height:92vh;border-radius:10px;box-shadow:0 12px 44px rgba(0,0,0,.5);cursor:default}
+.mc-lb-x{position:absolute;top:16px;right:20px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mc-lb-x:hover{background:rgba(255,255,255,.28)}
+.mc-lb-x svg{width:15px;height:15px}
+.mc-att-img img{height:64px;width:auto;max-width:200px;object-fit:cover;display:block}
+.mc-att-file{display:inline-flex;align-items:center;gap:6px;max-width:220px;font-size:11.5px;background:var(--color-sand-100);
+  border:1px solid var(--color-sand-300);border-radius:10px;padding:5px 10px;color:var(--color-text)}
+.mc-att-file>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-att-file svg{opacity:.6;flex:none}
+/* composer attachment previews (thumbnails while composing) */
+.mc-att-prev{display:inline-flex;align-items:center;position:relative}
+.mc-att-prev .mc-att-x{position:absolute;top:-7px;right:-7px;width:19px;height:19px;border-radius:50%;
+  background:color-mix(in srgb,var(--color-text) 42%,var(--color-bg));color:#fff;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid var(--color-bg);box-shadow:var(--shadow-sm)}
+.mc-att-prev .mc-att-x:hover{background:color-mix(in srgb,var(--color-text) 60%,var(--color-bg))}
+.mc-att-prev .mc-att-x svg{display:block}
+.mc-att-prev img{height:44px;width:44px;object-fit:cover;border-radius:8px;border:1px solid var(--color-divider);display:block}
+/* thread event cards: the compaction spinner */
+@keyframes mc-spin{to{transform:rotate(360deg)}}
+.mc-ev-spin{display:inline-flex;animation:mc-spin 1s linear infinite}
+/* Jobs filter dropdowns — same custom <details> style as the realm switcher */
+.mc-fdrop{position:relative;display:inline-block}
+.mc-fdrop>summary{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:var(--r);cursor:pointer;
+  list-style:none;user-select:none;white-space:nowrap;font-size:12.5px;color:var(--color-text);
+  background:color-mix(in srgb,var(--color-text) 7%,transparent);transition:background-color .12s}
+.mc-fdrop>summary::-webkit-details-marker{display:none}
+.mc-fdrop>summary:hover,.mc-fdrop[open]>summary{background:color-mix(in srgb,var(--color-text) 12%,transparent)}
+/* Sized to its longest option rather than to the control: a fixed width plus nowrap options put a
+   HORIZONTAL scrollbar under the vertical one, which is two scrollbars to read one list. The menu
+   now grows to fit, stops at a readable maximum, and the rare over-long name wraps instead. */
+.mc-fdrop-menu{position:absolute;top:100%;left:0;z-index:50;min-width:190px;width:max-content;
+  max-width:min(340px,80vw);background:var(--color-bg);
+  border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:6px;margin-top:4px;
+  max-height:320px;overflow-y:auto;overflow-x:hidden}
+.mc-fdrop-menu a{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r);cursor:pointer;
+  font-size:12.5px;text-decoration:none;color:var(--color-text);line-height:1.35}
+.mc-fdrop-menu a:hover{background:color-mix(in srgb,var(--color-text) 8%,transparent)}
+.mc-fdrop-dot,.mc-fdrop-sw{width:10px;height:10px;border-radius:2px;flex:none;display:inline-block}
+/* label fills the (optionally fixed-width) control and ellipsizes, so the pill never resizes
+   when a shorter option is picked */
+.mc-fdrop-lbl{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* A filter the current source cannot answer. Shown rather than removed, so the bar doesn't shift
+   under the cursor as you narrow; the title says why it's off. */
+/* Placeholder rows while the catalogue loads. Card-shaped so the pane keeps its height and the
+   filter bar doesn't jump down the screen when the real answer lands. */
+.mc-cat-skel{background:linear-gradient(90deg,
+  color-mix(in srgb,var(--color-text) 4%,transparent) 25%,
+  color-mix(in srgb,var(--color-text) 7%,transparent) 37%,
+  color-mix(in srgb,var(--color-text) 4%,transparent) 63%);
+  background-size:400% 100%;animation:mc-skel 1.4s ease-in-out infinite}
+@keyframes mc-skel{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.mc-cat-skel{animation:none}}
+
+/* The Catalogue's explainer. One line closed, the whole picture open — the same words used to sit
+   permanently above the results, which is a lot of reading to scroll past to reach one thing. */
+.mc-catinfo>summary::-webkit-details-marker{display:none}
+.mc-catinfo>summary::marker{content:""}
+/* It borrows .mc-wid-h for its background and padding, which carries a bottom divider — right
+   under an open panel, a line under nothing when closed. */
+.mc-catinfo>summary{border-radius:var(--r);border-bottom-color:transparent}
+.mc-catinfo>summary:hover{filter:brightness(.97)}
+.mc-catinfo .mc-catinfo-ch{transition:transform .15s}
+.mc-catinfo[open] .mc-catinfo-ch{transform:rotate(90deg)}
+.mc-catinfo[open]>summary{border-bottom-color:var(--color-divider);
+  border-radius:var(--r) var(--r) 0 0}
+
+/* An option that would empty the page. Greyed and unclickable rather than hidden: which choices
+   exist is part of what the menu tells you, and a list that silently loses rows as you filter is
+   harder to read, not easier. */
+.mc-fdrop-menu a.is-empty{opacity:.35;cursor:not-allowed;pointer-events:none}
+/* pointer-events sits on the SUMMARY, not the control: the title lives on the control and a
+   tooltip needs hover, so switching the whole thing off would have hidden the explanation. */
+.mc-fdrop.is-off>summary{opacity:.42;cursor:not-allowed;pointer-events:none}
+
+@keyframes mc-pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--color-accent-2) 60%,transparent)}70%{box-shadow:0 0 0 6px transparent}}
+.mc-tab{font-family:var(--font-heading);font-weight:600;font-size:15px;letter-spacing:.01em;padding:9px 2px;border-bottom:3px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;color:color-mix(in srgb,var(--color-text) 62%,transparent);cursor:pointer;white-space:nowrap;text-decoration:none}
+.mc-tab:hover{color:var(--color-text)}
+.mc-tab[aria-current="page"]{color:var(--color-text);border-bottom-color:var(--color-accent-2)}
+.mc-row:hover{background:color-mix(in srgb,var(--color-text) 4%,transparent)}
+.mc-agent:hover{border-color:color-mix(in srgb,var(--color-text) 45%,transparent);box-shadow:var(--shadow-sm)}
+.mc-tab-user{font-family:var(--font-body);font-weight:500;font-size:13.5px;letter-spacing:0}
+.mc-tab-user[aria-current="page"]{color:var(--color-text);border-bottom-color:var(--color-accent-2)}
+.mc-widget{border:1px solid var(--color-divider);background:var(--color-bg);display:flex;flex-direction:column;min-height:0;position:relative}
+.mc-widget.mc-tw-unread .mc-tw-title{color:var(--color-accent);font-weight:700}
+.mc-tw-menu a:hover{background:var(--color-sand-100)}
+.mc-jc-nav:hover,.mc-jc-view:hover,.mc-um:hover,.mc-ui:hover,.mc-uby:hover{background:color-mix(in srgb,var(--color-text) 6%,transparent)}
+.mc-wid-h,.mc-tw-head{background:var(--color-sand-100)}   /* was #eee — a light bar with light text in dark mode */
+#mc-plus:hover,#mc-send:hover{background:color-mix(in srgb,var(--color-text) 8%,transparent);color:var(--color-text)}
+.mc-thresize{cursor:col-resize;background:transparent;transition:background .12s}
+.mc-thresize:hover,.mc-thresize:active{background:color-mix(in srgb,var(--color-accent-2) 55%,transparent)}
+/* textarea scrollbars — subtle, no arrows, matching the widget (.mc-scroll) style */
+textarea::-webkit-scrollbar{width:8px;height:8px}
+textarea::-webkit-scrollbar-track{background:transparent}
+textarea::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--color-text) 22%,transparent);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+textarea:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--color-text) 30%,transparent);background-clip:content-box}
+textarea::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--color-text) 42%,transparent);background-clip:content-box}
+/* app-section (main content) scrollbars — match the widget scrollbars, hover-only, with a
+   reserved gutter so the bar keeps its own width (no overlap) and content never shifts */
+/* NOTE: do NOT set scrollbar-width/scrollbar-color here — modern WebView2/Chromium then
+   honours the standard (thin) bar and ignores the ::-webkit-scrollbar rules below.
+   Leaving scrollbar-width unset (auto) lets the webkit styling take effect. */
+.mc-appscroll{scrollbar-gutter:stable}
+.mc-appscroll::-webkit-scrollbar{width:18px;height:18px}
+.mc-appscroll::-webkit-scrollbar-track{background:transparent}
+/* ≈10px thumb with 5px clear padding on each side (transparent border + padding-box clip) */
+/* always visible when the page overflows (the browser only draws a thumb when it does), darker on hover */
+.mc-appscroll::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--color-text) 26%,transparent);border-radius:8px;border:3px solid transparent;border-left-width:5px;border-right-width:5px;background-clip:padding-box}
+.mc-appscroll:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--color-text) 34%,transparent);background-clip:padding-box}
+.mc-appscroll::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--color-text) 46%,transparent);background-clip:padding-box}
+/* drag handle sits in the very bottom-right corner (where the scrollbars meet); resizes width + height */
+.mc-rz{position:absolute;right:1px;bottom:1px;width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:nwse-resize;color:color-mix(in srgb,var(--color-text) 45%,transparent);opacity:0;transition:opacity .12s;z-index:6;pointer-events:none;touch-action:none}
+.mc-w:hover .mc-rz{opacity:.7;pointer-events:auto}
+.mc-rz:hover{opacity:1}
+/* subtle, hover-only scrollbars inside dashboard widgets; padding leaves room for the resize handle */
+/* widget scrollbars — un-scoped so they also apply inside the thread-widget iframe;
+   reveal on widget-hover (dashboard) or on hovering the scroll area itself (iframe) */
+/* no scrollbar end-arrows anywhere (incl. widget iframes) — cleaner + frees the corner for the handle */
+::-webkit-scrollbar-button{display:none!important;width:0!important;height:0!important}
+.mc-scroll{padding-bottom:14px;scrollbar-width:thin;scrollbar-color:transparent transparent;scrollbar-gutter:stable}
+/* always keep BOTH scrollbars (transparent when idle) so each bar stops before the reserved
+   opposite gutter/corner — otherwise a lone bar runs full-length under the resize handle */
+.mc-scroll{overflow-y:scroll!important;overflow-x:scroll!important}
+.mc-w:hover .mc-scroll,.mc-scroll:hover{scrollbar-color:color-mix(in srgb,var(--color-text) 22%,transparent) transparent}
+.mc-scroll::-webkit-scrollbar{width:8px;height:8px}
+.mc-scroll::-webkit-scrollbar-track{background:transparent}
+/* stop each bar ~18px short of its far end so the corner resize handle always has clear room —
+   works whether one or both bars are present (fixes the h-bar overlapping the handle) */
+.mc-scroll::-webkit-scrollbar-track:vertical{margin-bottom:18px}
+.mc-scroll::-webkit-scrollbar-track:horizontal{margin-right:18px}
+.mc-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:8px;border:2px solid transparent;background-clip:content-box}
+.mc-w:hover .mc-scroll::-webkit-scrollbar-thumb,.mc-scroll:hover::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--color-text) 22%,transparent);background-clip:content-box}
+.mc-widget .mc-grip{opacity:.4;transition:opacity .15s;pointer-events:auto}
+.mc-draghandle{opacity:1}
+.mc-draghandle:hover .mc-grip{opacity:.85}
+#mc-grid .mc-w[style*="opacity"]{outline:1px dashed color-mix(in srgb,var(--color-accent-2) 70%,transparent);outline-offset:2px}
+.mc-ovl{position:absolute;top:6px;right:6px;z-index:5;display:flex;align-items:center;gap:4px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);padding:2px 4px;box-shadow:var(--shadow-sm);font-size:11px}
+.mc-ovl button{border:0;background:var(--color-accent);color:#fff;border-radius:3px;width:18px;height:18px;cursor:pointer;font-size:12px;line-height:1}
+.mc-ovl span{min-width:22px;text-align:center;color:color-mix(in srgb,var(--color-text) 60%,transparent)}
+.mc-crumb{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)}
+.mc-crumb a{color:inherit;text-decoration:none}.mc-crumb a:hover{color:var(--color-text)}
+.mc-crumb b{font-weight:500;color:var(--color-text)}
+@keyframes mc-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+/* widget-header icons don't swallow hover, so a button's title tooltip covers its whole area (not just the icon pixels) */
+.mc-wid-h svg,.mc-tw-head svg{pointer-events:none}
+/* working status dot: pulse the fill between a light and a dark grey (more visible than an opacity fade) */
+/* Opaque stops mixed against --color-bg, animating background-COLOR. Two earlier versions failed
+   here: the `background` shorthand wiped the opaque layer the dot needs on a photo, and animating
+   background-image meant stepping between two gradients instead of interpolating, which turned the
+   pulse into a flip. Plain colours interpolate. */
+@keyframes mc-actwork{
+  0%,100%{background-color:color-mix(in srgb,var(--color-text) 18%,var(--color-bg))}
+  50%{background-color:color-mix(in srgb,var(--color-text) 82%,var(--color-bg))}}
+.mc-act:hover{color:var(--color-text)!important;background:color-mix(in srgb,var(--color-text) 8%,transparent)}
+.mc-turn-actions{opacity:.55;transition:opacity .12s}
+.mc-turn:hover .mc-turn-actions{opacity:1}
+#mc-plusmenu a:hover{background:color-mix(in srgb,var(--color-text) 6%,transparent)}
+.mc-tip{position:relative}
+.mc-tip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);left:0;background:#1e1e28;color:#fff;font-size:11.5px;font-weight:400;line-height:1.35;padding:6px 10px;border-radius:8px;white-space:normal;width:max-content;max-width:240px;z-index:80;pointer-events:none;box-shadow:var(--shadow-md)}
+.mc-tip:hover::before{content:'';position:absolute;bottom:calc(100% + 2px);left:8px;border:5px solid transparent;border-top-color:#1e1e28;z-index:80}
+#mc-turns{overflow-x:hidden}
+.mc-thread:hover{background:color-mix(in srgb,var(--color-text) 4%,transparent)}
+.mc-thread:hover .mc-thgrip,.mc-thread:hover .mc-thdots{opacity:.7!important}
+.mc-sub{font-size:13px;padding:8px 0;border-bottom:2px solid transparent;color:color-mix(in srgb,var(--color-text) 62%,transparent);cursor:pointer;white-space:nowrap;text-decoration:none}
+.mc-sub[aria-current="page"]{color:var(--color-text);border-bottom-color:var(--color-accent)}
+
+details.mc-job>summary{list-style:none}
+details.mc-job>summary::-webkit-details-marker{display:none}
+details.mc-job[open] .mc-caret{transform:rotate(90deg);color:var(--color-accent)}
+.mc-caret{transition:transform .15s}
+details.mc-realmsw>summary{list-style:none}
+details.mc-realmsw>summary::-webkit-details-marker{display:none}
+.mc-realmsw a{display:block;padding:6px 8px;text-decoration:none;color:inherit;border-radius:var(--r);font-size:13px}
+.mc-realmsw a:hover{background:color-mix(in srgb,var(--color-text) 6%,transparent)}
+/* Capabilities cards: familiar type buckets on the surface, trust signals (made-by / runs / touch) */
+/* as cross-cutting badges, a tier stripe, and an expandable provenance panel.                      */
+.mc-cap{background:var(--color-bg);border:1px solid var(--color-divider);border-left-width:4px;border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+/* Capabilities sub-tabs (User / System) — in-page, distinct from the top nav's .mc-tab */
+.mc-captab{display:inline-block;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600;
+  color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
+.mc-captab:hover{color:var(--color-text)}
+.mc-captab[aria-selected="true"]{color:var(--color-text);border-bottom-color:var(--color-accent)}
+.mc-cap>summary{list-style:none;display:flex;align-items:center;gap:9px;padding:7.5px 12px;cursor:pointer}
+.mc-cap>summary::-webkit-details-marker{display:none}
+.mc-cap .mc-cap-caret{transition:transform .15s;color:var(--text-muted);flex:none}
+.mc-cap[open] .mc-cap-caret{transform:rotate(90deg)}
+/* animation restarts on every open — see mcCapAnimRestart (the browser won't re-run it by itself
+   when <details> re-opens, because the panel element is never re-created) */
+details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
+@keyframes mc-capopen{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+/* Same hover as an agent card on Ministers (.mc-agent): edge + lift, no background change. A
+   background tint fought the tier gradient down the left of every card — two things changing the
+   same surface, so the risk colour dimmed exactly when you were pointing at it. border-color is a
+   shorthand and the tier colour is set inline on border-left-color, so the left edge keeps its
+   colour and only the other three darken. */
+.mc-cap:hover{border-color:color-mix(in srgb,var(--color-text) 45%,transparent);box-shadow:var(--shadow-sm)}
+/* 1px vertical padding (was 2px) — every pill in the app sits 2px shorter */
+.mc-cap-pill{font-size:10px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+/* A notification that links somewhere lifts on hover — that's the whole "this is clickable" cue */
+/* Bell: a dot while anything is unread, and one short shake at the moment something lands. The
+   shake is deliberately brief and non-looping — a permanently moving icon is an irritant. */
+@keyframes mc-bellring{
+  0%,100%{transform:rotate(0)}
+  8%{transform:rotate(15deg)}  20%{transform:rotate(-13deg)}
+  32%{transform:rotate(10deg)} 44%{transform:rotate(-8deg)}
+  56%{transform:rotate(5deg)}  68%{transform:rotate(-3deg)} 80%{transform:rotate(1deg)}}
+.mc-bell-ring{animation:mc-bellring .9s ease-in-out 1;transform-origin:50% 15%}
+@media (prefers-reduced-motion:reduce){.mc-bell-ring{animation:none}}
+.mc-notifrow{transition:background .12s}
+.mc-notifrow:hover{background:color-mix(in srgb,var(--color-text) 7%,transparent)!important}
+/* icon + label actions (view contents / go to file) */
+.mc-cap-ico{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--text-muted);
+  font-size:12px;padding:3px 6px;margin:-3px -6px;border-radius:5px;transition:color .12s,background .12s}
+.mc-cap-ico:hover{color:var(--color-accent-2);background:color-mix(in srgb,var(--color-text) 8%,transparent)}
+.mc-cap-scope{font-size:9.5px;font-weight:600;padding:1px 7px;border-radius:6px;white-space:nowrap}
+.mc-cap-badges{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-left:auto}
+.mc-cap-prov{border-top:1px solid var(--color-divider);background:color-mix(in srgb,var(--color-text) 3%,transparent);padding:14px 16px;font-size:12px;line-height:1.5}
+.mc-cap-prov .g{display:grid;grid-template-columns:96px 1fr;gap:5px 12px}
+.mc-cap-prov .k{color:var(--text-muted);font-weight:600}
+.mc-cap-cmp{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;margin:18px 0 6px}
+.mc-cap-cmp>div{padding:0}
+.mc-cap-cmp .h{margin-bottom:5px}
+/* iOS-style enable/disable toggle */
+.mc-toggle{position:relative;display:inline-block;width:30px;height:17px;flex:none;cursor:pointer;vertical-align:middle}
+.mc-toggle input{opacity:0;width:0;height:0;position:absolute;margin:0}
+.mc-toggle .mc-toggle-sl{position:absolute;inset:0;background:color-mix(in srgb,var(--color-text) 24%,transparent);border-radius:999px;transition:background .2s}
+.mc-toggle .mc-toggle-sl::before{content:"";position:absolute;height:13px;width:13px;left:2px;top:2px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.mc-toggle input:checked + .mc-toggle-sl{background:var(--color-accent)}
+.mc-toggle input:checked + .mc-toggle-sl::before{transform:translateX(13px)}
+/* a disabled capability dims everything except its actions column */
+.mc-cap-off>summary>*:not(:last-child){opacity:.45}
+/* per-capability Advanced section (an expansion inside the expansion) */
+.mc-cap-adv{border-top:1px dashed var(--color-divider);margin-top:14px;padding-top:11px}
+.mc-cap-adv>summary{list-style:none;cursor:pointer;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;display:inline-flex;align-items:center;gap:5px}
+.mc-cap-adv>summary::-webkit-details-marker{display:none}
+.mc-cap-adv>summary .mc-cap-caret{transition:transform .15s}
+.mc-cap-adv[open]>summary .mc-cap-caret{transform:rotate(90deg)}
+.mc-cap-adv[open]>.mc-cap-advbody{animation:mc-capopen .18s ease}
+.mc-cap-advbody{margin-top:9px}
+/* "Full review" toggle on the bring-a-link report card (_cat_review_card) — the same animated
+   caret mechanics as a capability card's own expand arrow (.mc-cap[open] .mc-cap-caret above),
+   just without that card's border/background chrome, since this already sits inside one. */
+.mc-cat-full>summary{list-style:none}
+.mc-cat-full>summary::-webkit-details-marker{display:none}
+.mc-cat-full .mc-cap-caret{transition:transform .15s;color:var(--text-muted);flex:none}
+.mc-cat-full[open] .mc-cap-caret{transform:rotate(90deg)}
+/* update-available badge + updating spinner */
+.mc-cap-upd{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:999px;flex:none;white-space:nowrap;
+  background:color-mix(in srgb,var(--color-accent-2) 18%,transparent);color:var(--color-accent-2);cursor:pointer}
+.mc-spin{animation:mc-spin 1s linear infinite}
+.mc-cap-updbtn{display:inline-flex;align-items:center;gap:6px;margin-top:7px;font-size:12px;padding:5px 12px;
+  border:0;border-radius:var(--r);background:var(--color-accent-2);color:#fff;cursor:pointer}
+.mc-cap-updbtn[disabled]{opacity:.7;cursor:default}
+.mc-cap-cmp .h{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700;margin-bottom:3px}
+.mc-cap-flag{color:var(--status-bad);font-weight:600}
+.mc-cap-note{margin-top:9px;font-size:10.5px;color:var(--text-muted);font-style:italic}
+.mc-cap-frozen{font-size:10px;font-weight:600;padding:1px 7px;border-radius:6px;background:color-mix(in srgb,var(--status-ok) 15%,transparent);color:var(--status-ok)}
+.mc-cap-living{font-size:10px;font-weight:600;padding:1px 7px;border-radius:6px;background:color-mix(in srgb,var(--status-warn) 18%,transparent);color:var(--status-warn)}
+/* Overview header KPIs: fixed-width value cells so a changing digit count never reflows the row, */
+/* plus a skeleton shimmer shown until the live value arrives (social-media 'loading' style).      */
+.mc-kpi{min-width:56px}
+.mc-kpi-v{display:inline-block;min-width:54px;min-height:23px}
+.mc-skel{display:inline-block;width:44px;height:16px;border-radius:5px;vertical-align:middle;position:relative;top:-2px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--color-text) 8%,transparent) 25%,color-mix(in srgb,var(--color-text) 16%,transparent) 37%,color-mix(in srgb,var(--color-text) 8%,transparent) 63%);
+  background-size:400% 100%;animation:mc-shimmer 1.3s ease-in-out infinite}
+@keyframes mc-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+
+/* Job rows open like capability rows: same chevron, same rotation, same timing. Two lists that
+   behave differently for no reason is how a UI starts feeling assembled rather than designed. */
+.mc-job .mc-jcaret{transition:transform .15s;color:var(--text-muted);flex:none}
+.mc-job[open] .mc-jcaret{transform:rotate(90deg);color:var(--color-accent)}
+/* A job switched off is still listed — greyed, not hidden, so you can see it exists and switch it
+   back on. Matches the treatment a disabled capability gets. */
+.mc-job.mc-job-off>summary{opacity:.55}
+
+/* ==== Design-system components (Phase 4, UI_AUDIT F1) =============================================
+   The classes docs/dev/DESIGN_SYSTEM.md names, each matching its canonical spec — the variant the app
+   already used most. Call sites move onto them ticket by ticket (UI_AUDIT B/I/P/T/FI); until they do,
+   inline styles still win, so adding these changes nothing on screen. */
+.btn{font-size:12.5px;padding:6px 14px}                     /* ARMADA's md; industry.css's base is 14px */
+.btn-primary,.btn-primary:hover{color:#fff}
+.btn-sm{font-size:12px;padding:5px 11px}
+.btn-danger{background:var(--status-bad);border-color:var(--status-bad);color:#fff}
+.btn-danger:hover{background:color-mix(in srgb,var(--status-bad) 86%,#000)}
+.btn-secondary.is-danger{color:var(--status-bad);border-color:var(--status-bad)}
+.btn-link{border:0;background:transparent;color:var(--color-accent);font-family:var(--font-body);font-weight:500;font-size:12px;padding:4px}
+.btn-link:hover{text-decoration:underline;background:transparent}
+.mc-iconbtn{border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:inline-flex;align-items:center;line-height:1;color:var(--text-muted)}
+.mc-iconbtn:hover{color:var(--color-text);background:var(--text-7)}
+.mc-x{margin-left:auto;border:0;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text-soft)}
+.mc-x:hover{color:var(--color-text)}
+.mc-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap;background:var(--text-8);color:var(--text-muted)}
+.mc-pill.is-ok{background:var(--status-ok-16);color:var(--status-ok)}
+.mc-pill.is-warn{background:var(--status-warn-16);color:var(--status-warn)}
+.mc-pill.is-bad{background:var(--status-bad-16);color:var(--status-bad)}
+.mc-pill.is-accent{background:var(--accent-16);color:var(--color-accent)}
+.mc-pill.is-accent2{background:var(--accent2-16);color:var(--color-accent-2)}
+.mc-pill.is-neutral{background:var(--text-8);color:var(--text-muted)}
+.mc-chip{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:2px 8px;border-radius:var(--r);line-height:1.5;background:var(--text-7);color:var(--text-62)}
+.mc-chip.is-accent{color:var(--color-accent);background:var(--color-accent-100)}
+.mc-count{margin-left:5px;background:var(--color-accent);color:#fff;font-size:10px;line-height:1.6;border-radius:999px;padding:0 6px;vertical-align:middle}
+.mc-field{display:block;width:100%;padding:6px 8px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:13px}
+.mc-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:14px 0 4px;display:block}
+.mc-textarea{width:100%;resize:vertical;background:var(--color-sand-100);border:1px solid var(--color-sand-500);border-radius:var(--r);padding:10px;font-size:12.5px;line-height:1.55;color:var(--color-text);font-family:var(--font-body)}
+.mc-hint{font-size:12px;color:var(--text-muted)}
+.mc-h-page{font-family:var(--font-heading);font-size:26px;margin:0 0 14px}
+.mc-h-page.is-agent{font-size:20px;margin:0}
+.mc-eyebrow{font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft)}
+.mc-h-card{font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px}
+.mc-h-sect{font-family:var(--font-heading);font-weight:600;font-size:14px}
+/* App-wide bar under the nav (scheduler 5.5; the sign-in bar is the bad-toned original, still inline) */
+.mc-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--color-divider)}
+.mc-banner-warn{background:color-mix(in srgb,var(--status-warn) 12%,var(--color-bg));border-bottom-color:color-mix(in srgb,var(--status-warn) 35%,transparent)}
+.mc-banner-bad{background:color-mix(in srgb,var(--status-bad) 12%,var(--color-bg));border-bottom-color:color-mix(in srgb,var(--status-bad) 35%,transparent)}
+.mc-banner-msg{font-size:12.5px;font-weight:600}
+.mc-banner-sub{font-size:11.5px;color:var(--text-muted)}
+.mc-banner-act{margin-left:auto;display:flex;gap:8px;align-items:center}
+/* First-run page (5.3, webui/welcome.py) */
+.mc-welcome{max-width:720px;margin:0 auto;padding:40px 24px 60px}
+.mc-wlogo img{height:34px;width:auto}
+.mc-wlogo{margin-bottom:22px;display:flex;align-items:center;gap:8px}
+.mc-channel{text-transform:uppercase;letter-spacing:.06em}
+.mc-wlede{font-size:15px;line-height:1.55;color:var(--text-muted);margin:0 0 22px}
+.mc-wcard{border-radius:var(--r);padding:18px 20px;margin-bottom:16px;background:var(--color-surface)}
+.mc-wcard[aria-disabled="true"]{opacity:.55}
+.mc-wnum{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--color-accent);color:#fff;font-size:12px;margin-right:9px;vertical-align:1px}
+.mc-wrow{display:flex;gap:8px;align-items:center;margin-top:10px}
+.mc-wrow .mc-field{flex:1}
+.mc-wend{justify-content:flex-end}
+.mc-wtpls{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.mc-wtpl{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;align-items:center;padding:10px 12px;border-radius:var(--r);cursor:pointer}
+.mc-wtpl input{grid-row:span 2;margin:0}
+.mc-wtpl:has(input:checked){outline:2px solid var(--color-accent);outline-offset:-1px}
+.mc-wmsg{font-size:12px;min-height:1em;margin:8px 0 0;color:var(--text-muted)}
+.mc-wmsg.is-bad,.mc-wnote{color:var(--status-bad)}
+.mc-wok{font-size:13px;margin:10px 0 0}
+.mc-wor{margin-top:14px;padding-top:12px;border-top:1px solid var(--color-divider)}
+.mc-wlist{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:8px}
+.mc-wlist li{display:flex;gap:10px;align-items:center}
+.mc-wfoot{text-align:center;margin-top:24px}

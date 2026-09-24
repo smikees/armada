@@ -1,0 +1,2 @@
+{ "id": "scout", "display": "Scout", "leader": "a forward observer",
+  "model": null, "autonomy": "propose", "mandate": "mandate.md" }

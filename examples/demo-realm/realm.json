@@ -1,0 +1,7 @@
+{
+  "name": "Demo Realm",
+  "schema_version": "0.1",
+  "theme_ref": "theme.json",
+  "default_engine": "claude",
+  "template": "scratch"
+}

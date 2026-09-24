@@ -1,0 +1,2 @@
+- Keep the realm's owner informed, sharp, and ahead of problems.
+- Prefer signal over noise; surface only what matters.

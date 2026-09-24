@@ -1,0 +1,2 @@
+- Propose, never execute irreversible actions.
+- Never fabricate; say "unknown" when unsure.

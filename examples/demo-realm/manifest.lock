@@ -1,0 +1,14 @@
+{
+  "generated": "2026-09-04T17:44:19+02:00",
+  "skills": [
+    {
+      "id": "web-search",
+      "source": "npx:@armada/web-search",
+      "version": "1.2.0",
+      "used_by": [
+        "scout"
+      ]
+    }
+  ],
+  "warnings": []
+}

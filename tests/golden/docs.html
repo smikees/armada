@@ -1,0 +1,489 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>ARMADA — Documentation</title>
+<link rel="stylesheet" href="/static/industry.css?v=V"><link rel="stylesheet" href="/static/brand.css?v=V"></head>
+<body class=""><div style="height:100vh;display:flex;flex-direction:column">
+<div style="display:flex;align-items:center;gap:22px;padding:0 24px;border-bottom:1px solid var(--color-divider);flex:none"><a href="/" style="text-decoration:none;display:flex;align-items:center;gap:7px"><img src="/static/armada-logo.png?v=V" alt="ARMADA" class="wordmark" height="30" style="display:block;flex:none;width:auto;max-width:none"><span class="mc-pill is-accent mc-channel" title="ARMADA is in beta — expect rough edges, and please report them">beta</span></a><details class="mc-realmsw" style="position:relative"><summary style="display:flex;align-items:center;gap:8px;padding:6px 11px;border:0;background:var(--text-7);cursor:pointer;margin:6px 0;border-radius:var(--r)"><span style="display:flex;color:color-mix(in srgb,var(--color-text) 75%,transparent)"><svg width="15" height="15" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 6v16m7-9l2-1a9 9 0 0 1-18 0l2 1m4-2h6"/><circle cx="12" cy="4" r="2"/></g></svg></span><span style="font-family:var(--font-heading);font-weight:600;font-size:15px">Test Realm</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.6"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"></path></svg></summary><div id="mc-realmlist" style="position:absolute;top:100%;left:0;z-index:50;min-width:210px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:6px;margin-top:4px"><div style="font-size:11px;color:var(--text-muted);padding:4px 8px">loading…</div></div></details><div style="display:flex;gap:18px;align-items:stretch;align-self:stretch"><a class="mc-tab" href="/" >Overview</a><a class="mc-tab" href="/ministers" >Mates</a><a class="mc-tab" href="/goals" >Goals</a><a class="mc-tab" href="/jobs" >Jobs<span id="mc-jobsbadge" title="job proposals awaiting approval" style="display:none;margin-left:5px;background:var(--color-accent);color:#fff;font-size:10px;line-height:1.6;border-radius:999px;padding:0 6px;vertical-align:middle">0</span></a><a class="mc-tab" href="/inbox" >Inbox</a><a class="mc-tab" href="/memory" >Memory</a><a class="mc-tab" href="/skills" >Capabilities</a><a class="mc-tab" href="/artefacts" >Artefacts</a><i style="width:1px;background:var(--color-divider);margin:10px 0"></i><span class="mc-tab mc-tab-user" data-i="0"  style="padding-inline:6px;gap:4px"><span class="mc-secgrip" title="Drag to reorder" style="display:none;cursor:grab;color:var(--text-muted)"><svg width="13" height="13" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></g></svg></span><span class="mc-secname" onclick="mcSecClick(event,this)" ondblclick="mcSecRename(event,this)" style="cursor:pointer">Handbook</span><span class="mc-secx" title="Remove section" style="display:none;cursor:pointer;color:var(--text-muted)" onclick="mcSecDelete(event,this)"><svg width="13" height="13" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg></span></span><a class="mc-tab" id="mc-seceditbtn" onclick="mcSectionEdit(this)" title="Edit sections" style="cursor:pointer;width:28px;height:28px;align-self:center;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:var(--r);background:var(--text-7);color:var(--text-muted)"><span class="mc-sec-on" style="display:inline-flex"><svg width="14" height="14" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497zM15 5l4 4"/></svg></span><span class="mc-sec-off" style="display:none"><svg width="14" height="14" viewBox="0 0 16 16" style="display:block;pointer-events:none;"><path fill="currentColor" d="M5.793 6.5L1.146 1.854a.5.5 0 1 1 .708-.708l13 13a.5.5 0 0 1-.708.708L9.5 10.207l-3.136 3.136a2.95 2.95 0 0 1-1.354.772l-3.386.87a.5.5 0 0 1-.608-.61l.869-3.385c.131-.513.398-.98.772-1.355zm3 3L6.5 7.207l-3.136 3.136a1.95 1.95 0 0 0-.51.896l-.66 2.566l2.567-.659a1.95 1.95 0 0 0 .896-.51zm3.25-3.25l-1.836 1.836l.707.707l3.322-3.322a2.621 2.621 0 0 0-3.707-3.707L7.207 5.086l.707.707L9.75 3.957zm-.807-3.779a1.621 1.621 0 1 1 2.293 2.293l-.779.779l-2.293-2.293z"/></svg></span></a><span id="mc-sechint" style="display:none;align-self:center;font-family:var(--font-body);font-size:12px;font-style:italic;color:var(--text-muted);white-space:nowrap">Double click to edit titles</span><script src="/static/js/section_edit.js?v=V"></script></div><div style="margin-left:auto;display:flex;align-items:center;gap:16px"><span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text-strong)"><i style="width:8px;height:8px;flex:none;border-radius:50%;background:var(--status-ok)"></i>Claude (subscription)</span><span id="mc-bellwrap" style="position:relative;display:flex"><a id="mc-bell" title="Notifications" onclick="mcBellToggle(event)" style="text-decoration:none;display:flex;align-items:center;cursor:pointer;color:var(--text-strong)"><svg width="18" height="18" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.268 21a2 2 0 0 0 3.464 0m-10.47-5.674A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></a><span id="mc-belldot" style="display:none;position:absolute;top:-2px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--status-bad);box-shadow:0 0 0 2px var(--color-surface);pointer-events:none"></span><div id="mc-bellpanel" style="display:none"></div></span><a href="/docs" title="Documentation" style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)"><svg width="18" height="18" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></a><a href="/settings" title="Settings" style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)"><svg width="18" height="18" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0a2.34 2.34 0 0 0 3.319 1.915a2.34 2.34 0 0 1 2.33 4.033a2.34 2.34 0 0 0 0 3.831a2.34 2.34 0 0 1-2.33 4.033a2.34 2.34 0 0 0-3.319 1.915a2.34 2.34 0 0 1-4.659 0a2.34 2.34 0 0 0-3.32-1.915a2.34 2.34 0 0 1-2.33-4.033a2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></g></svg></a></div></div><div id="mc-authbar"></div><div id="mc-schedbar"></div><script src="/static/js/confirm.js?v=V"></script><script src="/static/js/navkeys.js?v=V"></script><script src="/static/js/switcher.js?v=V"></script><script src="/static/js/pending_badge.js?v=V"></script><div id="mc-newrealm-ov" onclick="if(event.target===this)mcNewRealmClose()" style="display:none;position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.4);align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto"><div style="background:var(--color-bg);border:1px solid var(--color-divider);border-radius:14px;box-shadow:var(--shadow-lg);width:100%;max-width:760px;display:flex;flex-direction:column;max-height:94vh;overflow:hidden"><div style="display:flex;align-items:center;gap:10px;padding:14px 18px 8px"><h2 style="font-family:var(--font-heading);font-size:20px;margin:0">New realm</h2><button onclick="mcNewRealmClose()" title="Close" style="margin-left:auto;border:0;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text-soft)">&times;</button></div><iframe id="mc-newrealm-frame" title="New realm" style="border:0;width:100%;height:600px;display:block"></iframe></div></div><script src="/static/js/newrealm.js?v=V"></script><script src="/static/js/authbar.js?v=V"></script><script src="/static/js/schedbar.js?v=V"></script><script src="/static/js/notifbell.js?v=V"></script>
+<div class="mc-appscroll" style="flex:1;min-height:0;overflow:auto"><div style="padding:18px 24px 24px;max-width:820px"><h2 style="font-family:var(--font-heading);font-size:26px;margin:0 0 14px">Documentation<span style="font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft);margin-left:6px">· help</span></h2><div class="mc-md" style="font-size:13.5px;line-height:1.6;max-width:760px;margin:0 0 14px"><p>ARMADA runs a standing team of AI agents on your own computer, on your own Claude subscription. Your team lives in a <strong>realm</strong> — a folder you own — and ARMADA is the app that runs it.</p><p><strong>New here?</strong> Read <a href="/docs/getting-started">Getting started</a>, then <a href="/docs/concepts">How ARMADA thinks</a>. Everything else is one page per part of the app — open the one you&#x27;re looking at.</p></div><div style="max-width:520px;margin:0 0 16px"><div style="position:relative"><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--text-muted);pointer-events:none"><svg width="14" height="14" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m21 21l-4.34-4.34"/><circle cx="11" cy="11" r="8"/></g></svg></span><input id="doc-search" oninput="mcDocSearch()" placeholder="Search help…" style="width:100%;box-sizing:border-box;padding:7px 30px 7px 32px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:13px"><span id="doc-search-x" onclick="mcDocSearchClear()" title="Clear" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-muted);padding:2px"><svg width="13" height="13" viewBox="0 0 24 24" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg></span></div></div><a class="mc-docitem" href="/docs/getting-started" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Getting started</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">Your first realm, your first agent, your first job</div><span style="display:none"># Getting started
+
+## What you need
+
+- **Windows.** The beta runs on Windows only.
+- **Claude Code, signed in** with your Claude subscription. ARMADA runs every agent through it and
+  never sees your password. If you&#x27;re signed out, a bar at the top of the app offers to open
+  Claude&#x27;s own sign-in.
+- **One folder for ARMADA** — every realm you create lives inside it. You choose it the first time
+  you open ARMADA (it suggests `ARMADA` in your user folder), and can change it later in
+  Settings → App → Root folder.
+
+## 1. Create a realm
+
+The first time you open ARMADA, the welcome page does this for you: choose the folder, name your
+first realm, pick a template, done. After that, add more from the realm switcher (top left) →
+**+ New realm**.
+
+- **Create** starts fresh from a template. The template only sets the words the app uses — a
+  *Cabinet* of *Ministers* led by a *Prime Minister*, a *Board* of *Executives*, a *Crew* — and a
+  starter team you can keep, rename or untick. Pick whatever reads right to you; nothing else
+  changes.
+- **Add an existing folder** opens a realm you already have — one you made on another computer or
+  restored from a backup. Its scheduled jobs start **paused** until you&#x27;ve looked at them (see
+  [Jobs](jobs.md#paused-jobs)).
+
+## 2. Meet your team
+
+The **Overview** shows everyone. Click an agent to open their page, then **Threads** to talk to
+them. Each agent has:
+
+- a **mandate** — their role and what they&#x27;re responsible for;
+- a **soul** — their character and voice;
+- their own **memory**, on top of what the whole realm shares.
+
+Edit these under the agent&#x27;s **Configure** tab. They&#x27;re plain text, and they matter: the mandate
+is the brief the agent works from on every turn.
+
+## 3. Ask for something
+
+Type in the thread. The agent answers in the same window; you can watch what it&#x27;s doing (reading a
+page, writing a file) as it works. Files it writes appear under **Artefacts**.
+
+## 4. Make it recurring
+
+On the agent&#x27;s **Jobs** tab, **+ New job**: give it a name, what to do, and when — a cron
+expression such as `0 9 * * 1-5` (weekdays at 9), or blank to run it only when you ask. On the
+job&#x27;s own page, the schedule presets and day circles fill the expression in for you. ARMADA runs it on schedule — even when the window is
+closed, as long as the ARMADA scheduler is running (opening the app starts it; a yellow bar
+tells you if it stops) — and you&#x27;ll find every run on the
+**Jobs** page and in the **Job calendar**.
+
+## 5. Give it tools, carefully
+
+An agent with tools can act on your computer as you — read files, run commands, use your
+connected services. Before you give one more reach, read [Staying safe](safety.md). Tools are
+added and granted on the [Capabilities](capabilities.md) page.
+
+## Where things are
+
+| You want to… | Go to |
+|---|---|
+| see what&#x27;s running, what failed, what&#x27;s next | Jobs |
+| see how much of your plan you&#x27;ve used | Overview → Usage, or the bars in the header |
+| change what everyone knows | Memory |
+| stop an agent doing something | its Jobs tab (switch the job off) or Configure → Autonomy |
+| back up or move a realm | Settings → Realm → Export |
+</span></a><a class="mc-docitem" href="/docs/concepts" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">How ARMADA thinks</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">Realms, agents, memory, goals, jobs, capabilities — the words the app uses</div><span style="display:none"># How ARMADA thinks
+
+The words the app uses, and what each one means for you.
+
+**Realm** — one team and everything it knows, kept as a folder on your computer. You can have
+several (one for home, one for a project); the switcher at the top left moves between them. A realm
+can be backed up, versioned or moved like any folder.
+
+**Agent** — a member of the team, with a role (*mandate*), a character (*soul*), rules (*tenets*),
+its own memory and its own threads. The app calls agents whatever your realm&#x27;s template calls them
+— Ministers, Executives, Mates.
+
+**Coordinator** — the one agent who leads (Prime Minister, CEO, Captain). The coordinator can use
+every capability in the realm and can hand work to the others; everyone else only uses what you&#x27;ve
+granted them.
+
+**Thread** — a conversation with an agent. **Main** is always there; add more to keep topics apart
+(&quot;taxes&quot; doesn&#x27;t need to load your trading context). Old turns are summarised automatically so a
+long thread stays fast.
+
+**Memory** — what an agent knows before you say anything. *Realm memory* loads for every agent;
+an agent&#x27;s own memory loads only for them. *System memory* is written by ARMADA itself (who you
+are, your machine, the team). The **Covenant** is the set of principles every agent is bound by.
+See [Memory](memory.md).
+
+**Goals** — what the realm is working towards, each with owners and a status. Goals load into
+their owners&#x27; context, so agents know what they&#x27;re for.
+
+**Job** — work that runs on a schedule. An *agent job* is a prompt an agent runs; a *command job*
+runs a command on your computer. Agents can **propose** jobs; proposals wait for you under
+**Approvals** unless the agent&#x27;s autonomy lets them through.
+
+**Autonomy** — how much an agent may do without asking: *manually approve everything*,
+*auto-approve routine actions*, or *skip all approvals*.
+
+**Inbox** — agents hand each other **tasks** here: one agent asks another to do something, and it
+runs on the receiving agent&#x27;s next inbox pass.
+
+**Capability** — a tool an agent can use: a *connector* (an outside service such as a broker or a
+drive), an *extension* (a local tool), a *skill* (packaged know-how), or a *plugin* (a bundle of
+those). The realm holds the list; agents get only what you **grant**. Each shows what it **runs**
+and what it **can touch**, and a risk colour. See [Capabilities](capabilities.md).
+
+**Artefact** — a file an agent wrote, or one you attached to a thread.
+
+**Section** — a page you add to the top menu: a dashboard widget promoted to its own page, a local
+mini-site, or a link.
+
+**Usage** — every agent turn uses your Claude plan. The header shows your session and weekly
+limits; the Usage widget shows who used how much.
+</span></a><a class="mc-docitem" href="/docs/overview" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Overview</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">The dashboard: your team, usage, the job calendar</div><span style="display:none"># Overview
+
+The realm&#x27;s dashboard. Across the top: how many agents, active jobs, runs in the last 30 days,
+tokens used, and what those tokens would have cost on the API (you pay your subscription, not
+this — it&#x27;s there to compare).
+
+## The widgets
+
+- **Register** — the team. Each row: the agent, their model and effort, how many goals and jobs
+  they own, their next run, their tokens, and a seven-square **week strip** (the last three days,
+  today, the next three) coloured by how their jobs did. Click a row to open the agent.
+- **Usage** — who (or which model) used how much, over a window you choose (today, 7 days, …).
+- **Job calendar** — every scheduled run by day or week, coloured by outcome. Click a run to open
+  its job.
+- **Thread widgets** — pin any agent&#x27;s thread to the dashboard to talk to them from here.
+
+## Things you&#x27;ll do
+
+- **Rearrange:** drag a widget by its grip (the dotted handle at the top left); drag its right edge
+  to resize.
+- **Add or remove widgets:** **Manage widgets** lists what&#x27;s on the dashboard and what you can add,
+  including any agent&#x27;s thread.
+- **Give a widget its own page:** a widget&#x27;s ⋮ menu → **Add as section** puts it in the top menu.
+- **Appoint someone new:** **+ Appoint** on the Register.
+
+## What the colours mean
+
+The week strip and the calendar share one legend: **Success** (green), **Running** (teal),
+**Scheduled** (outlined teal), **Warning** (amber), **Failed** (red), **Missed** (✕ — it should have
+run and didn&#x27;t), **Not scheduled** (grey).
+</span></a><a class="mc-docitem" href="/docs/agents" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Your agents</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">The team page and each agent&#x27;s own page: threads, jobs, memory, settings</div><span style="display:none"># Your agents
+
+## The team page
+
+The page named after your realm&#x27;s agents (Ministers, Executives, …) shows everyone as a card: role,
+model, a short line from their character, their week strip, and counts of their goals, jobs,
+memories and capabilities. **+ Appoint** adds someone — from a blank form, or by **reinstating** an
+agent you retired earlier (their files were kept).
+
+## An agent&#x27;s page
+
+Tabs across the top:
+
+- **Threads** — talk to them. On the right: what&#x27;s loaded into their context (and how big it is),
+  which capabilities this thread has used, and the files it produced. The ⋮ on a thread renames,
+  pins, archives or deletes it.
+- **Goals** — the goals they own.
+- **Jobs** — their scheduled work. Switch a job on or off, open it to edit, **+ New job**.
+- **Inbox** — tasks other agents handed them, and how often they check (every minute, hour, day,
+  or never) and who may hand them work.
+- **Memories** — what only they know.
+- **Artefacts** — files from their threads.
+- **Capabilities** — what they may use.
+- **Configure** — name, role, mandate, soul, tenets, model and effort, autonomy, colour, and
+  advanced limits such as a per-run spending cap.
+
+## Things you&#x27;ll do
+
+- **Change how an agent works:** edit the mandate (their brief) or soul (their voice) under
+  Configure. Save keeps you on the page.
+- **Pick a model:** Configure → Model and Effort. Higher effort thinks longer and uses more of your
+  plan. The model chip beside the agent&#x27;s name shows what they&#x27;ll use.
+- **Limit what they may do alone:** Configure → Autonomy.
+- **Retire someone:** Configure, at the bottom (**Retire…**). Their folder is kept; you can
+  reinstate them from **+ Appoint**. The coordinator can&#x27;t be retired.
+
+## Model and effort chips
+
+The chip shows the model family (Opus, Sonnet, Haiku, …) and the effort level (low → max). A chip
+that disagrees with what you set means the realm&#x27;s default is being used — set it on the agent to
+pin it.
+</span></a><a class="mc-docitem" href="/docs/goals" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Goals</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">What the realm is working towards, and who owns each goal</div><span style="display:none"># Goals
+
+What the realm is working towards. Every goal&#x27;s description loads into its owners&#x27; context, so an
+agent always knows what it&#x27;s for.
+
+## A goal has
+
+- a **title** and a **description** — be concrete: numbers, dates, what &quot;done&quot; means;
+- a **status**: *Not started*, *On track*, *At risk*, *Blocked*, *Done*;
+- a **target date** (ETA). A goal past its ETA shows as *At risk*;
+- **owners** — the coordinator always owns every goal; drag other agents from the right-hand list
+  onto a goal to add them.
+
+## Things you&#x27;ll do
+
+- **Add a goal:** **+ Add goal**.
+- **Edit or delete:** the pencil and bin on the goal.
+- **Change owners:** drag an agent onto the goal; the × on an owner chip removes them.
+- **Find one:** the search box filters by title and description.
+</span></a><a class="mc-docitem" href="/docs/jobs" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Jobs</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">Work that runs on a schedule — and why a job didn&#x27;t run</div><span style="display:none"># Jobs
+
+Everything that runs on a schedule, in one list. **User** is your team&#x27;s jobs; **System** is the
+upkeep ARMADA does for itself (refreshing the model list, checking capabilities for updates,
+pruning old history).
+
+## Reading the list
+
+Each row: the job and what it does, its kind (**agent** runs a prompt, **command** runs a command
+on your computer), its owner, its cadence, its **cost** (*free* for a command, *uses quota* or a
+typical token count for an agent job), its next run, the seven-day **week strip**, and an on/off
+switch.
+
+The week strip is the last three days, today and the next three: **Success**, **Running**,
+**Scheduled**, **Warning**, **Failed**, **Missed** (✕ — due and didn&#x27;t run), **Not scheduled**.
+
+## Things you&#x27;ll do
+
+- **Filter** by owner, status or cadence, or search by name.
+- **Switch the calendar on:** the calendar icon beside the list icon.
+- **Stop a job without deleting it:** the switch on its row.
+- **Run it now, edit it, see its history:** open the job.
+- **Approve what an agent proposed:** proposals appear at the top of the list (and under
+  Approvals). Approve and it&#x27;s scheduled; dismiss and it isn&#x27;t.
+
+## Paused jobs
+
+If the realm&#x27;s scheduled jobs are paused, a banner at the top of the Jobs page says why.
+
+- **A realm added from an existing folder** starts paused. The banner lists every command it would
+  run on your computer, word for word, and how many agent jobs it has. Read them; if you&#x27;re happy,
+  **Review done — let them run**. Nothing runs until you do.
+- **Something the realm needs is missing** — the workspace folder doesn&#x27;t exist on this computer,
+  or Claude isn&#x27;t signed in. Fix it (usually Settings → Realm) and the jobs resume on their own.
+
+## When a job didn&#x27;t run
+
+1. Is it switched on?
+2. Is the realm paused? (the banner above)
+3. Is the **scheduler** running? Jobs run from a separate background process, not the window.
+   Opening ARMADA starts it; if it isn&#x27;t running, a yellow bar under the menu says so and offers
+   **Start it**.
+4. Open the job: its last run says what happened, including the error.
+
+More in [When something goes wrong](troubleshooting.md).
+</span></a><a class="mc-docitem" href="/docs/inbox" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Inbox</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">Tasks your agents hand each other</div><span style="display:none"># Inbox
+
+Agents hand each other **tasks** here. When one agent needs another&#x27;s help — &quot;Warren, check the
+exposure on this position&quot; — it files a task in the other agent&#x27;s inbox, and the receiving agent
+picks it up on its next inbox pass and reports back.
+
+## The page
+
+- **New** — tasks waiting to be picked up.
+- **Processed in the last 24h** — what was done, and whether it succeeded.
+- **Archive** — everything older.
+
+Filter by who sent it, who it&#x27;s for, and its status.
+
+## Things you&#x27;ll do
+
+- **Run a waiting task now** instead of waiting for the next pass.
+- **Run a finished one again** (put it back in the queue).
+- **Delete** one.
+
+## Who may hand work to whom
+
+On each agent&#x27;s **Inbox** tab: how often they check (every minute, hour, day, or never), and who
+may assign them work (*anyone in the realm* or *the coordinator only*). Each task is an agent run,
+so there are limits per hour to keep a busy team from spending your plan on each other.
+</span></a><a class="mc-docitem" href="/docs/memory" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Memory</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">What every agent knows, and what only one agent knows</div><span style="display:none"># Memory
+
+What your agents know before you say anything. Memory is plain text; short, specific entries
+(&quot;I&#x27;m left-handed&quot;, &quot;Taxes are filed in Spain&quot;) work better than long ones.
+
+## Kinds of memory
+
+- **The Covenant** — the principles every agent is bound by, at the top of the Memory page.
+  **Read** shows them; **Edit** changes them for the whole realm.
+- **Realm memory** — loads for every agent.
+- **System memory** — written and kept up to date by ARMADA: who you are (from Settings → User),
+  your computer, the realm and its team. You don&#x27;t edit it; change the settings it comes from.
+- **An agent&#x27;s memory** — loads only for that agent. On the right of the Memory page, or on the
+  agent&#x27;s Memories tab.
+
+## Things you&#x27;ll do
+
+- **Add a memory:** **+ Add memory**, for the realm or for one agent.
+- **Edit or delete:** open the memory.
+- **Find one:** the search box.
+
+Agents can&#x27;t change another agent&#x27;s memory or the realm&#x27;s: if one tries during a run, ARMADA puts
+it back afterwards.
+</span></a><a class="mc-docitem" href="/docs/capabilities" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Capabilities</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">Tools your agents can use, where they came from, what they can reach</div><span style="display:none"># Capabilities
+
+The tools your agents can use — and, more importantly, where each came from, what it can reach,
+and who may use it.
+
+## Four kinds
+
+- **Connectors** — outside services (a broker, a drive, a data feed) an agent reads from or acts on.
+- **Extensions** — local tools that run on this computer.
+- **Skills** — packaged know-how for a repeatable task.
+- **Plugins** — bundles of the above, installed as one.
+
+## Reading a card
+
+- **from …** — where it came from (the MCP registry, a Claude plugin marketplace, Anthropic&#x27;s
+  skills, or something you wrote).
+- **Runs** — *reads only*, *runs code here*, or *outside service*.
+- **Can touch** — *files*, *network*, *shell*, *connectors*, *hooks*: what it can reach on your
+  computer.
+- **The coloured stripe** — the risk: red (**Caution**), amber (**Review**), green (**Trusted**).
+  It&#x27;s decided by the riskiest thing the capability can do, not by its description. The legend on
+  the right repeats all of this.
+
+## Who may use what
+
+The realm holds the list; **agents only use what you grant them**. Drag an agent from the right
+onto a capability to grant it. The coordinator may use everything. When an agent needs something it
+doesn&#x27;t have, it asks in a thread and you approve or decline.
+
+## Adding one
+
+**Add a capability** has two ways in:
+
+- **Search known sources** — the MCP registry, Claude plugin marketplaces you&#x27;ve added, Anthropic&#x27;s
+  skills. Add to the realm, then grant it.
+- **Bring a link** — paste the address of a repository, package or server. An agent reviews it
+  (it takes a couple of minutes, and uses your plan) and writes a report: what it is, who published
+  it, what it can reach, what it found, and what it couldn&#x27;t check. **Read the report before you
+  add it.**
+
+## Keeping them current
+
+**Check for version updates** asks Claude Code which installed plugins and servers have newer
+versions; an update button appears on those cards. ARMADA also checks on its own every so often.
+</span></a><a class="mc-docitem" href="/docs/artefacts" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Artefacts</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">Files your agents made or you gave them</div><span style="display:none"># Artefacts
+
+Files your agents wrote, and files you attached to threads, across the whole realm (or one agent,
+on their Artefacts tab).
+
+Each row: the file, whose thread it came from and which thread, whether it was an *input* (you gave
+it) or an *output* (an agent made it), its type, where it is, and when it was last touched.
+
+## Things you&#x27;ll do
+
+- **Open** a file with its usual program. Files that could run code (`.exe`, `.bat`, `.ps1`, `.py`,
+  …) are shown in their folder instead of opened.
+- **Show in folder.**
+- **Delete** a file you don&#x27;t need. ARMADA only deletes files inside the realm, its workspace, or
+  the ARMADA folder.
+- **Filter** by owner, type or date, or search by name, path or thread.
+
+Agents are asked to put what they make for you in the realm&#x27;s `shared` folder; a file written
+elsewhere is still listed, and the thread says where it went.
+</span></a><a class="mc-docitem" href="/docs/settings" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Settings</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">The realm, you, and the app</div><span style="display:none"># Settings
+
+Three tabs: the realm you&#x27;re in, you, and the app on this computer.
+
+## Realm
+
+- **Realm** — its name, icon, timezone, and the **workspace** folder its agents work in.
+- **AI provider &amp; defaults** — the default model, effort and limits for agents that don&#x27;t set
+  their own.
+- **Agent-to-agent communication** — defaults for the [Inbox](inbox.md).
+- **Notifications** — which events notify you (job failed, approval needed, …) and on which
+  channel (desktop, Telegram); whether this realm may notify you while you&#x27;re in another one.
+- **Export** — a `.zip` of the realm next to its folder. Files that hold keys or passwords
+  (`.mcp.json`, `.env`, key files) are left out, and the message says which.
+- **Archive / Delete** — archive hides the realm from ARMADA and leaves the folder alone; delete
+  moves the folder to the Recycle Bin.
+
+## User
+
+**Your profile** — your name, timezone and a few facts. Agents know them through System memory.
+Your avatar replaces &quot;You&quot; in threads.
+
+## App
+
+- **Version** — the version you&#x27;re running; **Restart**, **Check for updates**, **Changelog**.
+- **Root folder** — the one folder ARMADA works in. Every realm lives inside it.
+- **Engine** — whether Claude is connected on this computer.
+- **Telegram** — talk to your agents from your phone: add your bot&#x27;s token, message the bot, press
+  link. Only your **one-to-one** chat with the bot is linked — never a group, where everyone could
+  drive your agents. Send `/agentname your question` to ask a specific agent.
+- **Notifications** — the delivery channels on this computer.
+- **Appearance** — light or dark, and the colour theme.
+</span></a><a class="mc-docitem" href="/docs/safety" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Staying safe</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">What an agent can do on your computer, and how to keep that sensible</div><span style="display:none"># Staying safe
+
+## The one thing to know
+
+**An agent with tools acts as you.** When an agent works with its tools, it runs on your computer
+with your permissions: it can read and write your files, run commands, and use the services you&#x27;ve
+connected. ARMADA limits *which tools* each agent gets and keeps agents out of each other&#x27;s memory,
+but it doesn&#x27;t put the agent in a box. Treat giving an agent a tool the way you&#x27;d treat running
+that tool yourself.
+
+## Five habits
+
+1. **Grant tools deliberately.** An agent gets only the capabilities you grant. Start with none;
+   add what a job actually needs.
+2. **Be careful with agents that read the outside world *and* can act.** Anything an agent reads —
+   a web page, an email, a document, a repository — can contain instructions aimed at it. An
+   agent that reads your inbox and can also send money is the combination to avoid.
+3. **Read the report before adding a capability.** The risk colour is the worst thing it *can* do,
+   not a promise about what it *will* do.
+4. **Only open realms you made or trust.** A realm carries jobs that run on a schedule. ARMADA
+   pauses them when you add an existing folder, and shows you every command; read them.
+5. **Keep Telegram to your own chat.** The bot answers one private chat — yours.
+
+## What ARMADA won&#x27;t do
+
+- It never asks for, stores or sends your Claude password or keys; signing in happens in Claude&#x27;s
+  own window.
+- It only answers requests from this computer, addressed to it.
+- It never shows you a capability as safer than what it can do.
+
+## Autonomy
+
+Each agent&#x27;s **Configure → Autonomy** decides how much it may do without asking:
+*manually approve everything* (safest), *auto-approve routine actions*, or *skip all approvals*.
+New agents start on *manually approve everything*.
+</span></a><a class="mc-docitem" href="/docs/troubleshooting" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">When something goes wrong</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">The problems people actually hit, and the fix</div><span style="display:none"># When something goes wrong
+
+The problems people actually run into, newest lessons first. If yours isn&#x27;t here, the logs are in
+`%USERPROFILE%\.armada\logs\` — `armada.log` for the app, `scheduler.log` for scheduled jobs.
+
+## Every agent answers &quot;Failed to authenticate&quot;
+
+Claude Code&#x27;s sign-in has lapsed. A bar at the top of the app offers **Sign in**, which opens
+Claude&#x27;s own sign-in window; finish it in your browser and carry on. ARMADA never handles the
+password.
+
+## My scheduled jobs stopped running
+
+- **Is there a banner on the Jobs page?** It says why the realm is paused — see
+  [Jobs → Paused jobs](jobs.md#paused-jobs).
+- **Is the job switched on?**
+- **Is the scheduler running?** It&#x27;s a separate background process, so jobs run with the window
+  closed. Opening ARMADA starts it if it isn&#x27;t running, and if it stops, a yellow bar under the
+  menu says so, with a **Start it** button. If the bar comes back straight after you click it,
+  `scheduler.log` (above) says why.
+- **Open the job** — its last run shows the error.
+
+## A job says it ran, but I can&#x27;t find what it made
+
+Open the thread the job ran in (the job&#x27;s page links it). The agent says where it wrote files;
+**Artefacts** lists them. Agents are asked to write to the realm&#x27;s `shared` folder.
+
+## The usage bars in the header disappeared or look old
+
+They come from your Claude sign-in. When the sign-in token expires, ARMADA shows the last reading
+and its age rather than nothing; a background job keeps the sign-in fresh. If the bars stay stale
+for a day, sign in again (above).
+
+## I added a realm from another computer and nothing runs
+
+Working as intended: its jobs are paused until you&#x27;ve reviewed them on the Jobs page. If the
+banner says the **workspace** is missing, point the realm at the right folder in
+Settings → Realm.
+
+## Telegram doesn&#x27;t answer
+
+- Settings → App → Telegram: is it **linked**, and to *your* name?
+- Only a one-to-one chat with the bot works. A group isn&#x27;t linked.
+- Answers come from the scheduler process, so it must be running.
+
+## Dark mode text is hard to read
+
+Fixed in vX–42. Update to the latest version (Settings → App → Check for updates).
+
+## Reporting a problem
+
+Tell us what you were doing, which page you were on, and the version (Settings → App). An in-app
+**Report an issue** button is coming in the beta.
+</span></a><div id="mc-docempty" style="display:none;font-size:12.5px;color:var(--text-muted);padding:8px 2px">Nothing in the help matches that.</div></div><script src="/static/js/docsearch.js?v=V"></script></div></div><script src="/static/js/run.js?v=V"></script><script src="/static/js/form.js?v=V"></script><script src="/static/js/dotpoll.js?v=V"></script></body></html>
