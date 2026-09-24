@@ -48,13 +48,17 @@ _WORDMARK_V = _asset_v(WORDMARK_ASSET)
 # The titlebar logo and a small square-ish mark, both drawing the exact brand SVG (fixed brand colours).
 # max-width:none overrides the global `img{max-width:100%}` reset (industry.css) so the logo keeps
 # its fixed natural size and never shrinks/jumps when the window or header layout changes width.
+# 26px since v0.99.62 (was 30 — Mihai: "a bit smaller" in the app).
 LOGO = (f'<img src="/static/{LOGO_ASSET}?v={_LOGO_V}" alt="{NAME}" class="wordmark" '
-        f'height="30" style="display:block;flex:none;width:auto;max-width:none">')
+        f'height="26" style="display:block;flex:none;width:auto;max-width:none">')
 MARK = (f'<img src="/static/{LOGO_ASSET}?v={_LOGO_V}" alt="{NAME}" '
         f'height="16" style="display:block;flex:none;width:auto;max-width:none">')
 # The full lockup — mark + wordmark — for spots with room to spare, like the About/version box.
 WORDMARK = (f'<img src="/static/{WORDMARK_ASSET}?v={_WORDMARK_V}" alt="{NAME}" '
             f'height="36" style="display:block;flex:none;width:auto;max-width:none">')
+# Settings → App → version: the lockup at ~70% (Mihai, v0.99.62), the version beside it without the name.
+WORDMARK_SMALL = (f'<img src="/static/{WORDMARK_ASSET}?v={_WORDMARK_V}" alt="{NAME}" '
+                  f'height="25" style="display:block;flex:none;width:auto;max-width:none">')
 
 
 # Release channel (launch plan 5.7). While it's set, the window title, the nav, the welcome page and

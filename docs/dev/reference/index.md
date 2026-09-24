@@ -28,6 +28,7 @@
 | [`engine.base`](engine.base.md) | Engine adapter contract (SPEC §9) |
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
 | [`engine.mock`](engine.mock.md) | Mock engine — lets the runner + telemetry be tested end-to-end offline, with no Claude Code and no tokens spent |
+| [`fonts`](fonts.md) | The app's font faces — a temporary Appearance setting (v0.99.62), to become part of themes/skins. |
 | [`goals`](goals.md) | Realm goals — the objectives agents actively advance (distinct from passive memory). |
 | [`icons`](icons.md) | Icon subsystem — the single source of every SVG the UI draws. |
 | [`inbox`](inbox.md) | Agent-to-agent delegation — an inbox per agent. |

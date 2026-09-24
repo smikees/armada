@@ -58,6 +58,10 @@ The realm's workspace root, and the state of its portability.
 
 —
 
+### `_font_picker()`
+
+Appearance → Fonts (temporary, v0.99.62; becomes part of themes/skins). A face applies the moment it's picked — loaded first, then swapped, so nothing flashes — and is saved per machine.
+
 ### `render_new_realm(realm, dark=False, embed=False)`
 
 —

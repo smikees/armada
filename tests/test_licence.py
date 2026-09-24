@@ -34,6 +34,9 @@ def test_every_bundled_font_is_in_the_notices():
     static = ROOT / "armada" / "webui" / "static"
     fonts = [p.name for p in static.rglob("*") if p.suffix.lower() in (".ttf", ".otf", ".woff", ".woff2")]
     assert fonts, "expected the Barlow webfonts"
+    from armada.fonts import CHOICES
     for name in fonts:
-        family = "Barlow" if name.startswith("barlow") else name
+        slug = name.rsplit("-", 1)[0]                     # montserrat-400.woff2 -> montserrat
+        family = CHOICES.get(slug, name)
         assert family in notices, f"{name} ships but isn't credited in THIRD_PARTY_NOTICES.md"
+        assert (static / "fonts" / f"OFL-{slug}.txt").is_file(), f"{name} ships without its OFL licence"

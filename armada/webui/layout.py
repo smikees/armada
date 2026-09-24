@@ -54,7 +54,8 @@ def _mode_boot() -> str:
 
 
 def _theme_style() -> str:
-    return vtheme.theme_style(appconfig.get("theme", vtheme.DEFAULT)) + _mode_boot()
+    from .. import fonts
+    return vtheme.theme_style(appconfig.get("theme", vtheme.DEFAULT)) + fonts.style() + _mode_boot()
 
 
 def _titlebar(realm) -> str:

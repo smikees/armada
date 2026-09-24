@@ -46,7 +46,7 @@ the tests now guard).
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8756/restart
 Start-Sleep 6
-(Invoke-WebRequest http://127.0.0.1:8756/settings -UseBasicParsing).Content -match 'ARMADA <b>v([0-9.]+)</b>'; $Matches[1]
+(Invoke-WebRequest http://127.0.0.1:8756/settings -UseBasicParsing).Content -match '<b>v([0-9.]+)</b>'; $Matches[1]
 ```
 
 Then open the pages the change touched, in light and dark mode, and check the browser console for

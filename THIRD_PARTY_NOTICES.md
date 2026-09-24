@@ -35,6 +35,13 @@ file (every wheel carries one in its `*.dist-info` folder).
 | Font | Licence | Source |
 |---|---|---|
 | Barlow, Barlow Condensed (Jeremy Tribby) | SIL Open Font License 1.1 | https://github.com/jpt/barlow |
+| Montserrat (Julieta Ulanovsky et al.) | SIL Open Font License 1.1 | https://github.com/JulietaUla/Montserrat |
+| Nunito Sans (Vernon Adams, Jacques Le Bailly et al.) | SIL Open Font License 1.1 | https://github.com/googlefonts/NunitoSans |
+| Quicksand (Andrew Paglinawan et al.) | SIL Open Font License 1.1 | https://github.com/andrew-paglinawan/QuicksandFamily |
+| Roboto (Google) | SIL Open Font License 1.1 | https://github.com/googlefonts/roboto-3-classic |
+
+Each font's licence ships beside it in `armada/webui/static/fonts/` (`OFL-<family>.txt`). The four
+added in v0.99.62 are selectable under Settings → App → Appearance → Fonts.
 
 ## Icons
 
@@ -50,6 +57,8 @@ size and colour.
 | Healthicons | MIT |
 | Hugeicons | MIT |
 | Siemens iX Icons (the Report an issue icon) | MIT |
+| Boxicons (the coordinator's medal) | MIT |
+| Material Design Icons, Pictogrammers (agent memories) | Apache-2.0 |
 | Fluent UI System Icons (Microsoft) | MIT |
 | Carbon (IBM) | Apache-2.0 |
 | Material Symbols (Google) | Apache-2.0 |

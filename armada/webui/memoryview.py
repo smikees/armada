@@ -97,7 +97,7 @@ def _mem_cards(items, scope: str, agent_id: str = "", realm=None, agent_display:
         scope_icon = _realm_icon(realm, 16) if realm is not None else _icon("landmark", 16)
         scope_tip = "Realm memory — loaded for every agent"
     elif scope == "agent":
-        scope_icon = _icon("ai-agent", 15)
+        scope_icon = _icon("head-snowflake", 16)
         scope_tip = "Agent memory — loads only in this agent's threads"
     else:
         scope_icon, scope_tip = "", ""

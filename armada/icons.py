@@ -246,20 +246,11 @@ ICONS["batch-job"] = ('<g fill="currentColor">'
                       'm-5-11h-8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2m-8-2h8V4h-8z"/>'
                       '<path d="M17 21H8a2 2 0 0 1-2-2V7h2v12h9z"/>'
                       '<path d="M13 25H4c-1.103 0-2-.897-2-2V11h2v12h9z"/></g>')
-# hugeicons/laurel-wreath-first-01 — the coordinator's mark. A wreath around a "1": the agent the
-# others report through, said once as a glyph rather than as a word in every list that shows it.
-ICONS["laurel"] = ('<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" '
-                   'stroke-width="1.5">'
-                   '<path d="M6.436 8A8.6 8.6 0 0 0 6 10.727C6 14.744 8.686 18 12 18s6-3.256 6-7.273A8.6 8.6 0 0 0 17.564 8'
-                   'M14.5 21s-.682-3-2.5-3s-2.5 3-2.5 3m9.02-15.77C18.812 6.896 17.5 8 17.5 8s-1.603-.563-1.895-2.23'
-                   'C15.313 4.104 16.625 3 16.625 3s1.603.563 1.895 2.23"/>'
-                   '<path d="m11 9l1-.5v5m1 0h-2m10.094-1.36c-1.281 1.266-3.016.76-3.016.76s-.454-1.772.828-3.04'
-                   'c1.28-1.266 3.016-.76 3.016-.76s.454 1.772-.828 3.04m-2.86 6.05C16.734 17.614 16.5 16 16.5 16'
-                   's1.267-1.038 2.767-.463c1.5.576 1.733 2.19 1.733 2.19s-1.267 1.038-2.767.463m-12.466 0'
-                   'C7.267 17.614 7.5 16 7.5 16s-1.267-1.039-2.767-.463S3 17.727 3 17.727s1.267 1.038 2.767.462'
-                   'M2.906 12.14c1.28 1.266 3.016.76 3.016.76s.454-1.772-.828-3.04C3.813 8.595 2.078 9.1 2.078 9.1'
-                   's-.454 1.772.828 3.04M5.48 5.23C5.188 6.896 6.5 8 6.5 8s1.603-.563 1.895-2.23'
-                   'C8.687 4.104 7.375 3 7.375 3s-1.603.563-1.895 2.23"/></g>')
+# bxs/medal (Boxicons, MIT) — the coordinator's mark since v0.99.62 (was a laurel; Mihai's pick).
+# The agent the others report through, said once as a glyph rather than as a word in every list.
+ICONS["medal"] = ('<path fill="currentColor" d="M17 2h-4v4.059a8.95 8.95 0 0 1 4 1.459zm-6 0H7v5.518a8.95 8.95 0 0 1 4-1.459zm1 20a7 7 0 1 0 0-14a7 7 0 0 0 0 14m-1.225-8.519L12 11l1.225 2.481l2.738.397l-1.981 1.932l.468 2.727L12 17.25l-2.449 1.287l.468-2.727l-1.981-1.932z"/>')
+# mdi/head-snowflake (Material Design Icons, Apache-2.0) — an agent's own memories (v0.99.62).
+ICONS["head-snowflake"] = ('<path fill="currentColor" d="M13 3C9.23 3 6.19 5.95 6 9.66l-1.92 2.53c-.24.31 0 .81.42.81H6v3c0 1.11.89 2 2 2h1v3h7v-4.69c2.37-1.12 4-3.51 4-6.31c0-3.86-3.12-7-7-7m4.06 6.57l-1.96.52l1.44 1.45a.9.9 0 0 1 0 1.27a.9.9 0 0 1-1.27 0l-1.46-1.44l-.51 1.96c-.12.49-.62.77-1.09.64a.89.89 0 0 1-.64-1.1l.53-1.97l-1.97.53a.887.887 0 0 1-1.1-.64c-.13-.47.15-.97.64-1.09l1.96-.51l-1.44-1.46a.9.9 0 0 1 1.27-1.27l1.45 1.44l.52-1.96a.88.88 0 0 1 1.07-.64c.5.13.78.62.66 1.11l-.53 1.96l1.96-.53a.91.91 0 0 1 1.11.66a.88.88 0 0 1-.64 1.07"/>')
 
 
 # ix/support-ai (Siemens iX Icons, MIT) — the Report an issue button beside the settings gear (5.6).

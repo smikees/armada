@@ -479,7 +479,7 @@ def _workspace_box(realm, cfg) -> str:
             f'<div style="margin-top:8px">'
             f'<button class="mc-frame" style="padding:6px 11px;border-radius:var(--r);font-size:12px;'
             f'cursor:pointer;display:inline-flex;align-items:center;gap:6px" '
-            f'onclick="mcWsMigrate(this)">{_icon("batch-job",13)}Make existing jobs portable…</button>'
+            f'onclick="mcWsMigrate(this)">{_icon("batch-job",18)}Make existing jobs portable…</button>'
             f'<span id="st-ws-mig" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span>'
             f'</div></div>')
 
@@ -744,9 +744,9 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
     engine_short = str(engine_detail).split(" — launcher")[0].split("launcher:")[0].strip(" —")
     ver = _m.__version__
     version_box = (
-        f'<div style="margin-bottom:10px">{brand.WORDMARK}</div>'
+        f'<div style="margin-bottom:10px">{brand.WORDMARK_SMALL}</div>'
         f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-        f'<div style="font-size:12.5px;display:flex;align-items:center;gap:6px">{brand.NAME} <b>v{ver}</b>{brand.BETA_PILL}</div>'
+        f'<div style="font-size:12.5px;display:flex;align-items:center;gap:6px"><b>v{ver}</b>{brand.BETA_PILL}</div>'
         f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px" onclick="mcRestart(this)">{_icon("refresh-cw",13)}Restart</button>'
         f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px" onclick="mcCheckUpd(this)">{_icon("download",13)}Check for updates</button>'
         f'<a onclick="mcChangelog(true)" style="cursor:pointer;font-size:12px;color:var(--color-accent);display:inline-flex;align-items:center;gap:4px">{_icon("book-open",13)}Changelog</a>'
@@ -806,7 +806,8 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                   for v, lab, ic in [("light", "Light", "sun"), ("dark", "Dark", "moon"), ("system", "System", "monitor")])
         + '</div>'
         f'<label style="{_LBL}">Colour theme</label>'
-        f'<div style="display:flex;gap:10px;flex-wrap:wrap">{theme_cards}</div>')
+        f'<div style="display:flex;gap:10px;flex-wrap:wrap">{theme_cards}</div>'
+        + _font_picker())
 
     # Channels live here (per machine); *which events* notify stays with the realm.
     def chan(cid, label, desc, on, disabled=False, soon=False):
@@ -918,6 +919,28 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
             + _consumption_js(realm, "st-model", "st-effort", "st-consmarker", "#st-cons",
                            verbosity_id="st-verbosity"))
     return _page_shell(realm, "", "Settings", body, dark)
+
+
+def _font_picker() -> str:
+    """Appearance → Fonts (temporary, v0.99.62; becomes part of themes/skins). A face applies the
+    moment it's picked — loaded first, then swapped, so nothing flashes — and is saved per machine."""
+    from .. import fonts
+    def sel(role, label):
+        opts = "".join(f'<option value="{E(k)}"{" selected" if k == fonts.selected(role) else ""}>{E(v)}</option>'
+                       for k, v in fonts.CHOICES.items())
+        fams = E(json.dumps({k: fonts.family(role, k) for k in fonts.CHOICES}))
+        return (f'<label class="mc-fontpick"><span class="mc-hint">{label}</span>'
+                f'<select class="mc-field" data-role="{role}" data-families="{fams}" '
+                f'onchange="mcSetFont(this)">{opts}</select></label>')
+    return (f'<label style="{_LBL}">Fonts <span style="text-transform:none;letter-spacing:0">'
+            f'(trial — these will become part of themes)</span></label>'
+            f'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+            f'{sel("heading", "Headings")}{sel("body", "Body text")}'
+            f'<span id="mc-font-msg" class="mc-hint"></span></div>'
+            f'<div class="mc-fontsample mc-frame"><div class="mc-h-card" style="margin:0 0 4px">'
+            f'The quick brown fox · Overview · Jobs</div>'
+            f'<div style="font-size:12.5px">Agents, memories and scheduled jobs — 0123456789. '
+            f'<b>Bold</b>, <span style="font-weight:500">medium</span>, regular.</div></div>')
 
 
 def render_new_realm(realm, dark=False, embed=False) -> str:

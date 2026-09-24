@@ -152,7 +152,7 @@ The status bucket the filters should match, read from the week strip the row alr
 
 ### `_coord_mark(size: int=15, tip: bool=False)`
 
-The coordinator's laurel, for beside an agent's name.
+The coordinator's medal, for beside an agent's name.
 
 ### `_health7_header(today)`
 

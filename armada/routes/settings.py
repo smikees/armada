@@ -272,6 +272,9 @@ class SettingsRoutes:
         theme: both are properties of this machine."""
         from .. import appconfig, vtheme
         from ..webui import layout as _layout
+        if body.get("font_role"):                  # Appearance → Fonts (temporary, v0.99.62)
+            from .. import fonts
+            return fonts.save(str(body.get("font_role")), str(body.get("font") or ""))
         mode = str(body.get("mode") or "").strip().lower()
         if mode:
             if mode not in _layout.APPEARANCE_MODES:
