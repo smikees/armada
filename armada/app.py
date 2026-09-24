@@ -122,6 +122,30 @@ def _apply_window_icon() -> None:
         time.sleep(0.1)
 
 
+_WEBVIEW2 = r"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+
+
+def webview2_version() -> str:
+    """The installed WebView2 Runtime's version, or "" if there's none — Microsoft's documented
+    check: a `pv` value above 0.0.0.0 under EdgeUpdate\\Clients, machine-wide or per user."""
+    try:
+        import winreg
+    except ImportError:                      # not Windows
+        return ""
+    places = [(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\" + _WEBVIEW2),
+              (winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\" + _WEBVIEW2),
+              (winreg.HKEY_CURRENT_USER, "Software\\" + _WEBVIEW2)]
+    for root, key in places:
+        try:
+            with winreg.OpenKey(root, key) as k:
+                v = str(winreg.QueryValueEx(k, "pv")[0] or "")
+        except OSError:
+            continue
+        if v and v != "0.0.0.0":
+            return v
+    return ""
+
+
 def run(realm: str, port: int = 8756, title: str = "") -> int:
     """Open ARMADA in a native window. Blocks until the window is closed."""
     title = title or brand.window_title()
@@ -137,6 +161,15 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
                "    uv pip install pywebview\n"
                "(or:  python -m pip install pywebview)\n\n"
                "Until then, 'armada serve' still works in a browser at 127.0.0.1:8756.")
+        return 1
+    if sys.platform == "win32" and not webview2_version():
+        # Without WebView2, pywebview quietly falls back to Internet Explorer's engine, which can't
+        # draw the app: an unstyled page that looks broken (seen on a clean Windows Sandbox, 5.2).
+        # The installer normally puts WebView2 in place; this is for a machine where that failed.
+        _fatal("ARMADA's window needs Microsoft Edge WebView2, which isn't on this computer.\n\n"
+               "It's free from Microsoft:\n"
+               "    https://developer.microsoft.com/microsoft-edge/webview2/\n"
+               "(choose the Evergreen Bootstrapper). Install it, then open ARMADA again.")
         return 1
 
     # pywebview's EdgeChromium backend disables WebView2's native context menu unless debug=True
