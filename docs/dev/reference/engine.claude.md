@@ -16,6 +16,10 @@ would be run via `node`), so empty-string args like `--tools ""` survive — goi
 the `cmd /c` shim eats them. Falls back to the cmd shim + a non-empty deny-list if the
 native/js entry can't be resolved.
 
+### `_sealed_tool_args(tools: list)`
+
+A turn that may use exactly `tools` and nothing else (THREAT_MODEL T4, launch plan 5.8b).
+
 ### `_drop_system_file(path: str)`
 
 —
@@ -50,5 +54,5 @@ Concrete versioned model id for logging (so usage shows 'Opus 4.8', not bare 'Op
 - `ClaudeEngine._direct(self)` — True when we invoke Claude directly (native or node) — empty-string args survive. False only for the cmd-shim fallback, which eats empty args.
 - `ClaudeEngine._env(self)` — —
 - `ClaudeEngine.doctor(self)` — —
-- `ClaudeEngine.run(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=DEFAULT_TIMEOUT, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None)` — —
+- `ClaudeEngine.run(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=DEFAULT_TIMEOUT, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None, only_tools: Optional[list]=None)` — —
 - `ClaudeEngine.run_stream(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=600, on_event: Optional[Callable[[dict], None]]=None, on_proc: Optional[Callable]=None, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None)` — Run a turn in streaming mode, calling on_event(dict) for each intermediate step (thinking / tool use / tool result / text) as Claude Code emits them (stream-json NDJSON). Returns the final RunResult. Falls back to a single 'result' event on any parse gap.

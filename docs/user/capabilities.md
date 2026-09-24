@@ -36,7 +36,8 @@ doesn't have, it asks in a thread and you approve or decline.
 - **Bring a link** — paste the address of a repository, package or server. An agent reviews it
   (it takes a couple of minutes, and uses your plan) and writes a report: what it is, who published
   it, what it can reach, what it found, and what it couldn't check. **Read the report before you
-  add it.**
+  add it.** The reviewing agent can only read the web: it can't run anything, touch your files or
+  use your connected services, so a page written to trick it has nothing to trick it into.
 
 ## Keeping them current
 

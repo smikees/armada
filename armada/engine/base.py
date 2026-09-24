@@ -53,8 +53,12 @@ class EngineAdapter(ABC):
     def run(self, system: str, prompt: str, model: Optional[str] = None,
             cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = 300,
             effort: Optional[str] = None, fallback_model: Optional[str] = None,
-            max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None) -> RunResult:
+            max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
+            only_tools: Optional[list] = None) -> RunResult:
         """Run one turn. `system` = assembled context; `prompt` = the job ask.
 
         `fallback_model`: switch to this model if the primary is overloaded/unavailable.
-        `max_budget_usd`: hard per-run spend ceiling (adapters that can't honour it ignore it)."""
+        `max_budget_usd`: hard per-run spend ceiling (adapters that can't honour it ignore it).
+        `only_tools`: a sealed turn — exactly these built-in tools, pre-approved, and nothing else:
+        none of the owner's connectors, skills or plugins, no prompts that could approve more. For
+        turns that read untrusted content (THREAT_MODEL T4); overrides `allow_tools`."""

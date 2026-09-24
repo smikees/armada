@@ -24,6 +24,21 @@ log = logging.getLogger(__name__)
 
 _DENY = "Bash Read Edit Write Glob Grep WebFetch WebSearch Task NotebookEdit BashOutput KillShell"
 
+def _sealed_tool_args(tools: list) -> list:
+    """A turn that may use exactly `tools` and nothing else (THREAT_MODEL T4, launch plan 5.8b).
+
+    --safe-mode loads none of the owner's customisations — no MCP servers, skills, plugins, hooks or
+    CLAUDE.md — so a connector that can send, pay or write is not even present. --tools limits the
+    built-ins to the list; --allowedTools pre-approves those so the turn doesn't stall on a prompt;
+    and --permission-prompts none refuses anything else that would ask. Deliberately NOT
+    --dangerously-skip-permissions: nothing here should be able to approve its way past the list.
+    Verified against Claude Code 2.1.263's --help.
+    """
+    names = [str(t) for t in tools if t]
+    return ["--safe-mode", "--tools", ",".join(names),
+            "--allowedTools", *names, "--permission-prompts", "none"]
+
+
 # Windows caps a whole command line at 32,767 characters, and an agent's assembled context — covenant,
 # soul, mandate, tenets, memories, capability preamble — passes that mark once a realm is real: eight
 # ministers here run 21K–34K, and the first one over the line failed every turn with
@@ -243,7 +258,8 @@ class ClaudeEngine(EngineAdapter):
     def run(self, system: str, prompt: str, model: Optional[str] = None,
             cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = DEFAULT_TIMEOUT,
             effort: Optional[str] = None, fallback_model: Optional[str] = None,
-            max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None) -> RunResult:
+            max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
+            only_tools: Optional[list] = None) -> RunResult:
         lp = self._launcher()
         if not lp:
             return RunResult(ok=False, error="claude binary not found (install Claude Code)")
@@ -264,7 +280,9 @@ class ClaudeEngine(EngineAdapter):
         # one travels by file; see _system_args.
         sys_args, sys_file = _system_args(system)
         args += sys_args
-        if allow_tools:
+        if only_tools is not None:
+            args += _sealed_tool_args(only_tools)
+        elif allow_tools:
             # NO --safe-mode: load the real MCP servers / skills / plugins so the agent can actually
             # use its capabilities (Telegram, filesystem, skills, …), not just be told they exist.
             args += ["--tools", "default", "--dangerously-skip-permissions"]

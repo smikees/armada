@@ -587,6 +587,9 @@ def _extract_json(text: str) -> dict | None:
     return None
 
 
+REVIEW_TOOLS = ("WebFetch", "WebSearch")    # everything a bring-a-link review may use
+
+
 def review_url(url: str, engine: str = "claude", timeout: int = 300) -> dict:
     """Ask an agent to run the capability-review protocol (system_skills/capability-review) against
     a link, and come back with a report the owner can read before deciding to add it.
@@ -622,7 +625,11 @@ def review_url(url: str, engine: str = "claude", timeout: int = 300) -> dict:
         f"object — no prose before or after it, no code fence — matching exactly this shape:\n"
         f"{_REVIEW_JSON_SHAPE}"
     )
-    res = eng.run(skill["body"], prompt, allow_tools=True, timeout=timeout)
+    # Sealed to reading the web (5.8b, THREAT_MODEL T4). The link is someone else's content, and a
+    # page can carry instructions aimed at whoever reads it; a reviewer that could also run commands,
+    # write files or use the owner's connectors is the worst place to meet those. It fetches and reads
+    # — which is all the protocol asks of it — and a shallower review is the price.
+    res = eng.run(skill["body"], prompt, only_tools=list(REVIEW_TOOLS), timeout=timeout)
     if not res.ok:
         return {"ok": False, "error": res.error or "The review didn't complete."}
     data = _extract_json(res.output)

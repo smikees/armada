@@ -79,7 +79,10 @@ def test_review_url_runs_the_capability_review_skill_with_tools(_isolated):
     # the system prompt IS the bundled skill, not a hand-rolled summary of it
     assert "Do not execute the capability" in call["system"]
     assert url in call["prompt"]
-    assert call["allow_tools"] is True, "reviewing a link neeeds to actually fetch it"
+    # It fetches (it has to, to review anything) — and does nothing else: no shell, no files, none
+    # of the owner's connectors (5.8b, THREAT_MODEL T4).
+    assert call["only_tools"] == ["WebFetch", "WebSearch"]
+    assert not call.get("allow_tools")
 
 
 def test_review_url_normalizes_a_bad_kind_and_runs_value(_isolated):

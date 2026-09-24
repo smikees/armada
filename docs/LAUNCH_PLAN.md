@@ -687,10 +687,14 @@ Strangers will install this on machines we've never seen. Everything above assum
       allow-popups` on those responses — small change, but a sandboxed page can't use
       `localStorage`, so a mini-site's own theme toggle may stop remembering; (2) serve them from a
       second local port (a different origin) — nothing breaks, more work. Recommendation: (2).
-- [ ] 5.8b **Approved by Mihai 2026-09-24** → Sonnet · Bring-a-link reviews run with full tools on untrusted content
+- [x] 5.8b *(v0.99.57)* **Approved by Mihai 2026-09-24** → Sonnet · Bring-a-link reviews run with full tools on untrusted content
       (T4). Recommendation: run the review turn with only read/fetch tools (deny Bash, Write,
       Edit, NotebookEdit, Task…) and accept a shallower review; a reviewer that can be told to
       run commands by the thing it's reviewing is the worst place for that risk.
+      Done as v0.99.57 (Opus 5.5): an engine-level *sealed turn* (`only_tools`) rather than a deny
+      list — a deny list has to name everything dangerous, an allow list only what's needed.
+      WebFetch + WebSearch only (Read was left out too: file reading plus fetching is an exfil
+      path). Flags checked against Claude Code 2.1.263. `tests/test_sealed_review_turn.py`.
 - [x] 5.8c *(v0.99.46)* → Sonnet · Adopting a realm holds its scheduler until the owner has seen what it will run
       (every command job verbatim, agent jobs by name) and released it (T5).
 - [x] 5.8d *(v0.99.46)* → Sonnet · `/api/delete-artefact` and `/api/open-file` act only on paths under the app
