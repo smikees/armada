@@ -30,7 +30,12 @@ services you've connected. Read [Staying safe](docs/user/safety.md) first.
 - [Claude Code](https://docs.claude.com/en/docs/claude-code/overview), signed in with your Claude
   subscription
 
-An installer is on the way. Until then, to run from source (Python 3.12):
+The beta is installed with `ARMADA-Setup-<version>.exe` (per user, no admin rights needed; it
+brings its own Python). It isn't code-signed yet, so Windows SmartScreen says "unrecognised app"
+the first time: choose *More info → Run anyway*. The installer is built with
+`tools/build_installer.py` ([ADR-009](docs/adr/ADR-009-installer.md)).
+
+To run from source instead (Python 3.12):
 
 ```powershell
 python -m venv .venv

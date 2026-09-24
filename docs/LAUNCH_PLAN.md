@@ -588,7 +588,7 @@ Strangers will install this on machines we've never seen. Everything above assum
       carries the old name.
 - [x] 5.1 **MIHAI**: platform decision confirmed (0.6) and the name locked (0.8) — the
       installer carries both. Both settled: Windows (ADR-006), ARMADA (ADR-008, 2026-09-24).
-- [ ] 5.2 Installer: a single artefact that installs Python deps (or bundles a runtime), the
+- [x] 5.2 Installer: a single artefact that installs Python deps (or bundles a runtime), the
       Claude CLI check, the app, the launchers, and a Start-menu / desktop entry. Replaces the
       `.vbs` + `.venv` + `cabinet-up.ps1` arrangement, which is one machine's convenience.
       Also: a logon entry that starts the scheduler (`pythonw -m armada schedule`, no realm
@@ -600,6 +600,27 @@ Strangers will install this on machines we've never seen. Everything above assum
       bootstrap. Prerequisite done (v0.99.53): the folder picker uses the window's native dialog;
       tkinter is only the browser-mode fallback. **Accepted by Mihai 2026-09-24**: B, unsigned for
       the beta, Inno Setup; Windows Sandbox enabled on his machine for 5.10.
+      **Built as v0.99.65 (Opus 5.5).** `tools/build_installer.py` stages the python.org embeddable
+      Python 3.12.10 (pinned by SHA-256, checked against python.org's MD5), the pinned packages
+      (via `uv pip install --target`), the committed `armada/` package, the Report-an-issue send
+      key, every package's licence and `installed.json` (the updater's marker, 5.4). It then
+      smoke-tests the staged app from an empty home folder and compiles `installer/armada.iss` with
+      Inno Setup 7 into `dist/ARMADA-Setup-<version>.exe` (about 17 MB). The installer is per user
+      (`%LOCALAPPDATA%\Programs\ARMADA`, no admin), creates Start menu and optional desktop
+      shortcuts carrying the app's AppUserModelID, adds the scheduler at sign-in (HKCU Run,
+      optional), stops only this install's own Python processes before replacing or removing
+      files, and never touches `~\.armada` or a realm. At the end it notes if Claude Code isn't
+      found. Found in the first clean-machine run (Windows Sandbox, `tools/sandbox_test.py`):
+      without WebView2, pywebview silently falls back to Internet Explorer's engine and the app
+      draws as an unstyled page. So the installer now runs Microsoft's WebView2 bootstrapper when
+      the runtime is missing (asking for admin rights only when the machine needs a machine-wide
+      install), and the app refuses to open without WebView2, saying where to get it. Also found:
+      proxy-tools ships no licence file and is BSD, not MIT as its metadata says (notices
+      corrected, text kept in `installer/licenses/`). `tests/test_installer_build.py` guards the
+      agreements between the build, the installer script and the app. Inno Setup is free for
+      non-commercial use; a commercial ARMADA would be asked to buy a licence. Python 3.12.10 is
+      the last 3.12 release with Windows binaries (3.12 now gets source-only security fixes):
+      move to a current Python before the public release.
 - [x] 5.3 First-run detection: no realm registered → the wizard (Phase 6). The app must not
       show an empty dashboard to a new user.
       Done as v0.99.49 (Opus 5.5). It was worse than an empty dashboard: with nothing to open,

@@ -79,6 +79,17 @@ After the push, from the same commit:
 gh release create v<version> dist\v<version>\* --title "ARMADA v<version>" --notes "<changelog lines>"
 ```
 
+For a release that goes to testers as an installer, build it from the same commit (Windows, with
+`uv` and Inno Setup 7; [ADR-009](../adr/ADR-009-installer.md)):
+
+```powershell
+.venv\Scripts\python tools\build_installer.py     # stage, smoke-test, compile → dist\ARMADA-Setup-<version>.exe
+.venv\Scripts\python tools\sandbox_test.py        # 5.10: install/open/uninstall/reinstall in Windows Sandbox
+```
+
+Attach `ARMADA-Setup-<version>.exe` to the same GitHub release. It must be built after
+`armada/support_key.txt` is in place, or Report an issue only saves reports locally.
+
 A normal release, never a pre-release or draft (the updater follows `/releases/latest/download/`,
 which skips both). A release whose `requirements.txt` changed ships the installer too: copies
 won't take it in place. Never commit `dist/` or the key.

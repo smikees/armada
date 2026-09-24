@@ -9,6 +9,7 @@ relicensed; these notices are how each licence asks to be credited.
 | Software | Terms | Notes |
 |---|---|---|
 | Claude Code (Anthropic) | Anthropic's terms of service | ARMADA runs every agent through it. It isn't bundled; you install it and sign in with your own Claude account. "Claude" and the Claude mark are Anthropic's trademarks, used to show which service ARMADA works with. ARMADA isn't affiliated with or endorsed by Anthropic. |
+| Microsoft Edge WebView2 Runtime | Microsoft's terms | ARMADA's window is drawn by it. It's part of Windows 11 and most Windows 10 machines. When it's missing, the installer runs Microsoft's own WebView2 bootstrapper (carried inside the installer, as Microsoft's distribution guide describes, and checked at build time for Microsoft's signature), which downloads and installs the runtime from Microsoft. |
 
 ## Python runtime and packages
 
@@ -21,14 +22,16 @@ The installer ships a Python runtime and these packages (Windows beta).
 | pythonnet | 3.1.0 | MIT | https://pythonnet.github.io |
 | clr-loader | 0.3.1 | MIT | https://github.com/pythonnet/clr-loader |
 | bottle | 0.13.4 | MIT | https://bottlepy.org |
-| proxy-tools | 0.1.0 | MIT | https://github.com/jtushman/proxy_tools |
+| proxy-tools | 0.1.0 | BSD-2-Clause | https://github.com/jtushman/proxy_tools |
 | cffi | 2.1.1 | MIT-0 | https://cffi.readthedocs.io |
 | pycparser | 3.0 | BSD-3-Clause | https://github.com/eliben/pycparser |
 | typing-extensions | 4.16.0 | PSF-2.0 | https://github.com/python/typing_extensions |
 
-The versions are the ones the beta is built and tested with. The installer (launch plan 5.2)
-must regenerate this table from what it actually bundles, and include each package's own licence
-file (every wheel carries one in its `*.dist-info` folder).
+The versions are the ones the beta is built and tested with. The installer build
+(`tools/build_installer.py`) refuses to build if what it bundles differs from this table, and copies
+each package's own licence file into `licenses\` in the install folder, along with Python's.
+proxy-tools ships no licence file of its own, and its package metadata says MIT, but its repository's
+`LICENSE.txt` is a two-clause BSD licence; that text is kept in `installer/licenses/` and ships instead.
 
 ## Fonts
 

@@ -85,6 +85,25 @@ what's on the machine. Good for developers, not for five invited non-developers.
 - Nothing here blocks macOS later (ADR-006): the source-plus-private-runtime shape carries over
   to a `.app` bundle.
 
+## Built (v0.99.65)
+
+As decided, with three things learnt on a clean machine (Windows Sandbox):
+
+- **WebView2 isn't everywhere, and its absence is silent.** pywebview falls back to Internet
+  Explorer's engine, which draws the app as an unstyled page. The installer now carries Microsoft's
+  WebView2 bootstrapper (signature-checked at build time) and runs it when the runtime is missing.
+  A per-user install fails where a machine-wide Edge updater exists (error 0x80040902 in the
+  sandbox), so the installer then asks and reruns it with the admin prompt. The app itself refuses
+  to open without WebView2 and says where to get it.
+- **Uninstall hands off to a copy of itself** in %TEMP% and returns at once; anything that checks
+  the result has to wait for that copy.
+- **A folder mapped into the sandbox holds files open**, so Inno Setup compiles into a temp folder
+  and the result is copied into `dist\`.
+
+The uninstaller removes `armada\`, `armada.staged\`, `armada.previous\` and `python\` explicitly,
+since the updater changes files the install log doesn't know about. Python 3.12.10 is the last 3.12
+release with Windows binaries; moving to a current Python is a task before the public release.
+
 ## Decided by Mihai (2026-09-24)
 
 B; unsigned for the beta; Inno Setup. The folder-picker prerequisite shipped in v0.99.53. The

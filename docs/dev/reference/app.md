@@ -26,6 +26,10 @@ Windows: declare our own AppUserModelID so the taskbar stops using pythonw.exe's
 
 Windows: force the ARMADA icon onto our top-level window(s) via WM_SETICON, once they exist.
 
+### `webview2_version()`
+
+The installed WebView2 Runtime's version, or "" if there's none — Microsoft's documented check: a `pv` value above 0.0.0.0 under EdgeUpdate\Clients, machine-wide or per user.
+
 ### `run(realm: str, port: int=8756, title: str='')`
 
 Open ARMADA in a native window. Blocks until the window is closed.
