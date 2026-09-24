@@ -16,7 +16,7 @@ from ..assets import (INBOX_JS as _INBOX_JS_ASSET, STA2A_TOGGLE_JS as _STA2A_TOG
 # Mirror _core's namespace (helpers, constants, imports) so the moved render_* functions resolve
 # their names exactly as they did inside _core.
 globals().update({k: v for k, v in vars(_core).items() if not k.startswith('__')})
-from ._base import _J  # JS-string-in-attribute escaping (5.8)
+from ._base import _J, _pill, _tone  # _J: JS-string-in-attribute escaping (5.8)
 import logging
 from ..util import swallowed
 log = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
     lbl = "font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:12px 0 4px;display:block"
 
     definition = (
-        f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Definition</div>'
+        f'<div class="mc-h-card" style="margin-bottom:6px">Definition</div>'
         f'<label style="{lbl}">Name</label><input id="j-name" value="{E(name)}" style="{field}">'
         f'<label style="{lbl}">Summary</label>'
         f'<input id="j-summary" value="{E(summary)}" maxlength="120" '
@@ -230,7 +230,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
     # is empty on arrival, so the thing you came to read started below the fold on a page whose
     # other half is a form.
     execution = (
-        f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Run history</div>'
+        f'<div class="mc-h-card" style="margin-bottom:6px">Run history</div>'
         f'<table class="table" style="font-size:12px"><thead><tr><th>When</th><th>Status</th><th>Summary</th><th style="text-align:right">Tokens</th></tr></thead>'
         f'<tbody>{hist}</tbody></table>'
         f'<pre id="j-out" style="display:none;margin-top:10px;background:var(--color-sand-100);border:1px solid var(--color-sand-300);color:var(--color-text);'
@@ -332,8 +332,7 @@ def _telegram_box() -> str:
         src = {"environment": "from environment variables", "env file": f"reading {E(st['env_file'])}",
                "ARMADA": "token held by ARMADA"}.get(st["source"], st["source"])
         head = (f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
-                f'<span class="mc-cap-pill" style="background:var(--status-ok-16);'
-                f'color:var(--status-ok)">connected</span>'
+                f'{_pill("connected", "ok")}'
                 f'<span style="font-size:12.5px">@{E(st["bot"]) or "your bot"}{who}</span>'
                 f'<span style="font-size:11px;color:var(--text-muted)">· {src}</span></div>'
                 f'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
@@ -496,7 +495,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
 
     def sect(title, body):
         return (f'<div class="mc-frame" style="border-radius:var(--r);padding:14px 16px;margin-bottom:14px">'
-                f'<div style="font-family:var(--font-heading);font-weight:600;font-size:15px;margin-bottom:8px">{E(title)}</div>{body}</div>')
+                f'<div class="mc-h-sect" style="margin-bottom:8px">{E(title)}</div>{body}</div>')
 
     try:
         from .. import telegram as _tgmod
@@ -622,8 +621,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
     _enabled_engines = cfg.get("providers")
     if not isinstance(_enabled_engines, list) or not _enabled_engines:
         _enabled_engines = [provider]            # carry the old single value forward
-    _soon_pill = ('<span class="mc-cap-pill" style="margin-left:2px;background:var(--text-10);'
-                  'color:var(--text-muted)">soon</span>')
+    _soon_pill = _pill("soon", style="margin-left:2px")
 
     def _prov_row(v, lab, avail):
         cur = "pointer" if avail else "not-allowed"
@@ -765,15 +763,12 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
 
     def prov_row(icon, name, detail, status):
         ok = status == "connected"
-        col = "var(--status-ok)" if ok else "var(--text-faint)"
-        bg = "color-mix(in srgb,var(--status-ok) 14%,transparent)" if ok else "var(--text-8)"
         lab = "Connected" if ok else "Coming soon"
         return (f'<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--color-divider)">'
                 f'<span style="display:flex;color:var(--text-strong)">{icon}</span>'
                 f'<div style="flex:1"><span style="font-size:12.5px;font-weight:600">{E(name)}</span>'
                 f'<div style="font-size:11px;color:var(--text-muted)">{E(detail)}</div></div>'
-                f'<span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:{col};'
-                f'background:{bg};padding:2px 8px;border-radius:999px">{_icon("circle-check",11) if ok else _icon("info",11)}{lab}</span></div>')
+                f'{_pill((_icon("circle-check",11) if ok else _icon("info",11)) + lab, "ok" if ok else "neutral")}</div>')
     engine_box = (
         prov_row(_icon("claude", 16), "Anthropic — Claude", engine_short or "Claude Code", "connected" if engine_ok else "error")
         + prov_row(_icon("zap", 16), "OpenAI — Codex", "GPT engine", "soon"))
@@ -818,8 +813,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
 
     # Channels live here (per machine); *which events* notify stays with the realm.
     def chan(cid, label, desc, on, disabled=False, soon=False):
-        badge = ('<span class="mc-cap-pill" style="background:var(--text-10);'
-                 'color:var(--text-muted);margin-left:7px">soon</span>') if soon else ""
+        badge = _pill("soon", style="margin-left:7px") if soon else ""
         return (f'<div style="display:flex;align-items:flex-start;gap:10px;margin:9px 0;'
                 f'opacity:{".55" if disabled else "1"}">'
                 f'<input id="{cid}" type="checkbox" {"checked" if on else ""}'
@@ -905,8 +899,6 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'<button class="btn btn-primary" onclick="mcSaveUser()">Save user settings</button>'
         f'<span id="us-msg" style="font-size:12px;color:var(--text-muted)">The source of truth — collected at setup, editable here. Saved to the realm and the agents’ core memory.</span></div>')
 
-    tabbtn = ("font-family:var(--font-heading);font-weight:600;font-size:14px;padding:8px 2px;margin-right:18px;"
-              "border-bottom:2px solid transparent;cursor:pointer;background:none;border-top:0;border-left:0;border-right:0;color:inherit")
     # Creating a realm isn't a setting of the realm you're in — it sits with the page, not inside
     # the Realm section where it read as one of that realm's options.
     new_realm_btn = ('<button type="button" class="btn btn-secondary btn-sm" style="white-space:nowrap" '
@@ -916,9 +908,11 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
     body = (f'<div style="padding:18px 24px 24px;max-width:900px">'
             f'{_page_title("Settings", right_html=new_realm_btn)}'
             f'<div style="border-bottom:1px solid var(--color-divider);margin-bottom:16px">'
-            f'<button id="st-tab-realm" style="{tabbtn};border-bottom-color:var(--color-accent)" onclick="mcSetTab(\'realm\')">Realm settings</button>'
-            f'<button id="st-tab-user" style="{tabbtn}" onclick="mcSetTab(\'user\')">User settings</button>'
-            f'<button id="st-tab-app" style="{tabbtn}" onclick="mcSetTab(\'app\')">App settings</button></div>'
+            # The same tabs as Capabilities' (DESIGN_SYSTEM §12, UI audit TB1).
+            f'<div role="tablist">'
+            f'<button type="button" role="tab" id="st-tab-realm" class="mc-captab" aria-selected="true" onclick="mcSetTab(\'realm\')">Realm settings</button>'
+            f'<button type="button" role="tab" id="st-tab-user" class="mc-captab" aria-selected="false" onclick="mcSetTab(\'user\')">User settings</button>'
+            f'<button type="button" role="tab" id="st-tab-app" class="mc-captab" aria-selected="false" onclick="mcSetTab(\'app\')">App settings</button></div></div>'
             f'<div id="st-realm-pane">{realm_tab}</div>'
             f'<div id="st-user-pane" style="display:none">{user_tab}</div>'
             f'<div id="st-app-pane" style="display:none">{app_tab}</div></div>'
@@ -1057,7 +1051,7 @@ def render_edit_section(realm, idx: int, dark=False) -> str:
             # in-app delete confirmation modal
             f'<div id="sec-del-modal" class="mc-modal-ov" onclick="if(event.target===this)mcSecDelClose()">'
             f'<div class="mc-modal-box" style="width:min(420px,92vw)">'
-            f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Delete “{E(name)}”?</div>'
+            f'<div class="mc-h-card" style="margin-bottom:6px">Delete “{E(name)}”?</div>'
             f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">This removes the section from your top menu. This cannot be undone.</div>'
             f'<div style="display:flex;gap:8px;align-items:center">'
             f'<button class="btn btn-secondary btn-sm" onclick="mcSecDelClose()">Cancel</button>'
@@ -1375,8 +1369,7 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
             f'<span style="font-weight:600;color:{body_col}">{who(m.get("from",""))}</span>'
             f'<span>→</span>'
             f'<span style="font-weight:600;color:{body_col}">{who(m.get("agent",""))}</span>'
-            f'<span class="mc-cap-pill" style="background:color-mix(in srgb,{col} 16%,transparent);'
-            f'color:{col}">{tag}</span><span>{E(when(m))}</span></div>'
+            f'{_pill(tag, _tone(col))}<span>{E(when(m))}</span></div>'
             f'<div style="font-size:12.5px;line-height:1.45;margin-top:3px;color:{body_col}">'
             f'{E(title)}</div></div>'
             f'<div style="display:flex;align-items:center;gap:8px;white-space:nowrap">{acts}</div>'
@@ -1461,7 +1454,7 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
 
 def _sec_head(title, note="") -> str:
     return (f'<div style="display:flex;align-items:baseline;gap:9px;margin:0 0 9px">'
-            f'<span style="font-family:var(--font-heading);font-weight:600;font-size:15px">{E(title)}</span>'
+            f'<span class="mc-h-sect">{E(title)}</span>'
             + (f'<span style="font-size:12px;color:var(--text-muted)">{E(note)}</span>' if note else "")
             + '</div>')
 
@@ -1528,7 +1521,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
     ren_modal = (
         '<div id="mc-twren-modal" class="mc-modal-ov" style="z-index:250" onclick="if(event.target===this)mcTWRenClose()">'
         '<div class="mc-modal-box" style="width:min(440px,92vw)">'
-        '<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px">Rename thread</div>'
+        '<div class="mc-h-card">Rename thread</div>'
         '<input type="hidden" id="twren-id"><input type="hidden" id="twren-agent"><input type="hidden" id="twren-thread">'
         '<input id="twren-title" style="display:block;width:100%;padding:7px 9px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:14px">'
         '<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
@@ -1540,7 +1533,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
         '<div id="mc-twdel-modal" class="mc-modal-ov" style="z-index:250" onclick="if(event.target===this)mcTWDelClose()">'
         '<div class="mc-modal-box" style="width:min(420px,92vw)">'
         '<input type="hidden" id="twdel-id">'
-        '<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Remove widget?</div>'
+        '<div class="mc-h-card" style="margin-bottom:6px">Remove widget?</div>'
         '<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:14px">'
         'Remove <b id="twdel-name"></b> from your dashboard. The thread and its messages are kept — you can re-add it anytime.</div>'
         '<div style="display:flex;gap:8px;justify-content:flex-end">'

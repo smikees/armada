@@ -6,7 +6,7 @@ from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
+from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -165,7 +165,7 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
     n = len(items)
     head = (f'<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px">'
             f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">Proposed jobs</span>'
-            f'<span style="background:var(--color-accent);color:#fff;font-size:11px;border-radius:999px;padding:1px 8px">{n}</span>'
+            f'<span class="mc-count" style="margin-left:0">{n}</span>'
             f'<span style="font-size:11.5px;color:var(--text-muted)">'
             f'awaiting your approval — nothing runs until you approve</span></div>')
     return (f'<div style="margin-bottom:18px;padding:14px 16px;border:1px solid var(--color-accent-2);border-radius:var(--r);'

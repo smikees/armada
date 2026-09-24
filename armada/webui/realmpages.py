@@ -7,7 +7,7 @@ from .. import clock
 from .. import goals as goalsmod
 from ..icons import (ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR,
                      ICON_MISSED, _ICON_REFRESH)
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
+from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -404,15 +404,11 @@ def _system_job_row(j, now, grid: str) -> str:
     carries the last few days, which is more than a single timestamp ever said.
     """
     free = j.get("cost") != "quota"
-    warn = ("background:var(--status-warn-16);color:var(--status-warn);"
-            "display:inline-flex;align-items:center;gap:4px")
-    ok = "background:var(--status-ok-16);color:var(--status-ok)"
     # Word-for-word the user list's pills, including the dial glyph: the same cost means the same
     # thing on both tabs, and two spellings of it invites the question of whether it does.
-    pill = (f'<span class="mc-cap-pill" title="Runs locally — no model call" style="{ok}">free</span>'
-            if free else
-            f'<span class="mc-cap-pill" title="Spends your Claude subscription" style="{warn}">'
-            f'<span style="display:flex;flex:none">{_icon("quota", 11)}</span>uses quota</span>')
+    pill = (_pill("free", "ok", title="Runs locally — no model call") if free else
+            _pill(f'<span style="display:flex;flex:none">{_icon("quota", 11)}</span>uses quota', "warn",
+                  title="Spends your Claude subscription"))
     on = bool(j.get("enabled"))
     nxt = "off" if not on else _sysjob_next(j.get("next_due") or "", bool(j.get("due_now")), now)
     nxt_style = ("color:var(--text-muted)" if not on
@@ -545,19 +541,14 @@ def _job_cost_pill(kind: str, tokens: int, n: int) -> str:
     you nothing about which one to switch off.
     """
     if kind == "command":
-        return (f'<span class="mc-cap-pill" title="Runs a local command — no model call" '
-                f'style="background:var(--status-ok-16);'
-                f'color:var(--status-ok)">free</span>')
-    warn = ("background:var(--status-warn-16);color:var(--status-warn);"
-            "display:inline-flex;align-items:center;gap:4px")
+        return _pill("free", "ok", title="Runs a local command — no model call")
     dial = f'<span style="display:flex;flex:none">{_icon("quota", 11)}</span>'
     if not n:
-        return (f'<span class="mc-cap-pill" title="Spends your Claude subscription. No runs yet, '
-                f'so there is nothing to estimate from." style="{warn}">{dial}uses quota</span>')
+        return _pill(f"{dial}uses quota", "warn",
+                     title="Spends your Claude subscription. No runs yet, so there is nothing to estimate from.")
     t = f"{tokens / 1000:.0f}k" if tokens >= 1000 else str(tokens)
     plural = "" if n == 1 else "s"
-    return (f'<span class="mc-cap-pill" title="Median of {n} recorded run{plural} — typical, not a cap" '
-            f'style="{warn}">{dial}≈{t} / run</span>')
+    return _pill(f"{dial}≈{t} / run", "warn", title=f"Median of {n} recorded run{plural} — typical, not a cap")
 
 
 def _job_list_header(today, show_owner: bool, list_id: str) -> str:

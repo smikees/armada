@@ -9,7 +9,7 @@ import html, json, datetime, time, re
 from pathlib import Path
 from .. import brand, vtheme, appconfig
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
+from ._base import (E, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from ..assets import (CSS_LINKS as _CSS_LINKS, RUN_JS as _RUN_JS, FORM_JS as _FORM_JS,
     DOTPOLL_JS as _DOTPOLL_JS, SWITCHER_JS as _SWITCHER_JS, PENDING_BADGE_JS as _PENDING_BADGE_JS,
     SECTION_EDIT_JS as _SECTION_EDIT_JS, AUTHBAR_JS as _AUTHBAR_JS, SCHEDBAR_JS as _SCHEDBAR_JS, UPDBAR_JS as _UPDBAR_JS, SUPPORT_JS as _SUPPORT_JS,
@@ -91,14 +91,10 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
         badge = ""
         if label == "Jobs":
             disp = "inline-block" if npend else "none"
-            badge = (f'<span id="mc-jobsbadge" title="job proposals awaiting approval" '
-                     f'style="display:{disp};margin-left:5px;background:var(--color-accent);color:#fff;'
-                     f'font-size:10px;line-height:1.6;border-radius:999px;padding:0 6px;vertical-align:middle">{npend}</span>')
+            badge = (f'<span id="mc-jobsbadge" class="mc-count" title="job proposals awaiting approval" '
+                     f'style="display:{disp}">{npend}</span>')
         if label == "Inbox" and nwait:
-            badge = (f'<span title="tasks waiting to be picked up" '
-                     f'style="display:inline-block;margin-left:5px;background:var(--status-warn);'
-                     f'color:#fff;font-size:10px;line-height:1.6;border-radius:999px;padding:0 6px;'
-                     f'vertical-align:middle">{nwait}</span>')
+            badge = (f'<span class="mc-count is-warn" title="tasks waiting to be picked up">{nwait}</span>')
         tab_html += f'<a class="mc-tab" href="{href}" {cur}>{E(label)}{badge}</a>'
     sections = getattr(realm, "sections", None) or []
     usr = ""

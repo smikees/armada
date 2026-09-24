@@ -6,7 +6,7 @@ from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss,
+from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss,
                     _REVEAL_JS)
 # Externalized inline <script> blocks (Phase 2, 2.1) — bodies live in webui/static/js/.
 from ..assets import (MDFIELD_JS as _MDFIELD_JS_ASSET, A2A_TOGGLE_JS as _A2A_TOGGLE_JS,
@@ -87,7 +87,7 @@ def _agent_header(realm, realm_root, a) -> str:
             f'<div style="flex:none">{_portrait(realm_root, a, 56, dot=True)}</div>'
             f'<div style="flex:1;min-width:0">'
             f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-            f'<span style="font-family:var(--font-heading);font-weight:600;font-size:26px">{E(a.display)}</span>'
+            f'<span class="mc-h-page is-agent">{E(a.display)}</span>'
             + (_coord_mark(20) if coord else "")
             + f'{_autonomy_badge(_autonomy_of(realm_root, a.id), 16)}{model_pill}{gear}</div>'
             f'<div style="margin-top:3px">{role}{sep}{profile}</div></div></div>')
@@ -143,8 +143,8 @@ def _tab_jobs(realm, realm_root, a, today, open_job: str = "") -> str:
                f'font-size:12px;color:var(--color-accent);padding:6px 4px">{_icon("x",12)}Clear</button></div>')
     return (f'<div style="padding:18px 24px 24px"><div style="display:flex;align-items:center;margin-bottom:8px">'
             f'<div style="font-family:var(--font-heading);font-weight:600;font-size:17px">'
-            f'Active jobs · <span data-active-jobs>{sum(1 for x in a.jobs if x.enabled)}</span>'
-            f' · {E(a.display)} owns</div>'
+            f'Jobs <span class="mc-eyebrow" style="margin-left:6px">· <span data-active-jobs>{sum(1 for x in a.jobs if x.enabled)}</span>'
+            f' active · {E(a.display)} owns</span></div>'
             f'<a href="/new/job?agent={E(a.id)}" class="btn btn-secondary btn-sm" style="margin-left:auto;text-decoration:none">{_icon("plus", 14)}New job</a></div>'
             f'{_job_proposals_block(realm, realm_root, only_agent=a.id)}'
             f'{toolbar}{legend}{joblist}{_FDROP_JS}{_JOBS_SORT_JS}'
@@ -196,8 +196,7 @@ def _tab_inbox(realm, realm_root, a) -> str:
             f'accepts from {E(_inbox.ACCEPTS.get(acc, acc).lower())} · set in Configure</span>')
     head = (f'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'
             f'<div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Inbox</div>'
-            + (f'<span class="mc-cap-pill" style="background:var(--status-warn-16);'
-               f'color:var(--status-warn)">{waiting} waiting</span>' if waiting else "")
+            + (_pill(f"{waiting} waiting", "warn") if waiting else "")
             + meta + '</div>')
     return (f'<div style="padding:18px 24px 24px;max-width:900px">{head}'
             f'{_pages.inbox_view(realm, realm_root, agent_id=a.id)}</div>')

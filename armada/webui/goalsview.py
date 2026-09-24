@@ -8,7 +8,7 @@ from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
+from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from ..assets import GOALSEARCH_JS as _GOALSEARCH_JS  # Phase 2, 2.1
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
@@ -33,8 +33,7 @@ def _goal_status_badge(status: str) -> str:
     if not status:
         return ""
     c = _GOAL_STATUS_COLOR.get(status, "--status-idle")
-    return (f'<span style="font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;'
-            f'background:color-mix(in srgb,var({c}) 15%,transparent);color:var({c})">{E(status)}</span>')
+    return _pill(E(status), _tone(c))
 
 
 def _goal_owner_chips(realm, realm_root, goal: dict) -> str:
@@ -148,7 +147,7 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
            f'onclick="if(event.target===this)mcCloseAddGoal()">'
            f'<div class="mc-modal-box" style="width:min(620px,94vw)">'
            f'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">'
-           f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px">{add_title}</div>'
+           f'<div class="mc-h-card" style="margin-bottom:0px">{add_title}</div>'
            f'<button type="button" class="mc-x" onclick="mcCloseAddGoal()" title="Close" aria-label="Close">×</button></div>'
            f'<input type="hidden" id="goal-owner" value="{E(owner_id)}">'
            f'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">'
@@ -166,7 +165,7 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
     edit = (f'<div id="goal-edit-modal" class="mc-modal-ov-top" style="padding:48px 16px;overflow:auto" '
             f'onclick="if(event.target===this)mcCloseEditGoal()">'
             f'<div class="mc-modal-box" style="width:min(620px,94vw)">'
-            f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px">Edit goal</div>'
+            f'<div class="mc-h-card">Edit goal</div>'
             f'<input type="hidden" id="goal-ed-stem">'
             f'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">'
             f'<div><label style="{_LBL};margin-top:0">Title {_STAR}</label><input id="goal-ed-title" style="{fh}"></div>'
@@ -182,7 +181,7 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
     dele = (f'<div id="goal-del-modal" class="mc-modal-ov" onclick="if(event.target===this)mcCloseDelGoal()">'
             f'<div class="mc-modal-box" style="width:min(420px,92vw)">'
             f'<input type="hidden" id="goal-del-stem">'
-            f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Delete goal?</div>'
+            f'<div class="mc-h-card" style="margin-bottom:6px">Delete goal?</div>'
             f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:14px">'
             f'Delete <b id="goal-del-name"></b>. This removes it from every owner\'s context. This can\'t be undone.</div>'
             f'<div style="display:flex;gap:8px;justify-content:flex-end">'

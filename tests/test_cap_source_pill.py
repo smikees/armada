@@ -79,7 +79,7 @@ def test_no_capability_is_ever_labelled_third_party(realm):
 def test_every_pill_reads_from_not_by(realm):
     from armada import reader
     html = CAP._realm_skills(reader.read(str(realm)), realm)
-    pills = re.findall(r'class="mc-cap-pill"[^>]*>(from [^<]*|by [^<]*)</span>', html)
+    pills = re.findall(r'class="mc-pill is-(?:ok|neutral)"[^>]*>(from [^<]*|by [^<]*)</span>', html)
     assert pills, "no source pills rendered"
     assert not [p for p in pills if p.startswith("by ")]
     assert "from Anthropic skills" in pills

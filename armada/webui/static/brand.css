@@ -265,6 +265,7 @@ details.mc-realmsw>summary::-webkit-details-marker{display:none}
   color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
 .mc-captab:hover{color:var(--color-text)}
 .mc-captab[aria-selected="true"]{color:var(--color-text);border-bottom-color:var(--color-accent)}
+button.mc-captab{background:none;border-top:0;border-left:0;border-right:0;font-family:inherit}   /* the same tab drawn as a <button> (Settings, TB1) */
 .mc-cap>summary{list-style:none;display:flex;align-items:center;gap:9px;padding:7.5px 12px;cursor:pointer}
 .mc-cap>summary::-webkit-details-marker{display:none}
 .mc-cap .mc-cap-caret{transition:transform .15s;color:var(--text-muted);flex:none}
@@ -384,12 +385,13 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-chip{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:2px 8px;border-radius:var(--r);line-height:1.5;background:var(--text-7);color:var(--text-62)}
 .mc-chip.is-accent{color:var(--color-accent);background:var(--color-accent-100)}
 .mc-count{margin-left:5px;background:var(--color-accent);color:#fff;font-size:10px;line-height:1.6;border-radius:999px;padding:0 6px;vertical-align:middle}
+.mc-count.is-warn{background:var(--status-warn)}                /* waiting inbox tasks */
 .mc-field{display:block;width:100%;padding:6px 8px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:13px}
 .mc-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:14px 0 4px;display:block}
 .mc-textarea{width:100%;resize:vertical;background:var(--color-sand-100);border:1px solid var(--color-sand-500);border-radius:var(--r);padding:10px;font-size:12.5px;line-height:1.55;color:var(--color-text);font-family:var(--font-body)}
 .mc-hint{font-size:12px;color:var(--text-muted)}
 .mc-h-page{font-family:var(--font-heading);font-size:26px;margin:0 0 14px}
-.mc-h-page.is-agent{font-size:20px;margin:0}
+.mc-h-page.is-agent{font-weight:600;margin:0}          /* the agent's name beside the portrait: page size (v0.99.69) */
 .mc-eyebrow{font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft)}
 .mc-h-card{font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px}
 .mc-h-sect{font-family:var(--font-heading);font-weight:600;font-size:14px}

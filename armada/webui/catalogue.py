@@ -13,7 +13,7 @@ before the split, avoiding a module-level import cycle between the two.
 from __future__ import annotations
 import json, re
 from ..icons import _icon
-from ._base import E, _J, _FIELD, _md_inline, _md
+from ._base import E, _J, _FIELD, _md_inline, _md, _pill, _tone
 from .agentbits import _filter_dropdown
 from .capabilities import _KIND_SINGULAR, _cap_iconcluster, _cap_tier_why
 from ..assets import CAT_JS as _CAT_JS_ASSET
@@ -41,8 +41,7 @@ _CAT_PAGE = 24
 
 
 def _cat_pill(text: str, col: str = "var(--text-muted)") -> str:
-    return (f'<span class="mc-cap-pill" style="background:color-mix(in srgb,{col} 14%,transparent);'
-            f'color:{col}">{E(text)}</span>')
+    return _pill(E(text), _tone(col))
 
 
 def _cat_card(e: dict, publisher: str, where: list, labels: dict, here: bool = False) -> str:
@@ -490,8 +489,7 @@ def _cat_review_card(review: dict) -> str:
     # what Runs/Can-touch alone would earn elsewhere.
     risk = _cat_final_risk(review)
     rc, rlabel = _RISK_META[risk]
-    risk_pill = (f'<span class="mc-cap-pill" style="background:color-mix(in srgb,{rc} 18%,transparent);'
-                f'color:{rc};font-weight:700;letter-spacing:.02em">{E(rlabel.upper())}</span>')
+    risk_pill = _pill(E(rlabel.upper()), _tone(rc), style="font-weight:700;letter-spacing:.02em")
     # Already-added, checked across every realm ARMADA knows about (routes/catalogue.py's
     # _catalogue_review — see catalogue.realms_with_capability). In THIS realm, Add would only
     # create the duplicate add_link_to_realm's own dedupe already refuses — so the button is

@@ -6,6 +6,7 @@ unnoticed is the exact failure mode this app has already been bitten by.
 """
 import datetime as dt
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -161,7 +162,7 @@ def _sys_table(tmp_path):
 def test_ui_shows_cost_for_every_job(tmp_path):
     html, n = _sys_table(tmp_path)
     assert n == len(sysjobs.JOBS)
-    assert html.count("mc-cap-pill") == n, "every system job must declare its cost"
+    assert len(re.findall(r'class="mc-pill is-(?:ok|warn)"', html)) == n, "every system job must declare its cost"
     # Word-for-word the User list's pills. The same cost means the same thing on both tabs, and
     # two spellings of it invites the question of whether it does.
     assert "uses quota" in html and ">free<" in html

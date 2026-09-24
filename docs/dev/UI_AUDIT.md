@@ -70,23 +70,23 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
 
 ## P — Pills, chips, counts
 
-- [ ] **P1** One pill tint (16%): `catalogue._cat_pill` (14%), `goalsview._goal_status_badge`
+- [x] **P1** *(v0.99.69)* One pill tint (16%): `catalogue._cat_pill` (14%), `goalsview._goal_status_badge`
   (15%), `capabilities._cap_new_badge` (18%) → the `-16` tokens. S · **H**
-- [ ] **P2** Hand-drawn pills → `.mc-pill.is-*`: goal status badge (10.5px, 2px 9px), Settings →
+- [x] **P2** *(v0.99.69)* Hand-drawn pills → `.mc-pill.is-*`: goal status badge (10.5px, 2px 9px), Settings →
   Engine "Connected" / "Coming soon", Settings `_soon_pill`, every `mc-cap-pill` call site (16)
   moves to `.mc-pill` + a tone class instead of inline colours. M · **H**
-- [ ] **P3** `_base._mini_pill` → `.mc-chip` (it's a chip; rename the helper `_chip`). Model chip
+- [x] **P3** *(v0.99.69)* `_base._mini_pill` → `.mc-chip` (it's a chip; rename the helper `_chip`). Model chip
   (`agentbits._model_chip`) keeps its layout but takes `.mc-chip` for the shape. S · **H**
-- [ ] **P4** Nav/tab unread counts → `.mc-count` (the accent 999px badge repeated on 17 pages). S · **H**
+- [x] **P4** *(v0.99.69)* Nav/tab unread counts → `.mc-count` (the accent 999px badge repeated on 17 pages). S · **H**
 
 ## T — Type and headings
 
-- [ ] **T1** `_base._page_title` emits `.mc-h-page` + `.mc-eyebrow`; the agent frame title takes
+- [x] **T1** *(v0.99.69)* `_base._page_title` emits `.mc-h-page` + `.mc-eyebrow`; the agent frame title takes
   `.mc-h-page.is-agent`. S · **H**
-- [ ] **T2** Section headings drawn inline (Agent → Jobs "Active jobs · 4 · Warren owns", Memory
+- [x] **T2** *(v0.99.69 — Settings cards, Memory, Inbox → `.mc-h-sect`; the agent-tab headings (Jobs, Inbox, Goals) stay at their shared 17px, and Jobs now reads "Jobs · N active · X owns")* Section headings drawn inline (Agent → Jobs "Active jobs · 4 · Warren owns", Memory
   "Per-agent memories", Settings card headings, Inbox "New messages") → `.mc-h-sect`, and the
   agent-Jobs one reads like its realm counterpart ("Jobs · 4"). S · **H**
-- [ ] **T3** Dialog titles (16px heading, repeated in every modal) → `.mc-h-card`. S · **H**
+- [x] **T3** *(v0.99.69)* Dialog titles (16px heading, repeated in every modal) → `.mc-h-card`. S · **H**
 
 ## FI — Fields and filters
 
@@ -104,8 +104,8 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
 
 ## TB — Tabs and tables
 
-- [ ] **TB1** Settings' Realm / User / App tabs are hand-drawn buttons → `.mc-captab`. S · **H**
-- [ ] **TB2** Tables → `industry.css .table`: Jobs list, the Register widget, Artefacts, the agent
+- [x] **TB1** *(v0.99.69)* Settings' Realm / User / App tabs are hand-drawn buttons → `.mc-captab`. S · **H**
+- [x] **TB2** *(v0.99.69 — checked: every `<table>` already uses `.table`, with only widths/alignment inline; the Jobs and System jobs lists are grids by design, not tables)* Tables → `industry.css .table`: Jobs list, the Register widget, Artefacts, the agent
   Jobs tab, System jobs. Keep column widths inline; drop the per-`th` font/case/colour. M · **H**
 
 ## C — Copy and words

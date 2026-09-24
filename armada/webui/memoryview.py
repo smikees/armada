@@ -8,7 +8,7 @@ from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
+from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -194,7 +194,7 @@ def _mem_modals(scope: str, agent_id: str = "", agent_disp: str = "") -> str:
             f'onclick="if(event.target===this)mcCloseAddMem()">'
             f'<div class="mc-modal-box" style="width:min(520px,94vw)">'
             f'<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">'
-            f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px">{add_title}</div>'
+            f'<div class="mc-h-card" style="margin-bottom:0px">{add_title}</div>'
             f'<span style="font-size:11px;color:var(--text-soft)">· {add_sub}</span>'
             f'<button type="button" class="mc-x" onclick="mcCloseAddMem()" title="Close" aria-label="Close">×</button></div>'
             f'<input type="hidden" id="mem-edit" value="">'
@@ -211,7 +211,7 @@ def _mem_modals(scope: str, agent_id: str = "", agent_disp: str = "") -> str:
             # --- edit modal ---
             f'<div id="mem-edit-modal" class="mc-modal-ov" onclick="if(event.target===this)mcCloseEditMem()">'
             f'<div class="mc-modal-box" style="width:min(520px,92vw)">'
-            f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px">Edit memory</div>'
+            f'<div class="mc-h-card">Edit memory</div>'
             f'<input type="hidden" id="mem-ed-scope"><input type="hidden" id="mem-ed-agent"><input type="hidden" id="mem-ed-name">'
             f'<label style="{_LBL};margin-top:0">Title (optional)</label>'
             f'<input id="mem-ed-title" style="{_FIELD};margin-bottom:6px">'
@@ -225,7 +225,7 @@ def _mem_modals(scope: str, agent_id: str = "", agent_disp: str = "") -> str:
             # --- delete modal ---
             f'<div id="mem-del-modal" class="mc-modal-ov" onclick="if(event.target===this)mcCloseDelMem()">'
             f'<div class="mc-modal-box" style="width:min(420px,92vw)">'
-            f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Delete memory?</div>'
+            f'<div class="mc-h-card" style="margin-bottom:6px">Delete memory?</div>'
             f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">This cannot be undone.</div>'
             f'<input type="hidden" id="mem-del-scope"><input type="hidden" id="mem-del-agent"><input type="hidden" id="mem-del-name">'
             f'<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end">'
@@ -368,6 +368,6 @@ def _realm_memory(realm, realm_root) -> str:
             f'{_covenant_block(realm, realm_root)}'
             f'<div style="display:grid;grid-template-columns:1fr 320px;gap:22px">'
             f'<div>{_mem_search()}{cards}</div>'
-            f'<div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px;margin-bottom:2px">Per-agent memories</div>'
+            f'<div><div class="mc-h-sect" style="margin-bottom:2px">Per-agent memories</div>'
             f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-soft);margin-bottom:8px">loads only in the agent\'s threads</div>{links}</div></div>'
             f'{_mem_modals("realm")}{_covenant_modal(realm_root)}</div>')

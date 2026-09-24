@@ -11,7 +11,7 @@ from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import (ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR,
                      ICON_MISSED)
-from ._base import E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill
+from ._base import E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)

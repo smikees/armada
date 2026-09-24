@@ -35,7 +35,7 @@ most. Converging on it changes a handful of pixels on the outliers and nothing o
 | Role | Family | Size / weight | Case | Canonical | Class |
 |---|---|---|---|---|---|
 | Page title | heading | 26px / 600 | Title | `_base._page_title` | *new* `.mc-h-page` |
-| Agent page title | heading | 20px / 600 | Title | agent frame header | *new* `.mc-h-page.is-agent` |
+| Agent page title | heading | 26px / 600 (the page size, beside the portrait; was specced 20px, kept at 26 as shipped) | Title | agent frame header | `.mc-h-page.is-agent` |
 | Page title suffix ("· 4 across the realm") | body | 11px / 400, `.08em` | UPPER | `_page_title(sub=)` | *new* `.mc-eyebrow` |
 | Dialog / card title | heading | 16px / 600 | Sentence | modal headers | *new* `.mc-h-card` |
 | Widget title | heading | 15px / 600 | Title | `widgets._wid_header` | `.mc-wid-h` (extend) |

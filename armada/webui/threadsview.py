@@ -10,7 +10,7 @@ from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
+from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -153,7 +153,7 @@ def _ordered_threads(agent_dir):
 _THREADLIST_JS = ("""
 <div id="mc-thren-modal" class="mc-modal-ov" style="z-index:250" onclick="if(event.target===this)mcThrenClose()">
  <div class="mc-modal-box" style="width:min(440px,92vw)">
-  <div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px">Rename thread</div>
+  <div class="mc-h-card">Rename thread</div>
   <input type="hidden" id="thren-agent"><input type="hidden" id="thren-slug">
   <input id="thren-title" style="display:block;width:100%;padding:7px 9px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:14px">
   <div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">
@@ -778,7 +778,7 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
         f'<div id="mc-tharch-modal" class="mc-modal-ov-top" style="z-index:250;padding:56px 16px;overflow:auto" '
         f'onclick="if(event.target===this)mcArchClose()">'
         f'<div class="mc-modal-box" style="width:min(520px,94vw)">'
-        f'<div style="display:flex;align-items:center;margin-bottom:6px"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Archived threads</div>'
+        f'<div style="display:flex;align-items:center;margin-bottom:6px"><div class="mc-h-card" style="margin-bottom:0px">Archived threads</div>'
         f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcArchClose()">Close</button></div>'
         f'<div style="max-height:60vh;overflow:auto">{arch_rows}</div></div></div>')
     hint = ('<div style="padding:8px 14px;font-size:11px;color:var(--text-soft)">'

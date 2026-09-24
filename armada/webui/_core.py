@@ -15,7 +15,7 @@ from .. import goals as goalsmod
 
 from .changelog import _CHANGELOG, _changelog_modal  # carved out in Phase 3
 from ._base import (  # base layer carved out in Phase 3
-    E, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss, _REVEAL_JS)
+    E, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss, _REVEAL_JS)
 from .consumption import (  # carved out in Phase 3 (pure lower layer)
     _MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE, _CONSUMPTION_STOPS,
     _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js, _model_is_claude)
@@ -705,7 +705,7 @@ def _user_avatar_modal() -> str:
         for i in range(1, n + 1))
     return (f'<div id="us-avatar-modal" class="mc-modal-ov" onclick="if(event.target===this)mcUserAvatarModal(false)">'
             f'<div class="mc-modal-box" style="width:min(560px,92vw);max-height:78vh;overflow:auto">'
-            f'<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Pick an avatar</div>'
+            f'<div style="display:flex;align-items:center;margin-bottom:12px"><div class="mc-h-card" style="margin-bottom:0px">Pick an avatar</div>'
             f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcUserAvatarModal(false)">Close</button></div>'
             f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px;justify-items:center">{tiles}</div>'
             f'<div id="us-presetmsg" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div></div></div>')

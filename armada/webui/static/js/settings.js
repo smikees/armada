@@ -1,7 +1,7 @@
 let mcSetIcon='';
 function mcSetTab(t){['realm','user','app'].forEach(function(x){
     var p=document.getElementById('st-'+x+'-pane');if(p)p.style.display=(x===t)?'block':'none';
-    var b=document.getElementById('st-tab-'+x);if(b)b.style.borderBottomColor=(x===t)?'var(--color-accent)':'transparent';});
+    var b=document.getElementById('st-tab-'+x);if(b)b.setAttribute('aria-selected',x===t?'true':'false');});
   try{localStorage.setItem('mc-settab',t);}catch(e){}}
 (function(){try{var t=localStorage.getItem('mc-settab');if(t)mcSetTab(t);}catch(e){}})();
 function mcPickSetIcon(el){mcSetIcon=el.dataset.icon;

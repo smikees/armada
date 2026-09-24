@@ -13,7 +13,7 @@ from pathlib import Path
 from .. import memory, model, models, brand, status, sysskills
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
+from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -94,7 +94,7 @@ _CAP_EDIT_MODAL = (
     # delete-confirm modal
     '<div id="mc-cap-del" class="mc-modal-ov" style="z-index:211" onclick="if(event.target===this)mcCapDelClose()">'
     '<div class="mc-modal-box" style="width:min(400px,92vw)">'
-    '<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Remove capability?</div>'
+    '<div class="mc-h-card" style="margin-bottom:6px">Remove capability?</div>'
     '<div id="mc-capdel-note" style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px"></div>'
     '<input type="hidden" id="mc-capdel-scope"><input type="hidden" id="mc-capdel-kind"><input type="hidden" id="mc-capdel-id">'
     '<div style="display:flex;gap:8px;align-items:center">'
@@ -400,11 +400,7 @@ def _cap_source_pill(it: dict) -> str:
     from .. import catalogue as cat
     label = _cap_source_label(it)
     mine = _cap_source_id(it) == cat.MINE
-    bg = ("var(--status-ok-16)" if mine
-          else "var(--text-8)")
-    cl = "var(--status-ok)" if mine else "var(--text-muted)"
-    return (f'<span class="mc-cap-pill" style="background:{bg};color:{cl};flex:none;'
-            f'padding:1px 8px">from {E(label)}</span>')
+    return _pill(f"from {E(label)}", "ok" if mine else "neutral", style="flex:none")
 
 
 def _cap_cell(label: str, icons: str) -> str:
@@ -440,7 +436,7 @@ def _cap_badges(it: dict) -> str:
     runs = (it.get("runs") or "").lower()
     if runs in _RUNS_META:
         rl, rc = _RUNS_META[runs]
-        out += f'<span class="mc-cap-pill" style="background:color-mix(in srgb,{rc} 16%,transparent);color:{rc}">{E(rl)}</span>'
+        out += _pill(E(rl), _tone(rc))
     # Riskiest first, so the leading icon is the one that set the card's stripe. Sorted here
     # rather than trusted from the file: the order a capability happens to list its abilities
     # in is not a statement about them.
@@ -578,8 +574,7 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
     pchip = (f'<span class="mc-cap-frozen">frozen</span>' if frozen else '<span class="mc-cap-living">living</span>')
     # The reason sits beside the badge. A tier is a verdict, and a verdict nobody can check is
     # just a colour — this is what makes "Caution" answerable rather than something to click past.
-    rows = (f'<div class="k">Trust level</div><div><span class="mc-cap-pill" '
-            f'style="background:color-mix(in srgb,{tcol} 16%,transparent);color:{tcol}">{tlab}</span>'
+    rows = (f'<div class="k">Trust level</div><div>{_pill(tlab, _tone(tcol))}'
             f'<span style="margin-left:8px;color:var(--text-muted)">{E(why)}</span></div>'
             f'<div class="k">Source</div><div>{E(origin)}{link}</div>'
             # This page is headed "who made it", and the publisher used to be the pill on the row.
@@ -644,7 +639,7 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
     tier = _cap_tier(it)
     tcol, tlab = _TIER_META[tier]
     name = E(it.get("name") or it.get("id", ""))
-    inh = _mini_pill("inherited", "plain") if inherited else ""
+    inh = _chip("inherited", "plain") if inherited else ""
     # data-source is what the Source filter matches, and it is the same value the pill displays —
     # a filter whose values you cannot see on the cards is a filter you have to guess at.
     src_grp = _cap_source_id(it)
@@ -761,9 +756,7 @@ def _cap_is_new(it: dict, realm=None, realm_root=None, kind: str = "") -> bool:
 
 
 def _cap_new_badge() -> str:
-    return ('<span class="mc-cap-pill" style="background:color-mix(in srgb,var(--color-accent-2) 18%,'
-            'transparent);color:var(--color-accent-2);font-weight:600" '
-            'title="Added but not in use yet \u2014 switch it on and give an agent access">new</span>')
+    return _pill("new", "accent2", title="Added but not in use yet \u2014 switch it on and give an agent access")
 
 
 def _tool_group(title: str, icon: str, realm_items, agent_items=None, manage=None, compact: bool = False,

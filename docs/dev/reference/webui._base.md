@@ -27,9 +27,17 @@ Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-
 
 `right` is muted text set alongside the heading; `right_html` is markup (a button, say) and is NOT escaped — pass only markup this code built, never anything user-supplied.
 
-### `_mini_pill(text: str, variant: str='plain', title: str='')`
+### `_chip(text: str, variant: str='plain', title: str='')`
 
-Little label reusing the model-pill look (grey fill, --r radius) so we keep one badge style.
+A chip (DESIGN_SYSTEM §7): the model-pill look — grey fill, --r radius — for a label that names something (a model, a kind), where a pill states a status. `.mc-chip`, UI audit P3.
+
+### `_tone(col: str)`
+
+The pill tone for a status colour: 'var(--status-ok)' or '--status-ok' → 'ok'. Anything else (idle, muted) is 'neutral'.
+
+### `_pill(inner: str, tone: str='neutral', title: str='', style: str='')`
+
+A status pill. `inner` is HTML (escape text before passing it).
 
 ### `_poss(name: str)`
 

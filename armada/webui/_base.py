@@ -142,29 +142,45 @@ def _md(text: str) -> str:
 def _page_title(t: str, sub: str = "", right: str = "", right_html: str = "") -> str:
     """`right` is muted text set alongside the heading; `right_html` is markup (a button, say) and
     is NOT escaped — pass only markup this code built, never anything user-supplied."""
-    s = (f'<span style="font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;'
-         f'text-transform:uppercase;color:var(--text-soft);margin-left:6px">· {E(sub)}</span>') if sub else ""
+    s = f'<span class="mc-eyebrow" style="margin-left:6px">· {E(sub)}</span>' if sub else ""
     if not right and not right_html:
-        return f'<h2 style="font-family:var(--font-heading);font-size:26px;margin:0 0 14px">{E(t)}{s}</h2>'
+        return f'<h2 class="mc-h-page">{E(t)}{s}</h2>'
     tail = (right_html if right_html else
             f'<span style="font-size:11.5px;color:var(--text-soft);white-space:nowrap">{E(right)}</span>')
     return (f'<div style="display:flex;align-items:baseline;gap:10px;margin:0 0 14px">'
-            f'<h2 style="font-family:var(--font-heading);font-size:26px;margin:0">{E(t)}{s}</h2>'
+            f'<h2 class="mc-h-page" style="margin:0">{E(t)}{s}</h2>'
             f'<span style="margin-left:auto">{tail}</span></div>')
 
 
 
 
-def _mini_pill(text: str, variant: str = "plain", title: str = "") -> str:
-    """Little label reusing the model-pill look (grey fill, --r radius) so we keep one badge style."""
-    base = ("font-size:10.5px;font-weight:600;letter-spacing:.02em;border-radius:var(--r);padding:2px 8px;"
-            "margin-left:6px;line-height:1.5;display:inline-flex;align-items:center")
-    if variant == "accent":
-        style = f"{base};color:var(--color-accent);background:var(--color-accent-100)"
-    else:  # plain: same grey fill as the model pill
-        style = f"{base};color:var(--text-62);background:var(--text-7)"
+def _chip(text: str, variant: str = "plain", title: str = "") -> str:
+    """A chip (DESIGN_SYSTEM §7): the model-pill look — grey fill, --r radius — for a label that
+    names something (a model, a kind), where a pill states a status. `.mc-chip`, UI audit P3."""
+    cls = "mc-chip is-accent" if variant == "accent" else "mc-chip"
     tt = f' title="{E(title)}"' if title else ""
-    return f'<span{tt} style="{style}">{E(text)}</span>'
+    return f'<span class="{cls}"{tt} style="margin-left:6px">{E(text)}</span>'
+
+
+# One status pill (DESIGN_SYSTEM §7, UI audit P1/P2): the tint is always 16%, drawn by `.mc-pill.is-*`.
+_TONES = {"--status-ok": "ok", "--status-warn": "warn", "--status-bad": "bad",
+          "--color-accent": "accent", "--color-accent-2": "accent2"}
+
+
+def _tone(col: str) -> str:
+    """The pill tone for a status colour: 'var(--status-ok)' or '--status-ok' → 'ok'. Anything else
+    (idle, muted) is 'neutral'."""
+    c = (col or "").strip()
+    if c.startswith("var(") and c.endswith(")"):
+        c = c[4:-1].strip()
+    return _TONES.get(c, "neutral")
+
+
+def _pill(inner: str, tone: str = "neutral", title: str = "", style: str = "") -> str:
+    """A status pill. `inner` is HTML (escape text before passing it)."""
+    t = f' title="{E(title)}"' if title else ""
+    st = f' style="{style}"' if style else ""
+    return f'<span class="mc-pill is-{tone}"{t}{st}>{inner}</span>'
 
 
 def _poss(name: str) -> str:
