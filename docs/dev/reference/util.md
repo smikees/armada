@@ -17,6 +17,10 @@ Return `value` as a str if it's a single safe path segment, else raise.
 
 —
 
+### `_replace_retrying(src, dst, attempts: int=12)`
+
+os.replace, patient with Windows' momentary locks.
+
 ### `write_text_atomic(path, text: str, encoding: str='utf-8')`
 
 Write text so a crash/concurrent reader never sees a half-written file.

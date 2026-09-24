@@ -36,6 +36,32 @@ def is_safe_seg(value) -> bool:
         return False
 
 
+_BUSY = (5, 32, 33)          # Windows: access denied / sharing violation / lock violation
+
+
+def _replace_retrying(src, dst, attempts: int = 12) -> None:
+    """os.replace, patient with Windows' momentary locks.
+
+    On Windows a rename onto a file fails while any other process has that file open without
+    FILE_SHARE_DELETE — which is every ordinary Python open(). So the server reading
+    telegram_state.json for the Settings page, at the instant the scheduler's listener rewrites
+    it, made the write fail ("[WinError 32] … being used by another process", seen in
+    scheduler.log 2026-09-24). Antivirus scanners and the search indexer cause the same thing.
+    Those holds last milliseconds; waiting briefly and trying again is the standard remedy. About
+    1.5 s in all before giving up and raising as before. Other errors raise at once.
+    """
+    delay = 0.02
+    for i in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as e:
+            if getattr(e, "winerror", None) not in _BUSY or i == attempts - 1:   # only Windows sets winerror
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.25)
+
+
 def write_text_atomic(path, text: str, encoding: str = "utf-8") -> None:
     """Write text so a crash/concurrent reader never sees a half-written file.
 
@@ -50,7 +76,7 @@ def write_text_atomic(path, text: str, encoding: str = "utf-8") -> None:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, path)
+        _replace_retrying(tmp, path)
     finally:
         if os.path.exists(tmp):
             try:
