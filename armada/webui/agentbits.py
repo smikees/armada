@@ -699,7 +699,7 @@ _COORD_TIP = ("A coordinator agent has realm-wide visibility and is added automa
 
 
 def _coord_mark(size: int = 15, tip: bool = False) -> str:
-    """The coordinator's medal, for beside an agent's name.
+    """The coordinator's laurel, for beside an agent's name.
 
     Said as a glyph rather than as the word "coordinator" in a pill: the role is a property of the
     agent, it appears in four different lists, and a word-shaped label in each of them competes for
@@ -710,7 +710,7 @@ def _coord_mark(size: int = 15, tip: bool = False) -> str:
     extra = f' class="mc-tip" data-tip="{E(_COORD_TIP)}"' if tip else ""
     return (f'<span{extra} title="Coordinator agent" aria-label="Coordinator agent" '
             f'style="display:inline-flex;flex:none;align-items:center;color:var(--color-accent-2);'
-            f'cursor:help">{_icon("medal", size)}</span>')
+            f'cursor:help">{_icon("laurel", size)}</span>')
 
 
 def _health7_header(today) -> str:

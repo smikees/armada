@@ -81,7 +81,7 @@ def _new_agent_form(realm, cancel_html: str) -> str:
             f'</div>'
             f'<label style="{_LBL};display:flex;align-items:center;gap:7px;cursor:pointer">'
             f'<input type="checkbox" id="n-coord" style="margin:0;flex:none"><span>Is coordinator</span>'
-            # The same medal the agent will wear once the box is ticked, so the mark is learnable
+            # The same laurel the agent will wear once the box is ticked, so the mark is learnable
             # from the place you set it rather than only from the lists that show it.
             + _coord_mark(16)
             + f'<span class="mc-tip" data-tip="A coordinator agent has realm-wide visibility and is added automatically to every goal." '
@@ -262,7 +262,7 @@ def _realm_ministers(realm, realm_root, today) -> str:
         week = (f'<div style="display:flex;justify-content:flex-end" '
                 f'title="Job outcomes, last 7 days">{_agent_week_strip(realm_root, a, now)}</div>')
         # Was a word-shaped pill beside the name. The role is a property of the agent and it shows
-        # up in four lists; the medal says it once, in the space a badge takes.
+        # up in four lists; the laurel says it once, in the space a badge takes.
         coordtag = (' ' + _coord_mark(16, tip=True)) if a.is_coordinator else ''
         profile = (f'<div style="font-size:11.5px;color:var(--text-dim);font-style:italic;'
                    f'margin-top:8px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden">{E(a.leader)}</div>') if a.leader else ""

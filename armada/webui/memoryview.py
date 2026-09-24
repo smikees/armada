@@ -97,11 +97,13 @@ def _mem_cards(items, scope: str, agent_id: str = "", realm=None, agent_display:
         scope_icon = _realm_icon(realm, 16) if realm is not None else _icon("landmark", 16)
         scope_tip = "Realm memory — loaded for every agent"
     elif scope == "agent":
-        scope_icon = _icon("head-snowflake", 16)
+        scope_icon = _icon("head-snowflake", 19)
         scope_tip = "Agent memory — loads only in this agent's threads"
     else:
         scope_icon, scope_tip = "", ""
-    icon_span = (f'<span title="{E(scope_tip)}" style="display:flex;flex:none;color:var(--text-muted)">{scope_icon}</span>') if scope_icon else ""
+    # The agent's icon is drawn larger and lifted so its middle sits on the tag line's middle (v0.99.63).
+    lift = "margin-top:-3px;" if scope == "agent" else ""
+    icon_span = (f'<span title="{E(scope_tip)}" style="display:flex;flex:none;{lift}color:var(--text-muted)">{scope_icon}</span>') if scope_icon else ""
     out = ""
     for stem, title, body, modified, kind, by in items:
         core = kind in ("core", "system")

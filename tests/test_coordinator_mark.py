@@ -33,8 +33,8 @@ def _agents(realm):
 
 
 def test_the_icon_exists_and_is_drawn():
-    assert ICONS.get("medal"), "the medal is missing from the registry"
-    assert "<svg" in _icon("medal", 16)
+    assert ICONS.get("laurel"), "the laurel is missing from the registry"
+    assert "<svg" in _icon("laurel", 16)
 
 
 def test_the_mark_says_what_it_means():

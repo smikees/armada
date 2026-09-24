@@ -36,7 +36,7 @@ function mcNext(){const m=document.getElementById('r-msg');const path=document.g
       <input type="checkbox" class="mc-preset" data-i="${i}" checked>
       <span style="font-family:var(--font-heading);font-weight:600;font-size:14px">${a.display}</span>
       <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--color-accent-700)">${a.role||''}</span>
-      ${a.coordinator?'<span title="Coordinator agent" style="display:inline-flex;margin-left:auto;color:var(--color-accent-2)">'+window.mcIcon('medal',16)+'</span>':''}</label>`).join('')
+      ${a.coordinator?'<span title="Coordinator agent" style="display:inline-flex;margin-left:auto;color:var(--color-accent-2)">'+window.mcIcon('laurel',16)+'</span>':''}</label>`).join('')
     ||'<div style="font-size:12px;color:var(--text-muted)">Blank template — add at least one agent below (the first becomes the coordinator).</div>';
   document.getElementById('wiz-1').style.display='none';document.getElementById('wiz-2').style.display='block';mcWizStep(2);mcReportH();}
 function mcBack(){document.getElementById('wiz-2').style.display='none';document.getElementById('wiz-1').style.display='block';mcWizStep(1);mcReportH();}
