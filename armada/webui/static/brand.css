@@ -433,3 +433,9 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 /* Appearance → Fonts (temporary, v0.99.62) */
 .mc-fontpick{display:flex;flex-direction:column;gap:3px;min-width:180px}
 .mc-fontsample{margin-top:10px;padding:10px 12px;border-radius:var(--r);background:var(--color-sand-100);max-width:520px}
+
+/* Logo pairs (brand._pair, v0.99.66): the dark-background artwork in dark mode, the standard one otherwise.
+   !important because each <img> carries display:block inline. */
+.mc-brand-dark{display:none!important}
+.armada-dark .mc-brand-light{display:none!important}
+.armada-dark .mc-brand-dark{display:block!important}

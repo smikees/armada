@@ -123,7 +123,7 @@ def test_a_command_job_is_still_free_and_undialled():
 
 def test_the_legend_says_what_the_strip_covers():
     leg = AB._status_legend()
-    assert "-/+3D job outcome and outlook" in leg
+    assert "Last 3 days · next 3 days" in leg
     assert "7-day health" not in leg
 
 

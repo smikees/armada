@@ -29,6 +29,10 @@ LOGO_ASSET = "armada-logo.png"         # the mark shown in the titlebar (transpa
                                         # exported from "Armada - logo - symbol.svg" at 30px tall)
 WORDMARK_ASSET = "armada-wordmark.png"  # full lockup (mark + "ARMADA"), used where there's room for
                                          # it — exported from "Armada - logo - standard.svg", 208x36
+# White versions for dark mode (Mihai, v0.99.66), exported the same way and at the same sizes from
+# "Armada logo symbol/standard white (for dark bg).svg".
+LOGO_DARK_ASSET = "armada-logo-dark.png"
+WORDMARK_DARK_ASSET = "armada-wordmark-dark.png"
 ICON_FILE = "armada.ico"           # OS window/taskbar icon (multi-size, from the 256px emblem)
 
 _STATIC = Path(__file__).resolve().parent / "webui" / "static"
@@ -45,20 +49,28 @@ def _asset_v(asset: str) -> int:
 _LOGO_V = _asset_v(LOGO_ASSET)
 _WORDMARK_V = _asset_v(WORDMARK_ASSET)
 
+
+def _pair(light: str, dark: str, height: int, cls: str = "") -> str:
+    """The light-background asset and its dark-mode twin, side by side; brand.css shows one of them
+    (`.mc-brand-dark` only under `.armada-dark`). Both are in the page, so switching colour mode —
+    including the System setting following Windows — swaps the logo with no reload and no flash."""
+    style = "display:block;flex:none;width:auto;max-width:none"
+    c = f" {cls}" if cls else ""
+    return (f'<img src="/static/{light}?v={_asset_v(light)}" alt="{NAME}" class="mc-brand-light{c}" '
+            f'height="{height}" style="{style}">'
+            f'<img src="/static/{dark}?v={_asset_v(dark)}" alt="{NAME}" class="mc-brand-dark{c}" '
+            f'height="{height}" style="{style}" aria-hidden="true">')
+
 # The titlebar logo and a small square-ish mark, both drawing the exact brand SVG (fixed brand colours).
 # max-width:none overrides the global `img{max-width:100%}` reset (industry.css) so the logo keeps
 # its fixed natural size and never shrinks/jumps when the window or header layout changes width.
 # 26px since v0.99.62 (was 30 — Mihai: "a bit smaller" in the app).
-LOGO = (f'<img src="/static/{LOGO_ASSET}?v={_LOGO_V}" alt="{NAME}" class="wordmark" '
-        f'height="26" style="display:block;flex:none;width:auto;max-width:none">')
-MARK = (f'<img src="/static/{LOGO_ASSET}?v={_LOGO_V}" alt="{NAME}" '
-        f'height="16" style="display:block;flex:none;width:auto;max-width:none">')
+LOGO = _pair(LOGO_ASSET, LOGO_DARK_ASSET, 26, "wordmark")
+MARK = _pair(LOGO_ASSET, LOGO_DARK_ASSET, 16)
 # The full lockup — mark + wordmark — for spots with room to spare, like the About/version box.
-WORDMARK = (f'<img src="/static/{WORDMARK_ASSET}?v={_WORDMARK_V}" alt="{NAME}" '
-            f'height="36" style="display:block;flex:none;width:auto;max-width:none">')
+WORDMARK = _pair(WORDMARK_ASSET, WORDMARK_DARK_ASSET, 36)
 # Settings → App → version: the lockup at ~70% (Mihai, v0.99.62), the version beside it without the name.
-WORDMARK_SMALL = (f'<img src="/static/{WORDMARK_ASSET}?v={_WORDMARK_V}" alt="{NAME}" '
-                  f'height="25" style="display:block;flex:none;width:auto;max-width:none">')
+WORDMARK_SMALL = _pair(WORDMARK_ASSET, WORDMARK_DARK_ASSET, 25)
 
 
 # Release channel (launch plan 5.7). While it's set, the window title, the nav, the welcome page and

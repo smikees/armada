@@ -15,6 +15,10 @@ inside docstrings/CLI logs — those aren't part of the app's visual chrome. The
 
 Cache-buster so a new logo shows at once instead of waiting out the browser's cache.
 
+### `_pair(light: str, dark: str, height: int, cls: str='')`
+
+The light-background asset and its dark-mode twin, side by side; brand.css shows one of them (`.mc-brand-dark` only under `.armada-dark`). Both are in the page, so switching colour mode — including the System setting following Windows — swaps the logo with no reload and no flash.
+
 ### `window_title()`
 
 The OS window title: 'ARMADA beta' during the beta, 'ARMADA' after.

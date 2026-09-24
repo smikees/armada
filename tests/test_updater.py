@@ -174,11 +174,22 @@ def test_code_that_doesnt_carry_its_signed_version_is_refused(inst):
     assert not r["ok"] and not updater.staged_version()
 
 
-def test_offline_or_no_release_yet_is_a_quiet_error(inst):
+def test_no_release_yet_is_an_answer_not_an_error(inst, caplog):
+    import urllib.error
+
+    def none_yet(url, limit):
+        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+    with caplog.at_level("INFO", logger="armada.updater"):
+        r = updater.check(fetch=none_yet)
+    assert r["ok"] and not r["newer"] and r["detail"] == "no release published yet"
+    assert not any(rec.exc_info for rec in caplog.records), "no traceback every 12 hours for this"
+
+
+def test_offline_is_a_quiet_error(inst):
     def offline(url, limit):
-        raise OSError("HTTP Error 404: Not Found")
+        raise OSError("network unreachable")
     r = updater.check(fetch=offline)
-    assert not r["ok"] and r["error"] == "no release published yet"
+    assert not r["ok"] and r["error"].startswith("couldn't reach GitHub")
 
 
 def test_manifest_shape_is_checked_after_the_signature(inst):

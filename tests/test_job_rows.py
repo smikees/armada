@@ -211,7 +211,7 @@ def test_the_legend_is_shown(realm):
     html = AF._tab_jobs(m, realm, m.agents[0], datetime.date.today())
     for label in ("Warning", "Failed", "Missed", "Not scheduled"):
         assert label in html, f"legend missing {label}"
-    assert "-/+3D job outcome and outlook" in html
+    assert "Last 3 days · next 3 days" in html
 
 
 def test_health_is_computed_by_the_shared_helper(realm):
@@ -334,7 +334,7 @@ def test_next_run_uses_one_implementation():
 def test_the_legend_is_right_aligned(realm):
     m = reader.read(str(realm))
     html = AF._tab_jobs(m, realm, m.agents[0], datetime.date.today())
-    wrap = html.split("-/+3D job outcome and outlook")[0].rsplit("<div", 2)[-2]
+    wrap = html.split("Last 3 days · next 3 days")[0].rsplit("<div", 2)[-2]
     assert "justify-content:flex-end" in wrap, "legend is not pushed right"
 
 

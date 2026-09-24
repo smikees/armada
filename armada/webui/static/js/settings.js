@@ -233,14 +233,18 @@ async function mcCheckUpd(b){const m=document.getElementById('mc-updcheck');m.te
       else if(j.needs_installer){m.innerHTML='';const a=document.createElement('a');a.href=j.url;a.target='_blank';a.rel='noopener';
         a.style.color='var(--color-accent)';a.textContent='v'+j.latest+' needs the new installer — get it ↗';m.appendChild(a);}
       else if(!j.ok){m.textContent=j.error||'check failed';m.style.color='var(--status-bad)';}
-      else{m.textContent=j.detail||"you're up to date ✓";}
+      else{mcUpToDate(m);}
     }
     else if(j.newer){m.textContent='';m.style.color='var(--color-accent)';
       box.style.display='block';
       um.textContent=(j.behind?('v'+(j.latest||'?')+' available — '+j.behind+' commit(s) behind'):'a newer version is available');}
     else if(j.error){var e=j.error;var local=/upstream|remote/i.test(e);m.textContent=local?'local build — no update channel (use Restart to load local changes)':('error: '+e);m.style.color='var(--text-muted)';}
-    else{m.textContent="you're up to date ✓";m.style.color='var(--text-muted)';}
+    else{mcUpToDate(m);}
   }catch(e){m.textContent='error: '+e;}b.disabled=false;}
+// "✓ Using the latest version" (Mihai, v0.99.66) — the answer to Check for updates when there's
+// nothing newer, including before the first release is published.
+function mcUpToDate(m){m.style.color='var(--status-ok)';m.style.display='inline-flex';m.style.alignItems='center';m.style.gap='4px';
+  m.innerHTML=window.mcIcon('circle-check-fill',13)+'<span>Using the latest version</span>';}
 // The automatic-updates switch (Settings → App → Advanced; 5.4).
 async function mcUpdAuto(el){const m=document.getElementById('mc-updauto-msg');
   try{const r=await(await fetch('/api/update-auto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:el.checked})})).json();

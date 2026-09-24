@@ -735,7 +735,7 @@ def _status_legend() -> str:
             # What the strip actually covers, rather than a label that could mean either. This
             # week is centred on today: three days of what happened, then three of what is due.
             f'color:var(--text-42)">'
-            f'-/+3D job outcome and outlook</span>{_health_legend_chips()}</div>')
+            f'Last 3 days · next 3 days</span>{_health_legend_chips()}</div>')
 
 
 # The order the rollup below reads as "worst". Missed and Failed are things that went wrong and the

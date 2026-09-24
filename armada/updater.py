@@ -341,8 +341,15 @@ def check(download: bool = True, fetch=None) -> dict:
         _save(checked=now, status="rejected", detail=str(e))
         return {"ok": False, "installed": True, "newer": False, "error": str(e), "detail": str(e)}
     except Exception as e:  # noqa — offline, GitHub down, no release yet: try again later
+        if getattr(e, "code", None) == 404:
+            # No release has been published: nothing newer than this copy exists, which is an
+            # answer, not a fault (it logged a full traceback every 12 hours until v0.99.66).
+            log.info("update: no release published yet")
+            _save(checked=now, latest="", status="current", detail="no release published yet")
+            return {"ok": True, "installed": True, "newer": False, "latest": "",
+                    "detail": "no release published yet"}
         swallowed(log, "check: could not reach the release channel", level=logging.WARNING)
-        msg = "no release published yet" if "404" in str(e) else f"couldn't reach GitHub ({type(e).__name__})"
+        msg = f"couldn't reach GitHub ({type(e).__name__})"
         _save(checked=now, status="error", detail=msg)
         return {"ok": False, "installed": True, "newer": False, "error": msg, "detail": msg}
 

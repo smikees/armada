@@ -4,7 +4,7 @@
 
 A real, clickable cockpit served on 127.0.0.1: browse agents and jobs, read each job's actual
 prompt, **run** a job (mock or the live engine) and watch the output, ask "what's due now", and
-one-click **Update & Restart** (git pull + hot re-exec). stdlib-only, local-only, no deps — the
+one-click **Update & Restart** (the signed updater in an installed copy, git pull in a checkout). stdlib-only, local-only, no deps — the
 engine underneath is the same runner/scheduler the CLI uses. Later this same UI gets wrapped in a
 native window; today it's the browser reaching http://127.0.0.1:<port>.
 

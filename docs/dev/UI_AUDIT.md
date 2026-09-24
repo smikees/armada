@@ -110,14 +110,14 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
 
 ## C — Copy and words
 
-- [ ] **C1** Jobs legend reads "-/+3D JOB OUTCOME AND OUTLOOK" — cryptic. → "Last 3 days · next 3
+- [x] **C1** *(v0.99.66)* Jobs legend reads "-/+3D JOB OUTCOME AND OUTLOOK" — cryptic. → "Last 3 days · next 3
   days" (the strip is ±3 days around today). S · **H**
 - [ ] **C2** **Dates come in six formats**: `Thu 9/24, 22:30` (Jobs next run — US month/day, on a
   European owner's machine), `17/09/26` (minister appointed), `19-09-26 14:40` (artefacts),
   `21-09-26` (memory, goals), `01 Oct 2027` (goal ETA), `Thu 24th` (Register next run). Add one
   formatter to `webui/schedfmt.py` implementing DESIGN_SYSTEM §9a and route every date through it —
   including `static/js/sysjobs.js`'s copy. M · **S**
-- [ ] **C3** Inbox: the page subtitle says "tasks your agents have handed each other"; the sections
+- [x] **C3** *(v0.99.66)* Inbox: the page subtitle says "tasks your agents have handed each other"; the sections
   say "New messages" and "Message archive". → tasks (§9). S · **H**
 - [ ] **C4** **M:** capability risk has two word sets for one red/amber/green scale — "Caution /
   Review / Trusted" (User tab, legend) and "High / Medium / Low risk" (bring-a-link review card).
@@ -149,14 +149,14 @@ minimum (a 1366×768 laptop can't show the whole window).
 
 - [ ] **L1** Externalize `webui/_core._WIZ_JS` (61-line new-realm wizard) to
   `static/js/newrealm_wizard.js`. S · **H**
-- [ ] **L2** Confirm `serve.APP_HTML` is unreferenced; delete it. S · **H**
+- [x] **L2** *(v0.99.66)* Confirm `serve.APP_HTML` is unreferenced; delete it. S · **H**
 - [ ] **L3** The ~30 `color-mix(` calls in `static/js/*.js` → the 2.2 tokens. M · **H**
 - [x] **L4** *(v0.99.45)* Lock `routes/agents._save_agent`'s `agent.json` read-modify-write (it races
   `capabilities.py`'s locked grant writes). With a test. S · **S**
 - [x] **L5** *(v0.99.45 — locked, kept in the render path; the no-change case takes no lock)* Thread `meta.json` written during a render (`_touch_last_thread`,
   `_clear_thread_unread`) and `_load_dashboard`'s migration write: lock them, or move the writes
   out of the render path. With a test. M · **S**
-- [ ] **L6** Effort dropdown lacks `xhigh`, which the runner accepts. S · **H**
+- [x] **L6** *(v0.99.66)* Effort dropdown lacks `xhigh`, which the runner accepts. S · **H**
 - [x] **L7** *(v0.99.54 — `sysjobs.run_one` stamped `last_run` with real time while the page read the
   frozen clock, and the boot-time system job raced the first render; both fixed, both regolded)* Golden pages `jobs` and `agent_threads` have been failing since before 2.1 and are
   left un-regolded every release, so they no longer guard anything. Find why they differ (the

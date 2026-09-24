@@ -1330,7 +1330,7 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
         if not reply and not pending:
             acts += (f'<a class="mc-cap-ico" title="Mark unread — run it again next pass" '
                      f'data-act="unread" data-agent="{aid}" data-id="{mid}">{_icon("mark-unread",16)}</a>')
-        acts += (f'<a class="mc-cap-ico" title="Delete this message" '
+        acts += (f'<a class="mc-cap-ico" title="Delete this task" '
                  f'data-act="delete" data-agent="{aid}" data-id="{mid}" '
                  f'style="color:var(--text-muted)">{_icon("trash",15)}</a>')
         # Filtering is client-side off these attributes, so it stays instant and needs no round-trip.
@@ -1444,15 +1444,15 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
     archive_block = (
         f'<details id="ib-archive" style="margin-top:6px">'
         f'<summary style="cursor:pointer;font-family:var(--font-heading);font-weight:600;'
-        f'font-size:14px">Message archive '
+        f'font-size:14px">Task archive '
         f'<span style="font-weight:400;font-size:12px;color:var(--text-muted)">'
-        f'· {len(arch)} older message{"" if len(arch) == 1 else "s"}</span></summary>'
+        f'· {len(arch)} older task{"" if len(arch) == 1 else "s"}</span></summary>'
         f'{arch_search}'
         f'<div class="mc-inbox-sec"><div class="mc-inbox-list">{arch_body}</div>'
         f'<div class="mc-inbox-none" style="display:none;font-size:12.5px;color:var(--text-muted)">'
         f'Nothing in the archive matches.</div></div></details>')
     n_new = len(data["waiting"])
-    new_title = f"New messages ({n_new})" if n_new else "New messages"
+    new_title = f"New tasks ({n_new})" if n_new else "New tasks"
     return (f'{off_note}<div style="max-width:900px">{filters}'
             f'{section(new_title, "waiting to be picked up on the next inbox run", data["waiting"])}'
             f'{section("Processed in the last 24h", "", data["recent"])}'

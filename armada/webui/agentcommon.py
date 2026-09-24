@@ -190,7 +190,7 @@ def _autonomy_control(current: str, field_id: str) -> str:
 
 
 
-_EFFORTS = ["low", "medium", "high", "max"]
+_EFFORTS = ["low", "medium", "high", "xhigh", "max"]   # the runner's levels (runner._EFFORT_LEVELS)
 # Filter bucket → the legend's name for it. The dropdown used to carry its own table of flat
 # colours, which drifted the moment the legend gained tinted fills and a glyph for Missed: the menu
 # was still offering a solid teal "Success" the strip had not drawn in two revisions. There is one
