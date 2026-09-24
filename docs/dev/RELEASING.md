@@ -53,7 +53,21 @@ Then open the pages the change touched, in light and dark mode, and check the br
 errors. The scheduler is a separate process: a change to `scheduler.py`, `runner.py`,
 `sysjobs.py` or `telegram.py` takes effect when it restarts (SCHEDULER.vbs), not on `/restart`.
 
-## 6. Record it
+## 6. Publish
+
+Decided by Mihai 2026-09-24: every release is pushed to the public repo
+([github.com/smikees/armada](https://github.com/smikees/armada)) as part of the routine, not on request.
+
+```powershell
+git push origin main
+```
+
+Before pushing, the commit must not add anything personal: no realm data, no keys (the Resend key
+lives in `MATCAP-private\resend.key`, outside the repo, and never in it), no personal figures.
+Commits are authored with the GitHub no-reply address (repo-local `user.email`). Only `main` is
+pushed; `archive/private-history` stays local.
+
+## 7. Record it
 
 - Tick the step in `docs/LAUNCH_PLAN.md` with the version and a short "done" note in the style of
   the ones above it (what, the non-obvious decisions, what tests guard it). Mihai signs off phases.
