@@ -625,8 +625,10 @@ Strangers will install this on machines we've never seen. Everything above assum
       holds personal data (an early cockpit render with real finance and health figures) and an
       unlicensed font; the full history stays local (`archive/pre-public` branch + a bundle in
       `MATCAP-private/`). Commits use the GitHub no-reply address. The tree was cleaned first
-      (v0.99.55). **MIHAI**: `gh auth login` (the push needs your GitHub sign-in). Then → Opus/Sonnet:
-      create the repo, push, and build 5.4 on GitHub Releases.
+      (v0.99.55). **Published 2026-09-24:** [github.com/smikees/armada](https://github.com/smikees/armada),
+      public, branch `main`, one commit at v0.99.56 (after the internal rename). Locally the old
+      history is `archive/private-history` (never pushed) + a bundle in `MATCAP-private/`. Next →
+      build 5.4 on GitHub Releases.
 - [x] 5.5 Scheduler as a service: starts with the app, survives the app closing (it already
       runs separately), one instance only (2.9), restarts after reboot. A status indicator in
       the app when it isn't running — a silent dead scheduler is "my jobs stopped" with no
