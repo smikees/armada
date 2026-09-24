@@ -180,6 +180,7 @@ class ServedRealm:
 
 _SUBS = [
     (re.compile(r"\?v=\d+"), "?v=V"),                                   # static cache-buster (mtime)
+    (re.compile(r"http://127\.0\.0\.1:\d+"), "http://127.0.0.1:PORT"),         # the content server's port (5.8a)
     (re.compile(r"\bv\d+\.\d+\.\d+\b"), "vX"),                          # app version string (bumps each release)
     (re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+\-]\d{2}:\d{2}"), "TS"),  # iso timestamps
     # Bare YYYY-MM-DD — the artefact filters render today's date into `max=`, so without this the

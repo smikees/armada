@@ -20,9 +20,11 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 - `Handler._host_ok(self)` — —
 - `Handler._refuse_host(self)` — —
 - `Handler.log_message(self, *args)` — —
+- `Handler._cross_site(self)` — —
 - `Handler.do_GET(self)` — —
 - `Handler._route_welcome_get(self, path: str)` — —
 - `Handler._route_welcome_post(self, path: str)` — —
+- `Handler._untrusted(self, path: str)` — Is this request for content ARMADA didn't write (5.8a)? Section pages always; a thread attachment only when it's a type that runs as a document (HTML, SVG, …).
 - `Handler._route_get(self)` — —
 - `Handler._err_page(self, e, bare: bool=False)` — —
 - `Handler._dark(self)` — Whether to render this page dark.
@@ -54,6 +56,17 @@ The cockpit's HTTP server.
 ### `port_owner(port: int=8756)`
 
 True if something is already listening on the loopback port.
+
+### class `ContentHandler`
+
+The content-only server (5.8a): the untrusted pages and nothing else — no API, no POST.
+
+- `ContentHandler._route_get(self)` — —
+- `ContentHandler.do_POST(self)` — —
+
+### `start_content_server(port: int)`
+
+Bind the content server on `port` (the app's port + 1), or any free port if that one is still held — Update & Restart hands ports over, and for a moment the old process may keep it. Returns the port bound, or None if nothing could be (the app then sandboxes that content itself).
 
 ### `serve(realm: str, port: int=8756)`
 

@@ -9,7 +9,7 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 from __future__ import annotations
 import http.server, io, json, logging, os, subprocess, sys, threading, time, urllib.parse, contextlib
 from pathlib import Path
-from . import activerealm, reader, render, scheduler, util, brand
+from . import activerealm, reader, render, scheduler, util, brand, origins
 from .util import safe_seg
 from .routes import realm as routes_realm, agents as routes_agents, jobs as routes_jobs
 from .routes import caps as routes_caps, catalogue as routes_catalogue, settings as routes_settings
@@ -33,6 +33,11 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
+        if getattr(self, "_sandbox_this", False):
+            # Untrusted content served from the app's own origin — only when the content server
+            # couldn't start (5.8a). Opaque origin: its scripts can reach nothing of the app's.
+            self.send_header("Content-Security-Policy",
+                             "sandbox allow-scripts allow-forms allow-popups allow-downloads allow-modals")
         if cache:
             # Cacheable static assets (CSS/JS/fonts). Safe because their <link>/<script> URLs carry a
             # ?v=<mtime> cache-buster that changes on Update & Restart, forcing a refetch of changed
@@ -103,9 +108,26 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     def log_message(self, *args):  # noqa — silence default per-request stderr spam; we log our own
         pass
 
+    # A page on another origin — a website, or the content server's own untrusted pages (5.8a) — can
+    # make the browser GET any URL here (an <img>, a link), and a few GETs change things (/switch,
+    # /api/chat-stop). Browsers say where a request came from; refuse the ones from elsewhere. Static
+    # files stay loadable; the app window's own navigations are same-origin or "none".
+    _REFUSE_CROSS_SITE = True
+
+    def _cross_site(self) -> bool:
+        sfs = (self.headers.get("Sec-Fetch-Site") or "").lower()
+        return self._REFUSE_CROSS_SITE and sfs in ("cross-site", "same-site") \
+            and not urllib.parse.urlparse(self.path).path.startswith("/static/")
+
     def do_GET(self):
+        self._sandbox_this = False             # per request, even on a kept-alive connection
         if not self._host_ok():
             self._refuse_host()
+            return
+        if self._cross_site():
+            log.warning("refused cross-site GET %s (Sec-Fetch-Site=%s)", self.path,
+                        self.headers.get("Sec-Fetch-Site"))
+            self._send(403, "cross-site request refused", "text/plain")
             return
         try:
             self._route_get()
@@ -175,11 +197,28 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         else:
             self._json(409, {"ok": False, "error": "no realm is open yet"})
 
+    def _untrusted(self, path: str) -> bool:
+        """Is this request for content ARMADA didn't write (5.8a)? Section pages always; a thread
+        attachment only when it's a type that runs as a document (HTML, SVG, …)."""
+        if path.startswith(("/section-raw/", "/section-asset/")):
+            return True
+        if path == "/thread-file":
+            return origins.is_active(self._query().get("name", ""))
+        return False
+
     def _route_get(self):
         path = urllib.parse.urlparse(self.path).path
         if not self.realm:
             self._route_welcome_get(path)
             return
+        if self._untrusted(path):
+            if origins.content_port():
+                self.send_response(302)
+                self.send_header("Location", origins.content_url(self.path))
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            self._sandbox_this = True          # no content server: serve it here, sandboxed
         if path.lstrip("/") in self._REALM_PAGES:
             self._get_realm_page(path.lstrip("/"))
             return
@@ -444,6 +483,59 @@ def port_owner(port: int = 8756) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
+class ContentHandler(Handler):
+    """The content-only server (5.8a): the untrusted pages and nothing else — no API, no POST.
+
+    It shares the app's realm (a class attribute read through inheritance, so /switch on the app
+    moves both) and its handlers; only the routing differs. A different port is a different origin:
+    what runs here can't read the app, and the app refuses its POSTs and its cross-site GETs.
+    """
+    _REFUSE_CROSS_SITE = False     # the app's own frames load it from :8756 — "same-site" by design
+
+    def _route_get(self):
+        path = urllib.parse.urlparse(self.path).path
+        if not self.realm:
+            self._send(404, "no realm open", "text/plain")
+            return
+        if path == "/thread-file":
+            self._get_thread_file()
+            return
+        for prefix, mname in (("/section-raw/", "_section_raw"), ("/section-asset/", "_section_asset")):
+            if path.startswith(prefix):
+                getattr(self, mname)(path)
+                return
+        self._send(404, "not found", "text/plain")
+
+    def do_POST(self):
+        self._send(403, "this server serves content only", "text/plain")
+
+
+def start_content_server(port: int) -> int | None:
+    """Bind the content server on `port` (the app's port + 1), or any free port if that one is still
+    held — Update & Restart hands ports over, and for a moment the old process may keep it. Returns
+    the port bound, or None if nothing could be (the app then sandboxes that content itself)."""
+    deadline = time.monotonic() + 3.0
+    for want in (port, 0):
+        while True:
+            try:
+                httpd = _Server(("127.0.0.1", want), ContentHandler)
+                break
+            except OSError:
+                if want == 0 or time.monotonic() > deadline:
+                    httpd = None
+                    break
+                time.sleep(0.25)
+        if httpd is not None:
+            got = httpd.server_address[1]
+            threading.Thread(target=httpd.serve_forever, name="armada-content", daemon=True).start()
+            origins.set_content_port(got)
+            log.info("content server on :%s (untrusted pages, no API)", got)
+            return got
+    log.error("content server could not bind; untrusted pages will be sandboxed on the app's port")
+    origins.set_content_port(None)
+    return None
+
+
 def serve(realm: str, port: int = 8756):
     Handler.realm = realm
     _init_logging(realm)
@@ -460,6 +552,7 @@ def serve(realm: str, port: int = 8756):
             log.error("ARMADA: port %s already has a live server — is ARMADA already running?", port)
             raise OSError(f"port {port} is already serving — ARMADA may already be running")
         time.sleep(0.25)
+    start_content_server(port + 1)
     if not realm:
         # First run (5.3): nothing to open yet. Serve the welcome page until a realm exists.
         try:

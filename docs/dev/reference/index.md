@@ -36,6 +36,7 @@
 | [`model`](model.md) | ARMADA domain model (neutral ontology). |
 | [`models`](models.md) | Model catalog — the Claude models ARMADA offers in its dropdowns, synced from the live API list. |
 | [`notify`](notify.md) | Desktop notifications — native Windows toasts, best-effort. |
+| [`origins`](origins.md) | Where untrusted content is served from (launch plan 5.8a, THREAT_MODEL T3). |
 | [`preflight`](preflight.md) | Is this realm actually able to run *here*? |
 | [`reader`](reader.md) | ARMADA realm reader — adopts a realm folder into the model. |
 | [`realmformat`](realmformat.md) | The realm's on-disk format version, and the one place that upgrades it. |

@@ -681,12 +681,17 @@ Strangers will install this on machines we've never seen. Everything above assum
       (v0.99.43, Host allowlist); and ~40 `onclick="f('{E(x)}')"` sites let a quote in a
       capability name or model-written thread title run as script (v0.99.44, `_base._J`). Open
       findings are the tickets below; T7 (no login on the local port) is accepted for the beta.
-- [ ] 5.8a **Approved by Mihai 2026-09-24 (option 2, second port)** → Sonnet · Untrusted HTML on the app's origin (THREAT_MODEL T3): section
+- [x] 5.8a *(v0.99.58)* **Approved by Mihai 2026-09-24 (option 2, second port)** → Sonnet · Untrusted HTML on the app's origin (THREAT_MODEL T3): section
       mini-sites, mirrored external pages and `.html` attachments run scripts that can call the
       whole API. Options: (1) send `Content-Security-Policy: sandbox allow-scripts allow-forms
       allow-popups` on those responses — small change, but a sandboxed page can't use
       `localStorage`, so a mini-site's own theme toggle may stop remembering; (2) serve them from a
       second local port (a different origin) — nothing breaks, more work. Recommendation: (2).
+      Done as v0.99.58 (Opus 5.5): option 2, with option 1 as the fallback when the second port
+      can't bind. `origins.py` + `serve.ContentHandler` (port + 1, falls back to any free port
+      after a restart hand-over). Found on the way: GETs that change state (`/switch`,
+      `/api/chat-stop`) were reachable from any page by `<img src>` — the app now refuses
+      cross-site GETs outright. `tests/test_content_origin.py` drives both servers over HTTP.
 - [x] 5.8b *(v0.99.57)* **Approved by Mihai 2026-09-24** → Sonnet · Bring-a-link reviews run with full tools on untrusted content
       (T4). Recommendation: run the review turn with only read/fetch tools (deny Bash, Write,
       Edit, NotebookEdit, Task…) and accept a shallower review; a reviewer that can be told to

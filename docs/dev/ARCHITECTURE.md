@@ -17,6 +17,7 @@ ARMADA is a local, single-user app over a folder. Two long-lived processes, one 
 ```
 ARMADA.vbs ─► armada app ─► app.py (pywebview window)
                               └─ thread: serve.serve()  ── HTTP on 127.0.0.1:8756
+                                   + thread: ContentHandler ── 127.0.0.1:8757, untrusted pages only (5.8a)
                                    Handler = route tables (serve.py) + mixins (routes/*)
                                    GET  → reader.read(realm) → webui.render_*() → HTML
                                    POST → routes/* → realm files (locked, atomic)

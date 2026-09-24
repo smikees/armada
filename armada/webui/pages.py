@@ -1049,7 +1049,11 @@ def render_section(realm, idx: int, dark=False) -> str:
     url = s.get("url") if isinstance(s, dict) else ""
     snapshot = s.get("snapshot") if isinstance(s, dict) else ""
     assets = s.get("assets") if isinstance(s, dict) else ""
-    iframe = (f'<iframe src="/section-raw/{idx}" title="{E(name)}" '
+    # From the content origin, sandboxed (5.8a): a section is someone's HTML and JavaScript — a
+    # mini-site, a mirrored page, a live site — and must not share the app's origin or steer its window.
+    from .. import origins as _origins
+    iframe = (f'<iframe src="{E(_origins.content_url(f"/section-raw/{idx}"))}" title="{E(name)}" '
+              f'sandbox="{_origins.FRAME_SANDBOX}" '
               f'style="width:100%;height:100%;border:0;background:#fff"></iframe>')
     if assets and (s.get("entry") if isinstance(s, dict) else ""):
         # 'app section' — renders its own header/controls; ARMADA adds only a slim strip with a live link
