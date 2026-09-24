@@ -43,15 +43,24 @@ the tests now guard).
 
 ## 5. Ship to the running app
 
+Since 2026-09-24 Mihai's everyday ARMADA is the **installed** copy (`%LOCALAPPDATA%\Programs\ARMADA`),
+so a change reaches him as a release: do §6 and §6b first, then update his copy the way Check for
+updates → Restart to update does, and confirm the version:
+
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8756/restart
-Start-Sleep 6
-(Invoke-WebRequest http://127.0.0.1:8756/settings -UseBasicParsing).Content -match '<b>v([0-9.]+)</b>'; $Matches[1]
+$b = "http://127.0.0.1:8756"
+Invoke-RestMethod "$b/api/check-update" -TimeoutSec 180          # downloads, verifies, stages
+$u = Invoke-RestMethod "$b/update" -Method Post                  # swaps it in (or asks the scheduler to)
+if ($u.applied) { Invoke-RestMethod "$b/restart" -Method Post }
+Start-Sleep 8; (Invoke-RestMethod "$b/api/update-status").version
 ```
 
 Then open the pages the change touched, in light and dark mode, and check the browser console for
-errors. The scheduler is a separate process: a change to `scheduler.py`, `runner.py`,
-`sysjobs.py` or `telegram.py` takes effect when it restarts (SCHEDULER.vbs), not on `/restart`.
+errors. The scheduler is a separate process: it restarts itself onto new code when it's idle (the
+updater), or on its next start.
+
+A development-only check (the dev checkout on a spare port, not Mihai's window):
+`.venv\Scripts\python -m armada serve --port 8799`.
 
 ## 6. Publish
 
@@ -72,7 +81,8 @@ pushed; `archive/private-history` stays local.
 ### 6b. Publish an update release (once installed copies exist — from 5.2 / 5.10 on)
 
 Installed copies update themselves from GitHub Releases (5.4, [ADR-011](../adr/ADR-011-updater.md)).
-After the push, from the same commit:
+Every release is published (Mihai, 2026-09-24). After the push, from the same commit — or all of it
+in one go with `.venv\Scripts\python tools\publish_release.py`:
 
 ```powershell
 .venv\Scripts\python tools\build_release.py          # signs with ..\MATCAP-private\update-signing.key

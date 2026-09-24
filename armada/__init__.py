@@ -3,7 +3,7 @@ team of AI agents. v0.1: read-only cockpit over an existing realm folder.
 
 See ../SPEC.md for the full product & architecture spec.
 """
-__version__ = "0.99.66"
+__version__ = "0.99.67"
 
 
 

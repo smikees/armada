@@ -244,7 +244,7 @@ async function mcCheckUpd(b){const m=document.getElementById('mc-updcheck');m.te
 // "✓ Using the latest version" (Mihai, v0.99.66) — the answer to Check for updates when there's
 // nothing newer, including before the first release is published.
 function mcUpToDate(m){m.style.color='var(--status-ok)';m.style.display='inline-flex';m.style.alignItems='center';m.style.gap='4px';
-  m.innerHTML=window.mcIcon('circle-check-fill',13)+'<span>Using the latest version</span>';}
+  const t=document.getElementById('mc-ico-ok');m.innerHTML=(t?t.innerHTML:'')+'<span>Using the latest version</span>';}
 // The automatic-updates switch (Settings → App → Advanced; 5.4).
 async function mcUpdAuto(el){const m=document.getElementById('mc-updauto-msg');
   try{const r=await(await fetch('/api/update-auto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:el.checked})})).json();

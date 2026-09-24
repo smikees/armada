@@ -757,6 +757,8 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px" onclick="mcCheckUpd(this)">{_icon("download",13)}Check for updates</button>'
         f'<a onclick="mcChangelog(true)" style="cursor:pointer;font-size:12px;color:var(--color-accent);display:inline-flex;align-items:center;gap:4px">{_icon("book-open",13)}Changelog</a>'
         f'<span id="mc-updcheck" style="font-size:12px;color:var(--text-muted)"></span></div>'
+        # The tick for "Using the latest version" (settings.js copies it; this page has no mcIcon).
+        f'<template id="mc-ico-ok">{_icon("circle-check-fill", 13)}</template>'
         f'<div style="font-size:11px;color:var(--text-muted);margin-top:6px">{E(_upd_hint)}</div>'
         f'<div id="mc-updbox" style="display:none;margin-top:10px">'
         f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px" id="mc-updbtn" onclick="mcUpd(this)">{_icon("download",14)}Update &amp; Restart</button>'

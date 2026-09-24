@@ -393,3 +393,16 @@ def test_build_release_refuses_a_key_the_app_doesnt_trust(tmp_path, monkeypatch)
     monkeypatch.setattr(br, "ROOT", repo)
     with pytest.raises(SystemExit, match="isn't the one"):
         br.build(key, tmp_path / "dist")
+
+
+def test_the_up_to_date_answer_has_its_tick_on_the_settings_page():
+    """Check for updates → "✓ Using the latest version". The Settings page doesn't load the shared
+    icon helper (window.mcIcon), so the tick is rendered into the page and copied by settings.js —
+    v0.99.66 called mcIcon and showed "error: TypeError" instead."""
+    from armada.webui import pages
+    src = Path(pages.__file__).read_text(encoding="utf-8")
+    js = (Path(pages.__file__).parent / "static" / "js" / "settings.js").read_text(encoding="utf-8")
+    assert 'id="mc-ico-ok"' in src and "circle-check-fill" in src
+    fn = js[js.index("function mcUpToDate"):]
+    fn = fn[:fn.index("}}") + 2]
+    assert "mcIcon" not in fn and "mc-ico-ok" in fn and "Using the latest version" in fn
