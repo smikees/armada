@@ -25,3 +25,37 @@ def test_restart_logs_what_it_re_executes():
     import inspect
     src = inspect.getsource(serve.Handler._restart)
     assert 'log.info("restart: re-executing' in src and "log.exception" in src
+
+
+# --- the restart race (found 2026-09-24, cause of the v0.99.51 restart that never came back) -------
+
+class _Boom:
+    def serve_forever(self):
+        raise OSError(10038, "An operation was attempted on something that is not a socket")
+
+
+def test_a_closed_socket_during_a_restart_is_not_a_crash(monkeypatch):
+    import threading
+    monkeypatch.setattr(serve.time, "sleep", lambda s: None)
+    serve.RESTARTING.set()
+    try:
+        # the re-exec "fails" partway: the restart thread clears the flag, and the wait ends
+        t = threading.Timer(0.05, serve.RESTARTING.clear)
+        t.start()
+        serve._serve_until_done(_Boom())          # must not raise, must not return early with the
+        t.join()                                  # process still wanted by the restart thread
+    finally:
+        serve.RESTARTING.clear()
+
+
+def test_a_closed_socket_otherwise_is_still_an_error():
+    import pytest as _pytest
+    serve.RESTARTING.clear()
+    with _pytest.raises(OSError):
+        serve._serve_until_done(_Boom())
+
+
+def test_restart_raises_the_flag_before_it_closes_the_socket():
+    import inspect
+    src = inspect.getsource(serve.Handler._restart)
+    assert src.index("RESTARTING.set()") < src.index("self.server.socket.close()")

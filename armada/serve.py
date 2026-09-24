@@ -20,6 +20,10 @@ from .util import swallowed
 REPO = Path(__file__).resolve().parents[1]
 log = logging.getLogger("armada.serve")
 
+# Set by Handler._restart just before it re-executes this process; see _serve_until_done.
+RESTARTING = threading.Event()
+_content_httpd = None
+
 
 class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.JobRoutes,
               routes_caps.CapabilityRoutes, routes_catalogue.CatalogueRoutes,
@@ -401,6 +405,15 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
 
     def _restart(self):
         time.sleep(0.4)
+        # Tell the main thread first: closing the socket below makes its serve_forever() raise, and
+        # a main thread that then returns ends the process — racing the execv on this thread. That
+        # race is why a restart occasionally never came back, with nothing logged (v0.99.51).
+        RESTARTING.set()
+        if _content_httpd is not None:           # hand the content port (5.8a) over too
+            try:
+                _content_httpd.socket.close()
+            except Exception:  # noqa
+                log.debug('_restart: content socket close failed; ignored', exc_info=True)
         # Hand the port over cleanly. os.execv replaces this process, but the launcher chain means
         # the listening socket can outlive the swap for a moment — long enough for the *new* image
         # to see a live server on 8756 and refuse to start as a duplicate of itself. Closing it
@@ -414,12 +427,13 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
                 "--port", str(self.server.server_address[1])]
         # Under pythonw nothing sees stderr, so a restart that fails to come back used to leave no
         # trace at all (seen once, 2026-09-24). Say what's about to run; the new process's own
-        # start-up failures are logged by cli (see _serve_logged).
+        # start-up failures are logged by cli.
         log.info("restart: re-executing %s", argv)
         try:
             os.execv(sys.executable, argv)
         except OSError:
             log.exception("restart: re-exec failed; this process is exiting without a server")
+            RESTARTING.clear()
             raise
 
     def log_message(self, *a):  # quiet
@@ -510,6 +524,14 @@ class ContentHandler(Handler):
         self._send(403, "this server serves content only", "text/plain")
 
 
+def _content_loop(httpd) -> None:
+    try:
+        httpd.serve_forever()
+    except OSError:
+        if not RESTARTING.is_set():              # a restart closes this socket on purpose
+            swallowed(log, "content server stopped")
+
+
 def start_content_server(port: int) -> int | None:
     """Bind the content server on `port` (the app's port + 1), or any free port if that one is still
     held — Update & Restart hands ports over, and for a moment the old process may keep it. Returns
@@ -527,13 +549,36 @@ def start_content_server(port: int) -> int | None:
                 time.sleep(0.25)
         if httpd is not None:
             got = httpd.server_address[1]
-            threading.Thread(target=httpd.serve_forever, name="armada-content", daemon=True).start()
+            global _content_httpd
+            _content_httpd = httpd
+            threading.Thread(target=_content_loop, args=(httpd,), name="armada-content", daemon=True).start()
             origins.set_content_port(got)
             log.info("content server on :%s (untrusted pages, no API)", got)
             return got
     log.error("content server could not bind; untrusted pages will be sandboxed on the app's port")
     origins.set_content_port(None)
     return None
+
+
+def _serve_until_done(httpd) -> None:
+    """serve_forever(), except that a restart in progress is not a failure and not an exit: the
+    socket was closed on purpose, and this thread waits for the re-exec to replace the process."""
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        _say("\nstopped.")
+        return
+    except OSError:
+        if not RESTARTING.is_set():
+            raise
+    if RESTARTING.is_set():
+        # os.execv on the restart thread replaces this process; wait for it rather than exiting
+        # first. If it hasn't happened in a minute, something is wrong: exit and say so.
+        for _ in range(600):
+            time.sleep(0.1)
+            if not RESTARTING.is_set():          # the re-exec failed and said so
+                break
+        log.error("restart: still here a minute after re-exec was requested; exiting")
 
 
 def serve(realm: str, port: int = 8756):
@@ -562,10 +607,7 @@ def serve(realm: str, port: int = 8756):
             raise
         log.info("ARMADA serving on :%s (no realm yet — welcome page)", port)
         _say(f"ARMADA app → http://127.0.0.1:{port}  (no realm yet — the page will set one up)")
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            _say("\nstopped.")
+        _serve_until_done(httpd)
         return
     # Bring the realm's on-disk format up to date before anything reads it (Phase 2, 2.8).
     from . import realmformat
@@ -597,10 +639,7 @@ def serve(realm: str, port: int = 8756):
     log.info("ARMADA serving on :%s (realm=%s)", port, realm)
     _say(f"ARMADA app → http://127.0.0.1:{port}  (realm: {realm})")
     _say("  Ctrl-C to stop · click agents/jobs, Run a job, or ⟳ Update & Restart.")
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        _say("\nstopped.")
+    _serve_until_done(httpd)
 
 
 # ---- the single-page app ------------------------------------------------------------------
