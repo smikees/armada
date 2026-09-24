@@ -643,7 +643,7 @@ Strangers will install this on machines we've never seen. Everything above assum
       Building it found a second silent failure, fixed too: a scheduler started before a realm
       existed never ticked that realm until restarted — the daemon now rescans the registry
       each pass. `tests/test_scheduler_service.py`.
-- [ ] 5.6 **Report an issue, through Alexander** (ADR-005). Pulled forward from Phase 6
+- [x] 5.6 *(v0.99.60)* **Report an issue, through Alexander** (ADR-005). Pulled forward from Phase 6
       because the beta cannot ship without it: the support icon beside the settings gear and
       the Alexander thread it opens are built *here*; Alexander's guidance content lands in
       Phase 6. In this phase Alexander does one thing well: "report an issue". It knows the
@@ -662,6 +662,17 @@ Strangers will install this on machines we've never seen. Everything above assum
       a *sending-only* API key restricted to that subdomain — the one kind of key that's safe to
       ship in a beta build. **MIHAI**: who hosts stamih.com's mail and DNS; create the mailbox;
       the Resend account.
+      Done as v0.99.60 (Opus 5.5), mailbox and domain set up by Mihai the same day. The ix
+      `support-ai` icon (Mihai's pick) beside the gear on every page opens *Write → Review →
+      Send*: `support.preview` builds the report server-side and keeps it under a one-use token,
+      `support.send` sends that exact text — what was shown is what goes. Log tails pass through
+      `support.redact` (API keys, bearer/OAuth/Telegram tokens, JWTs, long secret-shaped strings,
+      email addresses other than the one typed, the Windows user name). From
+      reports@armada.stamih.com to armada@stamih.com, `reply_to` only if an address is given;
+      5 per hour per install; any failure saves the report under `~/.armada/reports/` and says
+      where. The key: `armada/support_key.txt`, git-ignored, placed by the build (THREAT_MODEL
+      T12). **Not yet Alexander**: the icon opens a dialog, not his thread — the thread and his
+      guidance arrive with Phase 6, and the dialog becomes his first message.
 - [x] 5.7 Beta labelling: the version string, the title bar, and the About page say beta. The
       feedback button is visible on every page.
       Done as v0.99.50 (Opus 5.5), labels only: `brand.CHANNEL = "beta"` drives the window title

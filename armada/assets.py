@@ -49,6 +49,7 @@ ARTEFACTS_JS = js("artefacts")
 AUTONOMY_JS = js("autonomy")
 AUTHBAR_JS = js("authbar")
 SCHEDBAR_JS = js("schedbar")           # 5.5
+SUPPORT_JS = js("support")             # 5.6
 NOTIFBELL_JS = js("notifbell")
 DOTPOLL_JS = js("dotpoll")
 FDROP_JS = js("fdrop")

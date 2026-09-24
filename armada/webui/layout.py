@@ -12,7 +12,7 @@ from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICO
 from ._base import (E, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _mini_pill, _poss)
 from ..assets import (CSS_LINKS as _CSS_LINKS, RUN_JS as _RUN_JS, FORM_JS as _FORM_JS,
     DOTPOLL_JS as _DOTPOLL_JS, SWITCHER_JS as _SWITCHER_JS, PENDING_BADGE_JS as _PENDING_BADGE_JS,
-    SECTION_EDIT_JS as _SECTION_EDIT_JS, AUTHBAR_JS as _AUTHBAR_JS, SCHEDBAR_JS as _SCHEDBAR_JS,
+    SECTION_EDIT_JS as _SECTION_EDIT_JS, AUTHBAR_JS as _AUTHBAR_JS, SCHEDBAR_JS as _SCHEDBAR_JS, SUPPORT_JS as _SUPPORT_JS,
     NOTIFBELL_JS as _NOTIFBELL_JS, CONFIRM_JS as _CONFIRM_JS, NAVKEYS_JS as _NAVKEYS_JS,
     MODEBOOT_JS as _MODEBOOT_JS, NEWREALM_JS as _NEWREALM_JS)  # Phase 2, 2.1
 import logging
@@ -157,6 +157,9 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
             f'box-shadow:0 0 0 2px var(--color-surface);pointer-events:none"></span>'
             f'<div id="mc-bellpanel" style="display:none"></div></span>'
             f'<a href="/docs" title="Documentation" style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)">{_icon("documentation")}</a>'
+            # Report an issue (5.6): beside the gear, on every page — the beta's one feedback path.
+            f'<button type="button" class="mc-iconbtn mc-support-btn" title="Report an issue" aria-label="Report an issue" '
+            f'onclick="mcSupportOpen()">{_icon("support-ai", 19)}</button>'
             f'<a href="/settings" title="Settings" style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)">{_icon("settings")}</a></div></div>'
             # Sign-in banner: sits under the nav on EVERY page, because a lapsed Claude session
             # stops every agent run — not just whatever page you happen to be looking at.
@@ -166,7 +169,7 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
             # confirm.js first: every page gets the app's own dialog, so nothing has to fall back
             # to the browser's confirm()
             f'{_CONFIRM_JS}{_NAVKEYS_JS}{_SWITCHER_JS}{_PENDING_BADGE_JS}{_NEW_REALM_MODAL}'
-            f'{_AUTHBAR_JS}{_SCHEDBAR_JS}{_NOTIFBELL_JS}')
+            f'{_AUTHBAR_JS}{_SCHEDBAR_JS}{_SUPPORT_JS}{_NOTIFBELL_JS}')
 
 
 def _htok(n) -> str:

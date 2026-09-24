@@ -58,6 +58,7 @@
 | [`setup`](setup.md) | `armada new` — scaffold a ARMADA-native realm from a template (SPEC §12). |
 | [`skills`](skills.md) | Skills/connectors provisioning (SPEC §6 / §14) — the manifest layer. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
+| [`support`](support.md) | Report an issue (launch plan 5.6, ADR-005). |
 | [`sysjobs`](sysjobs.md) | System jobs — the recurring work ARMADA does to keep itself current. |
 | [`sysskills`](sysskills.md) | System skills — the skills ARMADA itself needs to work. |
 | [`telegram`](telegram.md) | Talking to your agents from Telegram. |

@@ -26,6 +26,8 @@ stays in serve.py, only the handler bodies moved.
 - `SettingsRoutes._notifications_read(self, body: dict)` — —
 - `SettingsRoutes._get_auth_status(self)` — —
 - `SettingsRoutes._auth_login(self, body: dict)` — Start Claude Code's own sign-in in its own window. ARMADA never handles the credential: the owner completes the flow in their browser and Claude Code stores the result itself.
+- `SettingsRoutes._support_preview(self, body: dict)` — Report an issue (5.6), step 1: build the report and show it. Nothing is sent here.
+- `SettingsRoutes._support_send(self, body: dict)` — Step 2: send exactly what was previewed (by its token).
 - `SettingsRoutes._get_scheduler_status(self)` — —
 - `SettingsRoutes._scheduler_start(self, body: dict)` — The bar's Start button. Starts the one scheduler process (which ticks every realm), not a per-realm one — see schedsvc.
 - `SettingsRoutes._notify_test(self, body: dict)` — Send a sample notification down ONE channel, so 'does this actually reach me?' can be answered per destination. Bypasses the per-event grid on purpose — it's a delivery test.

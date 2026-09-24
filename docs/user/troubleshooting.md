@@ -49,5 +49,12 @@ Fixed in v0.99.41–42. Update to the latest version (Settings → App → Check
 
 ## Reporting a problem
 
-Tell us what you were doing, which page you were on, and the version (Settings → App). An in-app
-**Report an issue** button is coming in the beta.
+Click the **Report an issue** icon beside the settings gear (top right, on every page). Say what
+happened; add your email if you'd like a reply. Before anything is sent you see the **whole report**
+exactly as it will go: your words, the page you were on, ARMADA's version, your Windows version, and —
+if you leave the box ticked — the last lines of ARMADA's logs, with keys, tokens, email addresses and
+your Windows user name removed. Then **Send report**. It goes to the ARMADA team at
+armada@stamih.com.
+
+If it can't be sent (no connection, say), the report is saved in `%USERPROFILE%\.armada\reports\`
+and the dialog tells you where — email it to armada@stamih.com yourself.

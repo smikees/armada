@@ -146,6 +146,20 @@ class SettingsRoutes:
         from .. import auth
         return auth.start_login()
 
+    def _support_preview(self, body: dict) -> dict:
+        """Report an issue (5.6), step 1: build the report and show it. Nothing is sent here."""
+        from .. import support
+        if not str(body.get("message") or "").strip():
+            return {"ok": False, "error": "Say what happened first — a sentence is enough."}
+        return support.preview(self.realm, message=body.get("message"), page=body.get("page"),
+                               title=body.get("title"), email=body.get("email"),
+                               include_logs=bool(body.get("include_logs", True)))
+
+    def _support_send(self, body: dict) -> dict:
+        """Step 2: send exactly what was previewed (by its token)."""
+        from .. import support
+        return support.send(str(body.get("token") or ""))
+
     def _get_scheduler_status(self):
         from .. import schedsvc
         self._json(200, schedsvc.status(self.realm))

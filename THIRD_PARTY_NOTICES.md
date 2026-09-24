@@ -49,6 +49,7 @@ size and colour.
 | Ant Design Icons | MIT |
 | Healthicons | MIT |
 | Hugeicons | MIT |
+| Siemens iX Icons (the Report an issue icon) | MIT |
 | Fluent UI System Icons (Microsoft) | MIT |
 | Carbon (IBM) | Apache-2.0 |
 | Material Symbols (Google) | Apache-2.0 |

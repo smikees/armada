@@ -423,3 +423,9 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-wlist{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:8px}
 .mc-wlist li{display:flex;gap:10px;align-items:center}
 .mc-wfoot{text-align:center;margin-top:24px}
+/* Report an issue (5.6, static/js/support.js) */
+.mc-support-btn{color:var(--text-strong)}
+.mc-support{width:min(620px,94vw);max-height:88vh;display:flex;flex-direction:column}
+.mc-sup-subject{font-size:12.5px;margin-bottom:6px}
+.mc-sup-preview{flex:1;min-height:180px;max-height:52vh;overflow:auto;margin:0;padding:10px 12px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-sand-100);font:11.5px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.mc-support [data-msg].is-bad{color:var(--status-bad)}

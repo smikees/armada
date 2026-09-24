@@ -8,6 +8,8 @@ dist/
 *.spec
 prototype-output/
 ARMADA.vbs
+# the Resend sending key (5.6) — written by the build / copied on a dev machine, never committed
+armada/support_key.txt
 
 pw_err.txt
 pw_out.txt

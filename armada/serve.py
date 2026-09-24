@@ -294,6 +294,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/telegram-link": "_telegram_link", "/api/telegram-forget": "_telegram_forget",
         "/api/open-file": "_open_file", "/api/delete-artefact": "_delete_artefact",
         "/api/auth-login": "_auth_login", "/api/scheduler-start": "_scheduler_start",
+        "/api/support-preview": "_support_preview", "/api/support-send": "_support_send",
         "/api/notifications-read": "_notifications_read",
         "/api/system-job-run": "_system_job_run", "/api/system-job-toggle": "_system_job_toggle",
         "/api/inbox-unread": "_inbox_unread", "/api/inbox-delete": "_inbox_delete",
