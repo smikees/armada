@@ -35,38 +35,38 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
 
 ## B — Buttons
 
-- [ ] **B1** Strip `color:#fff` from every `btn-primary` call site (45 in `webui/*.py` + JS) now that
+- [x] **B1** *(v0.99.68)* Strip `color:#fff` from every `btn-primary` call site (45 in `webui/*.py` + JS) now that
   the class carries it. H · **H**
-- [ ] **B2** Replace inline button sizes with the class: md needs nothing, sm gets `.btn-sm`.
+- [x] **B2** *(v0.99.68)* Replace inline button sizes with the class: md needs nothing, sm gets `.btn-sm`.
   Collapse the outliers — `4px 10px`, `5px 10px`, `5px 12px`, `6px 12px`, `11.5px` — onto sm/md.
   All pages; do it one file at a time (≈10 commits). M · **H**
-- [ ] **B3** Filled danger buttons → `.btn-danger`: memory delete (`mem-del-modal`), capability
+- [x] **B3** *(v0.99.68)* Filled danger buttons → `.btn-danger`: memory delete (`mem-del-modal`), capability
   remove (`mc-cap-del`, and the Remove in `mc-cap-modal`), goal delete (`goal-del-modal`, and in
   `goal-edit-modal`), widget remove (`mc-twdel-modal`), section delete (`sec-del-modal`), thread
   delete (JS in `threadlist.js`). S · **H**
-- [ ] **B4** Red-outline entry buttons → `.btn-secondary.is-danger`: "Delete section" (Edit
+- [x] **B4** *(v0.99.68)* Red-outline entry buttons → `.btn-secondary.is-danger`: "Delete section" (Edit
   section page), Settings realm delete/archive, anywhere else `color:var(--status-bad)` sits on a
   secondary. S · **H**
-- [ ] **B5** Dialog button order → right-aligned, Cancel then confirm (as `mcConfirm`): today every
+- [x] **B5** *(v0.99.68)* Dialog button order → right-aligned, Cancel then confirm (as `mcConfirm`): today every
   *form* dialog is left-aligned, primary first — `mem-add-modal`, `mem-edit-modal`, `mc-cap-modal`,
   `goal-add-modal`, `goal-edit-modal`, `mc-twren-modal`, `mc-thren-modal`, `mc-addsec-modal`.
   Delete dialogs already follow the rule. Move each dialog's status span to the left of the row.
   M · **H**
-- [ ] **B6** `mc-conn-modal` ends with **Close**, **Refresh from Claude** and **OK** — two dismiss
+- [x] **B6** *(v0.99.68)* `mc-conn-modal` ends with **Close**, **Refresh from Claude** and **OK** — two dismiss
   buttons. Keep Close + the primary; drop OK. S · **H**
-- [ ] **B7** Page-header create buttons disagree: "+ Appoint" (secondary, text `+`), "Add goal" and
+- [x] **B7** *(v0.99.68)* Page-header create buttons disagree: "+ Appoint" (secondary, text `+`), "Add goal" and
   "Add memory" (secondary, plus icon), "New job" (**primary**), "+ New realm" (secondary, text
   `+`). All become `.btn.btn-secondary.btn-sm` with `_icon("plus", 14)` and no typed `+`. S · **H**
-- [ ] **B8** Redundant `display:inline-flex;align-items:center;gap:5px` on buttons — `.btn` already
+- [x] **B8** *(v0.99.68)* Redundant `display:inline-flex;align-items:center;gap:5px` on buttons — `.btn` already
   does it. Remove as part of B2 in the same files. — · **H**
 
 ## I — Icon buttons and closes
 
-- [ ] **I1** Icon buttons → `.mc-iconbtn` (one grey, `--text-muted`, hover to text): `mc-act`
+- [x] **I1** *(v0.99.68 — the plain icon buttons; `mc-um`, `mc-jc-nav`, `mc-jc-view` and `mc-jv` are toggles whose inline colours carry their on/off state, so they keep them)* Icon buttons → `.mc-iconbtn` (one grey, `--text-muted`, hover to text): `mc-act`
   (turn actions), `mc-wdots` (widget ⋮, `--text-65`), `mc-thdots`, `mc-um` (user menu),
   `mc-usage-refresh`, `mc-jc-nav`/`mc-jc-view` (calendar), `mc-jv` (Jobs view toggle), the
   capability-connectors refresh. Keep each one's own class for its JS hooks. M · **H**
-- [ ] **I2** Dialog close × → `.mc-x` (the 20px `×` button: 5 source sites render on ~20 pages). S · **H**
+- [x] **I2** *(v0.99.68)* Dialog close × → `.mc-x` (the 20px `×` button: 5 source sites render on ~20 pages). S · **H**
 
 ## P — Pills, chips, counts
 

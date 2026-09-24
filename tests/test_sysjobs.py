@@ -209,7 +209,7 @@ def test_run_now_matches_the_user_list_button(tmp_path):
     """Same primary button, same play icon. A system job has no expanded view to put it in, so it
     lives in the row — but it should not become a different-looking control because of that."""
     html, n = _sys_table(tmp_path)
-    assert html.count('class="btn btn-primary"') == n
+    assert html.count('class="btn btn-primary btn-sm"') == n
     assert html.count("mcSysJobRun") == n
 
 

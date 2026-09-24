@@ -291,7 +291,7 @@ function mcEditTurn(btn,agent,thread,idx){const turn=btn.closest('.mc-turn');con
   bar.appendChild(info);bar.appendChild(cancel);bar.appendChild(send);body.replaceWith(ta);ta.parentNode.appendChild(bar);ta.focus();
   cancel.onclick=()=>location.reload();
   send.onclick=async()=>{const nt=ta.value.trim();if(!nt||nt===txt.trim())return;await fetch('/api/thread-truncate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,thread,keep:idx})});mcDropFrom(turn);mcChat(agent,thread,nt);};}
-function mcActBtn(icon,title,onclick,cls){return '<button class="mc-act '+(cls||'')+'" title="'+title+'" onclick="'+onclick+'" style="border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:inline-flex;color:color-mix(in srgb,var(--color-text) 42%,transparent)">'+icon+'</button>';}
+function mcActBtn(icon,title,onclick,cls){return '<button class="mc-iconbtn mc-act '+(cls||'')+'" title="'+title+'" onclick="'+onclick+'">'+icon+'</button>';}
 function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-turn-actions'))return;
   const idx=[...document.querySelectorAll('#mc-turns .mc-turn')].indexOf(turn);const d=new Date();
   const when=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);

@@ -91,7 +91,7 @@ def _new_agent_form(realm, cancel_html: str) -> str:
             f'<label style="{_LBL}">Role and Mission</label><textarea id="n-mandate" style="{_TA};min-height:120px" '
             f'placeholder="You watch the books and surface decisions with the numbers. You never move money."></textarea>'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcNewAgent()">Appoint</button>'
+            f'<button class="btn btn-primary" onclick="mcNewAgent()">Appoint</button>'
             f'{cancel_html}'
             f'<span id="n-msg" style="font-size:12px;color:var(--text-muted)"></span></div>'
             f'<div style="margin-top:10px;font-size:11.5px;color:var(--text-muted)">'
@@ -136,9 +136,9 @@ def _reinstate_pane(realm, retired: list) -> str:
             f'<div id="r-carry" style="font-size:11.5px;color:var(--text-muted);margin-top:10px;line-height:1.5"></div>'
             f'</div>'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" '
+            f'<button class="btn btn-primary" '
             f'onclick="mcReinstate()">Reinstate</button>'
-            f'<button type="button" class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" '
+            f'<button type="button" class="btn btn-secondary" '
             f'onclick="mcCloseAppoint()">Cancel</button>'
             f'<span id="r-msg" style="font-size:12px;color:var(--text-muted)"></span></div>'
             f'<script>window.MC_RETIRED={data};</script></div>')
@@ -157,7 +157,7 @@ def _appoint_modal(realm) -> str:
     except Exception:  # noqa — a retired folder we can't read must not break Appoint
         swallowed(log, '_appoint_modal: failed; using a default')
         retired = []
-    cancel = ('<button type="button" class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" '
+    cancel = ('<button type="button" class="btn btn-secondary" '
               'onclick="mcCloseAppoint()">Cancel</button>')
     role = E(realm.theme_agent.lower())
     tabs = ""
@@ -174,8 +174,8 @@ def _appoint_modal(realm) -> str:
             f'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">'
             f'<h2 id="mc-appoint-title" style="font-family:var(--font-heading);font-size:22px;margin:0">'
             f'Appoint a new {role}</h2>'
-            f'<button type="button" onclick="mcCloseAppoint()" title="Close" style="margin-left:auto;border:0;background:transparent;cursor:pointer;'
-            f'font-size:20px;line-height:1;color:var(--text-soft)">×</button></div>'
+            f'<button type="button" class="mc-x" onclick="mcCloseAppoint()" title="Close" aria-label="Close">'
+            f'×</button></div>'
             f'{tabs}'
             f'<div id="mc-appoint-new">{_new_agent_form(realm, cancel)}</div>'
             + (_reinstate_pane(realm, retired) if retired else "")
@@ -298,8 +298,8 @@ def _realm_ministers(realm, realm_root, today) -> str:
                   f'{profile}</div></div>'
                   f'{_cap_count_row(realm_root, a.id, is_coord=a.is_coordinator, active_jobs=sum(1 for j in a.jobs if j.enabled))}</a>')
     grid = f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px">{cards}</div>'
-    add = ('<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;cursor:pointer" '
-           'onclick="mcOpenAppoint()">+ Appoint</button>')
+    add = ('<button class="btn btn-secondary btn-sm" '
+           f'onclick="mcOpenAppoint()">{_icon("plus", 14)}Appoint</button>')
     scripts = (_appoint_modal(realm) + _APPOINT_JS + _NEW_JS + _AUTONOMY_JS + _AGENT_COLOR_JS
                + _consumption_js(realm, "n-model", "n-effort", "n-consmarker", "#n-cons"))
     # A reference, not the text. This page is a roster you scan to pick someone; the Covenant is
@@ -429,8 +429,8 @@ def _system_job_row(j, now, grid: str) -> str:
               f'<span class="mc-toggle-sl"></span></label>')
     # Dead while the job is off, for the same reason as a user job: the switch beside it already
     # says this job does not run, and a live button that runs it contradicts the switch.
-    run = (f'<button class="btn btn-primary" style="color:#fff;font-size:12px;padding:5px 11px;'
-           f'display:inline-flex;align-items:center;gap:5px'
+    run = (f'<button class="btn btn-primary btn-sm" style="'
+           f''
            f'{"" if on else ";opacity:.45;cursor:not-allowed"}" '
            f'{"" if on else "disabled "}'
            f'title="{"Run this job now" if on else "This job is switched off — switch it on to run it"}" '
@@ -684,14 +684,14 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
             # button beside it that runs the job says otherwise, and one of the two has to be wrong.
             # Switching it back on is one click away, which is what the tooltip says.
             f'<div style="margin:8px 0;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12px;padding:5px 11px;'
-            f'display:inline-flex;align-items:center;gap:5px'
+            f'<button class="btn btn-primary btn-sm" style="'
+            f''
             f'{"" if on else ";opacity:.45;cursor:not-allowed"}" '
             f'{"" if on else "disabled "}'
             f'title="{"Run this job now" if on else "This job is switched off — switch it on to run it"}" '
             f'onclick="mcRun({_J(a.id)},{_J(j.id)},\'claude\',this)">{_icon("play",12)}Run now</button>'
-            f'<a href="/job/{E(a.id)}/{E(j.id)}" class="btn btn-secondary" style="font-size:12px;padding:5px 11px;'
-            f'text-decoration:none;display:inline-flex;align-items:center;gap:5px">{_icon("edit",12)}Edit job</a>'
+            f'<a href="/job/{E(a.id)}/{E(j.id)}" class="btn btn-secondary btn-sm" style="'
+            f'text-decoration:none">{_icon("edit",12)}Edit job</a>'
             # Delete sits beside Edit, inside the expanded view: it belongs with the other things
             # you do to a job you have opened and read, not one stray click away in a collapsed row
             # you were only scrolling past.
@@ -817,8 +817,8 @@ def _hold_banner(realm_root) -> str:
                f'<ul style="margin:4px 0 0;padding-left:18px">{rows}</ul></div>' if rows else "")
             + (f'<div style="font-size:12.5px;margin-top:6px">Plus {n_ag} agent job'
                f'{"s" if n_ag != 1 else ""} (prompts its agents run with their tools).</div>' if n_ag else "")
-            + '<div style="margin-top:10px"><button class="btn btn-primary" style="color:#fff;'
-              'font-size:12.5px;padding:6px 14px" onclick="mcAdoptRelease(this)">Review done — '
+            + '<div style="margin-top:10px"><button class="btn btn-primary" style="'
+              '" onclick="mcAdoptRelease(this)">Review done — '
               'let them run</button></div>')
     return f'<div style="{box}">{head}</div>{body}</div>{_ADOPT_JS}'
 

@@ -153,8 +153,8 @@ def test_the_job_bar_is_sized_like_an_expanded_row(realm):
     row = AF._tab_jobs(reader.read(str(realm)), realm, reader.read(str(realm)).agents[0],
                        datetime.date.today())
     bar = _job_page(realm).split("Back to jobs")[0]
-    assert "font-size:12px;padding:5px 11px" in bar, "the bar still uses the larger buttons"
-    assert "font-size:12px;padding:5px 11px" in row
+    assert "btn-sm" in bar, "the bar still uses the larger buttons"      # small size, .btn-sm (UI audit B2)
+    assert "btn-sm" in row
 
 
 def test_delete_sits_in_the_line_not_at_the_far_edge(realm):

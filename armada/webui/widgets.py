@@ -73,9 +73,8 @@ def _widget_menu(widget_id: str) -> str:
     _mi = ("display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:12.5px;cursor:pointer;"
            "text-decoration:none;border-radius:var(--r)")
     return (f'<div class="mc-wmwrap" style="position:relative;display:flex;flex:none">'
-            f'<button class="mc-wdots" title="Options" onclick="mcWidgetMenu(event,this)" '
-            f'style="border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:inline-flex;'
-            f'color:var(--text-65)">{_icon("dots", 18)}</button>'
+            f'<button class="mc-iconbtn mc-wdots" title="Options" onclick="mcWidgetMenu(event,this)">'
+            f'{_icon("dots", 18)}</button>'
             f'<div class="mc-wmenu" style="display:none;position:absolute;top:26px;right:0;z-index:40;min-width:172px;'
             f'background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:4px">'
             f'<a onclick="mcWidgetAddSection({_J(widget_id)})" style="{_mi};color:inherit">'
@@ -141,9 +140,8 @@ def _usage(realm, realm_root, today, section: bool = False) -> str:
               f'{grip}<span style="font-family:var(--font-heading);font-weight:600;font-size:15px">Usage</span>'
               f'<div style="display:flex;gap:2px;margin-left:8px">{mbtn("line", _ICON_LINE, "Line view")}{mbtn("graph", _ICON_GRAPH, "Graph view")}</div>'
               f'<div class="mc-usage-intervals" style="margin-left:auto;display:flex;gap:2px"></div>'
-              f'<button class="mc-usage-refresh" title="Refresh now (auto every 30 min)" style="border:0;background:transparent;cursor:pointer;'
-              f'margin-left:12px;padding:4px 6px;border-radius:var(--r);display:inline-flex;align-items:center;line-height:1;'
-              f'color:var(--text-soft)">{_ICON_REFRESH}</button>'
+              f'<button class="mc-iconbtn mc-usage-refresh" title="Refresh now (auto every 30 min)" '
+              f'style="margin-left:12px;padding:4px 6px">{_ICON_REFRESH}</button>'
               f'{menu}</div>')
     return (f'<div class="mc-widget mc-usage" style="height:100%;display:flex;flex-direction:column;overflow:hidden">'
             f'{header}'

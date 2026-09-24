@@ -23,7 +23,7 @@ function mcThreadDelete(e,agent,slug,title){e.stopPropagation();
     +'<input type="checkbox" id="mc-delarts" style="margin:0;flex:none"><span>Also delete this thread’s artifacts from disk</span></label>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end">'
     +'<button class="btn btn-secondary" data-x style="font-size:12.5px;padding:6px 12px">Cancel</button>'
-    +'<button class="btn btn-primary" data-ok style="color:#fff;font-size:12.5px;padding:6px 14px;background:var(--status-bad);border-color:var(--status-bad)">Delete</button></div></div>';
+    +'<button class="btn btn-danger" data-ok>Delete</button></div></div>';
   document.body.appendChild(ov);
   function done(){ov.remove();document.removeEventListener("keydown",esc);}
   function esc(ev){if(ev.key==="Escape")done();}

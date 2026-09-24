@@ -191,7 +191,7 @@ function mcThreadForm(){
    +'<div style="display:flex;gap:8px;align-items:flex-end">'
    +'<div style="flex:1"><label style="'+MC_LBL+'">Agent</label><select id="mc-w-agent" style="'+MC_FIELD+'" onchange="mcModalAgent=this.value;mcWLoadThreads()">'+ags+'</select></div>'
    +'<div style="flex:1"><label style="'+MC_LBL+'">Thread</label><select id="mc-w-thread" style="'+MC_FIELD+'"></select></div>'
-   +'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:7px 14px" onclick="mcWAdd()">Add</button></div></div>';}
+   +'<button class="btn btn-primary" onclick="mcWAdd()">Add</button></div></div>';}
 function mcModalRender(){
   const body=document.getElementById('mc-wmodal-body');if(!body)return;
   if(!mcModalAgent&&window.MC_AGENTS&&MC_AGENTS.length)mcModalAgent=MC_AGENTS[0].id;

@@ -35,8 +35,8 @@ log = logging.getLogger(__name__)
 
 
 def _cap_manage_btn() -> str:
-    return (f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;'
-            f'align-items:center;gap:5px" onclick="mcCapHelp(true)">{_icon("settings",13)}Manage</button>')
+    return (f'<button class="btn btn-secondary btn-sm" '
+            f'onclick="mcCapHelp(true)">{_icon("settings",13)}Manage</button>')
 
 
 _CAP_HELP = (
@@ -44,7 +44,7 @@ _CAP_HELP = (
     '<div class="mc-modal-box" style="padding:20px;width:min(560px,92vw);max-height:82vh;overflow:auto">'
     '<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);'
     'font-weight:600;font-size:17px">Managing capabilities</div>'
-    '<button class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="mcCapHelp(false)">Close</button></div>'
+    '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcCapHelp(false)">Close</button></div>'
     '<div style="font-size:12.5px;line-height:1.6;background:var(--color-sand-100);border:1px solid var(--color-sand-300);'
     'border-radius:var(--r);padding:10px 12px;margin-bottom:14px">'
     'ARMADA runs on <b>your own Claude</b>. A connector, skill, or plugin has to be added and authorised in '
@@ -86,10 +86,11 @@ _CAP_EDIT_MODAL = (
     f'<label style="{_LBL};margin-top:0">Name {_STAR}</label><input id="mc-cap-name" placeholder="E.g. Weekly report template" style="{_FIELD}">'
     f'<label style="{_LBL}">Description</label><input id="mc-cap-descr" placeholder="E.g. house format for the Monday note" style="{_FIELD}">'
     f'<label style="{_LBL}">Status</label><select id="mc-cap-status" style="{_FIELD}"><option value="connected">Connected</option><option value="planned">Planned</option></select>'
-    '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
-    '<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcCapSave()">Save</button>'
-    '<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 14px" onclick="mcCapClose()">Cancel</button>'
-    '<span id="mc-cap-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>'
+    '<div style="margin-top:14px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+    '<span id="mc-cap-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
+    '<button class="btn btn-secondary" onclick="mcCapClose()">Cancel</button>'
+    '<button class="btn btn-primary" onclick="mcCapSave()">Save</button>'
+    '</div></div></div>'
     # delete-confirm modal
     '<div id="mc-cap-del" class="mc-modal-ov" style="z-index:211" onclick="if(event.target===this)mcCapDelClose()">'
     '<div class="mc-modal-box" style="width:min(400px,92vw)">'
@@ -97,8 +98,8 @@ _CAP_EDIT_MODAL = (
     '<div id="mc-capdel-note" style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px"></div>'
     '<input type="hidden" id="mc-capdel-scope"><input type="hidden" id="mc-capdel-kind"><input type="hidden" id="mc-capdel-id">'
     '<div style="display:flex;gap:8px;align-items:center">'
-    '<button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="mcCapDelClose()">Cancel</button>'
-    '<button class="btn btn-primary" style="background:var(--status-bad);border-color:var(--status-bad);color:#fff;font-size:12px;padding:5px 12px" onclick="mcCapDelGo()">Remove</button>'
+    '<button class="btn btn-secondary btn-sm" onclick="mcCapDelClose()">Cancel</button>'
+    '<button class="btn btn-danger btn-sm" onclick="mcCapDelGo()">Remove</button>'
     '<span id="mc-capdel-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>'
     + _CAPEDIT_JS)
 
@@ -108,13 +109,13 @@ _CONNECTOR_MODAL = (
     '<div class="mc-modal-box" style="padding:20px;width:min(500px,92vw)">'
     '<div style="display:flex;align-items:center;margin-bottom:10px"><div style="font-family:var(--font-heading);'
     'font-weight:600;font-size:17px">Add a connector</div>'
-    '<button class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="mcConnClose()">Close</button></div>'
+    '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcConnClose()">Close</button></div>'
     '<div style="font-size:12.5px;line-height:1.6">Connectors are enabled in <b>Claude</b>, not here — that is where the sign-in '
     'and credentials live. Add or authorise the connector in your Claude connector settings (or via <span class="mono">claude mcp</span>), '
     'then come back and hit the <b>refresh</b> icon next to Connectors to pull it in.</div>'
-    '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
-    '<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px;display:inline-flex;align-items:center;gap:6px" onclick="mcConnClose();mcConnectorRefresh(this)">Refresh from Claude</button>'
-    '<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcConnClose()">OK</button></div></div></div>'
+    '<div style="margin-top:14px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+    '<button class="btn btn-primary" onclick="mcConnClose();mcConnectorRefresh(this)">Refresh from Claude</button>'
+    '</div></div></div>'
     + _CONNMODAL_JS)
 
 
@@ -794,8 +795,8 @@ def _tool_group(title: str, icon: str, realm_items, agent_items=None, manage=Non
     # agent's page it read as "refresh this agent's connectors" and did something else entirely.
     refresh = ""
     if is_conn and manage and allow_refresh:
-        refresh = (f'<a onclick="mcConnectorRefresh(this)" title="Refresh connectors from Claude" '
-                   f'style="cursor:pointer;display:inline-flex;margin-left:auto;color:var(--text-muted)">{_icon("refresh-cw",14)}</a>'
+        refresh = (f'<button type="button" class="mc-iconbtn" onclick="mcConnectorRefresh(this)" '
+                   f'title="Refresh connectors from Claude" style="margin-left:auto">{_icon("refresh-cw",14)}</button>'
                    f'<span class="mc-connref-msg" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span>')
     desc = _CAP_DESC.get(title.lower(), "")
     if compact:
@@ -1044,8 +1045,8 @@ def _realm_skills(realm, realm_root) -> str:
                f'color:var(--color-accent);padding:6px 4px">{_icon("x",12)}Clear</button>'
                + f'</div>')
     filter_js = _CAPFILTER_JS
-    scan_btn = (f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;'
-                f'align-items:center;gap:5px;margin-right:8px" onclick="mcCapScan(this)">'
+    scan_btn = (f'<button class="btn btn-secondary btn-sm" style="'
+                f'margin-right:8px" onclick="mcCapScan(this)">'
                 # "Check for updates" read as though it might update ARMADA itself; this checks the
                 # installed capabilities for newer releases and nothing else.
                 f'{_icon("refresh-cw",13)}Check for version updates</button>')

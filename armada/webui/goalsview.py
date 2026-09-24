@@ -74,7 +74,7 @@ def _goal_cards(realm, realm_root, items) -> str:
     if not items:
         return ('<div class="mc-frame" style="font-size:12.5px;color:var(--text-muted);'
                 'padding:18px;text-align:center;border-style:dashed">'
-                'No goals yet. Use <b>+ Add goal</b> above, then drag agents from the right to set owners.</div>')
+                'No goals yet. Use <b>Add goal</b> above, then drag agents from the right to set owners.</div>')
     out = ""
     for g in items:
         stem = g["stem"]
@@ -149,7 +149,7 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
            f'<div class="mc-modal-box" style="width:min(620px,94vw)">'
            f'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">'
            f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px">{add_title}</div>'
-           f'<button type="button" onclick="mcCloseAddGoal()" style="margin-left:auto;border:0;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text-soft)">×</button></div>'
+           f'<button type="button" class="mc-x" onclick="mcCloseAddGoal()" title="Close" aria-label="Close">×</button></div>'
            f'<input type="hidden" id="goal-owner" value="{E(owner_id)}">'
            f'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">'
            f'<div><label style="{_LBL};margin-top:0">Title {_STAR}</label><input id="goal-title" placeholder="E.g. Become proficient in Spanish." style="{fh}"></div>'
@@ -157,10 +157,11 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
            f'<div><label style="{_LBL};margin-top:0">Target date (ETA)</label><input type="date" id="goal-target" style="{fh}"></div></div>'
            f'<label style="{_LBL}">Description</label>'
            f'<textarea id="goal-desc" placeholder="What does done look like? Why does it matter?" style="{_TA};min-height:80px"></textarea>'
-           f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'
-           f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcAddGoal()">Add goal</button>'
-           f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcCloseAddGoal()">Cancel</button>'
-           f'<span id="goal-msg" style="font-size:12px;color:var(--text-muted)">{msg}</span>'
+           f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+           f'<span id="goal-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)">{msg}</span>'
+           f'<button class="btn btn-secondary" onclick="mcCloseAddGoal()">Cancel</button>'
+           f'<button class="btn btn-primary" onclick="mcAddGoal()">Add goal</button>'
+           f''
            f'</div></div></div>')
     edit = (f'<div id="goal-edit-modal" class="mc-modal-ov-top" style="padding:48px 16px;overflow:auto" '
             f'onclick="if(event.target===this)mcCloseEditGoal()">'
@@ -173,10 +174,11 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
             f'<div><label style="{_LBL};margin-top:0">Target date (ETA)</label><input type="date" id="goal-ed-target" style="{fh}"></div></div>'
             f'<label style="{_LBL}">Description</label>'
             f'<textarea id="goal-ed-desc" style="{_TA};min-height:100px"></textarea>'
-            f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12px;padding:5px 12px" onclick="mcSaveEditGoal()">Save changes</button>'
-            f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="mcCloseEditGoal()">Cancel</button>'
-            f'<span id="goal-ed-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>')
+            f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+            f'<span id="goal-ed-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
+            f'<button class="btn btn-secondary btn-sm" onclick="mcCloseEditGoal()">Cancel</button>'
+            f'<button class="btn btn-primary btn-sm" onclick="mcSaveEditGoal()">Save changes</button>'
+            f'</div></div></div>')
     dele = (f'<div id="goal-del-modal" class="mc-modal-ov" onclick="if(event.target===this)mcCloseDelGoal()">'
             f'<div class="mc-modal-box" style="width:min(420px,92vw)">'
             f'<input type="hidden" id="goal-del-stem">'
@@ -184,20 +186,20 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
             f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:14px">'
             f'Delete <b id="goal-del-name"></b>. This removes it from every owner\'s context. This can\'t be undone.</div>'
             f'<div style="display:flex;gap:8px;justify-content:flex-end">'
-            f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcCloseDelGoal()">Cancel</button>'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px;background:var(--status-bad);border-color:var(--status-bad)" onclick="mcConfirmDelGoal()">Delete</button>'
+            f'<button class="btn btn-secondary" onclick="mcCloseDelGoal()">Cancel</button>'
+            f'<button class="btn btn-danger" onclick="mcConfirmDelGoal()">Delete</button>'
             f'</div></div></div>')
     return add + edit + dele
 
 
 def _realm_goals(realm, realm_root) -> str:
     items = goalsmod.list_goals(realm_root)
-    addicon = _icon("plus", 14, "vertical-align:-2px")
+    addicon = _icon("plus", 14)
     header = (f'<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px">'
               f'<h2 style="font-family:var(--font-heading);font-size:26px;margin:0">Goals'
               f'<span style="font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;'
               f'color:var(--text-soft);margin-left:6px">· realm objectives · loaded into every owner’s threads</span></h2>'
-              f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;flex:none" onclick="mcOpenAddGoal()">{addicon}&nbsp;Add goal</button></div>')
+              f'<button class="btn btn-secondary btn-sm" style="flex:none" onclick="mcOpenAddGoal()">{addicon}Add goal</button></div>')
     search = (f'<div style="margin-bottom:12px"><div style="position:relative">'
               f'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--text-muted);pointer-events:none">{_icon("search", 14)}</span>'
               f'<input id="goal-search" oninput="mcGoalSearch()" placeholder="Search goals…" '
@@ -218,18 +220,18 @@ def _tab_goals(realm, realm_root, a) -> str:
     """Per-agent Goals tab: the goals this agent advances, with an add-goal modal that
     auto-maps the agent as an owner."""
     items = goalsmod.goals_for_agent(realm_root, a.id, is_coord=a.is_coordinator)
-    addicon = _icon("plus", 14, "vertical-align:-2px")
+    addicon = _icon("plus", 14)
     sub = "owns every goal (coordinator)" if a.is_coordinator else "goals this agent advances"
     header = (f'<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px">'
               f'<div style="font-family:var(--font-heading);font-weight:600;font-size:17px">{E(_poss(a.display))} goals '
               f'<span style="font-weight:400;font-size:12px;color:var(--text-muted)">· {sub}</span></div>'
-              f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;flex:none" onclick="mcOpenAddGoal()">{addicon}&nbsp;Add goal</button></div>')
+              f'<button class="btn btn-secondary btn-sm" style="flex:none" onclick="mcOpenAddGoal()">{addicon}Add goal</button></div>')
     if items:
         body = _goal_cards(realm, realm_root, items)
     else:
         body = ('<div class="mc-frame" style="font-size:12.5px;color:var(--text-muted);'
                 'padding:18px;text-align:center;border-style:dashed">'
-                f'No goals mapped to {E(a.display)} yet. Use <b>+ Add goal</b> to create one for them, '
+                f'No goals mapped to {E(a.display)} yet. Use <b>Add goal</b> to create one for them, '
                 'or drag them onto a goal from the Goals section.</div>')
     return (f'<div style="padding:18px 24px 24px;max-width:900px">{header}{body}'
             f'{_goal_modals(realm, f"Add goal for {E(a.display)}", a.id)}</div>{_GOALS_JS}')

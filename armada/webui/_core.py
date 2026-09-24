@@ -542,8 +542,8 @@ def _from_hand(realm, realm_root) -> str:
             f'<div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px;line-height:1.2">'
             f'&ldquo;{quote}&rdquo;</div>'
             f'<div style="display:flex;gap:8px;margin-top:10px">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12px;padding:4px 10px">Reply</button>'
-            f'<button class="btn btn-secondary" style="font-size:12px;padding:4px 10px">Main thread</button></div></div></div></div>')
+            f'<button class="btn btn-primary btn-sm">Reply</button>'
+            f'<button class="btn btn-secondary btn-sm">Main thread</button></div></div></div></div>')
 
 
 def _attention(realm, realm_root, today) -> str:
@@ -610,16 +610,17 @@ _ADD_SECTION_MODAL = (
     '<div class="mc-modal-box" style="padding:20px;width:min(520px,92vw)">'
     '<div style="display:flex;align-items:center;margin-bottom:8px"><div style="font-family:var(--font-heading);'
     'font-weight:600;font-size:17px">Add a section</div>'
-    '<button class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="mcAddSectionClose()">Cancel</button></div>'
+    '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcAddSectionClose()">Cancel</button></div>'
     '<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px">'
     'Promote a page or artifact to the top menu — point it at a file in the realm (HTML/Markdown) or a URL.</div>'
     f'<label style="{_LBL};margin-top:0">Name {_STAR}</label>'
     f'<input id="as-name" placeholder="E.g. Daily Digest" style="{_FIELD}">'
     f'<label style="{_LBL}">Source (file path in the realm, or https URL) {_STAR}</label>'
     f'<input id="as-src" placeholder="E.g. shared/digest.html  ·  or  ·  https://digest.stamih.com" style="{_FIELD}">'
-    '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
-    '<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcAddSectionSave()">Add</button>'
-    '<span id="as-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>'
+    '<div style="margin-top:14px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+    '<span id="as-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
+    '<button class="btn btn-primary" onclick="mcAddSectionSave()">Add</button>'
+    '</div></div></div>'
     + _ADDSEC_JS)
 
 
@@ -649,7 +650,7 @@ _CRON_HELP = ('<div id="mc-cronhelp" class="mc-modal-ov" onclick="if(event.targe
               '<div class="mc-modal-box" style="padding:20px;width:min(560px,92vw);max-height:80vh;overflow:auto">'
               '<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);'
               'font-weight:600;font-size:17px">Cron notation</div>'
-              '<button class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="mcCronHelp(false)">Close</button></div>'
+              '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcCronHelp(false)">Close</button></div>'
               '<div style="font-size:12.5px;line-height:1.6">A schedule is five space-separated fields:'
               '<pre style="background:var(--color-sand-100);border:1px solid var(--color-sand-300);border-radius:var(--r);'
               'padding:10px;margin:8px 0;font-size:12px;white-space:pre-wrap">minute  hour  day-of-month  month  day-of-week\n  0      9        *          *        1-5</pre>'
@@ -705,7 +706,7 @@ def _user_avatar_modal() -> str:
     return (f'<div id="us-avatar-modal" class="mc-modal-ov" onclick="if(event.target===this)mcUserAvatarModal(false)">'
             f'<div class="mc-modal-box" style="width:min(560px,92vw);max-height:78vh;overflow:auto">'
             f'<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Pick an avatar</div>'
-            f'<button class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="mcUserAvatarModal(false)">Close</button></div>'
+            f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcUserAvatarModal(false)">Close</button></div>'
             f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px;justify-items:center">{tiles}</div>'
             f'<div id="us-presetmsg" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div></div></div>')
 

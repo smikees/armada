@@ -145,7 +145,7 @@ def _tab_jobs(realm, realm_root, a, today, open_job: str = "") -> str:
             f'<div style="font-family:var(--font-heading);font-weight:600;font-size:17px">'
             f'Active jobs · <span data-active-jobs>{sum(1 for x in a.jobs if x.enabled)}</span>'
             f' · {E(a.display)} owns</div>'
-            f'<a href="/new/job?agent={E(a.id)}" class="btn btn-primary" style="margin-left:auto;color:#fff;text-decoration:none;font-size:12px;padding:5px 11px">+ New job</a></div>'
+            f'<a href="/new/job?agent={E(a.id)}" class="btn btn-secondary btn-sm" style="margin-left:auto;text-decoration:none">{_icon("plus", 14)}New job</a></div>'
             f'{_job_proposals_block(realm, realm_root, only_agent=a.id)}'
             f'{toolbar}{legend}{joblist}{_FDROP_JS}{_JOBS_SORT_JS}'
             + (_JOBOPEN_JS + f'<script>mcOpenJobFocus("job-{E(open_job)}")</script>' if open_job else "")
@@ -254,7 +254,7 @@ def _agent_manage_box(realm, a) -> str:
                 f'padding:10px 0;border-top:1px solid var(--color-divider)">'
                 f'<div><div style="font-size:12.5px;font-weight:600;color:{col}">{E(label)}</div>'
                 f'<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;line-height:1.45">{desc}</div></div>'
-                f'<button type="button" class="btn btn-secondary" style="font-size:12px;padding:5px 12px;'
+                f'<button type="button" class="btn btn-secondary btn-sm" style="'
                 f'white-space:nowrap{";color:var(--status-bad);border-color:var(--status-bad)" if danger else ""}" '
                 f'onclick="{onclick}">{E(btn)}</button></div>')
     # The coordinator can't go: every agent's briefing names it and goals are assigned through it.
@@ -394,9 +394,9 @@ def _tab_configure(realm, realm_root, a) -> str:
             f'<div style="flex:none" id="c-avatar-prev">{_portrait(realm_root, a, 64, color=cur_color)}</div>'
             f'<div style="flex:1"><label style="{lbl};margin-top:0">Avatar</label>'
             f'<div style="display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="document.getElementById(\'c-avatar\').click()">Choose file…</button>'
-            f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="mcAvatarModal(true)">Pick from set</button>'
-            + (f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;color:var(--status-bad)" onclick="mcRemoveAvatar({_J(a.id)})">Remove</button>' if _avatar_file(realm_root, a.id) else "")
+            f'<button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'c-avatar\').click()">Choose file…</button>'
+            f'<button class="btn btn-secondary btn-sm" onclick="mcAvatarModal(true)">Pick from set</button>'
+            + (f'<button class="btn btn-secondary is-danger btn-sm" onclick="mcRemoveAvatar({_J(a.id)})">Remove</button>' if _avatar_file(realm_root, a.id) else "")
             + f'<input type="file" id="c-avatar" accept="image/*" style="display:none" onchange="mcUploadAvatar({_J(a.id)},this)"></div>'
             f'<div id="c-avatarmsg" style="font-size:11.5px;color:var(--text-muted);margin-top:4px">'
             f'Upload a portrait, or pick one from the set. Images are cropped square &amp; optimized.</div></div></div>'
@@ -490,6 +490,6 @@ def _avatar_modal(agent_id: str) -> str:
             f'<div class="mc-modal-box" style="width:min(560px,92vw);max-height:78vh;overflow:auto">'
             f'<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);'
             f'font-weight:600;font-size:16px">Pick an avatar</div>'
-            f'<button class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="mcAvatarModal(false)">Close</button></div>'
+            f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcAvatarModal(false)">Close</button></div>'
             f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px;justify-items:center">{tiles}</div>'
             f'<div id="mc-presetmsg" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div></div></div>')

@@ -82,7 +82,7 @@ def _cat_card(e: dict, publisher: str, where: list, labels: dict, here: bool = F
     btn = (f'<button class="btn btn-secondary" disabled title="Already in this realm" '
            f'style="font-size:11.5px;padding:4px 10px;white-space:nowrap;opacity:.5">Added</button>'
            if here else
-           f'<button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px;white-space:nowrap" '
+           f'<button class="btn btn-secondary btn-sm" style="white-space:nowrap" '
            f'onclick="mcCatAdd(this,{_J(e["key"])})">Add to realm</button>')
     # Joined with " \u00b7 " rather than always leading with one fixed field, because publisher
     # is now often blank (most of the registry declares no author) and a line starting with the
@@ -183,7 +183,7 @@ def _cat_results(realm, realm_root, q: str = "", source: str = "", kind: str = "
             if not on:
                 return (f'<span style="font-size:12px;padding:4px 10px;color:'
                         f'var(--text-30)">{label}</span>')
-            return (f'<button class="btn btn-secondary" style="font-size:12px;padding:4px 10px" '
+            return (f'<button class="btn btn-secondary btn-sm" '
                     f'onclick="mcCatPage({p})">{label}</button>')
         back, fwd = btn(page - 1, "\u2039 Back", page > 0), btn(page + 1, "Next \u203a", page < last)
         lo, hi = page * _CAT_PAGE + 1, min(total, (page + 1) * _CAT_PAGE)
@@ -365,8 +365,8 @@ def _catalogue_pane(realm, realm_root) -> str:
            f'<div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex:none">'
            + (f'<span style="font-size:11px;color:var(--text-muted)">{E(stale)}</span>'
               if stale else "")
-           + f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;'
-           f'display:inline-flex;align-items:center;gap:5px;white-space:nowrap" '
+           + f'<button class="btn btn-secondary btn-sm" style="'
+           f'white-space:nowrap" '
            f'onclick="mcCatRefresh(this)">{_icon("refresh-cw",13)}Refresh catalogue</button>'
            f'</div>'
            f'</div>')
@@ -513,7 +513,7 @@ def _cat_review_card(review: dict) -> str:
         f'<button class="btn btn-secondary" disabled title="Already in this realm" '
         f'style="font-size:11.5px;padding:4px 10px;opacity:.5">Added</button>'
         if already_here else
-        f'<button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px" '
+        f'<button class="btn btn-secondary btn-sm" '
         f'onclick="mcCatAddLink(this)">Add to realm</button>')
     details_html = ""
     if summary and summary.strip() != rec.strip():
@@ -569,7 +569,7 @@ def _cat_bring_link() -> str:
         f'<div style="display:flex;gap:8px;align-items:center">'
         f'<input id="cat-link" placeholder="https://github.com/owner/repo" '
         f'style="{_FIELD};flex:1;max-width:440px" onkeydown="if(event.key===\'Enter\')mcCatReview(this)">'
-        f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 14px;white-space:nowrap" '
+        f'<button class="btn btn-secondary" style="white-space:nowrap" '
         f'onclick="mcCatReview(this)">Review</button></div>'
         f'<div id="cat-review-out" style="margin-top:10px"></div>'
         f'</div>')

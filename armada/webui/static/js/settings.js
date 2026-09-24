@@ -115,7 +115,7 @@ async function mcRealmExport(b){
 async function mcRealmArchive(b,path){
   if(!await mcConfirmBox('Archive this realm?',
       'It disappears from ARMADA\'s realm list. No files are touched — the folder stays exactly '+
-      'where it is, and you can add it back later with + New realm.','Archive',false))return;
+      'where it is, and you can add it back later with New realm.','Archive',false))return;
   b.disabled=true;
   try{const r=await(await fetch('/api/realm-archive',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({path:path})})).json();

@@ -156,18 +156,17 @@ _THREADLIST_JS = ("""
   <div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px">Rename thread</div>
   <input type="hidden" id="thren-agent"><input type="hidden" id="thren-slug">
   <input id="thren-title" style="display:block;width:100%;padding:7px 9px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:14px">
-  <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
-   <button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcThrenSave()">Save</button>
-   <button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcThrenClose()">Cancel</button>
-   <span id="thren-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>"""
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">
+   <span id="thren-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>
+   <button class="btn btn-secondary" onclick="mcThrenClose()">Cancel</button>
+   <button class="btn btn-primary" onclick="mcThrenSave()">Save</button></div></div></div>"""
     + _THREADLIST_JS_ASSET)
 
 
 def _turn_actions(role: str, idx: int, aid: str, thread: str, is_last_user: bool, when: str) -> str:
     def btn(icon, title, onclick, cls=""):
-        return (f'<button class="mc-act {cls}" title="{title}" onclick="{onclick}" '
-                f'style="border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:inline-flex;'
-                f'color:var(--text-42)">{_icon(icon, 14)}</button>')
+        return (f'<button class="mc-iconbtn mc-act {cls}" title="{title}" onclick="{onclick}">'
+                f'{_icon(icon, 14)}</button>')
     ts = (f'<span style="font-size:10.5px;color:var(--text-ghost)">{E(when)}</span>') if when else ""
     acts = ts + btn("copy", "Copy", "mcCopyTurn(this)")
     align = "flex-start"
@@ -740,9 +739,8 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
                       f'<span style="flex:1">Delete</span></a>')
         menu = (f'<div class="mc-thmenu" style="display:none;position:absolute;top:30px;right:8px;z-index:30;min-width:170px;'
                 f'background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:4px">{items}</div>')
-        dots = (f'<button class="mc-thdots" onclick="mcThreadMenu(event,this)" title="Thread options" '
-                f'style="border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:flex;'
-                f'color:var(--text-soft);opacity:0;transition:opacity .12s">{_icon("ellipsis-vertical",15)}</button>')
+        dots = (f'<button class="mc-iconbtn mc-thdots" onclick="mcThreadMenu(event,this)" title="Thread options" '
+                f'style="opacity:0;transition:opacity .12s">{_icon("ellipsis-vertical",15)}</button>')
         left_rows += (
             f'<div class="mc-thread" data-slug="{E(n)}" draggable="{"false" if is_main else "true"}" '
             f'style="position:relative;display:flex;align-items:center;gap:6px;padding:8px 8px 8px 8px;{selcss}">'
@@ -781,7 +779,7 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
         f'onclick="if(event.target===this)mcArchClose()">'
         f'<div class="mc-modal-box" style="width:min(520px,94vw)">'
         f'<div style="display:flex;align-items:center;margin-bottom:6px"><div style="font-family:var(--font-heading);font-weight:600;font-size:16px">Archived threads</div>'
-        f'<button class="btn btn-secondary" style="margin-left:auto;font-size:12px;padding:4px 10px" onclick="mcArchClose()">Close</button></div>'
+        f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcArchClose()">Close</button></div>'
         f'<div style="max-height:60vh;overflow:auto">{arch_rows}</div></div></div>')
     hint = ('<div style="padding:8px 14px;font-size:11px;color:var(--text-soft)">'
             'Sub-threads scope memory — a "taxes" thread doesn\'t load trading context.</div>')

@@ -110,7 +110,7 @@ def _agent_color_control(current: str, field_id: str) -> str:
             f'<span id="{field_id}-circle" title="Custom colour" style="width:22px;height:22px;border-radius:50%;'
             f'flex:none;box-sizing:border-box;border:{circ_border};background:{circ_bg}"></span>'
             f'<span style="position:relative;display:inline-flex">'
-            f'<button type="button" class="btn btn-secondary" style="font-size:12px;padding:5px 11px" '
+            f'<button type="button" class="btn btn-secondary btn-sm" '
             f'onclick="document.getElementById(\'{field_id}-pick\').click()">Pick a custom colour</button>'
             f'<input type="color" id="{field_id}-pick" value="{E(pick)}" '
             f'oninput="mcColorCustom(\'{field_id}\',this.value)" onchange="mcColorCustom(\'{field_id}\',this.value)" '
@@ -146,7 +146,7 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
                                        f'proposed by {E(disp.get(aid, aid))}</span>')
         errhtml = (f'<div style="color:var(--status-bad);font-size:11.5px;margin-top:6px">⚠ {E("; ".join(errs))}</div>'
                    if errs else "")
-        approve = (f'<button class="btn btn-primary" style="color:#fff;font-size:12px;padding:5px 11px"'
+        approve = (f'<button class="btn btn-primary btn-sm"'
                    f'{"" if ok else " disabled title=\"fix the errors above first\""} '
                    f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'approve\',this)">Approve</button>')
         cards += (f'<div class="mc-prop mc-frame" style="border-radius:var(--r);padding:12px 14px;margin-bottom:10px">'
@@ -158,7 +158,7 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
                   f'border-radius:var(--r);padding:9px 11px;margin:8px 0 0;font-size:11.5px;max-height:160px;overflow:auto">{preview}</pre>'
                   f'{errhtml}'
                   f'<div style="display:flex;gap:8px;margin-top:10px;align-items:center">{approve}'
-                  f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" '
+                  f'<button class="btn btn-secondary btn-sm" '
                   f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'reject\',this)">Reject</button>'
                   f'<span class="mc-propmsg" style="font-size:12px;color:var(--text-muted)"></span>'
                   f'</div></div>')

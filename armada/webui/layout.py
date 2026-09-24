@@ -235,8 +235,8 @@ _NEW_REALM_MODAL = (
     'width:100%;max-width:760px;display:flex;flex-direction:column;max-height:94vh;overflow:hidden">'
     '<div style="display:flex;align-items:center;gap:10px;padding:14px 18px 8px">'
     '<h2 style="font-family:var(--font-heading);font-size:20px;margin:0">New realm</h2>'
-    '<button onclick="mcNewRealmClose()" title="Close" style="margin-left:auto;border:0;background:transparent;cursor:pointer;'
-    'font-size:20px;line-height:1;color:var(--text-soft)">&times;</button></div>'
+    '<button type="button" class="mc-x" onclick="mcNewRealmClose()" title="Close" aria-label="Close">'
+    '&times;</button></div>'
     '<iframe id="mc-newrealm-frame" title="New realm" style="border:0;width:100%;height:600px;display:block"></iframe></div></div>'
     + _NEWREALM_JS)
 

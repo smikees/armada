@@ -164,8 +164,8 @@ def _mem_cards(items, scope: str, agent_id: str = "", realm=None, agent_display:
 
 
 def _mem_add_button() -> str:
-    return (f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;flex:none" '
-            f'onclick="mcOpenAddMem()">{_icon("plus", 14, "vertical-align:-2px")}&nbsp;Add memory</button>')
+    return (f'<button class="btn btn-secondary btn-sm" style="flex:none" '
+            f'onclick="mcOpenAddMem()">{_icon("plus", 14)}Add memory</button>')
 
 
 def _mem_search() -> str:
@@ -196,17 +196,18 @@ def _mem_modals(scope: str, agent_id: str = "", agent_disp: str = "") -> str:
             f'<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">'
             f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px">{add_title}</div>'
             f'<span style="font-size:11px;color:var(--text-soft)">· {add_sub}</span>'
-            f'<button type="button" onclick="mcCloseAddMem()" style="margin-left:auto;border:0;background:transparent;cursor:pointer;font-size:20px;line-height:1;color:var(--text-soft)">×</button></div>'
+            f'<button type="button" class="mc-x" onclick="mcCloseAddMem()" title="Close" aria-label="Close">×</button></div>'
             f'<input type="hidden" id="mem-edit" value="">'
             f'<label style="{_LBL};margin-top:0">Title (optional)</label>'
             f'<input id="mem-title" placeholder="{ph_title}" style="{_FIELD};margin-bottom:6px">'
             f'<label style="{_LBL}">Memory {_STAR}</label>'
             f'<textarea id="mem-text" placeholder="{ph_text}" style="{_TA};min-height:80px"></textarea>'
-            f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" '
+            f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+            f'<span id="mem-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
+            f'<button class="btn btn-secondary" onclick="mcCloseAddMem()">Cancel</button>'
+            f'<button class="btn btn-primary" '
             f'onclick="mcAddMemory(\'{scope}\',{_J(agent_id)})">Save memory</button>'
-            f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcCloseAddMem()">Cancel</button>'
-            f'<span id="mem-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>'
+            f'</div></div></div>'
             # --- edit modal ---
             f'<div id="mem-edit-modal" class="mc-modal-ov" onclick="if(event.target===this)mcCloseEditMem()">'
             f'<div class="mc-modal-box" style="width:min(520px,92vw)">'
@@ -216,20 +217,22 @@ def _mem_modals(scope: str, agent_id: str = "", agent_disp: str = "") -> str:
             f'<input id="mem-ed-title" style="{_FIELD};margin-bottom:6px">'
             f'<label style="{_LBL}">Memory {_STAR}</label>'
             f'<textarea id="mem-ed-text" style="{_TA};min-height:90px"></textarea>'
-            f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12px;padding:5px 12px" onclick="mcSaveEditMem()">Save changes</button>'
-            f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="mcCloseEditMem()">Cancel</button>'
-            f'<span id="mem-ed-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>'
+            f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+            f'<span id="mem-ed-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
+            f'<button class="btn btn-secondary btn-sm" onclick="mcCloseEditMem()">Cancel</button>'
+            f'<button class="btn btn-primary btn-sm" onclick="mcSaveEditMem()">Save changes</button>'
+            f'</div></div></div>'
             # --- delete modal ---
             f'<div id="mem-del-modal" class="mc-modal-ov" onclick="if(event.target===this)mcCloseDelMem()">'
             f'<div class="mc-modal-box" style="width:min(420px,92vw)">'
             f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Delete memory?</div>'
             f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">This cannot be undone.</div>'
             f'<input type="hidden" id="mem-del-scope"><input type="hidden" id="mem-del-agent"><input type="hidden" id="mem-del-name">'
-            f'<div style="display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="mcCloseDelMem()">Cancel</button>'
-            f'<button class="btn btn-primary" style="background:var(--status-bad);border-color:var(--status-bad);color:#fff;font-size:12px;padding:5px 12px" onclick="mcConfirmDelMem()">Delete</button>'
-            f'<span id="mem-del-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>'
+            f'<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+            f'<span id="mem-del-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
+            f'<button class="btn btn-secondary btn-sm" onclick="mcCloseDelMem()">Cancel</button>'
+            f'<button class="btn btn-danger btn-sm" onclick="mcConfirmDelMem()">Delete</button>'
+            f'</div></div></div>'
             + _MEM_ADD_JS)
 
 
@@ -293,9 +296,9 @@ def _covenant_block(realm, realm_root) -> str:
         f'Loaded into every agent\'s context, ahead of their own mandate and tenets. Yours to edit — '
         f'unlike System memory, which ARMADA generates.</div></div>'
         f'<div style="display:flex;gap:6px;flex:none">'
-        f'<button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px" '
+        f'<button class="btn btn-secondary btn-sm" '
         f'onclick="mcCovOpen(false)">Read</button>'
-        f'<button class="btn btn-secondary" style="font-size:11.5px;padding:4px 10px" '
+        f'<button class="btn btn-secondary btn-sm" '
         f'onclick="mcCovOpen(true)">Edit</button></div></div></div>'
         f'<template id="mc-cov-raw">{E(txt)}</template>')
 
@@ -339,7 +342,7 @@ def _covenant_modal(realm_root=None) -> str:
         'color:var(--color-text);resize:vertical"></textarea>'
         '<div style="display:flex;align-items:center;gap:8px;margin-top:12px">'
         '<span id="mc-cov-msg" style="font-size:11.5px;color:var(--text-muted);flex:1"></span>'
-        '<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" '
+        '<button class="btn btn-secondary" '
         'onclick="mcCovClose()">Close</button>'
         '<button id="mc-cov-save" class="btn" style="display:none;font-size:12.5px;padding:6px 12px" '
         'onclick="mcCovSave(this)">Save</button></div></div></div>'

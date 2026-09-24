@@ -46,9 +46,9 @@
           'border-radius:var(--r);background:var(--color-bg);color:var(--color-text);'+
           'font:inherit;font-size:13px">':'')+
         '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'+
-        (opts.noCancel?'':'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 14px" data-no>Cancel</button>')+
-        '<button class="btn btn-primary" style="font-size:12.5px;padding:6px 14px;color:#fff'+
-        (opts.danger?';background:var(--status-bad);border-color:var(--status-bad)':'')+
+        (opts.noCancel?'':'<button class="btn btn-secondary" data-no>Cancel</button>')+
+        '<button class="btn btn-danger" style="'+
+        (opts.danger?';':'')+
         '" data-yes></button></div></div>';
       ov.querySelector('[data-t]').textContent=title||'Are you sure?';
       ov.querySelector('[data-d]').textContent=detail||'';

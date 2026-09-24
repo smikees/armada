@@ -212,7 +212,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'color:var(--text-faint)">{_icon("info",13)}</span></label>'
         f'<div class="mc-frame" style="padding:10px;border-radius:var(--r)">'
         f'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'
-        + "".join(f'<span class="btn btn-secondary" style="font-size:11.5px;padding:3px 9px;cursor:pointer" onclick="mcPreset(\'{p}\')">{p.title()}</span>'
+        + "".join(f'<span class="btn btn-secondary btn-sm" onclick="mcPreset(\'{p}\')">{p.title()}</span>'
                   for p in ["daily", "weekdays", "weekly", "monthly", "on demand"])
         + f'</div><div style="display:flex;gap:6px;margin-bottom:8px">{day_circles}</div>'
         f'<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
@@ -242,18 +242,17 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
     # these are the same four actions and the two views should not look like two products. Delete
     # sits in the line with the rest rather than pushed to the far edge: it reads as one of the
     # things you can do here, and it asks twice before it does anything.
-    _BTN = "font-size:12px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px"
     actions = (
         f'<div style="display:flex;gap:8px;align-items:center;margin-top:20px;padding-top:14px;'
         f'border-top:1px solid var(--color-divider)">'
-        f'<button class="btn btn-primary" style="color:#fff;{_BTN}" '
+        f'<button class="btn btn-primary btn-sm" '
         f'onclick="mcSaveJob({_J(a.id)},{_J(job_id)})">Save</button>'
-        f'<button class="btn btn-secondary" style="{_BTN}" '
+        f'<button class="btn btn-secondary btn-sm" '
         f'onclick="mcRunJob({_J(a.id)},{_J(job_id)},\'claude\')">'
         f'{_icon("play",12)}Run now</button>'
-        f'<a href="/agent/{E(a.id)}/jobs" class="btn btn-secondary" style="text-decoration:none;{_BTN}">'
+        f'<a href="/agent/{E(a.id)}/jobs" class="btn btn-secondary btn-sm" style="text-decoration:none">'
         f'Back to jobs</a>'
-        f'<button class="btn btn-secondary" style="{_BTN};color:var(--status-bad)" '
+        f'<button class="btn btn-secondary is-danger btn-sm" '
         f'onclick="mcDeleteJobPage(this,{_J(a.id)},{_J(job_id)},{_J(name)})">'
         f'{_icon("trash",12)}Delete job</button>'
         f'<span id="j-savemsg" style="font-size:12px;color:var(--text-muted)"></span></div>')
@@ -282,7 +281,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
 
 
 def render_new_agent(realm, realm_root, dark: bool = False) -> str:
-    cancel = '<a href="/ministers" class="btn btn-secondary" style="text-decoration:none;font-size:12.5px;padding:6px 12px">Cancel</a>'
+    cancel = '<a href="/ministers" class="btn btn-secondary" style="text-decoration:none">Cancel</a>'
     body = (f'<div style="padding:18px 24px 24px;max-width:760px">{_page_title("Appoint a " + realm.theme_agent.lower())}'
             f'{_new_agent_form(realm, cancel)}</div>')
     return (_page_shell(realm, realm.theme_agent + "s", "Appoint", body, dark) + _NEW_JS + _AUTONOMY_JS
@@ -304,8 +303,8 @@ def render_new_job(realm, realm_root, agent_id: str, dark: bool = False) -> str:
             f'<label style="{_LBL}">Prompt (agent) or command (script)</label>'
             f'<textarea id="j-prompt" style="{_TA};min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px"></textarea>'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcNewJob()">Create job</button>'
-            f'<a href="/agent/{E(agent_id)}/jobs" class="btn btn-secondary" style="text-decoration:none;font-size:12.5px;padding:6px 12px">Cancel</a>'
+            f'<button class="btn btn-primary" onclick="mcNewJob()">Create job</button>'
+            f'<a href="/agent/{E(agent_id)}/jobs" class="btn btn-secondary" style="text-decoration:none">Cancel</a>'
             f'<span id="j-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div>')
     return _page_shell(realm, "Jobs", "New job", body, dark) + _NEW_JS
 
@@ -338,11 +337,11 @@ def _telegram_box() -> str:
                 f'<span style="font-size:12.5px">@{E(st["bot"]) or "your bot"}{who}</span>'
                 f'<span style="font-size:11px;color:var(--text-muted)">· {src}</span></div>'
                 f'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-                f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" '
+                f'<button class="btn btn-secondary btn-sm" '
                 f'onclick="mcTgTest(this)">Send a test message</button>'
-                f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" '
+                f'<button class="btn btn-secondary btn-sm" '
                 f'onclick="mcTgLink(this)">Re-link chat</button>'
-                f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;color:var(--status-bad)" '
+                f'<button class="btn btn-secondary is-danger btn-sm" '
                 f'onclick="mcTgForget(this)">Disconnect</button>'
                 f'<span id="st-tg-msg" style="font-size:11.5px;color:var(--text-muted)"></span></div>')
         return intro + head
@@ -354,7 +353,7 @@ def _telegram_box() -> str:
         f'<div style="display:flex;gap:8px;align-items:center">'
         f'<input id="st-tg-token" type="password" placeholder="123456789:AA…" style="{fld};flex:1" '
         f'autocomplete="off" spellcheck="false">'
-        f'<button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;white-space:nowrap" '
+        f'<button class="btn btn-secondary btn-sm" style="white-space:nowrap" '
         f'onclick="mcTgToken(this)">Save token</button></div></div>')
     env_row = (
         f'<details style="margin-bottom:12px"><summary style="cursor:pointer;font-size:12px;'
@@ -365,7 +364,7 @@ def _telegram_box() -> str:
         f'line if you have one. ARMADA stores the path, not the secret.</div>'
         f'<div style="display:flex;gap:8px;align-items:center">'
         f'<input id="st-tg-env" placeholder="D:\\path\\to\\.env" style="{fld};flex:1" spellcheck="false">'
-        f'<button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;white-space:nowrap" '
+        f'<button class="btn btn-secondary btn-sm" style="white-space:nowrap" '
         f'onclick="mcTgEnv(this)">Use this file</button></div></details>')
     link_row = (
         f'<div style="{"" if st["configured"] else "opacity:.45;pointer-events:none"}">'
@@ -373,7 +372,7 @@ def _telegram_box() -> str:
         f'<div style="font-size:11px;color:var(--text-muted);margin:0 0 5px;max-width:620px">'
         f'Send your bot any message, then press this. ARMADA reads the chat it came from and will '
         f'only ever listen to that one — a bot is reachable by anyone who knows its name.</div>'
-        f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" '
+        f'<button class="btn btn-primary" '
         f'onclick="mcTgLink(this)">I\'ve messaged the bot</button></div>')
     return (intro + token_row + env_row + link_row
             + '<div id="st-tg-msg" style="font-size:11.5px;color:var(--text-muted);margin-top:8px"></div>')
@@ -591,8 +590,8 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                     f'<div><div style="font-size:12.5px;font-weight:600;color:{col}">{E(label)}</div>'
                     f'<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;'
                     f'line-height:1.45">{E(desc)}</div></div>'
-                    f'<button type="button" class="btn btn-secondary" style="font-size:12px;'
-                    f'padding:5px 12px;white-space:nowrap'
+                    f'<button type="button" class="btn btn-secondary btn-sm" style="'
+                    f'white-space:nowrap'
                     f'{";color:var(--status-bad);border-color:var(--status-bad)" if danger else ""}" '
                     f'onclick="{onclick}">{E(btn)}</button></div>')
         return (
@@ -736,7 +735,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
            f'{_realm_manage_box(realm, realm_root)}</div>'
            '</details>'
            + _REVEAL_JS)
-        + f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcSaveRealmSettings()">Save realm settings</button>'
+        + f'<button class="btn btn-primary" onclick="mcSaveRealmSettings()">Save realm settings</button>'
           f'<span id="st-msg" style="font-size:12px;margin-left:10px;color:var(--text-muted)"></span>')
 
     # --- App settings tab ---
@@ -753,15 +752,15 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'<div style="margin-bottom:10px">{brand.WORDMARK_SMALL}</div>'
         f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         f'<div style="font-size:12.5px;display:flex;align-items:center;gap:6px"><b>v{ver}</b>{brand.BETA_PILL}</div>'
-        f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px" onclick="mcRestart(this)">{_icon("refresh-cw",13)}Restart</button>'
-        f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px" onclick="mcCheckUpd(this)">{_icon("download",13)}Check for updates</button>'
+        f'<button class="btn btn-secondary btn-sm" onclick="mcRestart(this)">{_icon("refresh-cw",13)}Restart</button>'
+        f'<button class="btn btn-secondary btn-sm" onclick="mcCheckUpd(this)">{_icon("download",13)}Check for updates</button>'
         f'<a onclick="mcChangelog(true)" style="cursor:pointer;font-size:12px;color:var(--color-accent);display:inline-flex;align-items:center;gap:4px">{_icon("book-open",13)}Changelog</a>'
         f'<span id="mc-updcheck" style="font-size:12px;color:var(--text-muted)"></span></div>'
         # The tick for "Using the latest version" (settings.js copies it; this page has no mcIcon).
         f'<template id="mc-ico-ok">{_icon("circle-check-fill", 13)}</template>'
         f'<div style="font-size:11px;color:var(--text-muted);margin-top:6px">{E(_upd_hint)}</div>'
         f'<div id="mc-updbox" style="display:none;margin-top:10px">'
-        f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px" id="mc-updbtn" onclick="mcUpd(this)">{_icon("download",14)}Update &amp; Restart</button>'
+        f'<button class="btn btn-primary" id="mc-updbtn" onclick="mcUpd(this)">{_icon("download",14)}Update &amp; Restart</button>'
         f'<span id="mc-updmsg" style="font-size:12px;margin-left:10px;color:var(--text-muted)"></span></div>')
 
     def prov_row(icon, name, detail, status):
@@ -875,15 +874,15 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
     gender_opts = "".join(f'<option {"selected" if g == _gsel else ""}>{E(g)}</option>'
                           for g in ["Prefer not to say", "Male", "Female", "Non-binary"])
     ufh = f"{_FIELD};height:36px"   # one height across name / tz / gender / birthdate
-    remove_btn = (f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;color:var(--status-bad)" onclick="mcRemoveUserAvatar()">Remove</button>'
+    remove_btn = (f'<button class="btn btn-secondary is-danger btn-sm" onclick="mcRemoveUserAvatar()">Remove</button>'
                   if _user_avatar_file(realm_root) else "")
     user_tab = sect("Your profile",
         f'<div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:6px">'
         f'<div id="us-avatar-prev" style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:1px solid var(--color-divider);background:var(--color-accent-100);flex:none">{uav_prev}</div>'
         f'<div style="flex:1"><label style="{_LBL};margin-top:0">Avatar (optional)</label>'
         f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-        f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="document.getElementById(\'us-avatar\').click()">Choose file…</button>'
-        f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px" onclick="mcUserAvatarModal(true)">Pick from set</button>'
+        f'<button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'us-avatar\').click()">Choose file…</button>'
+        f'<button class="btn btn-secondary btn-sm" onclick="mcUserAvatarModal(true)">Pick from set</button>'
         f'{remove_btn}'
         f'<input type="file" id="us-avatar" accept="image/*" style="display:none" onchange="mcUploadUserAvatar(this)"></div>'
         f'<div id="us-avatarmsg" style="font-size:11.5px;color:var(--text-muted);margin-top:4px">Shown instead of “You” in threads. Cropped square &amp; optimized.</div></div></div>'
@@ -903,16 +902,15 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'<textarea id="us-about" rows="5" placeholder="E.g. I think in writing and prefer a draft I can react to over a list of options. I work in English and Spanish. Don\'t hedge — tell me when something is a bad idea." '
         f'style="{_TA};min-height:96px">{E(u.get("about", ""))}</textarea></div>'
         f'<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
-        f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcSaveUser()">Save user settings</button>'
+        f'<button class="btn btn-primary" onclick="mcSaveUser()">Save user settings</button>'
         f'<span id="us-msg" style="font-size:12px;color:var(--text-muted)">The source of truth — collected at setup, editable here. Saved to the realm and the agents’ core memory.</span></div>')
 
     tabbtn = ("font-family:var(--font-heading);font-weight:600;font-size:14px;padding:8px 2px;margin-right:18px;"
               "border-bottom:2px solid transparent;cursor:pointer;background:none;border-top:0;border-left:0;border-right:0;color:inherit")
     # Creating a realm isn't a setting of the realm you're in — it sits with the page, not inside
     # the Realm section where it read as one of that realm's options.
-    new_realm_btn = ('<button type="button" class="btn btn-secondary" '
-                     'style="font-size:12px;padding:5px 11px;cursor:pointer;white-space:nowrap" '
-                     'onclick="mcNewRealmOpen(event)">+ New realm</button>')
+    new_realm_btn = ('<button type="button" class="btn btn-secondary btn-sm" style="white-space:nowrap" '
+                     f'onclick="mcNewRealmOpen(event)">{_icon("plus", 14)}New realm</button>')
     # A touch wider than the other pages so the nine realm-icon tiles sit on one line with the
     # current icon and Upload, instead of wrapping onto a row of their own.
     body = (f'<div style="padding:18px 24px 24px;max-width:900px">'
@@ -986,21 +984,21 @@ def render_new_realm(realm, dark=False, embed=False) -> str:
              f'<label style="{_LBL}">Icon</label><div style="display:flex;flex-wrap:wrap;gap:2px">{icon_pick}</div></div>'
              f'<label style="{_LBL}">Folder (absolute path) {_STAR}</label>'
              f'<div style="display:flex;gap:8px"><input id="r-path" placeholder="E.g. D:\\Work\\MyRealm" style="{_FIELD};flex:1">'
-             f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;white-space:nowrap" onclick="mcBrowse()">Browse…</button></div>'
+             f'<button class="btn btn-secondary" style="white-space:nowrap" onclick="mcBrowse()">Browse…</button></div>'
              f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
-             f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcNext()">Next →</button>'
-             f'<button type="button" class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;cursor:pointer" onclick="mcWizCancel()">Cancel</button>'
+             f'<button class="btn btn-primary" onclick="mcNext()">Next →</button>'
+             f'<button type="button" class="btn btn-secondary" style="cursor:pointer" onclick="mcWizCancel()">Cancel</button>'
              f'<span id="r-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div>')
 
     step2 = (f'<div id="wiz-2" style="display:none"><div id="r-agents-intro" style="font-size:12.5px;'
              f'color:var(--text-dim);margin-bottom:8px"></div>'
              f'<div id="r-agents"></div>'
-             f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;margin-top:8px" onclick="mcAddAgentRow()">+ Add your own</button>'
+             f'<button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="mcAddAgentRow()">+ Add your own</button>'
              f'<div style="margin-top:12px;font-size:11.5px;color:var(--text-muted)">These and other settings can be '
              f'made/edited later in the Settings &rsaquo; Realm section.</div>'
              f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
-             f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcBack()">← Back</button>'
-             f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcFinish()">Create realm</button>'
+             f'<button class="btn btn-secondary" onclick="mcBack()">← Back</button>'
+             f'<button class="btn btn-primary" onclick="mcFinish()">Create realm</button>'
              f'<span id="r-msg2" style="font-size:12px;color:var(--text-muted)"></span></div></div>')
 
     # step indicator (1/2 · 2/2) — mcWizStep() highlights the current one as the wizard advances
@@ -1033,8 +1031,8 @@ def render_add_section(realm, dark=False) -> str:
             f'<label style="{_LBL}">Source (file path in the realm, or https URL) {_STAR}</label>'
             f'<input id="s-src" placeholder="E.g. shared/digest.html  ·  or  ·  https://digest.stamih.com" style="{_FIELD}">'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcAddSection()">Add</button>'
-            f'<a href="/" class="btn btn-secondary" style="text-decoration:none;font-size:12.5px;padding:6px 12px">Cancel</a>'
+            f'<button class="btn btn-primary" onclick="mcAddSection()">Add</button>'
+            f'<a href="/" class="btn btn-secondary" style="text-decoration:none">Cancel</a>'
             f'<span id="s-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div>'
             + _ADDSECTION_JS)
     return _page_shell(realm, "", "Add section", body, dark)
@@ -1052,9 +1050,9 @@ def render_edit_section(realm, idx: int, dark=False) -> str:
             f'<label style="{_LBL}">Source (file path in the realm, or https URL) {_STAR}</label>'
             f'<input id="s-src" value="{E(src)}" style="{_FIELD}">'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcUpdSection({idx})">Save</button>'
-            f'<a href="/section/{idx}" class="btn btn-secondary" style="text-decoration:none;font-size:12.5px;padding:6px 12px">Cancel</a>'
-            f'<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px;color:var(--status-bad);margin-left:auto;display:inline-flex;align-items:center;gap:5px" onclick="mcDelSection({idx})">{_icon("trash",13)}Delete section</button>'
+            f'<button class="btn btn-primary" onclick="mcUpdSection({idx})">Save</button>'
+            f'<a href="/section/{idx}" class="btn btn-secondary" style="text-decoration:none">Cancel</a>'
+            f'<button class="btn btn-secondary is-danger" style="margin-left:auto" onclick="mcDelSection({idx})">{_icon("trash",13)}Delete section</button>'
             f'<span id="s-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div>'
             # in-app delete confirmation modal
             f'<div id="sec-del-modal" class="mc-modal-ov" onclick="if(event.target===this)mcSecDelClose()">'
@@ -1062,8 +1060,8 @@ def render_edit_section(realm, idx: int, dark=False) -> str:
             f'<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:6px">Delete “{E(name)}”?</div>'
             f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">This removes the section from your top menu. This cannot be undone.</div>'
             f'<div style="display:flex;gap:8px;align-items:center">'
-            f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 12px" onclick="mcSecDelClose()">Cancel</button>'
-            f'<button class="btn btn-primary" style="background:var(--status-bad);border-color:var(--status-bad);color:#fff;font-size:12px;padding:5px 12px" onclick="mcSecDelGo({idx})">Delete</button>'
+            f'<button class="btn btn-secondary btn-sm" onclick="mcSecDelClose()">Cancel</button>'
+            f'<button class="btn btn-danger btn-sm" onclick="mcSecDelGo({idx})">Delete</button>'
             f'<span id="sec-del-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>'
             + _EDITSECTION_JS)
     return _page_shell(realm, name, "Edit section", body, dark, sec_edit=True)
@@ -1110,7 +1108,7 @@ def render_section(realm, idx: int, dark=False) -> str:
         bar = (f'<div style="display:flex;align-items:center;gap:12px;padding:7px 14px;border-bottom:1px solid var(--color-divider);'
                f'background:var(--color-surface);font-size:12px">'
                f'<span style="color:var(--text-muted)">Local copy · updated {E(when)}</span>'
-               f'<button onclick="mcSnap({idx},this)" class="btn btn-secondary" style="font-size:12px;padding:3px 10px;display:inline-flex;align-items:center;gap:5px">{_icon("refresh-cw",12)}Refresh</button>'
+               f'<button onclick="mcSnap({idx},this)" class="btn btn-secondary btn-sm">{_icon("refresh-cw",12)}Refresh</button>'
                f'<span style="margin-left:auto">{openbtn}</span></div>')
         body = (f'<div style="height:100%;display:flex;flex-direction:column;min-height:0">{bar}'
                 f'<div style="flex:1;min-height:0">{iframe}</div></div>'
@@ -1523,8 +1521,8 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
         'box-shadow:var(--shadow-md);width:540px;max-width:94vw;max-height:82vh;display:flex;flex-direction:column">'
         '<div style="display:flex;align-items:center;padding:16px 20px 12px;border-bottom:1px solid var(--color-divider)">'
         '<span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Select the widgets to be shown on the dashboard</span>'
-        '<button onclick="mcWModalClose()" title="Close" style="margin-left:auto;border:0;background:transparent;'
-        'cursor:pointer;font-size:20px;line-height:1;color:var(--text-soft)">×</button></div>'
+        '<button type="button" class="mc-x" onclick="mcWModalClose()" title="Close" aria-label="Close">'
+        '×</button></div>'
         '<div id="mc-wmodal-body" style="overflow:auto;padding:14px 20px 20px"></div>'
         '</div></div>')
     ren_modal = (
@@ -1533,10 +1531,11 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
         '<div style="font-family:var(--font-heading);font-weight:600;font-size:16px;margin-bottom:10px">Rename thread</div>'
         '<input type="hidden" id="twren-id"><input type="hidden" id="twren-agent"><input type="hidden" id="twren-thread">'
         '<input id="twren-title" style="display:block;width:100%;padding:7px 9px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:14px">'
-        '<div style="margin-top:12px;display:flex;gap:8px;align-items:center">'
-        '<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px" onclick="mcTWRenSave()">Save</button>'
-        '<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcTWRenClose()">Cancel</button>'
-        '<span id="twren-msg" style="font-size:12px;color:var(--text-muted)"></span></div></div></div>')
+        '<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
+        '<span id="twren-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
+        '<button class="btn btn-secondary" onclick="mcTWRenClose()">Cancel</button>'
+        '<button class="btn btn-primary" onclick="mcTWRenSave()">Save</button>'
+        '</div></div></div>')
     del_modal = (
         '<div id="mc-twdel-modal" class="mc-modal-ov" style="z-index:250" onclick="if(event.target===this)mcTWDelClose()">'
         '<div class="mc-modal-box" style="width:min(420px,92vw)">'
@@ -1545,8 +1544,8 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
         '<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:14px">'
         'Remove <b id="twdel-name"></b> from your dashboard. The thread and its messages are kept — you can re-add it anytime.</div>'
         '<div style="display:flex;gap:8px;justify-content:flex-end">'
-        '<button class="btn btn-secondary" style="font-size:12.5px;padding:6px 12px" onclick="mcTWDelClose()">Cancel</button>'
-        '<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 14px;background:var(--status-bad);border-color:var(--status-bad)" onclick="mcTWDelConfirm()">Remove</button>'
+        '<button class="btn btn-secondary" onclick="mcTWDelClose()">Cancel</button>'
+        '<button class="btn btn-danger" onclick="mcTWDelConfirm()">Remove</button>'
         '</div></div></div>')
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{brand.NAME} — {E(realm.name)}</title>
@@ -1581,7 +1580,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
   <div id="mc-hdr-limits" style="display:flex;flex-direction:column;justify-content:flex-start;
    min-width:340px;max-width:430px;height:62px;overflow:hidden"></div>
   <div style="margin-left:auto;display:flex;gap:8px">
-   <button id="mc-addwidget" class="btn btn-secondary" style="font-size:12.5px;padding:5px 10px" onclick="mcAddWidget()">{addicon}&nbsp;Manage widgets</button></div>
+   <button id="mc-addwidget" class="btn btn-secondary" onclick="mcAddWidget()">{addicon}&nbsp;Manage widgets</button></div>
  </div>
  {grid}
  <div style="position:absolute;left:0;right:0;bottom:0;height:22px;pointer-events:none;z-index:1;
