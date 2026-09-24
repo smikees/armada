@@ -1,13 +1,14 @@
 """Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts."""
 from __future__ import annotations
 import html, json, datetime, time, re
+from .. import datefmt
 from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
 from ..icons import (ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR,
                      ICON_MISSED, _ICON_REFRESH)
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
+from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -43,10 +44,11 @@ log = logging.getLogger(__name__)
 
 
 def _fmt_date_short(s) -> str:
-    """A date as dd/mm/yy (falls back to the raw string)."""
+    """A date with its year, `17 Sep 2026` (an appointment; DESIGN_SYSTEM §9a). Falls back to the
+    raw string."""
     s = str(s or "")
     try:
-        return datetime.date.fromisoformat(s[:10]).strftime("%d/%m/%y")
+        return datefmt.day(datetime.date.fromisoformat(s[:10]), year=True)
     except ValueError:
         return s
 
@@ -59,16 +61,16 @@ def _new_agent_form(realm, cancel_html: str) -> str:
     _next = len(([realm.coordinator] if realm.coordinator else []) + list(realm.members))
     defcolor = _AGENT_PALETTE[_next % len(_AGENT_PALETTE)]     # next palette colour as the default
     return (f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-            f'<div><label style="{_LBL}">Name {_STAR}</label><input id="n-name" placeholder="E.g. Warren" style="{_FIELD}"></div>'
-            f'<div><label style="{_LBL}">Role</label><input id="n-role" placeholder="E.g. {E(realm.theme_agent)} of Finance" style="{_FIELD}"></div>'
-            f'<div style="grid-column:1 / 3"><label style="{_LBL}">Profile (optional)</label><input id="n-leader" placeholder="E.g. after Warren Buffett — value discipline, margin of safety…" style="{_FIELD}"></div>'
+            f'<div><label class="mc-label">Name {_STAR}</label><input id="n-name" placeholder="E.g. Warren" class="mc-field"></div>'
+            f'<div><label class="mc-label">Role</label><input id="n-role" placeholder="E.g. {E(realm.theme_agent)} of Finance" class="mc-field"></div>'
+            f'<div style="grid-column:1 / 3"><label class="mc-label">Profile (optional)</label><input id="n-leader" placeholder="E.g. after Warren Buffett — value discipline, margin of safety…" class="mc-field"></div>'
             # Same order as the Configure page: cosmetics together, then behaviour.
-            f'<div style="grid-column:1 / 3"><label style="{_LBL}">Agent colour — shows up in token usage breakdowns, etc.</label>'
+            f'<div style="grid-column:1 / 3"><label class="mc-label">Agent colour — shows up in token usage breakdowns, etc.</label>'
             f'{_agent_color_control(defcolor, "n-color")}</div>'
-            f'<div style="grid-column:1 / 3"><label style="{_LBL}">Autonomy</label>{_autonomy_control("manual", "n-autonomy")}</div>'
-            f'<div><label style="{_LBL}">Model</label><select id="n-model" style="{_FIELD}">{model_opts}</select></div>'
-            f'<div><label style="{_LBL}">Effort</label><select id="n-effort" style="{_FIELD}">{effort_opts}</select></div>'
-            f'<div id="n-cons" style="grid-column:1 / 3"><label style="{_LBL}">Relative token consumption '
+            f'<div style="grid-column:1 / 3"><label class="mc-label">Autonomy</label>{_autonomy_control("manual", "n-autonomy")}</div>'
+            f'<div><label class="mc-label">Model</label><select id="n-model" class="mc-field">{model_opts}</select></div>'
+            f'<div><label class="mc-label">Effort</label><select id="n-effort" class="mc-field">{effort_opts}</select></div>'
+            f'<div id="n-cons" style="grid-column:1 / 3"><label class="mc-label">Relative token consumption '
             f'<span style="text-transform:none;letter-spacing:0;color:var(--text-muted)">· this model &amp; effort</span></label>'
             f'<div style="display:flex;align-items:center;gap:10px">'
             f'<span class="mc-modelmark" style="display:inline-flex;color:var(--text-muted)">{_icon("claude", 16)}</span>'
@@ -79,16 +81,16 @@ def _new_agent_form(realm, cancel_html: str) -> str:
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:5px">Where this model + effort sits between the '
             f'cheapest and most token-hungry combination. The icon colour tracks the marker.</div></div>'
             f'</div>'
-            f'<label style="{_LBL};display:flex;align-items:center;gap:7px;cursor:pointer">'
+            f'<label class="mc-label" style="display:flex;align-items:center;gap:7px;cursor:pointer">'
             f'<input type="checkbox" id="n-coord" style="margin:0;flex:none"><span>Is coordinator</span>'
             # The same laurel the agent will wear once the box is ticked, so the mark is learnable
             # from the place you set it rather than only from the lists that show it.
             + _coord_mark(16)
             + f'<span class="mc-tip" data-tip="A coordinator agent has realm-wide visibility and is added automatically to every goal." '
             f'style="display:inline-flex;align-items:center;color:var(--text-muted);cursor:help">{_icon("info", 16)}</span></label>'
-            f'<label style="{_LBL}">Soul (character, voice &amp; traits)</label><textarea id="n-soul" style="{_TA};min-height:70px" '
+            f'<label class="mc-label">Soul (character, voice &amp; traits)</label><textarea id="n-soul" class="mc-textarea" style="min-height:70px" '
             f'placeholder="Precise, unsentimental, numbers-first."></textarea>'
-            f'<label style="{_LBL}">Role and Mission</label><textarea id="n-mandate" style="{_TA};min-height:120px" '
+            f'<label class="mc-label">Role and Mission</label><textarea id="n-mandate" class="mc-textarea" style="min-height:120px" '
             f'placeholder="You watch the books and surface decisions with the numbers. You never move money."></textarea>'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
             f'<button class="btn btn-primary" onclick="mcNewAgent()">Appoint</button>'
@@ -120,18 +122,18 @@ def _reinstate_pane(realm, retired: list) -> str:
             f'capability grants and run history all return with them — nothing was deleted when '
             f'they were retired. Change anything below on the way in, or leave it and they come '
             f'back unchanged.</div>'
-            f'<label style="{_LBL}">Who</label>'
-            f'<select id="r-agent" onchange="mcReinstatePick()" style="{_FIELD}">{opts}</select>'
+            f'<label class="mc-label">Who</label>'
+            f'<select id="r-agent" onchange="mcReinstatePick()" class="mc-field">{opts}</select>'
             f'<div id="r-fields" style="display:none;margin-top:12px">'
             f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-            f'<div><label style="{_LBL}">Name</label><input id="r-name" style="{_FIELD}"></div>'
-            f'<div><label style="{_LBL}">Role</label><input id="r-role" style="{_FIELD}"></div>'
-            f'<div style="grid-column:1 / 3"><label style="{_LBL}">Profile</label>'
-            f'<input id="r-leader" style="{_FIELD}"></div>'
-            f'<div><label style="{_LBL}">Model</label>'
-            f'<select id="r-model" style="{_FIELD}">{_model_options(realm.root, inherit=True)}</select></div>'
-            f'<div><label style="{_LBL}">Effort</label>'
-            f'<select id="r-effort" style="{_FIELD}">{_effort_options(realm.root, inherit=True)}</select></div>'
+            f'<div><label class="mc-label">Name</label><input id="r-name" class="mc-field"></div>'
+            f'<div><label class="mc-label">Role</label><input id="r-role" class="mc-field"></div>'
+            f'<div style="grid-column:1 / 3"><label class="mc-label">Profile</label>'
+            f'<input id="r-leader" class="mc-field"></div>'
+            f'<div><label class="mc-label">Model</label>'
+            f'<select id="r-model" class="mc-field">{_model_options(realm.root, inherit=True)}</select></div>'
+            f'<div><label class="mc-label">Effort</label>'
+            f'<select id="r-effort" class="mc-field">{_effort_options(realm.root, inherit=True)}</select></div>'
             f'</div>'
             f'<div id="r-carry" style="font-size:11.5px;color:var(--text-muted);margin-top:10px;line-height:1.5"></div>'
             f'</div>'
@@ -367,8 +369,7 @@ def _sysjob_next(iso_ts: str, due_now: bool, now) -> str:
         return "—"
     if t.tzinfo is None:
         t = t.astimezone()
-    # %-m/%-d is not portable to Windows; build the date parts by hand.
-    return f"{t:%a} {t.month}/{t.day}, {t:%H:%M}"
+    return datefmt.moment(t)                      # `Thu 24 Sep, 22:30` (DESIGN_SYSTEM §9a)
 
 
 def _sysjob_when(iso_ts: str, now) -> str:
@@ -604,7 +605,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     else:
         _nd = _job_next_dt(j.cadence, now.replace(tzinfo=None))
         if _nd:
-            nxt_txt = f"{_nd:%a} {_nd.month}/{_nd.day}, {_nd:%H:%M}"
+            nxt_txt = datefmt.moment(_nd)
             nxt_style = "color:var(--text-strong)"
         else:
             nxt_txt, nxt_style = "on demand", "color:var(--text-muted)"
@@ -871,7 +872,7 @@ def _jobs_filter_bar(owners, n: int, now, lead: str = "", pfx: str = "jf",
     search = (f'<div style="position:relative;flex:0 0 200px">'
               f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;color:{faint}">{_icon("search",14)}</span>'
               f'<input id="{pfx}-search" placeholder="Search jobs…" oninput="mcJobsFilter()" '
-              f'style="{_FIELD};padding-left:30px;padding-right:26px">'
+              f'class="mc-field" style="padding-left:30px;padding-right:26px">'
               f'<span id="{pfx}-search-x" onclick="mcJobsSearchClear(this)" title="Clear" style="display:none;position:absolute;'
               f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:{faint}">{_icon("x",14)}</span></div>')
     return (f'<div class="mc-jobsbar" data-pfx="{pfx}" data-table="{table}" data-f1key="{f1key}" '
@@ -880,8 +881,9 @@ def _jobs_filter_bar(owners, n: int, now, lead: str = "", pfx: str = "jf",
             f'<span style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;'
             f'color:var(--text-faint)">Filter</span>'
             f'{_filter_dropdown(f"{pfx}-f1", f1_label, f1_opts, width="150px")}'
-            f'{_filter_dropdown(f"{pfx}-status", "All statuses", status_opts, width="140px")}'
+            # Who → what → state (DESIGN_SYSTEM §11, UI audit FI4): owner, cadence, status.
             f'{_filter_dropdown(f"{pfx}-cad", "All cadences", cad_opts, width="140px")}'
+            f'{_filter_dropdown(f"{pfx}-status", "All statuses", status_opts, width="140px")}'
             f'<button id="{pfx}-clear" onclick="mcJobsFilterClear(this)" style="display:none;align-items:center;gap:4px;'
             f'border:0;background:transparent;cursor:pointer;font-size:12px;color:var(--color-accent);padding:6px 4px">'
             f'{_icon("x",12)}Clear</button>'

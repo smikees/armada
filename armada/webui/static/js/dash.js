@@ -28,7 +28,7 @@ const MC_MI={
  plus:window.mcIcon('plus',16,'flex:none'), trash:window.mcIcon('trash',16,'flex:none')};
 function mcMenuItem(act,label,icon){const bad=(act==='remove');
   return '<a data-act="'+act+'" onclick="event.stopPropagation();mcTWMenuClick(this)" style="display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:12.5px;cursor:pointer;color:'+(bad?'var(--status-bad)':'inherit')+';text-decoration:none;border-radius:var(--r)">'
-   +'<span class="mc-mi-ic" style="display:flex;color:'+(bad?'var(--status-bad)':'color-mix(in srgb,var(--color-text) 60%,transparent)')+'">'+icon+'</span><span class="mc-mi-l" style="flex:1">'+label+'</span></a>';}
+   +'<span class="mc-mi-ic" style="display:flex;color:'+(bad?'var(--status-bad)':'var(--text-dim)')+'">'+icon+'</span><span class="mc-mi-l" style="flex:1">'+label+'</span></a>';}
 function mcTWEl(w){
   const id=mcTWId(w);const span=w.span||10;const unread=!!w.unread;
   const cell=document.createElement('div');cell.className='mc-w';cell.dataset.id=id;cell.dataset.span=String(span);
@@ -47,7 +47,7 @@ function mcTWEl(w){
    +'<span class="mc-tw-title" title="'+mcEscA(title)+'" style="font-family:var(--font-heading);font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;max-width:40%">'+mcEscH(title)+'</span>'
    +'<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden"><span class="mc-tw-count">…</span><span style="opacity:.5">·</span><span class="mc-tw-comp" style="display:inline-flex;align-items:center;gap:6px"></span></span>'
    +'<div style="margin-left:auto;position:relative">'
-   +'<button class="mc-tw-dots" title="Options" onclick="mcTWMenu(event,this)" style="border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:inline-flex;color:color-mix(in srgb,var(--color-text) 65%,transparent)">'+MC_DOTS+'</button>'
+   +'<button class="mc-tw-dots" title="Options" onclick="mcTWMenu(event,this)" style="border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:inline-flex;color:var(--text-65)">'+MC_DOTS+'</button>'
    +'<div class="mc-tw-menu" style="display:none;min-width:180px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:4px">'
    +mcMenuItem('goto','Go to agent',MC_MI.user)
    +mcMenuItem('section','Add as section',MC_MI.plus)
@@ -170,7 +170,7 @@ let mcModalAgent='';
 function mcModalOpen(){const m=document.getElementById('mc-wmodal');return m&&m.style.display==='flex';}
 function mcAddWidget(){document.getElementById('mc-wmodal').style.display='flex';mcModalRender();}
 function mcWModalClose(){document.getElementById('mc-wmodal').style.display='none';}
-function mcSecHead(t){return '<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 50%,transparent);margin:2px 0 8px">'+t+'</div>';}
+function mcSecHead(t){return '<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft);margin:2px 0 8px">'+t+'</div>';}
 function mcSingleRow(w,on){
   return '<label style="display:block;padding:7px 11px;border:1px solid var(--color-divider);border-radius:10px;margin-bottom:7px;cursor:pointer">'
    +'<span style="display:flex;align-items:center;gap:9px">'
@@ -197,7 +197,7 @@ function mcModalRender(){
   if(!mcModalAgent&&window.MC_AGENTS&&MC_AGENTS.length)mcModalAgent=MC_AGENTS[0].id;
   let ex='';MC_SINGLE.forEach(w=>{if(mcSingleOn(w.id))ex+=mcSingleRow(w,true);});
   mcTWLoad().forEach(w=>ex+=mcThreadRow(w));
-  if(!ex)ex='<div style="font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent);margin-bottom:8px">Nothing on the dashboard yet.</div>';
+  if(!ex)ex='<div style="font-size:12px;color:var(--text-soft);margin-bottom:8px">Nothing on the dashboard yet.</div>';
   let other='';MC_SINGLE.forEach(w=>{if(!mcSingleOn(w.id))other+=mcSingleRow(w,false);});
   other+=mcThreadForm();
   body.innerHTML=mcSecHead('On your dashboard')+ex+'<div style="height:12px"></div>'+mcSecHead('Add widgets')+other;

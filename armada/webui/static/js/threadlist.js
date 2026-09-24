@@ -18,7 +18,7 @@ function mcThreadDelete(e,agent,slug,title){e.stopPropagation();
   ov.style.cssText='position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center';
   ov.innerHTML='<div class="mc-frame" style="background:var(--color-bg);border-radius:var(--r);padding:18px;width:min(440px,92vw);box-shadow:var(--shadow-lg)">'
     +'<div class="mc-h-card" style="margin-bottom:6px">Delete thread?</div>'
-    +'<div style="font-size:12.5px;color:color-mix(in srgb,var(--color-text) 60%,transparent);margin-bottom:12px">Delete “'+String(title==null?'':title).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];})+'”? This permanently removes its messages and cannot be undone.</div>'
+    +'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">Delete “'+String(title==null?'':title).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];})+'”? This permanently removes its messages and cannot be undone.</div>'
     +'<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;margin-bottom:14px">'
     +'<input type="checkbox" id="mc-delarts" style="margin:0;flex:none"><span>Also delete this thread’s artifacts from disk</span></label>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end">'

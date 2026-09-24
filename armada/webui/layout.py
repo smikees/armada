@@ -9,7 +9,7 @@ import html, json, datetime, time, re
 from pathlib import Path
 from .. import brand, vtheme, appconfig
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
+from ._base import (E, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from ..assets import (CSS_LINKS as _CSS_LINKS, RUN_JS as _RUN_JS, FORM_JS as _FORM_JS,
     DOTPOLL_JS as _DOTPOLL_JS, SWITCHER_JS as _SWITCHER_JS, PENDING_BADGE_JS as _PENDING_BADGE_JS,
     SECTION_EDIT_JS as _SECTION_EDIT_JS, AUTHBAR_JS as _AUTHBAR_JS, SCHEDBAR_JS as _SCHEDBAR_JS, UPDBAR_JS as _UPDBAR_JS, SUPPORT_JS as _SUPPORT_JS,

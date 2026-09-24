@@ -1,6 +1,6 @@
 (function(){
 // light tinted backgrounds with dark text; running = the app's theme teal, scheduled = hollow outline
-const CLR={missed:'color-mix(in srgb,var(--color-text) 9%,transparent)',
+const CLR={missed:'var(--text-9)',
  failed:'color-mix(in srgb,var(--status-bad) 20%,var(--color-bg))',
  warn:'color-mix(in srgb,var(--status-warn) 30%,var(--color-bg))',
  success:'color-mix(in srgb,var(--status-ok) 22%,var(--color-bg))',
@@ -40,7 +40,7 @@ function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' �
 function byDay(evs){const m={};evs.forEach(e=>{const k=e.ts.slice(0,10);(m[k]=m[k]||[]).push(e);});Object.values(m).forEach(l=>l.sort((x,y)=>x.ts<y.ts?-1:1));return m;}
 function drawMonth(body,a,evs){const gs=monday(new Date(a.getFullYear(),a.getMonth(),1));const map=byDay(evs);const tk=iso(new Date());
  let h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--color-divider)">';
- DOW.forEach(d=>h+='<div style="background:var(--color-bg);text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:color-mix(in srgb,var(--color-text) 50%,transparent);padding:3px 0">'+d+'</div>');
+ DOW.forEach(d=>h+='<div style="background:var(--color-bg);text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-soft);padding:3px 0">'+d+'</div>');
  for(let i=0;i<42;i++){const d=addDays(gs,i);const inM=d.getMonth()===a.getMonth();const key=iso(d);const evd=map[key]||[];const today=key===tk;
   h+='<div style="background:var(--color-bg);min-height:56px;padding:2px 3px;opacity:'+(inM?'1':'.4')+'">'
    +'<div style="font-size:10.5px;text-align:right;'+(today?'font-weight:700;color:var(--color-accent)':'color:var(--text-muted)')+'">'+d.getDate()+'</div>';
@@ -59,7 +59,7 @@ function drawDay(body,a,evs){const evd=byDay(evs)[iso(a)]||[];
  if(!evd.length){body.innerHTML='<div style="padding:20px;font-size:12.5px;color:var(--text-muted)">No jobs on this day.</div>';return;}
  let h='';evd.forEach(e=>{const c=DOT[e.status]||DOT.scheduled;const hollow=(e.status==='scheduled');
   h+='<div class="mc-jc-ev" title="'+esc(e.ts.slice(11,16)+' · '+e.agent_disp+' · '+e.job_name+' · '+e.status)+'" data-href="'+href(e)+'" style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--color-divider);cursor:pointer">'
-   +'<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:color-mix(in srgb,var(--color-text) 60%,transparent);width:40px">'+e.ts.slice(11,16)+'</span>'
+   +'<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--text-dim);width:40px">'+e.ts.slice(11,16)+'</span>'
    +'<span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(hollow?'transparent':c)+';box-shadow:'+(hollow?('inset 0 0 0 1.5px '+c):'none')+'"></span>'
    +'<span style="font-weight:600;font-size:12.5px">'+esc(e.job_name)+'</span>'
    +'<span style="font-size:11.5px;color:var(--text-muted)">'+esc(e.agent_disp)+'</span>'
@@ -82,8 +82,8 @@ function applyFilters(evs,pfx){
    &&(!q||((e.job_name||'')+' '+(e.agent_disp||'')).toLowerCase().includes(q)));}
 async function render(w){const v=w._view,a=w._anchor;const win=windowFor(v,a);
  const lbl=w.querySelector('.mc-jc-label');if(lbl)lbl.textContent=fmtLabel(v,a);
- w.querySelectorAll('.mc-jc-view').forEach(b=>{const on=b.dataset.jc===v;b.style.background=on?'color-mix(in srgb,var(--color-text) 9%,transparent)':'transparent';b.style.color=on?'var(--color-text)':'var(--text-muted)';});
- const body=w.querySelector('.mc-jc-body');if(body)body.innerHTML='<div style="padding:16px;font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Loading…</div>';
+ w.querySelectorAll('.mc-jc-view').forEach(b=>{const on=b.dataset.jc===v;b.style.background=on?'var(--text-9)':'transparent';b.style.color=on?'var(--color-text)':'var(--text-muted)';});
+ const body=w.querySelector('.mc-jc-body');if(body)body.innerHTML='<div style="padding:16px;font-size:12px;color:var(--text-soft)">Loading…</div>';
  const evs=applyFilters(await fetchEvents(win[0],win[1],w.dataset.scope||''),w.dataset.fpfx||'');
  if(v==='month')drawMonth(body,a,evs);else if(v==='week')drawWeek(body,a,evs);else drawDay(body,a,evs);}
 // let the Jobs page re-draw the calendar when a filter changes

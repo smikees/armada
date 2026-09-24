@@ -553,7 +553,7 @@ safe. Nothing in this phase changes behaviour.
       six date formats including US month/day on a European machine (C2); form dialogs order
       their buttons opposite to confirm dialogs (B5); the Inbox calls tasks "messages" (C3);
       horizontal scrollbar on every page at 1000px (R1). **C4 needs Mihai** (the risk words).
-- [ ] 4.3 Haiku works the backlog: 2.1 and 2.2's leftovers first (they're the most mechanical),
+- [x] 4.3 Haiku works the backlog: 2.1 and 2.2's leftovers first (they're the most mechanical),
       then the audit tickets, each verified against the golden suite and a screenshot.
       *(2026-09-24: the leftovers below are now tickets L1–L6 in `docs/dev/UI_AUDIT.md`, plus L7 — the
       two drifting golden pages.)*
@@ -565,7 +565,15 @@ safe. Nothing in this phase changes behaviour.
       `meta.json` writes and `_load_dashboard`'s migration write; (f) the effort dropdown lacks
       `xhigh`, which the runner accepts (from the engine audit, C). (d) and (e) are not
       Haiku-shaped — Sonnet, with a test each. *(d) and (e) done in v0.99.45.*
-- [ ] 4.4 Dark mode: the `#eee` header and friends are hardcoded light. Once 2.2 has promoted
+      **Done v0.99.66–v0.99.70 (Opus 5.5, Mihai: "wrap up Phase 4").** Every open ticket in
+      `docs/dev/UI_AUDIT.md` closed in four batches except **C4** (a word choice for Mihai: risk as
+      "Caution / Review / Trusted" or "High / Medium / Low risk") and **R1–R4**, which the audit
+      itself moved to after the beta (the window can't go below 1400px). Buttons (B1–B8), icon
+      buttons and closes (I1–I2), pills/chips/counts (P1–P4), headings (T1–T3), tabs and tables
+      (TB1–TB2), fields and filters (FI1–FI4: `_FIELD`/`_LBL`/`_TA` deleted), dates (C2:
+      `armada/datefmt.py`, one format set, English month names whatever the Windows locale),
+      copy (C1, C3) and leftovers (L1–L3, L6). Each batch released and walked in the app.
+- [x] 4.4 Dark mode: the `#eee` header and friends are hardcoded light. Once 2.2 has promoted
       styles to tokens, dark mode is a token set, not a rewrite. Decide **MIHAI**: in beta or
       after? (Recommendation: after, unless it's nearly free by then.)
       *Update 2026-09-24:* the premise is stale — dark mode already exists (`.armada-dark` token
@@ -574,6 +582,8 @@ safe. Nothing in this phase changes behaviour.
       beta-quality; 4.2's audit checks it. **Checked:** it wasn't — muted text was invisible (a token bug,
       fixed v0.99.41) and widget bars stayed light (v0.99.42). After those two fixes every page
       walked reads correctly in dark mode. Recommendation now: **dark mode ships in the beta.**
+      v0.99.66 added the white logo artwork for dark backgrounds (Mihai's SVGs) in the menu bar
+      and Settings.
 
 ---
 

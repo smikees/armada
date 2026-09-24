@@ -379,7 +379,8 @@ def test_inbox_view_filters_and_archive_search_exist():
     from pathlib import Path
     pages = (Path(inbox.__file__).parent / "webui" / "pages.py").read_text(encoding="utf-8")
     block = pages[pages.index("def inbox_view"):pages.index("def _sec_head")]
-    for want in ('id="ib-from"', 'id="ib-to"', 'id="ib-status"', 'id="ib-arch-q"',
+    # ib-from / ib-to / ib-status are the app's dropdowns (_filter_dropdown's first argument, FI2)
+    for want in ('"ib-from"', '"ib-to"', '"ib-status"', 'id="ib-arch-q"',
                  'data-from=', 'data-to=', 'data-status=', 'data-search='):
         assert want in block, f"the inbox view is missing {want}"
     # the archive renders even when empty — a section that appears only once populated reads as

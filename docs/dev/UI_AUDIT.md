@@ -90,16 +90,16 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
 
 ## FI — Fields and filters
 
-- [ ] **FI1** `_FIELD` (66 references), `_LBL` (84), `_TA` → `.mc-field`, `.mc-label`,
+- [x] **FI1** *(v0.99.70)* `_FIELD` (66 references), `_LBL` (84), `_TA` → `.mc-field`, `.mc-label`,
   `.mc-textarea`; then delete the constants. L · **H** (one file per commit)
-- [ ] **FI2** Inbox filters are native `<select>`s (and one drawn at 12.5px / 6px 9px) with a
+- [x] **FI2** *(v0.99.70)* Inbox filters are native `<select>`s (and one drawn at 12.5px / 6px 9px) with a
   "Clear" link — every other list filters with `mc-fdrop`. Rebuild with `_filter_dropdown`, a
   fixed width each, "Clear" as `.btn-link`. M · **S** (touches inbox JS)
-- [ ] **FI3** Artefacts' "Touched" date range uses native date inputs: they render in the
+- [x] **FI3** *(v0.99.70)* Artefacts' "Touched" date range uses native date inputs: they render in the
   *browser's* locale (`mm/dd/yyyy` here, on a Madrid machine), wrap onto a second row at ~1000px,
   and the "Touched" label is Title case beside an UPPERCASE "FILTER". Replace with a small
   preset `mc-fdrop` ("Any time / Today / 7 days / 30 days / Custom…"). M · **S**
-- [ ] **FI4** Filter-bar order (§11): Capabilities and Jobs put their dropdowns in different orders
+- [x] **FI4** *(v0.99.70)* Filter-bar order (§11): Capabilities and Jobs put their dropdowns in different orders
   (type → agent → source → risk vs owner → status → cadence). Apply who → what → state. S · **H**
 
 ## TB — Tabs and tables
@@ -112,7 +112,7 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
 
 - [x] **C1** *(v0.99.66)* Jobs legend reads "-/+3D JOB OUTCOME AND OUTLOOK" — cryptic. → "Last 3 days · next 3
   days" (the strip is ±3 days around today). S · **H**
-- [ ] **C2** **Dates come in six formats**: `Thu 9/24, 22:30` (Jobs next run — US month/day, on a
+- [x] **C2** *(v0.99.70)* **Dates come in six formats**: `Thu 9/24, 22:30` (Jobs next run — US month/day, on a
   European owner's machine), `17/09/26` (minister appointed), `19-09-26 14:40` (artefacts),
   `21-09-26` (memory, goals), `01 Oct 2027` (goal ETA), `Thu 24th` (Register next run). Add one
   formatter to `webui/schedfmt.py` implementing DESIGN_SYSTEM §9a and route every date through it —
@@ -147,10 +147,10 @@ minimum (a 1366×768 laptop can't show the whole window).
 
 ## L — Leftovers carried from Phase 2 (were 4.3 (a)–(f))
 
-- [ ] **L1** Externalize `webui/_core._WIZ_JS` (61-line new-realm wizard) to
+- [x] **L1** *(v0.99.70)* Externalize `webui/_core._WIZ_JS` (61-line new-realm wizard) to
   `static/js/newrealm_wizard.js`. S · **H**
 - [x] **L2** *(v0.99.66)* Confirm `serve.APP_HTML` is unreferenced; delete it. S · **H**
-- [ ] **L3** The ~30 `color-mix(` calls in `static/js/*.js` → the 2.2 tokens. M · **H**
+- [x] **L3** *(v0.99.70 — the 25 that equal a token exactly; the opaque mixes over `--color-bg` and one-off status tints have no token and stay)* The ~30 `color-mix(` calls in `static/js/*.js` → the 2.2 tokens. M · **H**
 - [x] **L4** *(v0.99.45)* Lock `routes/agents._save_agent`'s `agent.json` read-modify-write (it races
   `capabilities.py`'s locked grant writes). With a test. S · **S**
 - [x] **L5** *(v0.99.45 — locked, kept in the render path; the no-change case takes no lock)* Thread `meta.json` written during a render (`_touch_last_thread`,

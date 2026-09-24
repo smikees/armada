@@ -1,5 +1,5 @@
 let mcSecEdit=false;
-const MC_GREY='color-mix(in srgb,var(--color-text) 7%,transparent)';
+const MC_GREY='var(--text-7)';
 // app-native confirm modal (defined here too so it's available on every page the sections nav renders)
 // the shared app-native dialog is loaded for every page
 function _mcSecIdx(el){return parseInt(el.closest('.mc-tab-user').dataset.i,10);}

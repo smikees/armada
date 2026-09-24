@@ -7,11 +7,11 @@ Imports only lower layers (never _core), so _core imports these names back witho
 from __future__ import annotations
 import html, json, datetime, time, re
 from pathlib import Path
-from .. import memory, model, models, brand, status
+from .. import memory, model, models, brand, status, datefmt
 from .. import goals as goalsmod
 from ..icons import (ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR,
                      ICON_MISSED)
-from ._base import E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip
+from ._base import E, _J, _STAR, _md_inline, _md, _page_title, _chip
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -622,7 +622,7 @@ def _job_health7(jruns, cadence, now, running: bool = False, since: str = "",
                 label = "Missed"
         else:
             label = "Not scheduled"
-        out.append((d.strftime("%A"), d.strftime("%d %b"), label, d.weekday() >= 5))
+        out.append((d.strftime("%A"), f"{d.day} {datefmt.MON[d.month - 1]}", label, d.weekday() >= 5))
     return out
 
 
@@ -662,7 +662,7 @@ def _sysjob_health7(runs, now, enabled: bool = True,
             label = "Scheduled"
         else:
             label = "Not scheduled"
-        out.append((d.strftime("%A"), d.strftime("%d %b"), label, d.weekday() >= 5))
+        out.append((d.strftime("%A"), f"{d.day} {datefmt.MON[d.month - 1]}", label, d.weekday() >= 5))
     return out
 
 
@@ -784,7 +784,7 @@ def _agent_health7(realm_root, a, now, back: int = 6, fwd: int = 0):
     today = now.date()
     days = [today + datetime.timedelta(days=i) for i in range(-back, fwd + 1)]
     if not jobs:
-        return [(d.strftime("%A"), d.strftime("%d %b"), "Not scheduled", d.weekday() >= 5)
+        return [(d.strftime("%A"), f"{d.day} {datefmt.MON[d.month - 1]}", "Not scheduled", d.weekday() >= 5)
                 for d in days]
     runs_all = _runs(realm_root, a.id)
     running = _running_jobs(realm_root, a.id)
@@ -800,7 +800,7 @@ def _agent_health7(realm_root, a, now, back: int = 6, fwd: int = 0):
         for i, (_day, _dt, label, _wknd) in enumerate(week):
             if _HEALTH_RANK.get(label, 99) < _HEALTH_RANK.get(worst[i], 99):
                 worst[i] = label
-    return [(d.strftime("%A"), d.strftime("%d %b"), worst[i], d.weekday() >= 5)
+    return [(d.strftime("%A"), f"{d.day} {datefmt.MON[d.month - 1]}", worst[i], d.weekday() >= 5)
             for i, d in enumerate(days)]
 
 

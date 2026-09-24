@@ -201,7 +201,7 @@ function mcToolDetail(n,i){if(n==='Bash')return (i&&i.command)||'';try{return JS
 function mcAddChip(steps,icon,label,detail){
   const chip=document.createElement('div');
   chip.innerHTML='<div class="mc-step-h" style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
-   +'color:color-mix(in srgb,var(--color-text) 60%,transparent);'+(detail?'cursor:pointer':'')+'">'
+   +'color:var(--text-dim);'+(detail?'cursor:pointer':'')+'">'
    +'<span style="display:flex">'+icon+'</span><span class="mc-step-l">'+mcEsc(label)+'</span>'
    +(detail?'<span class="mc-step-c" style="margin-left:6px;opacity:.5">▸</span>':'')+'</div>'
    +(detail?'<pre class="mc-step-d" style="display:none;margin:4px 0 2px 20px;background:var(--color-sand-100);border:1px solid var(--color-sand-300);border-radius:var(--r);padding:6px 8px;font-size:11px;line-height:1.45;white-space:pre-wrap;max-height:220px;overflow:auto">'+mcEsc(detail)+'</pre>':'');
@@ -295,7 +295,7 @@ function mcActBtn(icon,title,onclick,cls){return '<button class="mc-iconbtn mc-a
 function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-turn-actions'))return;
   const idx=[...document.querySelectorAll('#mc-turns .mc-turn')].indexOf(turn);const d=new Date();
   const when=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
-  let h='<span style="font-size:10.5px;color:color-mix(in srgb,var(--color-text) 40%,transparent)">'+when+'</span>'+mcActBtn(MC_ACT.copy,'Copy','mcCopyTurn(this)','');
+  let h='<span style="font-size:10.5px;color:var(--text-ghost)">'+when+'</span>'+mcActBtn(MC_ACT.copy,'Copy','mcCopyTurn(this)','');
   if(role==='user'){h+=mcActBtn(MC_ACT.restart,'Restart from here','mcRestartTurn(this,\''+agent+'\',\''+thread+'\','+idx+')','');
     if(isLast)h+=mcActBtn(MC_ACT.edit,'Edit','mcEditTurn(this,\''+agent+'\',\''+thread+'\','+idx+')','mc-editbtn');}
   const row=document.createElement('div');row.className='mc-turn-actions';

@@ -177,8 +177,7 @@ def test_the_catalogue_uses_the_apps_filter_dropdown(realm):
 
 def test_the_catalogue_search_box_matches_the_jobs_one(realm):
     bar = _cat_bar(realm)
-    from armada.webui import _base
-    assert f'style="{_base._FIELD};padding-left:30px;padding-right:26px"' in bar
+    assert 'class="mc-field" style="padding-left:30px;padding-right:26px"' in bar
 
 
 def test_the_type_filter_carries_no_counts(realm):
@@ -228,8 +227,7 @@ def test_the_user_filters_are_the_same_control_as_everywhere_else(realm):
     for fid in ("cap-f-type", "cap-f-avail", "cap-f-source", "cap-f-tier"):
         assert f'<details class="mc-fdrop" id="{fid}"' in page, f"{fid} is not the app's dropdown"
     assert '<select id="cap-f-' not in page
-    from armada.webui import _base
-    assert f'style="{_base._FIELD};padding-left:30px;padding-right:26px"' in page
+    assert 'class="mc-field" style="padding-left:30px;padding-right:26px"' in page
 
 
 def test_the_user_filters_read_data_val(realm):

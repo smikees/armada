@@ -102,8 +102,8 @@ function drawLine(body,d,by){
            :(x.color?'<i style="width:9px;height:9px;border-radius:2px;flex:none;background:'+esc(x.color)+'"></i>':""))
         +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name||x.label)+'</span></span>'
         +'<div style="flex:1;height:8px;border-radius:5px;background:var(--color-neutral-200);overflow:hidden"><div style="width:'+w.toFixed(1)+'%;height:100%;background:'+esc(c)+'"></div></div>'
-        +'<span style="flex:0 0 auto;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">'+htok(x.tok)+'</span></div>';});
-    return '<div style="padding:2px 14px 12px"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 50%,transparent);margin:6px 0 6px">'+title+'</div>'+r+'</div>';}
+        +'<span style="flex:0 0 auto;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text-65)">'+htok(x.tok)+'</span></div>';});
+    return '<div style="padding:2px 14px 12px"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft);margin:6px 0 6px">'+title+'</div>'+r+'</div>';}
   h+=rows(by==="models"?"By model":"By agent",items,(x)=>x.color||'var(--color-accent)');
   body.innerHTML=h;}
 function drawGraph(body,d){
@@ -118,14 +118,14 @@ function drawGraph(body,d){
     const fullh=b.tok?Math.max(2,(base-top)*b.tok/mx):0;let y=base;
     (b.segments||[]).forEach(s=>{const sh=(base-top)*s.tok/mx;y-=sh;
       svg+='<rect class="mc-bar" data-tip="'+esc(s.name+" · "+htok(s.tok))+'" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(0.6,sh).toFixed(1)+'" fill="'+esc(s.color)+'"></rect>';});
-    if(b.tok)svg+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(base-fullh-5).toFixed(1)+'" text-anchor="middle" font-size="9.5" fill="color-mix(in srgb,var(--color-text) 60%,transparent)">'+htok(b.tok)+'</text>';
+    if(b.tok)svg+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(base-fullh-5).toFixed(1)+'" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">'+htok(b.tok)+'</text>';
     svg+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">'+esc(b.label)+'</text>';});
   let h='<div style="padding:12px 14px 6px"><div style="display:flex;align-items:baseline;gap:8px">'
    +'<span style="font-family:var(--font-heading);font-weight:700;font-size:22px;line-height:1">'+htok(d.total)+'</span>'
    +'<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">tokens · '+sub+' · by '+(d.by==="models"?"model":"agent")+'</span></div></div>';
   h+='<div style="padding:0 8px 14px"><svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="display:block;height:'+H+'px">'
    +'<line x1="'+pad+'" y1="'+base+'" x2="'+(W-pad)+'" y2="'+base+'" stroke="var(--color-divider)" stroke-width="1"/>'+svg+'</svg></div>';
-  if(!d.total)h+='<div style="padding:0 14px 14px;font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">No usage in this period yet.</div>';
+  if(!d.total)h+='<div style="padding:0 14px 14px;font-size:12px;color:var(--text-soft)">No usage in this period yet.</div>';
   body.innerHTML=h;
   // custom follow-cursor tooltip (native SVG <title> is unreliable in the embedded webview)
   const svgEl=body.querySelector("svg");if(!svgEl)return;
@@ -137,14 +137,14 @@ function drawGraph(body,d){
     if(r&&r.dataset.tip){tip.textContent=r.dataset.tip;tip.style.display="block";tip.style.left=(e.clientX+12)+"px";tip.style.top=(e.clientY+12)+"px";}
     else tip.style.display="none";});
   svgEl.addEventListener("mouseleave",()=>{tip.style.display="none";});}
-const MC_SEL="color-mix(in srgb,var(--color-text) 9%,transparent)";      // grey selected pill (model-chip style)
+const MC_SEL="var(--text-9)";      // grey selected pill (model-chip style)
 const MC_MUT="var(--text-muted)";
 function grp(items,active,cls,attr){
   return items.map(([k,lb])=>{const on=k===active;
     return '<button class="'+cls+'" '+attr+'="'+k+'" style="border:0;border-radius:var(--r);cursor:pointer;font-size:11px;padding:4px 10px;line-height:1;background:'+(on?MC_SEL:"transparent")+';color:'+(on?"var(--color-text)":MC_MUT)+'">'+lb+'</button>';}).join("");}
 function paintTB(w){
   const modeWrap=w.querySelector(".mc-usage-tb");if(!modeWrap)return;
-  modeWrap.querySelectorAll(".mc-um").forEach(b=>{const on=b.dataset.um===w._mode;b.style.background=on?MC_SEL:"transparent";b.style.color=on?"var(--color-text)":"color-mix(in srgb,var(--color-text) 45%,transparent)";});
+  modeWrap.querySelectorAll(".mc-um").forEach(b=>{const on=b.dataset.um===w._mode;b.style.background=on?MC_SEL:"transparent";b.style.color=on?"var(--color-text)":"var(--text-faint)";});
   const ic=w.querySelector(".mc-usage-intervals");
   const cw=w._mode==="graph"?w._winGraph:w._winLine;
   ic.innerHTML=grp(INTERVALS[w._mode],cw,"mc-ui","data-ui");
@@ -163,7 +163,7 @@ async function render(w,force){paintTB(w);const body=w.querySelector(".mc-usage-
   // skeleton, no network — so the content stays put. Skipped on a forced refresh.
   if(!force){const c=cacheGet(uKey(w._mode,cw,w._by));
     if(c){fixHeaderTotals(c);w._lastD=c;if(body){if(w._mode==="graph")drawGraph(body,c);else drawLine(body,c,w._by);}return;}}
-  if(body)body.innerHTML='<div style="padding:16px;font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Loading…</div>';
+  if(body)body.innerHTML='<div style="padding:16px;font-size:12px;color:var(--text-soft)">Loading…</div>';
   const d=await fetchUsage(w._mode,cw,w._by,force);if(!body)return;
   if(d.error){body.innerHTML='<div style="padding:16px;font-size:12px;color:var(--status-bad)">'+esc(d.error)+'</div>';return;}
   fixHeaderTotals(d);                                    // sync the header Tokens/30d + API-eq KPIs

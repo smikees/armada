@@ -61,8 +61,8 @@ function mcJobsView(v,el,skipSave){
     if(L)L.style.display=(v==='list')?'':'none';
     if(C)C.style.display=(v==='cal')?'':'none';
     pn.querySelectorAll('.mc-jv').forEach(b=>{const on=b.dataset.v===v;
-      b.style.background=on?'color-mix(in srgb,var(--color-text) 9%,transparent)':'transparent';
-      b.style.color=on?'var(--color-text)':'color-mix(in srgb,var(--color-text) 50%,transparent)';});
+      b.style.background=on?'var(--text-9)':'transparent';
+      b.style.color=on?'var(--color-text)':'var(--text-soft)';});
   });
   if(v==='cal'&&window.mcJobcalRefresh)window.mcJobcalRefresh();
   if(!skipSave){try{localStorage.setItem('mc-jobs-view',v);}catch(e){}}

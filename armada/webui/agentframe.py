@@ -6,7 +6,7 @@ from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss,
+from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss,
                     _REVEAL_JS)
 # Externalized inline <script> blocks (Phase 2, 2.1) — bodies live in webui/static/js/.
 from ..assets import (MDFIELD_JS as _MDFIELD_JS_ASSET, A2A_TOGGLE_JS as _A2A_TOGGLE_JS,
@@ -130,7 +130,7 @@ def _tab_jobs(realm, realm_root, a, today, open_job: str = "") -> str:
                     f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;'
                     f'color:var(--text-faint)">{_icon("search",14)}</span>'
                     f'<input id="mc-jobsearch" placeholder="Search jobs…" oninput="mcJobSearch()" '
-                    f'style="{_FIELD};padding-left:30px;padding-right:30px">'
+                    f'class="mc-field" style="padding-left:30px;padding-right:30px">'
                     f'<span id="mc-jobsearch-x" onclick="mcJobSearchClear()" title="Clear" style="display:none;position:absolute;'
                     f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-faint)">{_icon("x",14)}</span></div>')
     status_opts = [("", "All statuses", "")] + [(v, lbl, _STATUS_FILTER_COLOR.get(v, "")) for v, lbl in _STATUS_FILTERS]

@@ -4,7 +4,7 @@ Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (hea
 
 ### `_fmt_date_short(s)`
 
-A date as dd/mm/yy (falls back to the raw string).
+A date with its year, `17 Sep 2026` (an appointment; DESIGN_SYSTEM §9a). Falls back to the raw string.
 
 ### `_new_agent_form(realm, cancel_html: str)`
 

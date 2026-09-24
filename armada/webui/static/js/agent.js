@@ -38,7 +38,7 @@ function mcSavedTick(r){
   const html=(r&&r.rendered)||{};
   for(const id in html){
     const v=document.getElementById(id+'-view'), t=document.getElementById(id), d=document.getElementById(id+'-dirty');
-    if(v){v.innerHTML=html[id]||'<span style="color:color-mix(in srgb,var(--color-text) 40%,transparent)">Nothing yet.</span>';}
+    if(v){v.innerHTML=html[id]||'<span style="color:var(--text-ghost)">Nothing yet.</span>';}
     // this text IS the saved text now, so the unsaved marker clears and becomes the new baseline
     if(t){t.setAttribute('data-orig',t.value);}
     if(d){d.style.display='none';}

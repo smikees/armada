@@ -23,6 +23,7 @@
 | [`catalogue.sources`](catalogue.sources.md) | The catalogue's three mirrored/queried sources — Claude plugin marketplaces, the MCP registry, anthropics/skills, and the skills you wrote yourself — normalised |
 | [`cli`](cli.md) | ARMADA CLI |
 | [`clock`](clock.md) | One place the app asks what time it is. |
+| [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
 | [`ed25519`](ed25519.md) | Ed25519 signatures (RFC 8032), in plain Python — for checking that an update came from us (5.4). |
 | [`engine.__init__`](engine.__init__.md) | Engine adapters — the provider seam |

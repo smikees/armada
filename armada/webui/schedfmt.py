@@ -5,6 +5,7 @@ timestamp formatting. Depends only on datetime, the scheduler (lazy) and the sta
 never on _core rendering helpers — so _core imports these names back with no import cycle.
 """
 from __future__ import annotations
+from .. import datefmt
 import datetime
 from .. import clock
 from .. import status
@@ -153,18 +154,16 @@ def _ordinal(n: int) -> str:
 
 
 def _next_hint(agent) -> str:
-    """The next run as 'DDD Nth HH:MM' (e.g. 'Sat 12th 05:05'); '—' when nothing is scheduled."""
+    """The next run, `Thu 24 Sep, 05:05` (DESIGN_SYSTEM §9a); '—' when nothing is scheduled."""
     dt = _next_run_dt(agent)
-    return f"{dt:%a} {_ordinal(dt.day)} {dt:%H:%M}" if dt else "—"
+    return datefmt.moment(dt) if dt else "—"
 
 
 def _fmt_ts(ts) -> str:
-    """Render a run timestamp as DD-MM-YY HH:MM (falls back to the raw string)."""
+    """A run/file timestamp as `19 Sep, 14:40` (year added if not this year; §9a). Falls back to
+    the raw string."""
     s = str(ts or "")
     if not s:
         return ""
-    try:
-        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
-        return dt.strftime("%d-%m-%y %H:%M")
-    except ValueError:
-        return s[:16]
+    dt = datefmt.parse(s)
+    return datefmt.stamp(dt) if dt else s[:16]

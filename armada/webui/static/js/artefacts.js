@@ -6,7 +6,13 @@ function mcArtApply(){
   [fe,te].forEach(function(e){if(e&&today&&e.value&&e.value>today)e.value=today;});   // no future dates
   var q=(mcArtGV('art-q')).toLowerCase();
   var ow=mcArtGV('art-owner'), ty=mcArtGV('art-type');
-  var fr=fe?fe.value:'', to=te?te.value:'';
+  // "Touched": a preset (days back from today) or, under "Custom range…", the two date fields
+  var when=mcArtGV('art-when'), cw=document.getElementById('art-custom');
+  if(cw)cw.style.display=(when==='custom')?'inline-flex':'none';
+  var fr='', to='';
+  if(when==='custom'){fr=fe?fe.value:'';to=te?te.value:'';}
+  else if(when!==''&&today){var d=new Date(today+'T12:00:00');d.setDate(d.getDate()-(+when));
+    fr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   var n=0, shown=0;
   [...t.tBodies[0].rows].forEach(function(r){
     if(!r.dataset||r.dataset.search===undefined)return;
@@ -16,7 +22,7 @@ function mcArtApply(){
     r.style.display=ok?'':'none'; if(ok)shown++;
   });
   var c=document.getElementById('art-count'); if(c)c.textContent=shown+(shown===1?' artefact':' artefacts')+(shown!==n?(' of '+n):'');
-  var active=q||ow||ty||fr||to;
+  var active=q||ow||ty||when;
   var cl=document.getElementById('art-clear'); if(cl)cl.style.display=active?'inline-flex':'none';
   var sx=document.getElementById('art-q-x'); if(sx)sx.style.display=q?'block':'none';
 }

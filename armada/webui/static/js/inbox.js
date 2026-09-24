@@ -2,7 +2,8 @@
 // Filters are client-side: the whole exchange is already on the page, so narrowing it should be
 // instant rather than a round-trip. The archive search only applies inside the archive.
 function mcInboxFilter(){
-  const v=function(id){const e=document.getElementById(id);return e?e.value:'';};
+  // the filters are the app's dropdowns (a <details> carrying data-val); the archive search is an input
+  const v=function(id){const e=document.getElementById(id);if(!e)return '';return e.tagName==='DETAILS'?(e.dataset.val||''):e.value;};
   const f=v('ib-from'),t=v('ib-to'),s=v('ib-status'),q=v('ib-arch-q').toLowerCase().trim();
   const arch=document.getElementById('ib-archive');
   document.querySelectorAll('.mc-inbox-msg').forEach(function(c){
@@ -18,9 +19,8 @@ function mcInboxFilter(){
     if(none)none.style.display=any?'none':'block';});
 }
 function mcInboxClear(){
-  ['ib-from','ib-to','ib-status','ib-arch-q'].forEach(function(id){
-    const e=document.getElementById(id);if(e)e.value='';});
-  mcInboxFilter();
+  const q=document.getElementById('ib-arch-q');if(q)q.value='';
+  if(window.mcFDClear)mcFDClear(['ib-from','ib-to','ib-status'],'mcInboxFilter');else mcInboxFilter();
 }
 document.addEventListener('click',async function(e){
   const el=e.target.closest&&e.target.closest('[data-act]');

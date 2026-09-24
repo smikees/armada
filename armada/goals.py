@@ -20,6 +20,7 @@ they load into every thread for the agents that advance them.
 """
 from __future__ import annotations
 import datetime
+from . import datefmt
 import re
 from pathlib import Path
 
@@ -86,7 +87,7 @@ def list_goals(realm_root) -> list[dict]:
                 "overdue": overdue,
                 "agents": _agents_list(meta),
                 "body": body.strip(),
-                "modified": datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%d-%m-%y"),
+                "modified": datefmt.day(datetime.datetime.fromtimestamp(f.stat().st_mtime)),
             })
     return out
 

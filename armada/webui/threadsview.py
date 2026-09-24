@@ -6,11 +6,12 @@ re-imports these names.
 """
 from __future__ import annotations
 import html, json, datetime, time, re
+from .. import datefmt
 from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
+from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -758,7 +759,7 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
 
     def _fmt_arch(d):
         try:
-            return datetime.date.fromisoformat(str(d)).strftime("%d %b %Y")
+            return datefmt.day(datetime.date.fromisoformat(str(d)), year=True)   # `1 Oct 2027` (§9a)
         except (ValueError, TypeError):
             return str(d or "")
     arch_rows = ""

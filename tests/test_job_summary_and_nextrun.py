@@ -81,7 +81,7 @@ def test_the_editor_offers_the_field():
 def test_next_run_is_a_wall_clock_time():
     now = datetime.datetime(2026, 9, 18, 14, 0).astimezone()
     t = (now + datetime.timedelta(days=3)).replace(hour=20, minute=0)
-    assert RP._sysjob_next(t.isoformat(), False, now) == f"{t:%a} {t.month}/{t.day}, 20:00"
+    assert RP._sysjob_next(t.isoformat(), False, now) == "Mon 21 Sep, 20:00"          # DESIGN_SYSTEM §9a
 
 
 def test_an_overdue_job_says_when_it_will_actually_run():
@@ -107,7 +107,7 @@ def test_the_javascript_formats_it_the_same_way():
     js = (WEBUI / "static" / "js" / "sysjobs.js").read_text(encoding="utf-8")
     assert "function nextRun(" in js
     assert "any moment" in js and "due now" not in js
-    assert "d.getMonth()+1" in js and "d.getDate()" in js
+    assert "MON[d.getMonth()]" in js and "d.getDate()" in js      # `Thu 24 Sep, 22:30`, as datefmt.moment
 
 
 # --------------------------------------------------------------------------- run buttons

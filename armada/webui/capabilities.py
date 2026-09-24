@@ -13,7 +13,7 @@ from pathlib import Path
 from .. import memory, model, models, brand, status, sysskills
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
+from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -83,9 +83,9 @@ _CAP_EDIT_MODAL = (
     'Capabilities you define yourself. Anything from a published source is added from the '
     '"Add a capability" tab, and anything wired up in Claude appears here on its own.</div>'
     '<input type="hidden" id="mc-cap-scope"><input type="hidden" id="mc-cap-kind"><input type="hidden" id="mc-cap-id">'
-    f'<label style="{_LBL};margin-top:0">Name {_STAR}</label><input id="mc-cap-name" placeholder="E.g. Weekly report template" style="{_FIELD}">'
-    f'<label style="{_LBL}">Description</label><input id="mc-cap-descr" placeholder="E.g. house format for the Monday note" style="{_FIELD}">'
-    f'<label style="{_LBL}">Status</label><select id="mc-cap-status" style="{_FIELD}"><option value="connected">Connected</option><option value="planned">Planned</option></select>'
+    f'<label class="mc-label" style="margin-top:0">Name {_STAR}</label><input id="mc-cap-name" placeholder="E.g. Weekly report template" class="mc-field">'
+    f'<label class="mc-label">Description</label><input id="mc-cap-descr" placeholder="E.g. house format for the Monday note" class="mc-field">'
+    f'<label class="mc-label">Status</label><select id="mc-cap-status" class="mc-field"><option value="connected">Connected</option><option value="planned">Planned</option></select>'
     '<div style="margin-top:14px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
     '<span id="mc-cap-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
     '<button class="btn btn-secondary" onclick="mcCapClose()">Cancel</button>'
@@ -1007,7 +1007,7 @@ def _realm_skills(realm, realm_root) -> str:
                   f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;'
                   f'color:{faint}">{_icon("search",14)}</span>'
                   f'<input id="cap-search" oninput="mcCapFilter()" placeholder="Search…" '
-                  f'style="{_FIELD};padding-left:30px;padding-right:26px">'
+                  f'class="mc-field" style="padding-left:30px;padding-right:26px">'
                   f'<span id="cap-search-x" onclick="mcCapSearchClear()" title="Clear" style="display:none;position:absolute;'
                   f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:{faint}">{_icon("x",14)}</span></div>')
 
@@ -1023,10 +1023,12 @@ def _realm_skills(realm, realm_root) -> str:
                # legend column, which leaves it about 700px — five controls sized for their
                # longest option wrapped onto a second line. Each is now as wide as the words it
                # has to hold, and the menus below them are unchanged.
+               # Who → what → state (DESIGN_SYSTEM §11, UI audit FI4): agent, then type and source,
+               # then risk — the order the Jobs bar uses (owner, cadence, status).
+               + capsel("cap-f-avail", "Any agent", avail_opts)
                + capsel("cap-f-type", "All types",
                         [("connectors", "Connectors"), ("extensions", "Extensions"),
                          ("skills", "Skills"), ("plugins", "Plugins")])
-               + capsel("cap-f-avail", "Any agent", avail_opts)
                + capsel("cap-f-source", "All sources", src_opts)
                # Built from _TIER_META, not repeated here: the legend and this dropdown are two
                # views of one scale, and a second hand-written copy is how they came to disagree

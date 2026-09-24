@@ -6,7 +6,7 @@ from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
+from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -320,18 +320,26 @@ def _realm_artefacts(realm, realm_root, only_agent: str = None) -> str:
     type_dd = _filter_dropdown("art-type", "All types",
                                [("", "All types", ""), ("input", "Input", ""), ("output", "Output", "")],
                                width="130px", onpick="mcArtApply")
-    dd_ids = "['art-owner','art-type']" if show_owner else "['art-type']"
+    dd_ids = "['art-owner','art-type','art-when']" if show_owner else "['art-type','art-when']"
+    # "Touched" as presets (UI audit FI3): the browser's date inputs render in its own locale
+    # (mm/dd/yyyy on a European machine) and wrapped the bar onto two rows. They remain, but only
+    # behind "Custom range…".
+    when_dd = _filter_dropdown("art-when", "Any time",
+                               [("", "Any time", ""), ("0", "Today", ""), ("7", "Last 7 days", ""),
+                                ("30", "Last 30 days", ""), ("custom", "Custom range…", "")],
+                               width="130px", onpick="mcArtApply")
     controls = (f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px">'
                 f'<div style="position:relative;flex:0 0 220px">'
                 f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;color:{faint}">{_icon("search",14)}</span>'
-                f'<input id="art-q" placeholder="Search name, path, thread…" oninput="mcArtApply()" style="{_FIELD};padding-left:30px;padding-right:26px">'
+                f'<input id="art-q" placeholder="Search name, path, thread…" oninput="mcArtApply()" class="mc-field" style="padding-left:30px;padding-right:26px">'
                 f'<span id="art-q-x" onclick="mcArtSearchClear()" title="Clear" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:{faint}">{_icon("x",14)}</span></div>'
                 f'<span style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:{faint}">Filter</span>'
                 f'{owner_dd}{type_dd}'
-                f'<span style="font-size:12px;color:{muted}">Touched</span>'
-                f'<input id="art-from" type="date" max="{today}" onchange="mcArtApply()" style="{_FIELD};width:148px" title="From date (no future)">'
+                f'{when_dd}'
+                f'<span id="art-custom" style="display:none;align-items:center;gap:6px">'
+                f'<input id="art-from" type="date" max="{today}" onchange="mcArtApply()" class="mc-field" style="width:148px" title="From date (no future)">'
                 f'<span style="color:{faint}">–</span>'
-                f'<input id="art-to" type="date" max="{today}" onchange="mcArtApply()" style="{_FIELD};width:148px" title="To date (no future)">'
+                f'<input id="art-to" type="date" max="{today}" onchange="mcArtApply()" class="mc-field" style="width:148px" title="To date (no future)"></span>'
                 f'<button id="art-clear" onclick="mcArtClear({dd_ids})" style="display:none;align-items:center;gap:4px;'
                 f'border:0;background:transparent;cursor:pointer;font-size:12px;color:var(--color-accent);padding:6px 4px">{_icon("x",12)}Clear</button>'
                 f'<span id="art-count" style="margin-left:auto;font-size:11.5px;color:{muted}"></span></div>')

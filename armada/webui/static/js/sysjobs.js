@@ -58,7 +58,9 @@
     if(!iso)return '—';
     const d=new Date(iso); if(isNaN(d.getTime()))return '—';
     const p=n=>String(n).padStart(2,'0');
-    return DOW[d.getDay()]+' '+(d.getMonth()+1)+'/'+d.getDate()+', '+p(d.getHours())+':'+p(d.getMinutes());
+    // `Thu 24 Sep, 22:30` — the same as datefmt.moment on the server (DESIGN_SYSTEM §9a)
+    const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return DOW[d.getDay()]+' '+d.getDate()+' '+MON[d.getMonth()]+', '+p(d.getHours())+':'+p(d.getMinutes());
   }
 
   window.mcSysJobRun=async function(btn,id){

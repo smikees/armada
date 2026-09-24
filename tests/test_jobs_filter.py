@@ -24,11 +24,11 @@ def test_job_health7_scheduled_vs_missed():
     cadence = "0 16 * * 1-5"                           # weekdays at 16:00
     jruns = [{"task": "j", "ts": "2026-09-08T16:00:05", "status": "ok"}]     # Tue: ran ok
     labels = {dt_lbl: status for _day, dt_lbl, status, _w in webui._job_health7(jruns, cadence, now)}
-    assert sorted(labels) == ["06 Sep", "07 Sep", "08 Sep", "09 Sep", "10 Sep", "11 Sep", "12 Sep"]
-    assert labels["06 Sep"] == "Not scheduled"  # Sunday — weekdays cron doesn't fire
-    assert labels["07 Sep"] == "Missed"         # Monday, was due, no run
-    assert labels["08 Sep"] == "Success"        # recorded ok
-    assert labels["09 Sep"] == "Scheduled"      # today, weekday, 16:00 not yet reached
+    assert set(labels) == {"6 Sep", "7 Sep", "8 Sep", "9 Sep", "10 Sep", "11 Sep", "12 Sep"}
+    assert labels["6 Sep"] == "Not scheduled"  # Sunday — weekdays cron doesn't fire
+    assert labels["7 Sep"] == "Missed"         # Monday, was due, no run
+    assert labels["8 Sep"] == "Success"        # recorded ok
+    assert labels["9 Sep"] == "Scheduled"      # today, weekday, 16:00 not yet reached
     assert labels["10 Sep"] == "Scheduled"      # Thursday ahead — due, hasn't happened
     assert labels["11 Sep"] == "Scheduled"      # Friday ahead
     assert labels["12 Sep"] == "Not scheduled"  # Saturday ahead — cron doesn't fire
@@ -48,7 +48,7 @@ def test_job_health7_running_today():
     now = dt.datetime(2026, 9, 9, 14, 0, tzinfo=dt.timezone.utc)
     days = webui._job_health7([], "0 16 * * 1-5", now, running=True)
     assert days[3][2] == "Running"              # today is the middle cell now, not the last
-    assert days[3][1] == "09 Sep"
+    assert days[3][1] == "9 Sep"
 
 
 

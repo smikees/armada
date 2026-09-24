@@ -295,13 +295,13 @@ def render_new_job(realm, realm_root, agent_id: str, dark: bool = False) -> str:
     body = (f'<div style="padding:18px 24px 24px;max-width:760px">{_page_title("New job", "for " + a.display)}'
             f'<input type="hidden" id="j-agent" value="{E(agent_id)}">'
             f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-            f'<div><label style="{_LBL}">Name {_STAR}</label><input id="j-name" placeholder="E.g. Daily Brief" style="{_FIELD}"></div>'
-            f'<div><label style="{_LBL}">Kind</label><select id="j-kind" style="{_FIELD}">'
+            f'<div><label class="mc-label">Name {_STAR}</label><input id="j-name" placeholder="E.g. Daily Brief" class="mc-field"></div>'
+            f'<div><label class="mc-label">Kind</label><select id="j-kind" class="mc-field">'
             f'<option value="agent">Agent · prompt</option><option value="command">Command · script</option></select></div>'
-            f'<div><label style="{_LBL}">Target thread</label><input id="j-thread" value="main" style="{_FIELD}"></div>'
-            f'<div><label style="{_LBL}">Cadence (cron, blank = on demand)</label><input id="j-cron" placeholder="E.g. 0 9 * * 1-5" style="{_FIELD}"></div></div>'
-            f'<label style="{_LBL}">Prompt (agent) or command (script)</label>'
-            f'<textarea id="j-prompt" style="{_TA};min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px"></textarea>'
+            f'<div><label class="mc-label">Target thread</label><input id="j-thread" value="main" class="mc-field"></div>'
+            f'<div><label class="mc-label">Cadence (cron, blank = on demand)</label><input id="j-cron" placeholder="E.g. 0 9 * * 1-5" class="mc-field"></div></div>'
+            f'<label class="mc-label">Prompt (agent) or command (script)</label>'
+            f'<textarea id="j-prompt" class="mc-textarea" style="min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px"></textarea>'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
             f'<button class="btn btn-primary" onclick="mcNewJob()">Create job</button>'
             f'<a href="/agent/{E(agent_id)}/jobs" class="btn btn-secondary" style="text-decoration:none">Cancel</a>'
@@ -321,7 +321,7 @@ def _telegram_box() -> str:
     message the bot and press a button."""
     from .. import telegram as _tg
     st = _tg.status()
-    fld = f"{_FIELD};font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px"
+    fld = "font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px"
     intro = ('<div style="font-size:12.5px;color:var(--text-muted);line-height:1.55;margin:-2px 0 10px;'
              'max-width:640px">Message your agents from your phone. Send <code>/warren how exposed '
              'are we to tech?</code> and it lands in Warren\'s main thread — same context, same '
@@ -346,11 +346,11 @@ def _telegram_box() -> str:
         return intro + head
     # Not connected (or connected but not yet pointed at a chat).
     token_row = (
-        f'<div style="margin-bottom:12px"><label style="{_LBL};margin-top:0">Step 1 — bot token</label>'
+        f'<div style="margin-bottom:12px"><label class="mc-label" style="margin-top:0">Step 1 — bot token</label>'
         f'<div style="font-size:11px;color:var(--text-muted);margin:0 0 5px">Open Telegram, message '
         f'<b>@BotFather</b>, send <code>/newbot</code>, and paste what it gives you.</div>'
         f'<div style="display:flex;gap:8px;align-items:center">'
-        f'<input id="st-tg-token" type="password" placeholder="123456789:AA…" style="{fld};flex:1" '
+        f'<input id="st-tg-token" type="password" placeholder="123456789:AA…" class="mc-field" style="flex:1" '
         f'autocomplete="off" spellcheck="false">'
         f'<button class="btn btn-secondary btn-sm" style="white-space:nowrap" '
         f'onclick="mcTgToken(this)">Save token</button></div></div>')
@@ -362,12 +362,12 @@ def _telegram_box() -> str:
         f'The file needs a <code>TELEGRAM_BOT_TOKEN</code> line, and a <code>TELEGRAM_CHAT_ID</code> '
         f'line if you have one. ARMADA stores the path, not the secret.</div>'
         f'<div style="display:flex;gap:8px;align-items:center">'
-        f'<input id="st-tg-env" placeholder="D:\\path\\to\\.env" style="{fld};flex:1" spellcheck="false">'
+        f'<input id="st-tg-env" placeholder="D:\\path\\to\\.env" class="mc-field" style="flex:1" spellcheck="false">'
         f'<button class="btn btn-secondary btn-sm" style="white-space:nowrap" '
         f'onclick="mcTgEnv(this)">Use this file</button></div></details>')
     link_row = (
         f'<div style="{"" if st["configured"] else "opacity:.45;pointer-events:none"}">'
-        f'<label style="{_LBL};margin-top:0">Step 2 — link your chat</label>'
+        f'<label class="mc-label" style="margin-top:0">Step 2 — link your chat</label>'
         f'<div style="font-size:11px;color:var(--text-muted);margin:0 0 5px;max-width:620px">'
         f'Send your bot any message, then press this. ARMADA reads the chat it came from and will '
         f'only ever listen to that one — a bot is reachable by anyone who knows its name.</div>'
@@ -405,13 +405,13 @@ def _a2a_defaults_box(realm_root) -> str:
             f'individual agent is set to.</div>'
             f'<div id="st-a2a-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;'
             f'align-items:start{"" if on else ";opacity:.45;pointer-events:none"}">'
-            f'<div><label style="{_LBL};margin-top:0">Default inbox reading</label>'
-            f'<select id="st-a2a-cadence" style="{_FIELD}">{cad_opts}</select>'
+            f'<div><label class="mc-label" style="margin-top:0">Default inbox reading</label>'
+            f'<select id="st-a2a-cadence" class="mc-field">{cad_opts}</select>'
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">How soon an agent '
             f'acts on a task a teammate sends it. Checking costs nothing — an agent is only woken '
             f'when something is waiting.</div></div>'
-            f'<div><label style="{_LBL};margin-top:0">Agents accept tasks from</label>'
-            f'<select id="st-a2a-accepts" style="{_FIELD}">{acc_opts}</select>'
+            f'<div><label class="mc-label" style="margin-top:0">Agents accept tasks from</label>'
+            f'<select id="st-a2a-accepts" class="mc-field">{acc_opts}</select>'
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Who may assign an '
             f'agent work. Any agent can override both of these on its own Configure page.</div></div>'
             f'</div>'
@@ -435,9 +435,9 @@ def _approot_box() -> str:
         note, colour = ("Not set. Pick the folder ARMADA should work in before adding a realm.",
                         "var(--status-warn)")
     return (f'<div style="max-width:520px">'
-            f'<label style="{_LBL};margin-top:0">Root folder</label>'
+            f'<label class="mc-label" style="margin-top:0">Root folder</label>'
             f'<div style="display:flex;gap:8px;align-items:center">'
-            f'<input id="st-approot" value="{E(root)}" placeholder="D:\\Work2" style="{_FIELD};flex:1">'
+            f'<input id="st-approot" value="{E(root)}" placeholder="D:\\Work2" class="mc-field" style="flex:1">'
             f'<button class="mc-frame" style="padding:7px 12px;border-radius:var(--r);font-size:12px;'
             f'cursor:pointer;white-space:nowrap" onclick="mcRootSave(this)">Save</button></div>'
             f'<div id="st-approot-msg" style="font-size:11px;color:{colour};margin-top:5px">{E(note)}</div>'
@@ -464,9 +464,9 @@ def _workspace_box(realm, cfg) -> str:
         note, colour = ("Not set. Set this if your jobs read or write files outside the realm.",
                         "var(--text-muted)")
     return (f'<div style="margin-top:14px;max-width:520px">'
-            f'<label style="{_LBL}">Workspace folder</label>'
+            f'<label class="mc-label">Workspace folder</label>'
             f'<div style="display:flex;gap:8px;align-items:center">'
-            f'<input id="st-ws" value="{E(root)}" placeholder="D:\\Work" style="{_FIELD};flex:1">'
+            f'<input id="st-ws" value="{E(root)}" placeholder="D:\\Work" class="mc-field" style="flex:1">'
             f'<button class="mc-frame" style="padding:7px 12px;border-radius:var(--r);font-size:12px;'
             f'cursor:pointer;white-space:nowrap" onclick="mcWsSave(this)">Save</button></div>'
             f'<div id="st-ws-msg" style="font-size:11px;color:{colour};margin-top:5px">{E(note)}</div>'
@@ -653,20 +653,20 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         sect("Realm",
              f'<div style="display:grid;grid-template-columns:minmax(240px,1fr) minmax(400px,1.3fr);'
              f'gap:22px;align-items:start">'
-             f'<div><label style="{_LBL};margin-top:0">Active realm</label>'
-             f'<select id="st-realm" style="{_FIELD}" onchange="if(this.value)location.href=\'/switch?to=/settings&path=\'+encodeURIComponent(this.value)">{realm_opts}</select>'
+             f'<div><label class="mc-label" style="margin-top:0">Active realm</label>'
+             f'<select id="st-realm" class="mc-field" onchange="if(this.value)location.href=\'/switch?to=/settings&path=\'+encodeURIComponent(this.value)">{realm_opts}</select>'
              # The name, directly under the picker that shows it. It is a label rather than an
              # identity: the folder is what everything else is keyed on, so renaming is free and
              # breaks nothing — no job, memory or run report refers to a realm by name.
-             f'<label style="{_LBL}">Name</label>'
+             f'<label class="mc-label">Name</label>'
              f'<input id="st-realmname" value="{E(realm.name)}" maxlength="60" '
-             f'placeholder="{E(Path(realm_root).name)}" style="{_FIELD}">'
+             f'placeholder="{E(Path(realm_root).name)}" class="mc-field">'
              f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">'
              f'What this realm is called in the switcher, the window and your agents\' briefings. '
              f'The folder it lives in doesn\'t change.</div></div>'
              # Current icon, Upload and the whole tile set on one line — the tiles were a second
              # row of mostly empty space. They wrap only if the column is genuinely too narrow.
-             f'<div><label style="{_LBL};margin-top:0">Realm icon</label>'
+             f'<div><label class="mc-label" style="margin-top:0">Realm icon</label>'
              f'<div style="display:flex;gap:2px;align-items:center;flex-wrap:wrap">'
              f'<span id="st-iconcur" style="display:flex;color:var(--text-strong);margin-right:2px">{_realm_icon(realm, 22)}</span>'
              f'<label class="mc-frame" style="cursor:pointer;padding:5px 10px;border-radius:var(--r);font-size:12px;white-space:nowrap;margin-right:4px">'
@@ -679,24 +679,24 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
              # you keep at home. It was already stored in realm.json — only the UI filed it
              # under your profile.
              f'<div style="margin-top:14px;max-width:340px">'
-             f'<label style="{_LBL}">Timezone</label>'
-             f'<select id="st-tz" onchange="mcTzUpdate()" style="{_FIELD};height:36px">{_tz_options(cfg.get("timezone", ""))}</select>'
+             f'<label class="mc-label">Timezone</label>'
+             f'<select id="st-tz" onchange="mcTzUpdate()" class="mc-field" style="height:36px">{_tz_options(cfg.get("timezone", ""))}</select>'
              f'<div id="us-tz-time" style="font-size:11px;color:var(--text-muted);margin-top:5px">'
              f'Job schedules in this realm will be based on this time.</div></div>')
         + sect("AI provider & defaults",
                f'<div style="font-size:11.5px;color:var(--text-muted);margin:-2px 0 10px">'
                f'Agents and threads inherit these unless you make specific agent and thread-level settings.</div>'
-               f'<label style="{_LBL};margin-top:0">AI providers</label>'
+               f'<label class="mc-label" style="margin-top:0">AI providers</label>'
                f'<div id="st-provider" style="margin:2px 0 4px">{prov_opts}</div>'
                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-               f'<div><label style="{_LBL}">Default model</label><select id="st-model" style="{_FIELD}">{model_opts}</select></div>'
-               f'<div><label style="{_LBL}">Default thinking</label><select id="st-effort" style="{_FIELD}">{eff_opts}</select></div></div>'
-               f'<div style="margin-top:12px;max-width:420px"><label style="{_LBL}">Default verbosity</label>'
-               f'<select id="st-verbosity" style="{_FIELD}">{verb_opts}</select>'
+               f'<div><label class="mc-label">Default model</label><select id="st-model" class="mc-field">{model_opts}</select></div>'
+               f'<div><label class="mc-label">Default thinking</label><select id="st-effort" class="mc-field">{eff_opts}</select></div></div>'
+               f'<div style="margin-top:12px;max-width:420px"><label class="mc-label">Default verbosity</label>'
+               f'<select id="st-verbosity" class="mc-field">{verb_opts}</select>'
                f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">How much your agents '
                f'write back. It never changes how much work they do, and failures, warnings and anything '
                f'needing your approval are always spelled out in full.</div></div>'
-               f'<div id="st-cons" style="margin-top:12px"><label style="{_LBL}">Relative token consumption '
+               f'<div id="st-cons" style="margin-top:12px"><label class="mc-label">Relative token consumption '
                f'<span style="text-transform:none;letter-spacing:0;color:var(--text-muted)">· default model, effort &amp; verbosity</span></label>'
                f'<div style="display:flex;align-items:center;gap:10px">'
                f'<span class="mc-modelmark" style="display:inline-flex;color:var(--text-muted)">{_icon("claude", 16)}</span>'
@@ -714,9 +714,9 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
            '<div style="font-size:11.5px;color:var(--text-muted);margin:8px 0 10px">'
            'Optional guardrails passed to Claude Code on every run. Agents inherit these unless overridden per agent.</div>'
            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-           f'<div><label style="{_LBL};margin-top:0">Fallback model</label><select id="st-fallback" style="{_FIELD}">{fb_opts}</select>'
+           f'<div><label class="mc-label" style="margin-top:0">Fallback model</label><select id="st-fallback" class="mc-field">{fb_opts}</select>'
            f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Switches to this model if the default is overloaded or unavailable.</div></div>'
-           f'<div><label style="{_LBL};margin-top:0">Max budget — USD per run</label><input id="st-maxbudget" type="number" min="0" step="0.01" value="{E(dmaxbudget)}" placeholder="no cap" style="{_FIELD}">'
+           f'<div><label class="mc-label" style="margin-top:0">Max budget — USD per run</label><input id="st-maxbudget" type="number" min="0" step="0.01" value="{E(dmaxbudget)}" placeholder="no cap" class="mc-field">'
            f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Hard spend ceiling for a single run. Blank or 0 = no cap.</div></div>'
            '</div>'
            # The one machine-specific thing a realm carries, and the only setting on this page that
@@ -796,7 +796,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
 
     _mode = _layout.appearance_mode()
     appearance = (
-        f'<label style="{_LBL};margin-top:0">Colour mode</label>'
+        f'<label class="mc-label" style="margin-top:0">Colour mode</label>'
         f'<div style="display:flex;gap:8px;align-items:center">'
         + "".join(f'<label class="mc-appmode" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;'
                   f'border:1px solid var(--color-divider);border-radius:var(--r);padding:7px 12px;font-size:12.5px;line-height:1">'
@@ -807,7 +807,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                   f'<span style="display:flex;color:var(--text-dim)">{_icon(ic,15)}</span>{lab}</label>'
                   for v, lab, ic in [("light", "Light", "sun"), ("dark", "Dark", "moon"), ("system", "System", "monitor")])
         + '</div>'
-        f'<label style="{_LBL}">Colour theme</label>'
+        f'<label class="mc-label">Colour theme</label>'
         f'<div style="display:flex;gap:10px;flex-wrap:wrap">{theme_cards}</div>'
         + _font_picker())
 
@@ -867,13 +867,13 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
     _gsel = u.get("gender", "") or "Prefer not to say"   # default when unset
     gender_opts = "".join(f'<option {"selected" if g == _gsel else ""}>{E(g)}</option>'
                           for g in ["Prefer not to say", "Male", "Female", "Non-binary"])
-    ufh = f"{_FIELD};height:36px"   # one height across name / tz / gender / birthdate
+    ufh = "height:36px"   # one height across name / tz / gender / birthdate
     remove_btn = (f'<button class="btn btn-secondary is-danger btn-sm" onclick="mcRemoveUserAvatar()">Remove</button>'
                   if _user_avatar_file(realm_root) else "")
     user_tab = sect("Your profile",
         f'<div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:6px">'
         f'<div id="us-avatar-prev" style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:1px solid var(--color-divider);background:var(--color-accent-100);flex:none">{uav_prev}</div>'
-        f'<div style="flex:1"><label style="{_LBL};margin-top:0">Avatar (optional)</label>'
+        f'<div style="flex:1"><label class="mc-label" style="margin-top:0">Avatar (optional)</label>'
         f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
         f'<button class="btn btn-secondary btn-sm" onclick="document.getElementById(\'us-avatar\').click()">Choose file…</button>'
         f'<button class="btn btn-secondary btn-sm" onclick="mcUserAvatarModal(true)">Pick from set</button>'
@@ -882,19 +882,19 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'<div id="us-avatarmsg" style="font-size:11.5px;color:var(--text-muted);margin-top:4px">Shown instead of “You” in threads. Cropped square &amp; optimized.</div></div></div>'
         + _user_avatar_modal() +
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">'
-        f'<div><label style="{_LBL}">Name</label><input id="us-name" value="{E(u.get("name", ""))}" placeholder="Your name" style="{ufh}"></div>'
-        f'<div><label style="{_LBL}">Gender (optional)</label><select id="us-gender" style="{ufh}">{gender_opts}</select></div>'
-        f'<div><label style="{_LBL}">Birthdate (optional)</label><input type="date" id="us-bday" min="1930-01-01" max="2020-12-31" value="{E(u.get("birthdate", ""))}" style="{ufh}"></div></div>'
+        f'<div><label class="mc-label">Name</label><input id="us-name" value="{E(u.get("name", ""))}" placeholder="Your name" class="mc-field"></div>'
+        f'<div><label class="mc-label">Gender (optional)</label><select id="us-gender" class="mc-field">{gender_opts}</select></div>'
+        f'<div><label class="mc-label">Birthdate (optional)</label><input type="date" id="us-bday" min="1930-01-01" max="2020-12-31" value="{E(u.get("birthdate", ""))}" class="mc-field"></div></div>'
         # Free text, because the useful things about a person don't fit in four fields. It lands in
         # the system memory every agent reads, so it's worth saying what that means before they
         # type — this is not a private note.
-        f'<div style="margin-top:14px"><label style="{_LBL};margin-top:0">About you</label>'
+        f'<div style="margin-top:14px"><label class="mc-label" style="margin-top:0">About you</label>'
         f'<div style="font-size:11.5px;color:var(--text-muted);margin:0 0 5px;line-height:1.5;max-width:640px">'
         f'Anything you want every agent to know about you — how you work, what you care about, how '
         f'to talk to you, constraints they should respect. Every agent in this realm reads it, so '
         f'leave out anything you wouldn\'t want in a prompt.</div>'
         f'<textarea id="us-about" rows="5" placeholder="E.g. I think in writing and prefer a draft I can react to over a list of options. I work in English and Spanish. Don\'t hedge — tell me when something is a bad idea." '
-        f'style="{_TA};min-height:96px">{E(u.get("about", ""))}</textarea></div>'
+        f'class="mc-textarea" style="min-height:96px">{E(u.get("about", ""))}</textarea></div>'
         f'<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
         f'<button class="btn btn-primary" onclick="mcSaveUser()">Save user settings</button>'
         f'<span id="us-msg" style="font-size:12px;color:var(--text-muted)">The source of truth — collected at setup, editable here. Saved to the realm and the agents’ core memory.</span></div>')
@@ -933,7 +933,7 @@ def _font_picker() -> str:
         return (f'<label class="mc-fontpick"><span class="mc-hint">{label}</span>'
                 f'<select class="mc-field" data-role="{role}" data-families="{fams}" '
                 f'onchange="mcSetFont(this)">{opts}</select></label>')
-    return (f'<label style="{_LBL}">Fonts <span style="text-transform:none;letter-spacing:0">'
+    return (f'<label class="mc-label">Fonts <span style="text-transform:none;letter-spacing:0">'
             f'(trial — these will become part of themes)</span></label>'
             f'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
             f'{sel("heading", "Headings")}{sel("body", "Body text")}'
@@ -969,15 +969,15 @@ def render_new_realm(realm, dark=False, embed=False) -> str:
                   '<input type="file" id="r-iconfile" accept="image/*" style="display:none" onchange="mcWizIcon(this)"></label>'
                   '<span id="r-iconprev" style="margin-left:6px;display:inline-flex;vertical-align:middle"></span>')
 
-    step1 = (f'<div id="wiz-1"><label style="{_LBL}">Mode</label>'
-             f'<select id="r-mode" style="{_FIELD}" onchange="mcMode()"><option value="create">Create new</option>'
+    step1 = (f'<div id="wiz-1"><label class="mc-label">Mode</label>'
+             f'<select id="r-mode" class="mc-field" onchange="mcMode()"><option value="create">Create new</option>'
              f'<option value="adopt">Adopt an existing folder</option></select>'
-             f'<label style="{_LBL}">Name {_STAR}</label><input id="r-name" placeholder="E.g. Personal / Business" style="{_FIELD}">'
-             f'<div id="r-createonly"><label style="{_LBL}">Template</label>'
+             f'<label class="mc-label">Name {_STAR}</label><input id="r-name" placeholder="E.g. Personal / Business" class="mc-field">'
+             f'<div id="r-createonly"><label class="mc-label">Template</label>'
              f'<div style="display:flex;gap:10px">{cards}</div>'
-             f'<label style="{_LBL}">Icon</label><div style="display:flex;flex-wrap:wrap;gap:2px">{icon_pick}</div></div>'
-             f'<label style="{_LBL}">Folder (absolute path) {_STAR}</label>'
-             f'<div style="display:flex;gap:8px"><input id="r-path" placeholder="E.g. D:\\Work\\MyRealm" style="{_FIELD};flex:1">'
+             f'<label class="mc-label">Icon</label><div style="display:flex;flex-wrap:wrap;gap:2px">{icon_pick}</div></div>'
+             f'<label class="mc-label">Folder (absolute path) {_STAR}</label>'
+             f'<div style="display:flex;gap:8px"><input id="r-path" placeholder="E.g. D:\\Work\\MyRealm" class="mc-field" style="flex:1">'
              f'<button class="btn btn-secondary" style="white-space:nowrap" onclick="mcBrowse()">Browse…</button></div>'
              f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
              f'<button class="btn btn-primary" onclick="mcNext()">Next →</button>'
@@ -1003,7 +1003,7 @@ def render_new_realm(realm, dark=False, embed=False) -> str:
                'font-size:12px;font-weight:600;text-align:center;cursor:pointer">Step 2 of 2 · Staff</div></div>')
     intro = (f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">'
              f'Create a fresh realm from a template — pick a model, then choose who staffs it — or adopt an existing folder.</div>')
-    scripts = f'<script>const MC_PRESETS={json.dumps(presets)};' + _WIZ_JS + '</script>'
+    scripts = f'<script>const MC_PRESETS={json.dumps(presets)};</script>' + _WIZ_JS
     if embed:                                        # chrome-less body for the dashboard modal iframe
         inner = f'<div style="padding:16px 20px 22px">{stepbar}{intro}{step1}{step2}</div>{scripts}'
         body_cls = "armada-dark" if dark else ""
@@ -1021,9 +1021,9 @@ def render_add_section(realm, dark=False) -> str:
             f'<div style="font-size:12.5px;color:var(--text-dim);margin-bottom:12px">'
             f'Promote a page or artifact to the top menu — e.g. your Daily Digest or State of the Realm. '
             f'Point it at a file in the realm (HTML/Markdown) or a URL.</div>'
-            f'<label style="{_LBL}">Name {_STAR}</label><input id="s-name" placeholder="E.g. Daily Digest" style="{_FIELD}">'
-            f'<label style="{_LBL}">Source (file path in the realm, or https URL) {_STAR}</label>'
-            f'<input id="s-src" placeholder="E.g. shared/digest.html  ·  or  ·  https://digest.stamih.com" style="{_FIELD}">'
+            f'<label class="mc-label">Name {_STAR}</label><input id="s-name" placeholder="E.g. Daily Digest" class="mc-field">'
+            f'<label class="mc-label">Source (file path in the realm, or https URL) {_STAR}</label>'
+            f'<input id="s-src" placeholder="E.g. shared/digest.html  ·  or  ·  https://digest.stamih.com" class="mc-field">'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
             f'<button class="btn btn-primary" onclick="mcAddSection()">Add</button>'
             f'<a href="/" class="btn btn-secondary" style="text-decoration:none">Cancel</a>'
@@ -1040,9 +1040,9 @@ def render_edit_section(realm, idx: int, dark=False) -> str:
     name = s.get("name", "") if isinstance(s, dict) else str(s)
     src = (s.get("path") or s.get("url") or "") if isinstance(s, dict) else ""
     body = (f'<div style="padding:18px 24px 24px;max-width:680px">{_page_title("Edit section")}'
-            f'<label style="{_LBL}">Name {_STAR}</label><input id="s-name" value="{E(name)}" style="{_FIELD}">'
-            f'<label style="{_LBL}">Source (file path in the realm, or https URL) {_STAR}</label>'
-            f'<input id="s-src" value="{E(src)}" style="{_FIELD}">'
+            f'<label class="mc-label">Name {_STAR}</label><input id="s-name" value="{E(name)}" class="mc-field">'
+            f'<label class="mc-label">Source (file path in the realm, or https URL) {_STAR}</label>'
+            f'<input id="s-src" value="{E(src)}" class="mc-field">'
             f'<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'
             f'<button class="btn btn-primary" onclick="mcUpdSection({idx})">Save</button>'
             f'<a href="/section/{idx}" class="btn btn-secondary" style="text-decoration:none">Cancel</a>'
@@ -1385,33 +1385,32 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
                 f'color:var(--text-muted)">Nothing matches these filters.</div></div>')
 
     # --- filters -----------------------------------------------------------------------------
-    _sel = ("padding:6px 9px;border:1px solid var(--color-divider);border-radius:var(--r);"
-            "background:var(--color-bg);color:var(--color-text);font:inherit;font-size:12.5px")
     involved = sorted({m.get("from", "") for v in data.values() for m in v} |
                       {m.get("agent", "") for v in data.values() for m in v})
     involved = [x for x in involved if x]
 
+    # The app's own dropdowns (UI audit FI2), like every other list's filter bar — the Inbox was
+    # the last page on the browser's native <select>.
     def opts(label, pool=None):
-        return (f'<option value="">{label}</option>' +
-                "".join(f'<option value="{E(x)}">{who(x)}</option>'
-                        for x in (pool if pool is not None else involved)))
+        return [("", label, "")] + [(x, names.get(x, x), "")
+                                    for x in (pool if pool is not None else involved)]
     # On an agent's own tab every message already concerns that agent, so a "to" filter would be a
     # control that does nothing — the sender is the only axis worth narrowing.
     from_pool = [x for x in involved if x != agent_id] if agent_id else involved
     to_filter = ("" if agent_id else
                  f'<span style="color:var(--text-muted);font-size:12px">→</span>'
-                 f'<select id="ib-to" onchange="mcInboxFilter()" style="{_sel}">{opts("Anyone")}</select>')
+                 + _filter_dropdown("ib-to", "Anyone", opts("Anyone"), width="150px", onpick="mcInboxFilter"))
     from_label = "From anyone" if agent_id else "Anyone"
     filters = (
         f'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 16px">'
-        f'<select id="ib-from" onchange="mcInboxFilter()" style="{_sel}">'
-        f'{opts(from_label, from_pool)}</select>{to_filter}'
-        f'<select id="ib-status" onchange="mcInboxFilter()" style="{_sel}">'
-        f'<option value="">Any status</option><option value="waiting">Pending</option>'
-        f'<option value="done">Done</option><option value="failed">Failed</option>'
-        f'<option value="reply">Replies</option></select>'
-        f'<a onclick="mcInboxClear()" style="font-size:12px;color:var(--color-accent);'
-        f'cursor:pointer">Clear</a></div>')
+        + _filter_dropdown("ib-from", from_label, opts(from_label, from_pool), width="150px", onpick="mcInboxFilter")
+        + to_filter
+        + _filter_dropdown("ib-status", "Any status",
+                           [("", "Any status", ""), ("waiting", "Pending", ""), ("done", "Done", ""),
+                            ("failed", "Failed", ""), ("reply", "Replies", "")],
+                           width="130px", onpick="mcInboxFilter")
+        + '<button type="button" class="btn-link" onclick="mcInboxClear()">Clear</button></div>'
+        + _FDROP_JS)
 
     enabled = _inbox.enabled(realm_root)
     off_note = ("" if enabled else

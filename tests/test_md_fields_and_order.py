@@ -347,7 +347,8 @@ def test_an_old_overview_link_still_opens_the_agent(realm):
 def test_the_covenant_says_when_it_was_last_changed(realm):
     """Governance you can edit needs a date, or you cannot tell a considered text from a stale one."""
     stamp = MV._covenant_updated(realm)
-    assert stamp == datetime.date.today().strftime("%d-%m-%y")
+    from armada import datefmt
+    assert stamp == datefmt.day(datetime.date.today())            # `24 Sep` (DESIGN_SYSTEM §9a)
     assert f"updated {stamp}" in MV._covenant_block(reader.read(str(realm)), realm)
 
 

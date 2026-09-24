@@ -4,11 +4,12 @@ Imports lower layers (never _core); _core re-imports these names.
 """
 from __future__ import annotations
 import html, datetime, time, re
+from .. import datefmt
 from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _poss)
+from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -60,10 +61,10 @@ def _list_mem(mem_dir: Path) -> list[tuple[str, str, str, str, str, str]]:
                 continue
             upd = (meta.get("updated") or "").strip()
             try:
-                modified = datetime.date.fromisoformat(upd[:10]).strftime("%d-%m-%y") if upd else \
-                    datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%d-%m-%y")
+                modified = datefmt.day(datetime.date.fromisoformat(upd[:10])) if upd else \
+                    datefmt.day(datetime.datetime.fromtimestamp(f.stat().st_mtime))
             except ValueError:
-                modified = datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%d-%m-%y")
+                modified = datefmt.day(datetime.datetime.fromtimestamp(f.stat().st_mtime))
             out.append((f.stem, meta.get("title", f.stem), body, modified,
                         (meta.get("kind") or "").strip().lower(), (meta.get("updated_by") or "").strip()))
     out.sort(key=lambda t: (t[4] not in ("core", "system"), t[0]))   # system/core first, then by stem
@@ -173,7 +174,7 @@ def _mem_search() -> str:
             f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;'
             f'color:var(--text-faint)">{_icon("search",14)}</span>'
             f'<input id="mem-search" placeholder="Search memories…" oninput="mcMemSearch()" '
-            f'style="{_FIELD};padding-left:30px;padding-right:30px">'
+            f'class="mc-field" style="padding-left:30px;padding-right:30px">'
             f'<span id="mem-search-x" onclick="mcMemSearchClear()" title="Clear" '
             f'style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;'
             f'color:var(--text-faint)">{_icon("x",14)}</span></div>')
@@ -198,10 +199,10 @@ def _mem_modals(scope: str, agent_id: str = "", agent_disp: str = "") -> str:
             f'<span style="font-size:11px;color:var(--text-soft)">· {add_sub}</span>'
             f'<button type="button" class="mc-x" onclick="mcCloseAddMem()" title="Close" aria-label="Close">×</button></div>'
             f'<input type="hidden" id="mem-edit" value="">'
-            f'<label style="{_LBL};margin-top:0">Title (optional)</label>'
-            f'<input id="mem-title" placeholder="{ph_title}" style="{_FIELD};margin-bottom:6px">'
-            f'<label style="{_LBL}">Memory {_STAR}</label>'
-            f'<textarea id="mem-text" placeholder="{ph_text}" style="{_TA};min-height:80px"></textarea>'
+            f'<label class="mc-label" style="margin-top:0">Title (optional)</label>'
+            f'<input id="mem-title" placeholder="{ph_title}" class="mc-field" style="margin-bottom:6px">'
+            f'<label class="mc-label">Memory {_STAR}</label>'
+            f'<textarea id="mem-text" placeholder="{ph_text}" class="mc-textarea" style="min-height:80px"></textarea>'
             f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
             f'<span id="mem-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
             f'<button class="btn btn-secondary" onclick="mcCloseAddMem()">Cancel</button>'
@@ -213,10 +214,10 @@ def _mem_modals(scope: str, agent_id: str = "", agent_disp: str = "") -> str:
             f'<div class="mc-modal-box" style="width:min(520px,92vw)">'
             f'<div class="mc-h-card">Edit memory</div>'
             f'<input type="hidden" id="mem-ed-scope"><input type="hidden" id="mem-ed-agent"><input type="hidden" id="mem-ed-name">'
-            f'<label style="{_LBL};margin-top:0">Title (optional)</label>'
-            f'<input id="mem-ed-title" style="{_FIELD};margin-bottom:6px">'
-            f'<label style="{_LBL}">Memory {_STAR}</label>'
-            f'<textarea id="mem-ed-text" style="{_TA};min-height:90px"></textarea>'
+            f'<label class="mc-label" style="margin-top:0">Title (optional)</label>'
+            f'<input id="mem-ed-title" class="mc-field" style="margin-bottom:6px">'
+            f'<label class="mc-label">Memory {_STAR}</label>'
+            f'<textarea id="mem-ed-text" class="mc-textarea" style="min-height:90px"></textarea>'
             f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
             f'<span id="mem-ed-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
             f'<button class="btn btn-secondary btn-sm" onclick="mcCloseEditMem()">Cancel</button>'
@@ -249,7 +250,7 @@ def _covenant_updated(realm_root) -> str:
     try:
         if not p.exists():
             return ""
-        return datetime.datetime.fromtimestamp(p.stat().st_mtime).strftime("%d-%m-%y")
+        return datefmt.day(datetime.datetime.fromtimestamp(p.stat().st_mtime))
     except OSError:
         return ""
 

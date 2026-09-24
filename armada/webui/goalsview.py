@@ -8,7 +8,7 @@ from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
-from ._base import (E, _J, _FIELD, _LBL, _TA, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
+from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from ..assets import GOALSEARCH_JS as _GOALSEARCH_JS  # Phase 2, 2.1
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
@@ -136,7 +136,7 @@ def _goal_status_options(sel: str = "") -> str:
 def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> str:
     """Add / edit / delete goal modals. When owner_id is set (agent Goals page), the new goal is
     auto-owned by that agent and the title reads 'Add goal for …'."""
-    fh = f"{_FIELD};height:34px"   # same height across title / status / date
+    fh = "height:34px"   # same height across title / status / date
     if owner_id and realm.coordinator:
         msg = f"Owned by this agent and {E(realm.coordinator.display)} ({E(realm.theme_coordinator)})."
     elif realm.coordinator:
@@ -151,11 +151,11 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
            f'<button type="button" class="mc-x" onclick="mcCloseAddGoal()" title="Close" aria-label="Close">×</button></div>'
            f'<input type="hidden" id="goal-owner" value="{E(owner_id)}">'
            f'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">'
-           f'<div><label style="{_LBL};margin-top:0">Title {_STAR}</label><input id="goal-title" placeholder="E.g. Become proficient in Spanish." style="{fh}"></div>'
-           f'<div><label style="{_LBL};margin-top:0">Status</label><select id="goal-status" style="{fh}">{_goal_status_options("Not started")}</select></div>'
-           f'<div><label style="{_LBL};margin-top:0">Target date (ETA)</label><input type="date" id="goal-target" style="{fh}"></div></div>'
-           f'<label style="{_LBL}">Description</label>'
-           f'<textarea id="goal-desc" placeholder="What does done look like? Why does it matter?" style="{_TA};min-height:80px"></textarea>'
+           f'<div><label class="mc-label" style="margin-top:0">Title {_STAR}</label><input id="goal-title" placeholder="E.g. Become proficient in Spanish." class="mc-field"></div>'
+           f'<div><label class="mc-label" style="margin-top:0">Status</label><select id="goal-status" class="mc-field">{_goal_status_options("Not started")}</select></div>'
+           f'<div><label class="mc-label" style="margin-top:0">Target date (ETA)</label><input type="date" id="goal-target" class="mc-field"></div></div>'
+           f'<label class="mc-label">Description</label>'
+           f'<textarea id="goal-desc" placeholder="What does done look like? Why does it matter?" class="mc-textarea" style="min-height:80px"></textarea>'
            f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
            f'<span id="goal-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)">{msg}</span>'
            f'<button class="btn btn-secondary" onclick="mcCloseAddGoal()">Cancel</button>'
@@ -168,11 +168,11 @@ def _goal_modals(realm, add_title: str = "Add a goal", owner_id: str = "") -> st
             f'<div class="mc-h-card">Edit goal</div>'
             f'<input type="hidden" id="goal-ed-stem">'
             f'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">'
-            f'<div><label style="{_LBL};margin-top:0">Title {_STAR}</label><input id="goal-ed-title" style="{fh}"></div>'
-            f'<div><label style="{_LBL};margin-top:0">Status</label><select id="goal-ed-status" style="{fh}">{_goal_status_options()}</select></div>'
-            f'<div><label style="{_LBL};margin-top:0">Target date (ETA)</label><input type="date" id="goal-ed-target" style="{fh}"></div></div>'
-            f'<label style="{_LBL}">Description</label>'
-            f'<textarea id="goal-ed-desc" style="{_TA};min-height:100px"></textarea>'
+            f'<div><label class="mc-label" style="margin-top:0">Title {_STAR}</label><input id="goal-ed-title" class="mc-field"></div>'
+            f'<div><label class="mc-label" style="margin-top:0">Status</label><select id="goal-ed-status" class="mc-field">{_goal_status_options()}</select></div>'
+            f'<div><label class="mc-label" style="margin-top:0">Target date (ETA)</label><input type="date" id="goal-ed-target" class="mc-field"></div></div>'
+            f'<label class="mc-label">Description</label>'
+            f'<textarea id="goal-ed-desc" class="mc-textarea" style="min-height:100px"></textarea>'
             f'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
             f'<span id="goal-ed-msg" style="margin-right:auto;font-size:12px;color:var(--text-muted)"></span>'
             f'<button class="btn btn-secondary btn-sm" onclick="mcCloseEditGoal()">Cancel</button>'

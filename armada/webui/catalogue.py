@@ -13,7 +13,7 @@ before the split, avoiding a module-level import cycle between the two.
 from __future__ import annotations
 import json, re
 from ..icons import _icon
-from ._base import E, _J, _FIELD, _md_inline, _md, _pill, _tone
+from ._base import E, _J, _md_inline, _md, _pill, _tone
 from .agentbits import _filter_dropdown
 from .capabilities import _KIND_SINGULAR, _cap_iconcluster, _cap_tier_why
 from ..assets import CAT_JS as _CAT_JS_ASSET
@@ -345,7 +345,7 @@ def _catalogue_pane(realm, realm_root) -> str:
            f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;'
            f'color:{faint}">{_icon("search",14)}</span>'
            f'<input id="cat-q" oninput="mcCatFilterSoon()" placeholder="Search the catalogue\u2026" '
-           f'style="{_FIELD};padding-left:30px;padding-right:26px">'
+           f'class="mc-field" style="padding-left:30px;padding-right:26px">'
            f'<span id="cat-q-x" onclick="mcCatClearSearch()" title="Clear" style="display:none;position:absolute;'
            f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:{faint}">{_icon("x",14)}</span></div>'
            f'<span style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;'
@@ -566,7 +566,7 @@ def _cat_bring_link() -> str:
         f'A real read takes real time; expect a minute or two, not a filter’s instant.</div>'
         f'<div style="display:flex;gap:8px;align-items:center">'
         f'<input id="cat-link" placeholder="https://github.com/owner/repo" '
-        f'style="{_FIELD};flex:1;max-width:440px" onkeydown="if(event.key===\'Enter\')mcCatReview(this)">'
+        f'class="mc-field" style="flex:1;max-width:440px" onkeydown="if(event.key===\'Enter\')mcCatReview(this)">'
         f'<button class="btn btn-secondary" style="white-space:nowrap" '
         f'onclick="mcCatReview(this)">Review</button></div>'
         f'<div id="cat-review-out" style="margin-top:10px"></div>'

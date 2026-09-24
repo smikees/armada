@@ -36,8 +36,8 @@ The earliest upcoming scheduled fire across all the agent's jobs (None if none u
 
 ### `_next_hint(agent)`
 
-The next run as 'DDD Nth HH:MM' (e.g. 'Sat 12th 05:05'); '—' when nothing is scheduled.
+The next run, `Thu 24 Sep, 05:05` (DESIGN_SYSTEM §9a); '—' when nothing is scheduled.
 
 ### `_fmt_ts(ts)`
 
-Render a run timestamp as DD-MM-YY HH:MM (falls back to the raw string).
+A run/file timestamp as `19 Sep, 14:40` (year added if not this year; §9a). Falls back to the raw string.

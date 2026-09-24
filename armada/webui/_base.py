@@ -25,9 +25,7 @@ def _J(value) -> str:
     `'{E(` out of event attributes.
     """
     return E(json.dumps("" if value is None else str(value)))
-_FIELD = "display:block;width:100%;padding:6px 8px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:13px"
-_LBL = "font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:14px 0 4px;display:block"
-_TA = "width:100%;resize:vertical;background:var(--color-sand-100);border:1px solid var(--color-sand-500);border-radius:var(--r);padding:10px;font-size:12.5px;line-height:1.55;color:var(--color-text);font-family:var(--font-body)"
+# The field/label/textarea looks are classes now: .mc-field, .mc-label, .mc-textarea (brand.css; UI audit FI1).
 _STAR = '<span class="mc-star" style="color:var(--status-bad)">*</span>'
 
 
