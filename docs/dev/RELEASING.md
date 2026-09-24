@@ -59,7 +59,9 @@ Decided by Mihai 2026-09-24: every release is pushed to the public repo
 ([github.com/smikees/armada](https://github.com/smikees/armada)) as part of the routine, not on request.
 
 ```powershell
-git push origin main
+# Authenticated through the GitHub CLI's sign-in (gh auth login), without changing git's global
+# credential helper. cmd /c keeps PowerShell from mangling the quotes.
+cmd /c 'git -c credential.helper= -c "credential.helper=!\"C:/Program Files/GitHub CLI/gh.exe\" auth git-credential" push origin main'
 ```
 
 Before pushing, the commit must not add anything personal: no realm data, no keys (the Resend key
