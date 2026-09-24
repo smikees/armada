@@ -96,3 +96,14 @@ def _isolated_machine_config(monkeypatch, tmp_path_factory):
     # single dict object shared by reference across catalogue/__init__.py, _shared.py and
     # sources.py, so clearing it through any one of those names clears it everywhere.
     catalogue._reg_cache.clear()
+    # The updater's machine state (5.4): what it last checked, a pending "restart to update", and the
+    # scheduler's pid note. A test must not leave a request on the developer's machine that a real
+    # scheduler would act on. And no real release channel: offline reads as "couldn't reach".
+    from armada import updater
+    monkeypatch.setattr(updater, "_state_path", lambda: home / "update.json")
+    monkeypatch.setattr(updater, "_request_path", lambda: home / "update-apply.request")
+    monkeypatch.setattr(updater, "_scheduler_pid_path", lambda: home / "scheduler.pid")
+
+    def _no_release_channel(url, limit):
+        raise OSError("tests don't reach GitHub")
+    monkeypatch.setattr(updater, "_fetch", _no_release_channel)

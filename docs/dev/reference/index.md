@@ -24,6 +24,7 @@
 | [`cli`](cli.md) | ARMADA CLI |
 | [`clock`](clock.md) | One place the app asks what time it is. |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
+| [`ed25519`](ed25519.md) | Ed25519 signatures (RFC 8032), in plain Python — for checking that an update came from us (5.4). |
 | [`engine.__init__`](engine.__init__.md) | Engine adapters — the provider seam |
 | [`engine.base`](engine.base.md) | Engine adapter contract (SPEC §9) |
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
@@ -65,6 +66,7 @@
 | [`telegram`](telegram.md) | Talking to your agents from Telegram. |
 | [`templates`](templates.md) | Realm templates (SPEC §3/§11): {theme} + starter agents over the neutral schema. |
 | [`threads`](threads.md) | Threads + compaction (SPEC §5). |
+| [`updater`](updater.md) | Automatic updates for an installed ARMADA (launch plan 5.4, ADR-011). |
 | [`usage_api`](usage_api.md) | Read the real Claude subscription usage (session + weekly) that powers the Claude app's Usage view. |
 | [`util`](util.md) | Small shared utilities: filesystem-path safety and atomic writes. |
 | [`validate`](validate.md) | `armada validate` — is this folder a runnable ARMADA realm, and what's in it? |

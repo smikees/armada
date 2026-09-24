@@ -615,7 +615,7 @@ Strangers will install this on machines we've never seen. Everything above assum
       remembered (it lists them). Phase 6's guided setup replaces the middle of the page; the
       mode and hand-over stay. `tests/test_first_run.py` drives a real no-realm server; walked
       through by hand on Windows with a throwaway home folder.
-- [ ] 5.4 Update path: the app knows its version (it does), checks a release endpoint on a
+- [x] 5.4 Update path: the app knows its version (it does), checks a release endpoint on a
       cadence (a system job), and updates in place **automatically by default**, with an off
       switch under Settings → Advanced (decided, ADR-005). Realm migration (2.8) runs on first
       start after an update. The release endpoint is GitHub Releases once the repo is pushed —
@@ -629,6 +629,19 @@ Strangers will install this on machines we've never seen. Everything above assum
       public, branch `main`, one commit at v0.99.56 (after the internal rename). Locally the old
       history is `archive/private-history` (never pushed) + a bundle in `MATCAP-private/`. Next →
       build 5.4 on GitHub Releases.
+      **Done as v0.99.64 (Opus 5.5), [ADR-011](adr/ADR-011-updater.md).** Releases are three
+      assets on GitHub Releases (zip, manifest, Ed25519 signature) built by
+      `tools/build_release.py` from a clean commit; the key is `MATCAP-private/update-signing.key`,
+      the public half is in `armada/updater.py`. Verification is RFC 8032 in plain Python
+      (`armada/ed25519.py`: no compiled dependency). The `app-update` system job (12 h) downloads,
+      verifies and stages a newer release with the same runtime; a runtime change says "needs the
+      new installer" instead. The swap happens only where one process runs the old code: at
+      start-up, by the scheduler when the window is closed and idle, or on *Restart to update* (a
+      bar under the nav, and Settings). Switch: Settings → App → Advanced (the same setting as the
+      system job's). A development checkout never self-updates. `tests/test_updater.py` (34 tests:
+      RFC vectors, tampering, re-signing, rollback, zip layout, the swap and its undo, when each
+      process may apply, the release builder's output end to end); the folder swap also run on
+      Windows against a temporary install. First live run: 5.10.
 - [x] 5.5 Scheduler as a service: starts with the app, survives the app closing (it already
       runs separately), one instance only (2.9), restarts after reboot. A status indicator in
       the app when it isn't running — a silent dead scheduler is "my jobs stopped" with no

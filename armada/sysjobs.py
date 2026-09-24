@@ -240,6 +240,29 @@ def _job_catalogue_refresh(realm_root) -> dict:
             "detail": f"{r.get('total', 0)} listed · registry holds {n:,} servers{tail}"}
 
 
+def _job_app_update(realm_root) -> dict:
+    """Keep ARMADA itself up to date (5.4). Machine-wide, though it's listed in every realm: the
+    updater keeps its own clock, so a second realm's pass inside the same 12 hours just reports the
+    last answer instead of asking GitHub again."""
+    from . import updater, notify
+    if not updater.installed():
+        return {"ok": True, "detail": "development copy — updates come from git"}
+    if updater.check_due():
+        r = updater.check(download=True)
+    else:
+        st = updater.state()
+        r = {"ok": st.get("status") not in ("error", "rejected"), "detail": st.get("detail") or
+             {"current": f"up to date (v{updater.__version__})", "staged": f"v{st.get('latest')} is ready to install",
+              "needs-installer": f"v{st.get('latest')} needs the new installer"}.get(st.get("status"), "checked recently")}
+    v = updater.staged_version()
+    if v and updater.state().get("notified") != v:
+        updater._save(notified=v)
+        notify.emit(realm_root, "update_available", f"ARMADA v{v} is ready",
+                    "It was downloaded and checked, and installs the next time ARMADA restarts "
+                    "— or now, from the bar at the top of the window.", "/settings")
+    return {"ok": bool(r.get("ok", True)), "detail": str(r.get("detail") or "")[:200]}
+
+
 # Definitions live here, in the package — not in the realm — so they can't be edited away.
 JOBS = [
     {"id": "model-catalog", "name": "Refresh the model catalogue",
@@ -284,6 +307,13 @@ JOBS = [
                     "a capability you already have. The MCP registry is searched live rather than "
                     "copied here, so it is always current.",
      "every_hours": 24, "cost": FREE, "run": _job_catalogue_refresh},
+    {"id": "app-update", "name": "Keep ARMADA up to date",
+     "description": "Check for a new version of ARMADA twice a day. A new version is downloaded, "
+                    "checked against ARMADA's release signature, and put in place the next time "
+                    "ARMADA restarts — or straight away when the window is closed and nothing is "
+                    "running. Your realms and settings are never touched. This switch is for the "
+                    "whole computer, not just this realm (the same one as Settings → App → Advanced).",
+     "every_hours": 12, "cost": FREE, "run": _job_app_update, "machine": "auto_update"},
 ]
 _BY_ID = {j["id"]: j for j in JOBS}
 
@@ -313,6 +343,10 @@ def _save(realm_root, st: dict) -> None:
 def set_enabled(realm_root, jid: str, on: bool) -> dict:
     if jid not in _BY_ID:
         return {"ok": False, "error": "unknown system job"}
+    if _BY_ID[jid].get("machine"):           # a per-computer switch, kept in appconfig
+        from . import appconfig
+        appconfig.save({_BY_ID[jid]["machine"]: bool(on)})
+        return {"ok": True, "enabled": bool(on)}
     st = state(realm_root)
     st.setdefault(jid, {})["enabled"] = bool(on)
     _save(realm_root, st)
@@ -320,6 +354,10 @@ def set_enabled(realm_root, jid: str, on: bool) -> dict:
 
 
 def is_enabled(realm_root, jid: str) -> bool:
+    j = _BY_ID.get(jid) or {}
+    if j.get("machine"):
+        from . import appconfig
+        return appconfig.get(j["machine"], True) is not False
     return bool(state(realm_root).get(jid, {}).get("enabled", True))
 
 

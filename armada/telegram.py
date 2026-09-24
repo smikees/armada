@@ -545,6 +545,15 @@ def listener_alive(realm_root) -> bool:
         return False
 
 
+_handling = 0          # messages being answered right now, by the listener thread
+
+
+def busy() -> bool:
+    """Is the listener in the middle of answering? The updater (5.4) doesn't restart the scheduler
+    then — the reply would be lost with the process."""
+    return _handling > 0
+
+
 def listen(realm_root, engine="claude", stop=None) -> None:
     """Hold a long poll open and answer messages as they land. Runs on a daemon thread.
 
@@ -552,6 +561,7 @@ def listen(realm_root, engine="claude", stop=None) -> None:
     only as fast as the pass that sends it, so 'message received' could arrive a minute after the
     message. Long-polling costs nothing extra — Telegram holds the connection open rather than us
     asking repeatedly — and turns that minute into about a second."""
+    global _handling
     while not (stop is not None and stop.is_set()):
         try:
             if not ready():
@@ -560,10 +570,17 @@ def listen(realm_root, engine="claude", stop=None) -> None:
             st = state(realm_root)
             st["listener"] = time.time()
             _save_state(realm_root, st)
-            for m in poll(realm_root, wait=45):
-                if stop is not None and stop.is_set():
-                    return
-                handle(realm_root, m, engine)
+            msgs = poll(realm_root, wait=45)
+            if msgs:
+                _handling += 1
+            try:
+                for m in msgs:
+                    if stop is not None and stop.is_set():
+                        return
+                    handle(realm_root, m, engine)
+            finally:
+                if msgs:
+                    _handling -= 1
         except Exception:  # noqa — a listener that dies on one bad message is worse than a slow one
             swallowed(log, 'listen: failed; retrying')
             time.sleep(10)

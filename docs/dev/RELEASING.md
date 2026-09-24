@@ -69,6 +69,20 @@ lives in `MATCAP-private\resend.key`, outside the repo, and never in it), no per
 Commits are authored with the GitHub no-reply address (repo-local `user.email`). Only `main` is
 pushed; `archive/private-history` stays local.
 
+### 6b. Publish an update release (once installed copies exist — from 5.2 / 5.10 on)
+
+Installed copies update themselves from GitHub Releases (5.4, [ADR-011](../adr/ADR-011-updater.md)).
+After the push, from the same commit:
+
+```powershell
+.venv\Scripts\python tools\build_release.py          # signs with ..\MATCAP-private\update-signing.key
+gh release create v<version> dist\v<version>\* --title "ARMADA v<version>" --notes "<changelog lines>"
+```
+
+A normal release, never a pre-release or draft (the updater follows `/releases/latest/download/`,
+which skips both). A release whose `requirements.txt` changed ships the installer too: copies
+won't take it in place. Never commit `dist/` or the key.
+
 ## 7. Record it
 
 - Tick the step in `docs/LAUNCH_PLAN.md` with the version and a short "done" note in the style of

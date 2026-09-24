@@ -32,6 +32,9 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 - `Handler._route_post(self)` — —
 - `Handler._static(self, path: str)` — —
 - `Handler._git_check(self)` — Fetch and report whether the local checkout is behind its upstream.
+- `Handler._update_now(self)` — Update & Restart / Restart to update. An installed copy puts the checked, staged release in place (5.4) — or asks the scheduler to, when it's running — and the page restarts after; a development checkout pulls from git as it always has.
+- `Handler._get_update_status(self)` — —
+- `Handler._update_auto(self, body: dict)` — —
 - `Handler._git_pull(self)` — —
 - `Handler._restart(self)` — —
 - `Handler.log_message(self, *a)` — —

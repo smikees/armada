@@ -53,6 +53,10 @@ Re-probe the machine and rebuild the system memory ("Environment, realm and owne
 
 Re-read what could be added: the plugin marketplaces on this machine and Anthropic's public skills repository.
 
+### `_job_app_update(realm_root)`
+
+Keep ARMADA itself up to date (5.4). Machine-wide, though it's listed in every realm: the updater keeps its own clock, so a second realm's pass inside the same 12 hours just reports the last answer instead of asking GitHub again.
+
 ### `_state_path(realm_root)`
 
 —

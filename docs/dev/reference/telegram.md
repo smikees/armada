@@ -138,6 +138,10 @@ One non-blocking pass. The fallback path: used by the telegram-inbox system job 
 
 Is a long-poll listener running somewhere? The fallback job checks this before polling — two pollers sharing one getUpdates cursor would race, and each update is delivered once.
 
+### `busy()`
+
+Is the listener in the middle of answering? The updater (5.4) doesn't restart the scheduler then — the reply would be lost with the process.
+
 ### `listen(realm_root, engine='claude', stop=None)`
 
 Hold a long poll open and answer messages as they land. Runs on a daemon thread.

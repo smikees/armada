@@ -109,3 +109,11 @@ Take on realms registered since the daemon started (created or added in the app 
 ### `run_daemon(realm_root, engine: str='claude', interval: int=60, grace_min: Optional[int]=None, also: Optional[list]=None, rescan=None)`
 
 Fire due jobs until stopped. `also` names further realms to tick in the same pass.
+
+### `_note_running(on: bool)`
+
+—
+
+### `_update_wanted()`
+
+Between passes: should this process restart onto new code (5.4)? Only ever for an installed copy; a development checkout answers no without looking further.

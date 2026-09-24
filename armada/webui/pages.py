@@ -743,6 +743,12 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
     edot = "var(--status-ok)" if engine_ok else "var(--status-bad)"
     engine_short = str(engine_detail).split(" — launcher")[0].split("launcher:")[0].strip(" —")
     ver = _m.__version__
+    from .. import updater as _updater
+    _installed = _updater.installed()
+    _upd_hint = ("New versions are downloaded and checked in the background, and install the next time "
+                 "ARMADA starts. Check for updates asks now." if _installed else
+                 "Restart reloads the app with the current local code (use after a change). Check for "
+                 "updates pulls from git — this is a development copy.")
     version_box = (
         f'<div style="margin-bottom:10px">{brand.WORDMARK_SMALL}</div>'
         f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
@@ -751,9 +757,9 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'<button class="btn btn-secondary" style="font-size:12px;padding:5px 11px;display:inline-flex;align-items:center;gap:5px" onclick="mcCheckUpd(this)">{_icon("download",13)}Check for updates</button>'
         f'<a onclick="mcChangelog(true)" style="cursor:pointer;font-size:12px;color:var(--color-accent);display:inline-flex;align-items:center;gap:4px">{_icon("book-open",13)}Changelog</a>'
         f'<span id="mc-updcheck" style="font-size:12px;color:var(--text-muted)"></span></div>'
-        f'<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Restart reloads the app with the current local code (use after a change). Check for updates pulls a newer release when an update channel is configured.</div>'
+        f'<div style="font-size:11px;color:var(--text-muted);margin-top:6px">{E(_upd_hint)}</div>'
         f'<div id="mc-updbox" style="display:none;margin-top:10px">'
-        f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px" onclick="mcUpd(this)">{_icon("download",14)}Update &amp; Restart</button>'
+        f'<button class="btn btn-primary" style="color:#fff;font-size:12.5px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px" id="mc-updbtn" onclick="mcUpd(this)">{_icon("download",14)}Update &amp; Restart</button>'
         f'<span id="mc-updmsg" style="font-size:12px;margin-left:10px;color:var(--text-muted)"></span></div>')
 
     def prov_row(icon, name, detail, status):
@@ -857,7 +863,8 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         # above Notifications, which refers to it.
         + sect("Telegram", _telegram_box())
         + sect("Notifications", channels)
-        + sect("Appearance", appearance))
+        + sect("Appearance", appearance)
+        + _app_advanced(_updater))
 
     # --- User settings tab ---
     u = _user(realm_root)
@@ -1579,3 +1586,26 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
   background:linear-gradient(to bottom,transparent,var(--color-bg))"></div>
 </div></div>{modal}{ren_modal}{del_modal}{_appoint_modal(realm)}
 <script>window.MC_AGENTS={agents_json};window.MC_GRIP={grip_json};window.MC_DASH={dash_json};</script>{_ICONS_JS}{_DASH_JS}{_LAYOUT_JS}{_JOBCAL_JS}{_USAGE_JS}{_NEW_JS}{_AUTONOMY_JS}{_AGENT_COLOR_JS}{_FORM_JS}{_APPOINT_JS}{_consumption_js(realm, "n-model", "n-effort", "n-consmarker", "#n-cons")}</body></html>"""
+
+
+def _app_advanced(updater) -> str:
+    """Settings → App → Advanced: the automatic-updates switch (5.4, decided in ADR-005)."""
+    on = updater.auto_enabled()
+    note = ("" if updater.installed() else
+            '<div style="font-size:11px;color:var(--text-muted);margin-top:6px">This is a development '
+            'copy, so it never updates itself; the switch applies once ARMADA is installed.</div>')
+    return ('<details class="mc-frame" id="st-app-advanced" style="border-radius:var(--r);padding:14px 16px;margin-bottom:14px">'
+            '<summary style="cursor:pointer;font-family:var(--font-heading);font-weight:600;font-size:15px">Advanced</summary>'
+            '<div style="margin-top:12px;display:flex;align-items:flex-start;gap:12px">'
+            f'<label class="mc-toggle" title="{"On" if on else "Off"}">'
+            f'<input type="checkbox" id="st-update-auto" {"checked" if on else ""} onchange="mcUpdAuto(this)">'
+            '<span class="mc-toggle-sl"></span></label>'
+            '<div><div style="font-size:12.5px;font-weight:600">Update automatically</div>'
+            '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;margin-top:2px">'
+            'ARMADA checks for a new version twice a day. Each one is checked against ARMADA\'s '
+            'release signature before anything is installed, and goes in the next time ARMADA starts '
+            '(or straight away when the window is closed and nothing is running). Your realms and '
+            'settings are never touched. Off: nothing is checked or downloaded until you use Check '
+            'for updates.</div>'
+            '<span id="mc-updauto-msg" style="font-size:11.5px;color:var(--text-muted)"></span>'
+            f'{note}</div></div></details>')

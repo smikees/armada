@@ -215,23 +215,37 @@ async function mcWsMigrate(b){
                       :(r.error||'failed');
   }catch(e){m.style.color='var(--status-bad)';m.textContent='error: '+e;}
   b.disabled=false;}
-async function mcUpd(b){const m=document.getElementById("mc-updmsg");m.textContent="pulling…";
-  try{const j=await(await fetch("/update",{method:"POST"})).json();m.textContent=(j.ok?"updated — restarting…":(j.out||"no remote")+" — restarting…");
-  await fetch("/restart",{method:"POST"});let n=0;const t=setInterval(async()=>{n++;try{await fetch("/api/realm");clearInterval(t);location.reload();}catch(e){if(n>40){clearInterval(t);m.textContent="reload manually";}}},400);}catch(e){m.textContent="error: "+e;}}
+// Update & Restart / Restart to update — the one path, in updbar.js (5.4): an installed copy puts
+// the checked release in place, a development checkout pulls from git.
+function mcUpd(b){return window.mcUpdateNow(b,document.getElementById("mc-updmsg"));}
 // Restart the local server in place (re-exec) so it reloads the current on-disk code. No git pull —
 // this is the path for local development / when no update channel is configured.
 async function mcRestart(b){const m=document.getElementById("mc-updcheck");if(b)b.disabled=true;m.style.color="var(--text-muted)";m.textContent="restarting…";
   try{await fetch("/restart",{method:"POST"});}catch(e){}
   let n=0;const t=setInterval(async()=>{n++;try{await fetch("/api/realm",{cache:"no-store"});clearInterval(t);location.reload();}catch(e){if(n>50){clearInterval(t);m.textContent="taking longer than expected — reload manually";if(b)b.disabled=false;}}},400);}
 function mcChangelog(show){const m=document.getElementById('mc-changelog');if(m)m.style.display=show?'flex':'none';}
-async function mcCheckUpd(b){const m=document.getElementById('mc-updcheck');m.textContent='checking…';b.disabled=true;
+async function mcCheckUpd(b){const m=document.getElementById('mc-updcheck');m.textContent='checking…';m.style.color='var(--text-muted)';b.disabled=true;
+  const box=document.getElementById('mc-updbox'),um=document.getElementById('mc-updmsg'),ub=document.getElementById('mc-updbtn');
   try{const j=await(await fetch('/api/check-update')).json();
-    if(j.newer){m.textContent='';m.style.color='var(--color-accent)';
-      const box=document.getElementById('mc-updbox');box.style.display='block';
-      const um=document.getElementById('mc-updmsg');um.textContent=(j.behind?('v'+(j.latest||'?')+' available — '+j.behind+' commit(s) behind'):'a newer version is available');}
+    if(j.installed){                                   // an installed copy: signed GitHub releases (5.4)
+      if(j.staged){m.textContent='';box.style.display='block';um.textContent=j.detail||('v'+j.staged+' is ready');
+        if(ub)ub.lastChild.textContent='Restart to update';if(window.mcUpdCheck)window.mcUpdCheck();}
+      else if(j.needs_installer){m.innerHTML='';const a=document.createElement('a');a.href=j.url;a.target='_blank';a.rel='noopener';
+        a.style.color='var(--color-accent)';a.textContent='v'+j.latest+' needs the new installer — get it ↗';m.appendChild(a);}
+      else if(!j.ok){m.textContent=j.error||'check failed';m.style.color='var(--status-bad)';}
+      else{m.textContent=j.detail||"you're up to date ✓";}
+    }
+    else if(j.newer){m.textContent='';m.style.color='var(--color-accent)';
+      box.style.display='block';
+      um.textContent=(j.behind?('v'+(j.latest||'?')+' available — '+j.behind+' commit(s) behind'):'a newer version is available');}
     else if(j.error){var e=j.error;var local=/upstream|remote/i.test(e);m.textContent=local?'local build — no update channel (use Restart to load local changes)':('error: '+e);m.style.color='var(--text-muted)';}
     else{m.textContent="you're up to date ✓";m.style.color='var(--text-muted)';}
   }catch(e){m.textContent='error: '+e;}b.disabled=false;}
+// The automatic-updates switch (Settings → App → Advanced; 5.4).
+async function mcUpdAuto(el){const m=document.getElementById('mc-updauto-msg');
+  try{const r=await(await fetch('/api/update-auto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:el.checked})})).json();
+    if(m)m.textContent=r.ok?(el.checked?'On — new versions install themselves.':'Off — use Check for updates when you want one.'):(r.error||'failed');}
+  catch(e){if(m)m.textContent='error: '+e;el.checked=!el.checked;}}
 // --- scroll preservation across the reloads that apply a theme / colour mode ----------------
 // Applying a theme re-renders the whole page, which otherwise drops you back at the top — with
 // the theme picker near the bottom of Settings, that means losing your place on every click.

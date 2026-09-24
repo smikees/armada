@@ -113,3 +113,7 @@ Tasks agents have handed each other. Waiting and recently-handled are what you c
 ### `render_dashboard(realm, realm_root, dark: bool=False)`
 
 —
+
+### `_app_advanced(updater)`
+
+Settings → App → Advanced: the automatic-updates switch (5.4, decided in ADR-005).

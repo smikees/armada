@@ -161,6 +161,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/usage-limits": "_get_usage_limits", "/api/auth-status": "_get_auth_status",
         "/api/notifications": "_get_notifications", "/api/system-jobs": "_get_system_jobs",
         "/api/telegram-status": "_telegram_status", "/api/scheduler-status": "_get_scheduler_status",
+        "/api/update-status": "_get_update_status",
         "/api/skill-content": "_get_skill_content",
         "/realm-icon": "_get_realm_icon", "/user-avatar": "_get_user_avatar",
         "/thread-file": "_get_thread_file", "/api/realm": "_get_realm", "/api/job": "_get_job_detail",
@@ -294,6 +295,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/telegram-link": "_telegram_link", "/api/telegram-forget": "_telegram_forget",
         "/api/open-file": "_open_file", "/api/delete-artefact": "_delete_artefact",
         "/api/auth-login": "_auth_login", "/api/scheduler-start": "_scheduler_start",
+        "/api/update-auto": "_update_auto",
         "/api/support-preview": "_support_preview", "/api/support-send": "_support_send",
         "/api/notifications-read": "_notifications_read",
         "/api/system-job-run": "_system_job_run", "/api/system-job-toggle": "_system_job_toggle",
@@ -331,7 +333,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             self._chat_stream(self._body())
             return
         if path == "/update":                                # takes no body
-            self._json(200, self._git_pull())
+            self._json(200, self._update_now())
             return
         if path == "/api/dryrun":                            # 400-on-error, so kept explicit
             try:
@@ -394,6 +396,23 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         except Exception as e:  # noqa
             log.debug('_git_check: failed; error returned to the caller', exc_info=True)
             return {"ok": True, "newer": False, "error": str(e)[:200]}
+
+    def _update_now(self) -> dict:
+        """Update & Restart / Restart to update. An installed copy puts the checked, staged release in
+        place (5.4) — or asks the scheduler to, when it's running — and the page restarts after; a
+        development checkout pulls from git as it always has."""
+        from . import updater
+        if updater.installed():
+            return updater.request_apply()
+        return self._git_pull()
+
+    def _get_update_status(self):
+        from . import updater
+        self._json(200, updater.status())
+
+    def _update_auto(self, body: dict) -> dict:
+        from . import updater
+        return updater.set_auto(bool(body.get("on")))
 
     def _git_pull(self) -> dict:
         try:

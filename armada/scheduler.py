@@ -512,6 +512,8 @@ def run_daemon(realm_root, engine: str = "claude", interval: int = 60,
     for p in others:
         print(f"  also firing ▶ {p}", flush=True)
     print("  (Ctrl-C to stop. Jobs fire once per day when due; missed jobs catch up within grace.)", flush=True)
+    restart = False
+    _note_running(True)
     try:
         while True:
             now = now_in(cfg)
@@ -533,10 +535,39 @@ def run_daemon(realm_root, engine: str = "claude", interval: int = 60,
                 for r in fired:
                     print(f"  [{now.strftime('%H:%M')}] {where}fired {r['agent']}/{r['job']} "
                           f"({r['kind']}) → {r['status']}", flush=True)
+            if _update_wanted():
+                print("  an ARMADA update is in place — restarting on the new version", flush=True)
+                restart = True
+                break
             time.sleep(max(5, interval))
     except KeyboardInterrupt:
         print("\nARMADA scheduler stopped.")
     finally:
+        # Released before the restart too: on Windows the restarted scheduler is a new process, and
+        # it must find the realms free rather than held by a pid that's about to exit.
         for p in owned:
             _lock_release(p)
-        return 0
+        _note_running(False)
+        from . import updater as _upd
+        return _upd.RESTART_RC if restart else 0
+
+
+def _note_running(on: bool) -> None:
+    try:
+        from . import updater
+        updater.note_scheduler(on)
+    except Exception:  # noqa — bookkeeping for the updater must never stop the scheduler
+        swallowed(log, "_note_running: failed; ignored")
+
+
+def _update_wanted() -> bool:
+    """Between passes: should this process restart onto new code (5.4)? Only ever for an installed
+    copy; a development checkout answers no without looking further."""
+    try:
+        from . import updater, telegram
+        if not updater.installed():
+            return False
+        return updater.scheduler_pass(telegram_busy=telegram.busy())
+    except Exception:  # noqa
+        swallowed(log, "_update_wanted: failed; carrying on")
+        return False

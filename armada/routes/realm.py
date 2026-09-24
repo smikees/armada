@@ -63,7 +63,11 @@ class RealmRoutes:
         self._json(200, self._pick_folder())
 
     def _get_check_update(self):
-        self._json(200, self._git_check())
+        from .. import updater
+        if updater.installed():                   # an installed copy: GitHub Releases, signed (5.4)
+            self._json(200, updater.check(download=True))
+        else:                                     # a development checkout: git
+            self._json(200, self._git_check())
 
     def _get_realms(self):
         cur = str(Path(self.realm).resolve())

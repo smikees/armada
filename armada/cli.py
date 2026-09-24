@@ -208,9 +208,13 @@ def main(argv=None):
                                         dry_run=args.dry_run)
             _print_fired(fired, scheduler.now_in(scheduler._load_json(Path(args.realm) / "realm.json")))
             return 0
-        return scheduler.run_daemon(args.realm, also=extra, engine=args.engine, interval=args.interval,
-                                    grace_min=args.grace,
-                                    rescan=activerealm.every if every else None)
+        rc = scheduler.run_daemon(args.realm, also=extra, engine=args.engine, interval=args.interval,
+                                  grace_min=args.grace,
+                                  rescan=activerealm.every if every else None)
+        from . import updater
+        if rc == updater.RESTART_RC:          # an update was applied (5.4): come back on the new code
+            updater.reexec()
+        return rc
 
     if args.cmd == "new":
         from .setup import scaffold
