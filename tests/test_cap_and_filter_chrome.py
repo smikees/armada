@@ -132,7 +132,7 @@ def test_opening_the_row_still_rotates_the_chevron():
 
 def test_the_agent_page_carries_the_legend(realm):
     html = CAP._tab_skills(reader.read(str(realm)), realm, _a(realm))
-    for token in ("Trusted", "Review", "Caution", "Reads only", "Files"):
+    for token in ("Low risk", "Medium risk", "High risk", "Reads only", "Files"):
         assert token in html, f"legend missing {token}"
 
 

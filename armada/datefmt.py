@@ -15,7 +15,8 @@ DOW = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
 def _today(today=None) -> _dt.date:
-    return today or _dt.date.today()
+    from . import clock                      # the app's clock seam (frozen in the golden suite)
+    return today or clock.today()
 
 
 def moment(t: _dt.datetime) -> str:

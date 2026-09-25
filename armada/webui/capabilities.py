@@ -197,9 +197,11 @@ def _agent_toolkit(realm_root, aid: str) -> dict:
 # ---- trust model (cross-cutting signals shown on every capability, any bucket) -------------------
 # Riskiest first. The order here is the order the legend and the filter dropdown render in, and a
 # risk scale reads top-down from the thing you need to look at.
-_TIER_META = {"red": ("var(--status-bad)", "Caution"),
-              "amber": ("var(--status-warn)", "Review"),
-              "green": ("var(--status-ok)", "Trusted")}
+# One word set for the one red/amber/green scale, the same as the Catalogue review card
+# (catalogue._RISK_META): Mihai, 2026-09-25 (UI audit C4). Was "Caution / Review / Trusted".
+_TIER_META = {"red": ("var(--status-bad)", "High risk"),
+              "amber": ("var(--status-warn)", "Medium risk"),
+              "green": ("var(--status-ok)", "Low risk")}
 _RUNS_META = {"reads": ("reads only", "var(--color-accent-2)"),
               "code": ("runs code here", "var(--status-warn)"),
               "service": ("outside service", "var(--status-warn)")}
@@ -320,14 +322,14 @@ def _cap_tier_why(it: dict) -> tuple:
     The tier is the worst thing the capability can do, and nothing else. That is what makes the
     card coherent: the coloured stripe is a summary of the ability icons printed next to it, so a
     row whose abilities are all amber cannot wear a red stripe and leave you looking for the
-    reason. It also means the scale keeps discriminating — if every remote connector were Caution,
-    Caution would stop meaning anything, because a connector talking to a remote service is the
+    reason. It also means the scale keeps discriminating — if every remote connector were High risk,
+    High risk would stop meaning anything, because a connector talking to a remote service is the
     normal case rather than the alarming one.
 
     Provenance only decides the case where we know nothing yet. It cannot promote something past
     what it can reach: a capability that writes to your disk is not made safe by who published it.
     A blank used to fall through to green, which meant every plugin ARMADA discovered was rated
-    Trusted by omission. Unknown is Review — red is for what we found, amber for what we
+    Low risk by omission. Unknown is Medium risk — red is for what we found, amber for what we
     haven't looked at.
     """
     t = (it.get("tier") or "").lower()
@@ -573,8 +575,8 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
     frozen, pnote = _cap_persist(it, kind)
     pchip = (f'<span class="mc-cap-frozen">frozen</span>' if frozen else '<span class="mc-cap-living">living</span>')
     # The reason sits beside the badge. A tier is a verdict, and a verdict nobody can check is
-    # just a colour — this is what makes "Caution" answerable rather than something to click past.
-    rows = (f'<div class="k">Trust level</div><div>{_pill(tlab, _tone(tcol))}'
+    # just a colour — this is what makes "High risk" answerable rather than something to click past.
+    rows = (f'<div class="k">Risk</div><div>{_pill(tlab, _tone(tcol))}'
             f'<span style="margin-left:8px;color:var(--text-muted)">{E(why)}</span></div>'
             f'<div class="k">Source</div><div>{E(origin)}{link}</div>'
             # This page is headed "who made it", and the publisher used to be the pill on the row.

@@ -17,7 +17,7 @@ and who may use it.
 - **Runs** — *reads only*, *runs code here*, or *outside service*.
 - **Can touch** — *files*, *network*, *shell*, *connectors*, *hooks*: what it can reach on your
   computer.
-- **The coloured stripe** — the risk: red (**Caution**), amber (**Review**), green (**Trusted**).
+- **The coloured stripe** — the risk: red (**High risk**), amber (**Medium risk**), green (**Low risk**).
   It's decided by the riskiest thing the capability can do, not by its description. The legend on
   the right repeats all of this.
 

@@ -133,6 +133,17 @@ class ServedRealm:
         # A Saturday evening, mid-month, mid-week-window: the strip then spans a weekend in one
         # direction and weekdays in the other, so the fixture's crons exercise both.
         clock.freeze(GOLDEN_NOW)
+        # Files carry a date too ("Modified 19 Sep", "updated 19 Sep" on Memory and Goals): the
+        # fixture is built now, so without this their mtime is today and those pages drifted
+        # every day (seen 2026-09-25). Stamp every fixture file at the frozen instant.
+        import datetime as _dtm
+        _ts = _dtm.datetime.fromisoformat(GOLDEN_NOW).timestamp()
+        for _root, _dirs, _files in os.walk(self.realm):
+            for _f in _files:
+                try:
+                    os.utime(os.path.join(_root, _f), (_ts, _ts))
+                except OSError:
+                    pass
         os.environ["USERPROFILE"] = self._home
         os.environ["HOME"] = self._home
         # On a machine with valid Claude creds the server force-refreshes the model catalog on boot

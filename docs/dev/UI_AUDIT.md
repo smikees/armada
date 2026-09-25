@@ -119,7 +119,7 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
   including `static/js/sysjobs.js`'s copy. M · **S**
 - [x] **C3** *(v0.99.66)* Inbox: the page subtitle says "tasks your agents have handed each other"; the sections
   say "New messages" and "Message archive". → tasks (§9). S · **H**
-- [ ] **C4** **M:** capability risk has two word sets for one red/amber/green scale — "Caution /
+- [x] **C4** *(v0.99.71 — Mihai chose High / Medium / Low risk)* **M:** capability risk has two word sets for one red/amber/green scale — "Caution /
   Review / Trusted" (User tab, legend) and "High / Medium / Low risk" (bring-a-link review card).
   Pick one; then a one-commit rename. S · **M**, then **H**
 

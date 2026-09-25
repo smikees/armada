@@ -93,3 +93,18 @@ def test_the_window_refuses_to_open_without_webview2_before_starting_anything():
 def test_the_sandbox_test_is_there_for_5_10():
     assert (ROOT / "installer" / "sandbox" / "clean-machine-test.ps1").exists()
     assert (ROOT / "tools" / "sandbox_test.py").exists()
+
+
+def test_the_installer_is_branded_and_its_artwork_exists():
+    """Mihai, 2026-09-25: the installer carries ARMADA's branding. Every image the script names
+    must be in the repo (a missing one fails the compile on the build machine, not here)."""
+    import re as _re
+    assert "WizardStyle=modern dynamic" in ISS and "DisableWelcomePage=no" in ISS
+    names = set()
+    for key in ("WizardImageFile", "WizardImageFileDynamicDark", "WizardSmallImageFile",
+                "WizardSmallImageFileDynamicDark"):
+        m = _re.search(rf"^{key}=(.+)$", ISS, _re.M)
+        assert m, key
+        names |= {n.strip() for n in m.group(1).split(",")}
+    for n in names:
+        assert (ROOT / "installer" / n.replace("\\", "/")).exists(), n

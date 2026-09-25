@@ -49,7 +49,7 @@ def _cat_card(e: dict, publisher: str, where: list, labels: dict, here: bool = F
 
     No risk tier here, deliberately. A tier is a claim about what something can reach, and for
     almost everything in this list we have not looked yet — 244 of the marketplace's 297 entries
-    are a git URL and nothing more. Showing "Trusted" against an uninspected entry is exactly the
+    are a git URL and nothing more. Showing "Low risk" against an uninspected entry is exactly the
     bug that was just fixed in the User tab; the inspection happens when you add it, and the tier
     appears there.
 

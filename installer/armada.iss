@@ -36,6 +36,8 @@ AppUpdatesURL=https://github.com/smikees/armada/releases
 VersionInfoVersion={#AppVersion}
 DefaultDirName={autopf}\{#AppName}
 DisableProgramGroupPage=yes
+; Show the Welcome page (off by default since Inno Setup 6): it's where the branded panel greets you.
+DisableWelcomePage=no
 DisableDirPage=auto
 PrivilegesRequired=lowest
 UsedUserAreasWarning=no
@@ -47,7 +49,17 @@ LicenseFile={#Stage}\LICENSE
 SetupIconFile={#Stage}\armada.ico
 UninstallDisplayIcon={app}\armada.ico
 UninstallDisplayName={#AppName}
-WizardStyle=modern
+; Branded (Mihai, 2026-09-25). "modern dynamic" follows Windows' light/dark setting. The panel on the
+; Welcome and Finished pages is ARMADA's navy with the white lockup, so it suits both; the mark at
+; the top right of the other pages is the colour symbol in light mode and the white one in dark.
+; Several sizes each so Setup picks the sharpest for the display's scaling (tools/build_installer_art.py).
+WizardStyle=modern dynamic
+WizardImageFile=art\panel-202.png,art\panel-269.png,art\panel-336.png,art\panel-430.png
+WizardImageFileDynamicDark=art\panel-202.png,art\panel-269.png,art\panel-336.png,art\panel-430.png
+WizardImageBackColor=#041733
+WizardImageBackColorDynamicDark=#041733
+WizardSmallImageFile=art\mark-58.png,art\mark-77.png,art\mark-97.png,art\mark-124.png
+WizardSmallImageFileDynamicDark=art\mark-dark-58.png,art\mark-dark-77.png,art\mark-dark-97.png,art\mark-dark-124.png
 Compression=lzma2/max
 SolidCompression=yes
 OutputBaseFilename=ARMADA-Setup-{#AppVersion}
@@ -56,6 +68,9 @@ OutputBaseFilename=ARMADA-Setup-{#AppVersion}
 CloseApplications=no
 
 [Messages]
+WelcomeLabel1=Welcome to ARMADA
+WelcomeLabel2=ARMADA is your standing team of AI agents: a realm you direct, each agent with its own personality, memory, skills and scheduled jobs, running on your own computer and your own Claude subscription.%n%nThis installs [name/ver] for you alone. It needs no administrator rights and brings everything it runs on, except Claude Code, which you install and sign in to yourself.
+FinishedHeadingLabel=ARMADA is ready
 FinishedLabel=ARMADA is installed. It will guide you through choosing a folder for your realms the first time it opens.
 
 [Tasks]

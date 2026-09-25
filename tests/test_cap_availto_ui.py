@@ -157,7 +157,7 @@ def test_the_legend_puts_risk_on_one_row(realm):
     html = UI._cap_legend()
     risk = html.split("Risk")[1].split("Runs")[0]
     assert "flex-wrap:wrap" in risk
-    for lab in ("Trusted", "Review", "Caution"):
+    for lab in ("Low risk", "Medium risk", "High risk"):
         assert lab in risk
 
 
