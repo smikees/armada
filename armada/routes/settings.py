@@ -138,13 +138,67 @@ class SettingsRoutes:
     def _get_auth_status(self):
         from .. import auth
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        self._json(200, auth.status(force=(q.get("force") or [""])[0] == "1"))
+        st = dict(auth.status(force=(q.get("force") or [""])[0] == "1"))
+        from ..alexander import MIN_CLAUDE_CODE
+        st["min_version"] = MIN_CLAUDE_CODE          # what Alexander's model needs (setup wizard)
+        st["version_ok"] = auth.version_ok(st.get("version") or "", MIN_CLAUDE_CODE)
+        self._json(200, st)
 
     def _auth_login(self, body: dict) -> dict:
         """Start Claude Code's own sign-in in its own window. ARMADA never handles the credential:
         the owner completes the flow in their browser and Claude Code stores the result itself."""
         from .. import auth
         return auth.start_login()
+
+    # --- Alexander (6.2/6.3/6.6; alexander/support.py) -----------------------------------------
+
+    def _alexander_ask(self, body: dict):
+        """One support turn, as Server-Sent Events: 'status' while he thinks, 'text' as he writes,
+        then 'done' with the reply taken apart into prose and cards."""
+        from ..alexander import support as alex
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        def emit(obj):
+            try:
+                self.wfile.write(("data: " + json.dumps(obj, ensure_ascii=False) + "\n\n").encode("utf-8"))
+                self.wfile.flush()
+            except OSError:
+                log.debug('alexander emit: client gone; the turn carries on', exc_info=True)
+
+        def on_event(ev):
+            k = ev.get("kind")
+            if k == "thinking":
+                emit({"kind": "status", "text": "thinking"})
+            elif k == "text":
+                emit({"kind": "text", "text": ev.get("text", "")})
+        item = body.get("item") if isinstance(body.get("item"), dict) else None
+        try:
+            r = alex.ask(self.realm, str(body.get("id") or ""), str(body.get("message") or ""),
+                         page=str(body.get("page") or "")[:300], item=item, on_event=on_event)
+        except Exception as e:  # noqa — whatever went wrong, the drawer must hear about it
+            swallowed(log, '_alexander_ask: failed; reported to the caller')
+            r = {"ok": False, "error": f"{type(e).__name__}: {e}"[:300]}
+        if r.get("ok"):
+            from ..webui._base import _md
+            r["html"] = _md(r.get("text") or "")
+        emit({"kind": "done", **r})
+        self.close_connection = True
+
+    def _alexander_history(self, body: dict) -> dict:
+        from ..alexander import support as alex
+        from ..webui._base import _md
+        cid = str(body.get("id") or "")
+        msgs = [{**m, "html": _md(m.get("text") or "")} for m in alex.history(cid)]
+        return {"ok": True, "id": cid, "messages": msgs}
+
+    def _alexander_addon(self, body: dict) -> dict:
+        from ..alexander import support as alex
+        scope = "app" if body.get("scope") == "app" else "realm"
+        return alex.install_addon(self.realm, body.get("manifest") or {}, scope)
 
     def _support_preview(self, body: dict) -> dict:
         """Report an issue (5.6), step 1: build the report and show it. Nothing is sent here."""

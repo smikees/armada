@@ -21,3 +21,4 @@ Everything else is one page per part of the app — open the one you're looking 
 | [Settings](settings.md) | The realm, you, and the app |
 | [Staying safe](safety.md) | What an agent can do on your computer, and how to keep that sensible |
 | [When something goes wrong](troubleshooting.md) | The problems people actually hit, and the fix |
+| [Alexander](alexander.md) | ARMADA's guide: ask him how things work, what went wrong, or for a dashboard widget |

@@ -299,6 +299,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/update-auto": "_update_auto",
         "/api/setup-step": "_setup_step", "/api/setup-capability": "_setup_capability",
         "/api/setup-finish": "_setup_finish",
+        "/api/alexander-addon": "_alexander_addon", "/api/alexander-history": "_alexander_history",
         "/api/support-preview": "_support_preview", "/api/support-send": "_support_send",
         "/api/notifications-read": "_notifications_read",
         "/api/system-job-run": "_system_job_run", "/api/system-job-toggle": "_system_job_toggle",
@@ -334,6 +335,9 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             return
         if path == "/api/chat-stream":                      # streams its own response, not JSON
             self._chat_stream(self._body())
+            return
+        if path == "/api/alexander-ask":                    # Alexander streams too (6.2)
+            self._alexander_ask(self._body())
             return
         if path == "/update":                                # takes no body
             self._json(200, self._update_now())

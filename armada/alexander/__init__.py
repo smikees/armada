@@ -14,6 +14,9 @@ ROLE = "ARMADA's guide"
 # the one Anthropic's model list returns (checked against the synced catalogue, 2026-09-25).
 MODEL = "claude-opus-5-5"
 EFFORT = "high"
+# The oldest Claude Code that can run MODEL. Claude Code refuses an older one with "API Error: 400 …
+# version 2.1.280 or newer is required" (seen 2026-09-25 on 2.1.263). The setup wizard checks it.
+MIN_CLAUDE_CODE = "2.1.280"
 AVATAR = "/static/alexander.png"
 PROMPT_FILE = Path(__file__).resolve().parent / "PROMPT.md"
 

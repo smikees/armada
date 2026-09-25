@@ -110,6 +110,14 @@ Tasks agents have handed each other. Waiting and recently-handled are what you c
 
 —
 
+### `_addon_widgets(realm_root)`
+
+—
+
+### `_addon_widget(w: dict)`
+
+One add-on widget: a markdown body or a list of links, in the dashboard's widget chrome.
+
 ### `render_dashboard(realm, realm_root, dark: bool=False)`
 
 —

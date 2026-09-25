@@ -10,11 +10,14 @@
   you open ARMADA (it suggests `ARMADA` in your user folder), and can change it later in
   Settings → App → Root folder.
 
-## 1. Create a realm
+## 1. Set up with Alexander
 
-The first time you open ARMADA, the welcome page does this for you: choose the folder, name your
-first realm, pick a template, done. After that, add more from the realm switcher (top left) →
-**+ New realm**.
+The first time you open ARMADA, **Alexander**, ARMADA's guide, walks you through setup in eight
+short steps: he checks Claude Code is installed, up to date and signed in; you choose ARMADA's
+folder and name your first realm; you appoint a team from a template; you switch on a few
+recommended capabilities (all Low risk, all from Anthropic); you watch your coordinator write you a
+first brief; and he shows you round. Close the window halfway and ARMADA picks up where you left
+off. After that, add more realms from the realm switcher (top left) → **+ New realm**.
 
 - **Create** starts fresh from a template. The template only sets the words the app uses — a
   *Cabinet* of *Ministers* led by a *Prime Minister*, a *Board* of *Executives*, a *Crew* — and a
@@ -65,3 +68,4 @@ added and granted on the [Capabilities](capabilities.md) page.
 | change what everyone knows | Memory |
 | stop an agent doing something | its Jobs tab (switch the job off) or Configure → Autonomy |
 | back up or move a realm | Settings → Realm → Export |
+| ask how something works, or why it broke | Alexander, the portrait beside the gear |

@@ -3,6 +3,7 @@ const MC_FIELD='display:block;width:100%;padding:6px 8px;border:1px solid var(--
 const MC_SINGLE=[{id:'register',label:'Register',desc:'Your agents with autonomy, status and latest activity.'},
                  {id:'usage',label:'Usage',desc:'Token usage — overall, per agent and per model.'},
                  {id:'jobcal',label:'Job calendar',desc:'Scheduled jobs by month / week / day, colour-coded by run status.'}];
+(window.MC_ADDON_W||[]).forEach(w=>MC_SINGLE.push(w));   // add-on widgets (ADR-012) hide and show the same way
 function mcEscH(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 function mcEscA(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function mcGrid(){return document.getElementById('mc-grid');}

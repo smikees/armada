@@ -85,5 +85,6 @@
     }catch(err){ b.disabled=false; msg('Couldn’t send the report: '+err,true); }
   }
 
-  window.mcSupportOpen=function(){ stepWrite(); };
+  // `pre.message` pre-fills the report: Alexander's "Review the report" card opens it this way.
+  window.mcSupportOpen=function(pre){ if(pre&&pre.message){draft.message=String(pre.message);} stepWrite(); };
 })();

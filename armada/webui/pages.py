@@ -16,7 +16,7 @@ from ..assets import (INBOX_JS as _INBOX_JS_ASSET, STA2A_TOGGLE_JS as _STA2A_TOG
 # Mirror _core's namespace (helpers, constants, imports) so the moved render_* functions resolve
 # their names exactly as they did inside _core.
 globals().update({k: v for k, v in vars(_core).items() if not k.startswith('__')})
-from ._base import _J, _pill, _tone  # _J: JS-string-in-attribute escaping (5.8)
+from ._base import _J, _pill, _tone, _ask_alexander  # _J: JS-string-in-attribute escaping (5.8)
 import logging
 from ..util import swallowed
 log = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
     runs = [ev for ev in _runs(realm_root, a.id) if ev.get("task") == job_id][-12:][::-1]
     hist = "".join(f'<tr><td class="mono" style="font-size:11px">{E(_fmt_ts(ev.get("ts","")))}</td>'
                    f'<td style="color:{status.color(ev.get("status",""))};font-size:11.5px">{E(str(ev.get("status","")))}</td>'
-                   f'<td style="font-size:11.5px">{E(str(ev.get("summary",""))[:90])}</td>'
+                   f'<td style="font-size:11.5px">{E(str(ev.get("summary",""))[:90])}{_ask_alexander(a.id, job_id, ev)}</td>'
                    f'<td class="mono" style="font-size:11px;text-align:right">{(ev.get("tokens") or {}).get("total","") if isinstance(ev.get("tokens"),dict) else ""}</td></tr>' for ev in runs) \
            or '<tr><td colspan=4 style="font-size:11.5px;color:var(--text-muted)">no runs yet</td></tr>'
 
@@ -1484,6 +1484,32 @@ def render_realm_page(realm, realm_root, page: str, dark: bool = False) -> str:
     return _page_shell(realm, "Overview", page, f'<div style="padding:24px">Unknown page: {E(page)}</div>', dark)
 
 
+def _addon_widgets(realm_root) -> list:
+    try:
+        from .. import addons
+        return addons.load(realm_root).get("widgets")
+    except Exception:  # noqa — an add-on problem must never cost the Overview
+        swallowed(log, '_addon_widgets: failed; none shown')
+        return []
+
+
+def _addon_widget(w: dict) -> str:
+    """One add-on widget: a markdown body or a list of links, in the dashboard's widget chrome."""
+    if w.get("kind") == "links":
+        inner = "".join(
+            f'<li><a href="{E(ln["url"])}"{"" if ln["url"].startswith("/") else " target=_blank rel=noopener"}>'
+            f'{E(ln["label"])}</a></li>' for ln in w.get("links") or [])
+        inner = f'<ul class="mc-addon-links">{inner}</ul>'
+    else:
+        # A checklist is the most-asked-for widget; "- [ ]" reads as a box, not as brackets.
+        body = re.sub(r"(?m)^(\s*[-*] )\[[xX]\] ", "\\1\u2611 ", w.get("body") or "")
+        body = re.sub(r"(?m)^(\s*[-*] )\[ \] ", "\\1\u2610 ", body)
+        inner = f'<div class="mc-md mc-addon-md">{_md(body)}</div>'
+    return (f'<div class="mc-widget" style="height:100%;display:flex;flex-direction:column;overflow:hidden">'
+            f'{_wid_header(w["title"], "add-on", widget_id="addon:" + w["qid"])}'
+            f'<div class="mc-scroll" style="flex:1;min-height:0;overflow:auto;padding:10px 14px">{inner}</div></div>')
+
+
 def render_dashboard(realm, realm_root, dark: bool = False) -> str:
     realm_root = Path(realm_root)
     today = clock.today()
@@ -1492,6 +1518,13 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
     widgets = [("register", 10, _register(realm, realm_root, today)),
                ("usage", 10, _usage(realm, realm_root, today)),
                ("jobcal", 10, _jobcal(realm, realm_root, today))]
+    # Add-on widgets (the add-on surface's first consumer, ADR-012): data an add-on declared, drawn
+    # here by the app's own code. Hidden and shown like the built-in ones.
+    addon_w = []
+    for w in _addon_widgets(realm_root):
+        widgets.append((f"addon:{w['qid']}", w.get("default_span") or 6, _addon_widget(w)))
+        addon_w.append({"id": f"addon:{w['qid']}", "label": w["title"],
+                        "desc": f"From the add-on {w['addon']}."})
     cells = "".join(
         f'<div class="mc-w" data-id="{wid}" data-span="{span}" style="grid-column:span {span};grid-row:span 19;min-height:0;position:relative">{html}</div>'
         for wid, span, html in widgets)
@@ -1580,7 +1613,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
  <div style="position:absolute;left:0;right:0;bottom:0;height:22px;pointer-events:none;z-index:1;
   background:linear-gradient(to bottom,transparent,var(--color-bg))"></div>
 </div></div>{modal}{ren_modal}{del_modal}{_appoint_modal(realm)}
-<script>window.MC_AGENTS={agents_json};window.MC_GRIP={grip_json};window.MC_DASH={dash_json};</script>{_ICONS_JS}{_DASH_JS}{_LAYOUT_JS}{_JOBCAL_JS}{_USAGE_JS}{_NEW_JS}{_AUTONOMY_JS}{_AGENT_COLOR_JS}{_FORM_JS}{_APPOINT_JS}{_consumption_js(realm, "n-model", "n-effort", "n-consmarker", "#n-cons")}</body></html>"""
+<script>window.MC_AGENTS={agents_json};window.MC_GRIP={grip_json};window.MC_DASH={dash_json};window.MC_ADDON_W={json.dumps(addon_w).replace("</", "<\\/")};</script>{_ICONS_JS}{_DASH_JS}{_LAYOUT_JS}{_JOBCAL_JS}{_USAGE_JS}{_NEW_JS}{_AUTONOMY_JS}{_AGENT_COLOR_JS}{_FORM_JS}{_APPOINT_JS}{_consumption_js(realm, "n-model", "n-effort", "n-consmarker", "#n-cons")}</body></html>"""
 
 
 def _app_advanced(updater) -> str:

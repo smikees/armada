@@ -43,7 +43,8 @@ python -m venv .venv
 .venv\Scripts\pythonw -m armada app
 ```
 
-The first launch opens a welcome page that sets up ARMADA's folder and your first realm.
+The first launch opens the setup wizard: Alexander, ARMADA's guide, checks Claude Code, sets up
+ARMADA's folder and your first realm and team, and shows you round.
 
 ## Documentation
 

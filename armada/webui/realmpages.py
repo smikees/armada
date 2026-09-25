@@ -8,7 +8,7 @@ from .. import clock
 from .. import goals as goalsmod
 from ..icons import (ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR,
                      ICON_MISSED, _ICON_REFRESH)
-from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
+from ._base import (E, _J, _ask_alexander, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
     _model_is_claude)
@@ -659,7 +659,8 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     hist = "".join(f'<tr><td class="mono" style="font-size:11px">{E(_fmt_ts(ev.get("ts","")))}</td>'
                    f'<td style="color:{status.color(ev.get("status",""))};font-size:11.5px">'
                    f'{E(str(ev.get("status","")))}</td>'
-                   f'<td style="font-size:11.5px">{E(str(ev.get("summary",""))[:90])}</td></tr>'
+                   f'<td style="font-size:11.5px">{E(str(ev.get("summary",""))[:90])}'
+                   f'{_ask_alexander(a.id, j.id, ev)}</td></tr>'
                    for ev in hist_rows) \
            or '<tr><td colspan=3 style="font-size:11.5px;color:var(--text-muted)">no runs yet</td></tr>'
     # The prompt is shown, not offered for editing. A read-only <textarea> still looks exactly like

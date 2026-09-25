@@ -16,6 +16,7 @@ because it also covers API-key and enterprise auth paths that never touch that f
 from __future__ import annotations
 import json
 import os
+import re
 import subprocess
 import time
 
@@ -72,7 +73,26 @@ def _status_live() -> dict:
     # whether agents can run on this account; the free plan has no Claude Code access.
     return {"ok": True, "logged_in": bool(d.get("loggedIn")),
             "method": str(d.get("authMethod") or ""), "reason": "",
-            "plan": str(d.get("subscriptionType") or "")}
+            "plan": str(d.get("subscriptionType") or ""), "version": _version(lp)}
+
+
+def _version(lp) -> str:
+    """Claude Code's version ("2.1.263"), or "" if it won't say. `claude --version` prints
+    "2.1.263 (Claude Code)"."""
+    try:
+        r = subprocess.run(lp + ["--version"], capture_output=True, text=True, timeout=20,
+                           encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    m = re.search(r"\d+\.\d+\.\d+", r.stdout or "")
+    return m.group(0) if m else ""
+
+
+def version_ok(version: str, minimum: str) -> bool:
+    """Is `version` at least `minimum`? An unknown version is given the benefit of the doubt."""
+    def parts(v):
+        return tuple(int(x) for x in re.findall(r"\d+", v)[:3])
+    return not version or parts(version) >= parts(minimum)
 
 
 def start_login(console: bool = True) -> dict:

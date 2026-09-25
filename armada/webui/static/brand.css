@@ -585,3 +585,74 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
   .mc-su-rail{display:flex;gap:4px}.mc-su-rail::before,.mc-su-rlabel{display:none}.mc-su-alex{margin-bottom:12px}
   .mc-su-tpls,.mc-su-team,.mc-su-tiles,.mc-su-two{grid-template-columns:1fr}.mc-su-card{padding:24px}}
 @media (prefers-reduced-motion:reduce){.mc-su-page,.mc-su-pane.is-in,.mc-su-pane.is-in .mc-su-say p,.mc-su-reply{animation:none!important;transition:none!important}}
+
+/* ---- Alexander's drawer (6.2; static/js/alexander.js) ------------------------------------------ */
+.mc-alexbtn{border:0;background:transparent;padding:0;cursor:pointer;display:flex;border-radius:50%;
+  box-shadow:0 0 0 1.5px color-mix(in srgb,var(--color-accent) 55%,transparent);transition:box-shadow .15s,transform .15s}
+.mc-alexbtn img{width:24px;height:24px;border-radius:50%;object-fit:cover;display:block}
+.mc-alexbtn:hover{box-shadow:0 0 0 2px var(--color-accent);transform:scale(1.06)}
+.mc-ax{position:fixed;inset:0;z-index:650;pointer-events:none}
+.mc-ax-scrim{position:absolute;inset:0;background:rgba(10,16,28,.18);opacity:0;transition:opacity .2s}
+.mc-ax.is-open{pointer-events:auto}
+.mc-ax.is-open .mc-ax-scrim{opacity:1}
+.mc-ax-panel{position:absolute;top:0;right:0;bottom:0;width:min(440px,100vw);background:var(--color-bg);
+  border-left:1px solid var(--color-divider);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;
+  transform:translateX(102%);transition:transform .26s cubic-bezier(.2,.7,.2,1)}
+.mc-ax.is-open .mc-ax-panel{transform:none}
+.mc-ax-head{display:flex;align-items:center;gap:12px;padding:16px 16px 14px 20px;border-bottom:1px solid var(--color-divider)}
+.mc-ax-head img{width:40px;height:40px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px var(--color-bg),0 0 0 3px color-mix(in srgb,var(--color-accent) 45%,transparent)}
+.mc-ax-who{flex:1}
+.mc-ax-name{font-family:var(--font-heading);font-weight:600;font-size:17px;line-height:1.1}
+.mc-ax-body{flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.mc-ax-empty{margin:auto 0;padding:10px 4px}
+.mc-ax-empty p{font-size:13.5px;line-height:1.6;color:var(--text-dim);margin:0 0 12px}
+.mc-ax-empty .mc-ax-lede{font-family:var(--font-heading);font-size:20px;font-weight:500;color:var(--color-text);margin-bottom:8px}
+.mc-ax-sugg{display:flex;flex-wrap:wrap;gap:8px}
+.mc-ax-chip{border:1px solid var(--color-divider);background:var(--color-bg);color:var(--color-text);border-radius:999px;
+  padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer;transition:border-color .15s,background .15s}
+.mc-ax-chip:hover{border-color:var(--color-accent);background:var(--accent-13)}
+.mc-ax-msg{display:flex;gap:10px;align-items:flex-start;animation:mc-su-in .25s ease}
+.mc-ax-msg img{width:26px;height:26px;border-radius:50%;object-fit:cover;flex:none;margin-top:2px}
+.mc-ax-msg.is-owner{justify-content:flex-end}
+.mc-ax-msg.is-owner .mc-ax-text{background:var(--accent-13);border-radius:12px 12px 3px 12px;padding:9px 13px;max-width:85%;
+  font-size:13.5px;line-height:1.5;white-space:pre-wrap}
+.mc-ax-msg.is-alexander .mc-ax-text{flex:1;min-width:0;font-size:13.5px;line-height:1.6}
+.mc-ax-text p{margin:0 0 8px}
+.mc-ax-text p:last-child{margin-bottom:0}
+.mc-ax-cite{display:inline-block;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;margin:0 2px;
+  background:var(--accent-13);color:var(--color-accent);text-decoration:none;vertical-align:1px;white-space:nowrap}
+.mc-ax-cite:hover{text-decoration:underline}
+.mc-ax-cite.is-quiet{background:var(--text-8);color:var(--text-muted)}
+.mc-ax-card{margin-top:10px;border:1px solid var(--color-divider);border-left:3px solid var(--color-accent);border-radius:8px;padding:11px 13px;background:var(--color-bg)}
+.mc-ax-card.is-report{border-left-color:var(--color-accent-2)}
+.mc-ax-cardhead{display:flex;align-items:center;gap:7px;margin-bottom:4px;color:var(--color-accent)}
+.mc-ax-card.is-report .mc-ax-cardhead{color:var(--color-accent-2)}
+.mc-ax-cardicon{display:inline-flex}
+.mc-ax-what{margin:0 0 4px!important;font-size:13px}
+.mc-ax-why{margin:0 0 4px!important;font-size:12px;color:var(--text-muted)}
+.mc-ax-cardrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.mc-ax-scope{font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer}
+.mc-ax-cardmsg{font-size:12px;display:inline-flex;align-items:center;gap:5px;color:var(--text-muted)}
+.mc-ax-cardmsg.is-ok{color:var(--status-ok)}
+.mc-ax-cardmsg.is-bad{color:var(--status-bad)}
+.mc-ax-err{color:var(--status-bad)}
+.mc-ax-dots{display:inline-flex;gap:4px;margin-right:9px;vertical-align:1px}
+.mc-ax-dots i{width:6px;height:6px;border-radius:50%;background:var(--color-accent);animation:mc-ax-dot 1.2s ease-in-out infinite}
+.mc-ax-dots i:nth-child(2){animation-delay:.15s}
+.mc-ax-dots i:nth-child(3){animation-delay:.3s}
+@keyframes mc-ax-dot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.mc-ax-status{font-size:12px;color:var(--text-muted)}
+.mc-ax-compose{display:flex;align-items:flex-end;gap:8px;margin:0 16px;padding:10px 10px 10px 14px;border:1px solid var(--color-divider);border-radius:12px;background:var(--color-bg);transition:border-color .15s,box-shadow .15s}
+.mc-ax-compose:focus-within{border-color:var(--color-accent);box-shadow:0 0 0 3px var(--accent-13)}
+.mc-ax-compose textarea{flex:1;border:0;outline:0;resize:none;background:transparent;color:var(--color-text);font:inherit;font-size:13.5px;line-height:1.5;max-height:160px}
+.mc-ax-send{width:30px;height:30px;border-radius:50%;border:0;background:var(--color-accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.mc-ax-send:hover{background:var(--color-accent-600)}
+.mc-ax-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 20px 12px;font-size:11px;color:var(--text-soft)}
+.mc-askalex{font-size:11.5px;padding:0 4px}
+@media (prefers-reduced-motion:reduce){.mc-ax-panel,.mc-ax-scrim,.mc-ax-msg{transition:none!important;animation:none!important}}
+
+/* Add-on widgets on the Overview (ADR-012's first consumer) */
+.mc-addon-links{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.mc-addon-links a{display:block;padding:7px 10px;border:1px solid var(--color-divider);border-radius:var(--r);font-size:13px;text-decoration:none;color:var(--color-text)}
+.mc-addon-links a:hover{border-color:var(--color-accent);color:var(--color-accent)}
+.mc-addon-md{font-size:13px;line-height:1.55}

@@ -27,6 +27,14 @@ because it also covers API-key and enterprise auth paths that never touch that f
 
 —
 
+### `_version(lp)`
+
+Claude Code's version ("2.1.263"), or "" if it won't say. `claude --version` prints "2.1.263 (Claude Code)".
+
+### `version_ok(version: str, minimum: str)`
+
+Is `version` at least `minimum`? An unknown version is given the benefit of the doubt.
+
 ### `start_login(console: bool=True)`
 
 Launch Claude Code's own sign-in. Returns once it's STARTED, not once it's finished — the owner completes it in their browser, then ARMADA re-checks status.

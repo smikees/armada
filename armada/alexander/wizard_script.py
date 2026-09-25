@@ -47,6 +47,10 @@ SCRIPT: dict[str, dict[str, str]] = {
         "no_claude": (
             "Claude Code isn't installed. ARMADA runs every agent through it, so nothing works "
             "without it. Install it with the button below, then check again. It takes a minute."),
+        "old_claude": (
+            "Claude Code is installed, but it's older than ARMADA needs, and I run on a model it "
+            "doesn't know yet. Update it with the button below. It takes a minute, and your "
+            "sign-in stays as it is."),
         "signed_out": (
             "Claude Code is installed but not signed in. Sign in with your own Claude account. "
             "The sign-in happens in Claude's own window: ARMADA never sees your password."),

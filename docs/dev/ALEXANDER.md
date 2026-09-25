@@ -26,16 +26,21 @@ them; Alexander has no tools, files or network (`only_tools` = none, as the capa
 | Section | Contents | Source |
 |---|---|---|
 | `<page>` | the page the owner is on, and the item (job, agent, run) if they asked from one | the request |
-| `<help>` | the 3–5 help pages most relevant to the question, whole | `armada/docs/user/*.md`, ranked by term overlap with the question and the page |
+| `<help>` | every help page, whole (all of them together are about 25 KB), the most relevant first | `armada/docs/user/*.md`, ranked by term overlap with the question and the page |
 | `<realm>` | a compact snapshot: realm name and template, agents (name, role, model, capabilities with risk), jobs (schedule, on/off, last run and its outcome), goals, scheduler state, sign-in state, version | the realm on disk + app state |
 | `<logs>` | for a failure: the run's own log and the `~/.armada/logs` lines within a few minutes of it, secrets redacted (the 5.6 redactor) | the run + logs |
-| `<addon_contract>` | the add-on schema and one worked example | `armada/addons.py` + a short contract page shipped in the package |
+| `<addon_contract>` | the widget part of the add-on contract and one worked example | `armada/alexander/ADDON_CONTRACT.md`, checked by `armada/addons.py` |
+| `<conversation>` | the last dozen messages of this conversation | `~/.armada/alexander/<id>.jsonl` |
 | `<remedies>` | the remedy names, their arguments and one line each on what they do | `armada/alexander/remedies.py` |
 
 The conversation (his answers and the owner's messages) is kept in `~/.armada/alexander/` — this
 machine's, not a realm's — so a follow-up question has the earlier turns.
 
 ## What he can do (ADR-012)
+
+Implemented in `armada/alexander/support.py` (context, the turn, taking the reply apart), the
+drawer in `armada/webui/static/js/alexander.js`, and `/api/alexander-ask` (streamed),
+`/api/alexander-history`, `/api/alexander-addon`.
 
 He **proposes**; the owner **confirms**; the **app** does it. Proposals are fenced blocks in his
 reply (` ```remedy `, ` ```addon `, ` ```report `); the page renders each as a card with exactly

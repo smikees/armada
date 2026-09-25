@@ -456,9 +456,12 @@ class RealmRoutes:
         nothing here runs unasked."""
         if os.name != "nt":
             return {"ok": False, "error": "Install Claude Code from code.claude.com, then check again."}
+        # Updating is Claude Code's own `claude update` (same documentation page), in the same
+        # visible console, for an install that's older than Alexander's model needs.
+        cmd = "claude update" if body.get("update") else "irm https://claude.ai/install.ps1 | iex"
         try:
-            subprocess.Popen(["powershell", "-NoProfile", "-NoExit", "-Command",
-                              "irm https://claude.ai/install.ps1 | iex"],
+            subprocess.Popen(["powershell", "-NoProfile", "-NoExit", "-ExecutionPolicy", "Bypass",
+                              "-Command", cmd],
                              creationflags=0x00000010)     # CREATE_NEW_CONSOLE
             return {"ok": True}
         except OSError as e:

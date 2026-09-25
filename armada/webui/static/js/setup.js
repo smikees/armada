@@ -54,20 +54,23 @@
     let d=null;try{d=await(await fetch('/api/auth-status'+(force?'?force=1':''),{cache:'no-store'})).json();}catch(e){}
     if(!d){mark('su-ck-cli','bad','Couldn’t check. Try again.');return;}
     const cli=d.reason!=='cli-missing', inn=!!d.logged_in, plan=String(d.plan||'').toLowerCase();
-    mark('su-ck-cli',cli?'ok':'bad',cli?'Installed':'Not installed');
-    $('su-ck-cli-a').hidden=cli; if(cli)$('su-install').hidden=true;
+    const old=cli&&d.version_ok===false;
+    mark('su-ck-cli',!cli?'bad':old?'warn':'ok',!cli?'Not installed':
+      old?('Version '+d.version+'. ARMADA needs '+d.min_version+' or newer.'):('Installed'+(d.version?' · '+d.version:'')));
+    $('su-ck-cli-a').hidden=cli&&!old; if(cli)$('su-install').hidden=true;
+    const ib=$('su-ck-cli-a').querySelector('button');if(ib){ib.textContent=old?'Update Claude Code':'Install Claude Code';ib.dataset.update=old?'1':'';}
     if(!cli)mark('su-ck-auth','wait','Waiting for Claude Code');
     else if(inn){const p=PLANS[plan];const unsure=d.method==='claude.ai'&&!p;
       mark('su-ck-auth',unsure?'warn':'ok','Signed in'+(p?' · '+p+' plan':''));}
     else mark('su-ck-auth','bad','Signed out');
     $('su-ck-auth-a').hidden=!(cli&&!inn);
     const unsure=inn&&d.method==='claude.ai'&&!PLANS[plan];
-    const key=!cli?'no_claude':!inn?'signed_out':unsure?'no_plan':'all_ok';
+    const key=!cli?'no_claude':old?'old_claude':!inn?'signed_out':unsure?'no_plan':'all_ok';
     const l=$('su-checkline');if(l){l.textContent=line('checks',key);l.parentNode.classList.toggle('is-ok',key==='all_ok');}
-    const ok=cli&&inn; $('su-checks-next').disabled=!ok;
+    const ok=cli&&inn&&!old; $('su-checks-next').disabled=!ok;
     if(ok)stopPoll();else startPoll();};
-  window.mcSuInstall=async function(btn){busy(btn,true,'Opening the installer…');
-    try{const r=await post('/api/install-claude');$('su-install').hidden=false;
+  window.mcSuInstall=async function(btn){const upd=!!btn.dataset.update;busy(btn,true,upd?'Opening the update…':'Opening the installer…');
+    try{const r=await post('/api/install-claude',{update:upd});if(!upd)$('su-install').hidden=false;
       if(!r.ok)say('su-checkline',r.error||'Couldn’t start the installer.',true);}catch(e){}
     busy(btn,false);startPoll();};
   window.mcSuCopy=async function(btn){try{await navigator.clipboard.writeText($('su-cmd').textContent);

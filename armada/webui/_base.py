@@ -184,3 +184,17 @@ def _pill(inner: str, tone: str = "neutral", title: str = "", style: str = "") -
 def _poss(name: str) -> str:
     """Possessive form (raw — caller should E() it): 'Marcus' → \"Marcus’\", 'Warren' → \"Warren’s\"."""
     return name + ("’" if name.rstrip().endswith(("s", "S")) else "’s")
+
+
+def _ask_alexander(agent_id: str, job_id: str, ev: dict) -> str:
+    """"Ask Alexander" on a failed run (launch plan 6.3): opens his drawer about exactly this run.
+    Nothing for a run that didn't fail."""
+    from .. import status as _status
+    if _status.normalize(ev.get("status", "")) != _status.FAILED:
+        return ""
+    item = {"about": "a failed run", "agent": agent_id, "job": job_id, "ts": str(ev.get("ts", "")),
+            "status": str(ev.get("status", "")), "summary": str(ev.get("summary", ""))[:500]}
+    # An object literal, not a string: JSON-encoded (quotes and backslashes escaped for JS), then
+    # HTML-escaped for the attribute — the same two layers _J applies to a string.
+    return (f' <button type="button" class="btn-link mc-askalex" onclick="mcAlexAsk({E(json.dumps(item))})">'
+            f'Ask Alexander</button>')

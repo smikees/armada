@@ -801,12 +801,20 @@ One guides the other. Alexander's knowledge is the docs (Phase 3); the wizard's 
       [ADR-012](adr/ADR-012-alexander-scope.md): he proposes, the owner confirms, the app acts
       (remedies from a fixed list, data-only add-ons, reports). Scripted in the wizard; **Opus 5.5 at
       High** for support, fixed; his usage counts as **System** in cost reports. Threat model T13.
-- [ ] 6.2 Alexander's guidance, in the thread 5.6 already opened: with the docs (Phase 3) as
+- [x] 6.2 Alexander's guidance, in the thread 5.6 already opened: with the docs (Phase 3) as
       context it answers "how do I", explains what a page is for, and points at settings. The
       button and the thread exist from 5.6; this phase makes him knowledgeable.
-- [ ] 6.3 "Why did this fail": Alexander can be summoned from a failed job or run with its log
+      **Done 2026-09-25 (v0.99.73):** his portrait replaces the support icon beside the gear and
+      opens a drawer (`static/js/alexander.js`); each turn is sealed Opus 5.5 High with every help
+      page, a realm snapshot, the page, the remedies and the add-on contract
+      (`alexander/support.py`); fixes, dashboard widgets and reports come back as cards with one
+      button each. Dashboard widgets are the add-on surface's first consumer. Report an issue is
+      in the drawer and pre-filled from his report card. Needs Claude Code 2.1.280+.
+- [x] 6.3 "Why did this fail": Alexander can be summoned from a failed job or run with its log
       attached, and answers from the log and the docs.
-- [ ] 6.4 The wizard, five to seven steps, each producing a real artefact, Alexander narrating:
+      **Done 2026-09-25:** "Ask Alexander" beside every failed run (job page, Jobs list); he gets
+      the run and ARMADA's log lines within ten minutes of it, redacted.
+- [x] 6.4 The wizard, five to seven steps, each producing a real artefact, Alexander narrating:
       (1) dependency check — Claude CLI, subscription, `doctor`; (2) name your realm and pick
       a workspace folder; (3) appoint the coordinator and two to four ministers from templates
       — **MIHAI** decides which templates ship and reviews their text; (4) add the safe
@@ -814,10 +822,18 @@ One guides the other. Alexander's knowledge is the docs (Phase 3); the wizard's 
       report shown; (5) one real job, scheduled and run while you watch; (6) where things are
       — a one-screen tour of memory, grants, and the Capabilities page; (7) done, with
       Alexander's button pointed out.
+      **Done 2026-09-25 (v0.99.73), eight steps:** welcome · checks (Claude Code installed, current
+      and signed in, with Install / Update / Sign in buttons) · folder and names · team (all four
+      templates, as they are) · recommended capabilities (`armada/recommended.py`: nine Anthropic
+      skills, all Low risk, none needing an account) · a real first brief from the coordinator,
+      streamed · tour · done. Everything Alexander says is `alexander/wizard_script.py`. Two
+      halves (welcome mode, then `/setup` in the new realm), resumable from `realm.json`.
 - [ ] 6.5 Time-to-first-value measured: the wizard is done when a new user has watched one
       real job produce one real artefact. Everything else is Alexander's job later.
-- [ ] 6.6 Alexander's answers are grounded: every answer cites the doc page or the log line it
+- [x] 6.6 Alexander's answers are grounded: every answer cites the doc page or the log line it
       came from, so a wrong answer is traceable to a wrong doc.
+      **Done 2026-09-25:** the prompt requires `[help: …]`, `[realm: …]`, `[log: …]` citations; the
+      drawer turns help citations into links to the page.
 
 ---
 

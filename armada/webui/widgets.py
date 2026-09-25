@@ -77,9 +77,10 @@ def _widget_menu(widget_id: str) -> str:
             f'{_icon("dots", 18)}</button>'
             f'<div class="mc-wmenu" style="display:none;position:absolute;top:26px;right:0;z-index:40;min-width:172px;'
             f'background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:4px">'
-            f'<a onclick="mcWidgetAddSection({_J(widget_id)})" style="{_mi};color:inherit">'
-            f'<span style="display:flex;color:var(--text-dim)">{_icon("plus", 16)}</span>'
-            f'<span style="flex:1">Add as section</span></a>'
+            + ("" if widget_id.startswith("addon:") else     # add-on widgets can't be pages (yet)
+               f'<a onclick="mcWidgetAddSection({_J(widget_id)})" style="{_mi};color:inherit">'
+               f'<span style="display:flex;color:var(--text-dim)">{_icon("plus", 16)}</span>'
+               f'<span style="flex:1">Add as section</span></a>') +
             f'<a onclick="mcWidgetRemove({_J(widget_id)})" style="{_mi};color:var(--status-bad)">'
             f'<span style="display:flex">{_icon("trash", 16)}</span><span style="flex:1">Remove widget</span></a>'
             f'</div></div>')

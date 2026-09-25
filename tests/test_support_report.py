@@ -141,13 +141,15 @@ def test_key_accepts_only_a_resend_key(monkeypatch, tmp_path):
 
 # --- wiring ------------------------------------------------------------------------------------------
 
-def test_the_button_is_beside_the_gear_on_every_page():
+def test_reporting_is_reached_through_alexander_beside_the_gear():
+    """Since 6.2 the icon beside the gear is Alexander; Report an issue is in his drawer, and his
+    report card opens the same dialog pre-filled."""
     from armada import serve
-    from armada.icons import ICONS
     from armada.webui import layout
     src = Path(layout.__file__).read_text(encoding="utf-8")
-    assert 'onclick="mcSupportOpen()"' in src and '_icon("support-ai", 19)' in src and "_SUPPORT_JS" in src
-    assert "support-ai" in ICONS
+    assert 'onclick="mcAlexOpen()"' in src and "_SUPPORT_JS" in src and "_ALEXANDER_JS" in src
+    js = (Path(layout.__file__).parent / "static" / "js" / "alexander.js").read_text(encoding="utf-8")
+    assert "mcSupportOpen()" in js and "mcSupportOpen({message:c.message})" in js
     assert serve.Handler._POST_JSON["/api/support-preview"] == "_support_preview"
     assert serve.Handler._POST_JSON["/api/support-send"] == "_support_send"
 

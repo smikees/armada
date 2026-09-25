@@ -71,7 +71,8 @@ def test_status_is_cached_then_refreshed_on_force(monkeypatch):
     calls = {"n": 0}
 
     def run(cmd, **kw):
-        calls["n"] += 1
+        if "auth" in cmd:       # the status probe (a fresh status also asks for the version)
+            calls["n"] += 1
         return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps({"loggedIn": True}), stderr="")
     monkeypatch.setattr(auth, "_launcher", lambda: ["claude"])
     monkeypatch.setattr(auth.subprocess, "run", run)
@@ -148,3 +149,10 @@ def test_a_native_install_off_path_is_still_found(tmp_path, monkeypatch):
     monkeypatch.setattr(os.path, "expanduser", lambda p: str(home) if p == "~" else p)
     monkeypatch.setattr(shutil, "which", lambda name: None)
     assert ClaudeEngine()._launcher() == [str(exe)]
+
+
+def test_claude_code_version_is_compared_numerically():
+    from armada import auth
+    assert auth.version_ok("2.1.280", "2.1.280") and auth.version_ok("2.10.0", "2.1.280")
+    assert not auth.version_ok("2.1.263", "2.1.280")
+    assert auth.version_ok("", "2.1.280")              # unknown: don't block on a guess

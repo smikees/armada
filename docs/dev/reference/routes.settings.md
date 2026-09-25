@@ -26,6 +26,9 @@ stays in serve.py, only the handler bodies moved.
 - `SettingsRoutes._notifications_read(self, body: dict)` — —
 - `SettingsRoutes._get_auth_status(self)` — —
 - `SettingsRoutes._auth_login(self, body: dict)` — Start Claude Code's own sign-in in its own window. ARMADA never handles the credential: the owner completes the flow in their browser and Claude Code stores the result itself.
+- `SettingsRoutes._alexander_ask(self, body: dict)` — One support turn, as Server-Sent Events: 'status' while he thinks, 'text' as he writes, then 'done' with the reply taken apart into prose and cards.
+- `SettingsRoutes._alexander_history(self, body: dict)` — —
+- `SettingsRoutes._alexander_addon(self, body: dict)` — —
 - `SettingsRoutes._support_preview(self, body: dict)` — Report an issue (5.6), step 1: build the report and show it. Nothing is sent here.
 - `SettingsRoutes._support_send(self, body: dict)` — Step 2: send exactly what was previewed (by its token).
 - `SettingsRoutes._get_scheduler_status(self)` — —

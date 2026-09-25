@@ -11,6 +11,7 @@
 | [`agentops`](agentops.md) | Agent lifecycle — retire, reinstate, delete. |
 | [`alexander.__init__`](alexander.__init__.md) | Alexander — ARMADA's guide (Phase 6; docs/dev/ALEXANDER.md, ADR-012). |
 | [`alexander.remedies`](alexander.remedies.md) | Remedies: the fixed list of app actions Alexander may propose (ADR-012, docs/dev/ALEXANDER.md). |
+| [`alexander.support`](alexander.support.md) | Alexander in the app: support conversations (launch plan 6.2, 6.3, 6.6; docs/dev/ALEXANDER.md). |
 | [`alexander.wizard_script`](alexander.wizard_script.md) | Everything Alexander says in the setup wizard, written in advance (ADR-012; docs/dev/ALEXANDER.md). |
 | [`app`](app.md) | Native desktop window for ARMADA (SPEC §13 — the app wrapper). |
 | [`appconfig`](appconfig.md) | App-level (per-machine) configuration — distinct from a realm's own files. |

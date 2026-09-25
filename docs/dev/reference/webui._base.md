@@ -42,3 +42,7 @@ A status pill. `inner` is HTML (escape text before passing it).
 ### `_poss(name: str)`
 
 Possessive form (raw — caller should E() it): 'Marcus' → "Marcus’", 'Warren' → "Warren’s".
+
+### `_ask_alexander(agent_id: str, job_id: str, ev: dict)`
+
+"Ask Alexander" on a failed run (launch plan 6.3): opens his drawer about exactly this run. Nothing for a run that didn't fail.
