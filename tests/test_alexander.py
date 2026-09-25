@@ -105,5 +105,25 @@ def test_every_step_has_lines_and_every_line_is_in_his_voice():
 
 def test_line_fills_placeholders_and_leaves_gaps_visible():
     assert ws.line("done", "intro", owner="Mihai", realm="Home") == \
-        "You're set up, Mihai. Home is ready and the scheduler is running."
+        "You're set up, Mihai. Home is ready."
     assert "{coordinator}" in ws.line("first-job", "intro")
+
+
+# ---- the curated set the wizard offers (armada/recommended.py) -----------------------------------
+
+from armada import recommended
+
+
+def test_every_recommendation_is_an_official_anthropic_skill_in_a_known_group():
+    groups = {g for g, _t, _l in recommended.GROUPS}
+    assert recommended.RECOMMENDED
+    for r in recommended.RECOMMENDED:
+        assert r["key"] == f"anthropic-skills/skills/{r['id']}", r
+        assert r["group"] in groups and r["name"] and r["does"], r
+        assert "!" not in r["does"] + r["note"]
+
+
+def test_defaults_follow_the_template():
+    on = lambda t: {r["id"] for r in recommended.for_template(t) if r["on"]}
+    assert "internal-comms" in on("company") and "internal-comms" not in on("state")
+    assert {"docx", "xlsx", "pptx", "pdf"} <= on("scratch")

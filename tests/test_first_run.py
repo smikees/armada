@@ -38,16 +38,20 @@ def _status(srv, method, path, body=None):
         return e.code, e.read().decode("utf-8")
 
 
-def test_every_page_is_the_welcome_page(srv):
+def test_every_page_is_the_setup_wizard(srv):
     for path in ("/", "/settings", "/jobs", "/agent/pm"):
         html = srv.get(path)
-        assert "Welcome to ARMADA" in html and "Choose ARMADA’s folder" in html, path
-        assert 'id="mc-authbar"' in html and "authbar.js" in html      # sign-in matters from minute one
+        assert "Welcome to ARMADA" in html and "ARMADA’s folder" in html, path
+        for step in ("welcome", "checks", "home", "team"):
+            assert f'class="mc-su-pane" data-step="{step}"' in html, (path, step)
+        assert "mcSuSignIn" in html and "Install Claude Code" in html   # sign-in matters from minute one
 
 
 def test_static_assets_still_load(srv):
-    code, body = _status(srv, "GET", "/static/js/welcome.js")
-    assert code == 200 and "mcWelcomeCreate" in body
+    code, body = _status(srv, "GET", "/static/js/setup.js")
+    assert code == 200 and "mcSuAppoint" in body
+    with urllib.request.urlopen(srv.base + "/static/alexander.png", timeout=10) as r:
+        assert r.status == 200 and r.read(4) == b"\x89PNG"
 
 
 def test_other_api_calls_are_refused_not_crashed(srv):
@@ -110,3 +114,51 @@ def test_cli_opens_the_welcome_page_instead_of_exiting(monkeypatch, tmp_path):
         assert "isn't a realm folder" in serve.Handler.welcome_note
     finally:
         serve.Handler.welcome_note = ""
+
+
+# ---- the setup wizard's second half (6.4) --------------------------------------------------------
+
+def _wizard_realm(srv, tmp_path, **extra):
+    srv.post("/api/set-approot", {"root": str(tmp_path / "ARMADA"), "create": True})
+    r = srv.post("/api/first-realm", {"name": "Home", "template": "company", "owner": "Mihai",
+                                      "wizard": True, **extra})
+    assert r["ok"], r
+    srv.get("/switch?path=" + urllib.request.quote(r["path"], safe=""))
+    return Path(r["path"])
+
+
+def test_a_wizard_realm_resumes_setup_until_it_is_finished(srv, tmp_path):
+    root = _wizard_realm(srv, tmp_path)
+    cfg = json.loads((root / "realm.json").read_text("utf-8"))
+    assert cfg["setup"]["step"] == "capabilities" and cfg["user"]["name"] == "Mihai"
+    html = srv.get("/")                                   # redirected to /setup
+    assert 'data-step="capabilities"' in html and "Add these" in html and "Low risk" in html
+    assert srv.post("/api/setup-step", {"step": "tour"})["ok"]
+    assert json.loads((root / "realm.json").read_text("utf-8"))["setup"]["step"] == "tour"
+    assert srv.post("/api/setup-step", {"step": "nowhere"})["ok"] is False
+    assert srv.post("/api/setup-finish", {})["ok"]
+    assert "setup" in json.loads((root / "realm.json").read_text("utf-8"))
+    assert 'id="mc-schedbar"' in srv.get("/")             # the normal app from now on
+
+
+def test_the_wizard_builds_the_team_on_the_server(srv, tmp_path):
+    root = _wizard_realm(srv, tmp_path, keep=["cfo"], extra=[{"display": "Ada Lovelace", "role": "Engines"},
+                                                           {"display": "<script>", "role": ""}])
+    ids = sorted(p.name for p in (root / "agents").iterdir())
+    assert ids == ["ada-lovelace", "cfo", "script"]
+    coords = [json.loads((root / "agents" / i / "agent.json").read_text("utf-8"))["coordinator"] for i in ids]
+    assert coords.count(True) == 1                          # someone always leads
+    mandate = (root / "agents" / "cfo" / "mandate.md").read_text("utf-8")
+    assert len(mandate) > 40                                # the template's instructions, not the page's
+
+
+def test_only_recommended_capabilities_go_through_the_wizard(srv, tmp_path):
+    _wizard_realm(srv, tmp_path)
+    r = srv.post("/api/setup-capability", {"key": "marketplace:claude-plugins-official/desktop-commander"})
+    assert r["ok"] is False and "recommended" in r["error"]
+
+
+def test_an_empty_team_is_refused(srv, tmp_path):
+    srv.post("/api/set-approot", {"root": str(tmp_path / "ARMADA"), "create": True})
+    r = srv.post("/api/first-realm", {"name": "Empty", "template": "scratch", "keep": [], "extra": [], "wizard": True})
+    assert r["ok"] is False and "at least one" in r["error"]

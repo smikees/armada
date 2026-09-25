@@ -315,7 +315,64 @@ def inspect(e: dict) -> dict:
 # --- bringing a skill onto this machine ------------------------------------------------------------
 
 _SKILLS_REPO_API = "https://api.github.com/repos/anthropics/skills/contents/skills"
-_FETCH_MAX_FILES = 60
+# Anthropic's document skills ship ~60 files each (docx had 61 on 2026-09-25, one past the old cap of
+# 60, so it could never be added) and canvas-design ships 83. The cap is a runaway guard, not a size
+# policy, so it sits well above the largest real skill.
+_FETCH_MAX_FILES = 200
+
+# The whole repository as one zip. One download serves every skill in it: the setup wizard adds
+# several at once, and the per-file path makes one GitHub API call per directory, against an
+# unauthenticated limit of 60 an hour. Kept in memory for a few minutes, capped in size.
+_ARCHIVE_URL = "https://codeload.github.com/anthropics/skills/zip/refs/heads/main"
+_ARCHIVE_TTL = 600
+_ARCHIVE_MAX = 60 * 1024 * 1024
+_archive: dict = {"t": 0.0, "data": None}
+
+
+def _skills_archive():
+    """The repository zip as bytes, from memory if recent. None if it can't be had."""
+    import time
+    if _archive["data"] is not None and time.monotonic() - _archive["t"] < _ARCHIVE_TTL:
+        return _archive["data"]
+    try:
+        req = urllib.request.Request(_ARCHIVE_URL, headers={"User-Agent": _UA})
+        with urllib.request.urlopen(req, timeout=max(_TIMEOUT, 60)) as r:
+            data = r.read(_ARCHIVE_MAX + 1)
+    except (urllib.error.URLError, OSError, TimeoutError):
+        log.info("skills archive: download failed; falling back to per-file")
+        return None
+    if len(data) > _ARCHIVE_MAX:
+        return None
+    _archive.update(t=time.monotonic(), data=data)
+    return data
+
+
+def _extract_from_archive(data: bytes, path: str, dest: Path) -> bool:
+    """Write `skills/<path>/…` out of the repository zip into `dest`. False if it isn't there or
+    any member name could escape `dest` (every part must pass _safe_name)."""
+    import io
+    import zipfile
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        return False
+    wrote, n = False, 0
+    for info in zf.infolist():
+        parts = info.filename.split("/")
+        # "<repo>-<branch>/skills/<path>/<rest…>"
+        if len(parts) < 4 or parts[1] != "skills" or parts[2] != path or info.is_dir():
+            continue
+        rest = parts[3:]
+        if not rest or not all(_safe_name(x) for x in rest):
+            return False
+        n += 1
+        if n > _FETCH_MAX_FILES:
+            return False
+        target = dest.joinpath(*rest)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(zf.read(info))
+        wrote = True
+    return wrote
 
 
 def _get_bytes(url: str):
@@ -331,7 +388,9 @@ def _get_bytes(url: str):
 # util.safe_seg is the guard for ids — no dots, so "SKILL.md" fails it. Filenames need their own:
 # a name a remote server chose must not be able to escape the folder we picked for it, but it does
 # legitimately contain dots.
-_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+# A leading underscore is allowed: Python packages need `__init__.py`, and refusing it meant the Word,
+# Excel and PowerPoint skills could never be added (found 2026-09-25). A leading dot is not.
+_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]*$")
 
 
 def _safe_name(name: str) -> str:
@@ -399,7 +458,11 @@ def fetch_skill(e: dict, dest: Path) -> dict:
     try:
         import shutil
         shutil.rmtree(tmp, ignore_errors=True)
-        whole = _download_tree(f"{_SKILLS_REPO_API}/{urllib.parse.quote(path)}", tmp, budget)
+        data = _skills_archive() if _safe_name(path) else None
+        whole = bool(data) and _extract_from_archive(data, path, tmp)
+        if not whole:
+            shutil.rmtree(tmp, ignore_errors=True)
+            whole = _download_tree(f"{_SKILLS_REPO_API}/{urllib.parse.quote(path)}", tmp, budget)
         if not (tmp / "SKILL.md").is_file():
             # Without SKILL.md there is no skill. Leave nothing behind rather than a folder that
             # looks added and isn't.
@@ -444,7 +507,7 @@ def find(key: str) -> dict | None:
     return None
 
 
-def add_to_realm(realm_root, key: str) -> dict:
+def add_to_realm(realm_root, key: str, entry: dict | None = None) -> dict:
     """Put a catalogue entry into this realm's capability list.
 
     Deliberately NOT the same as installing it. The realm catalogue is the record of what you have
@@ -457,7 +520,9 @@ def add_to_realm(realm_root, key: str) -> dict:
     the Catalogue's card text, which says so rather than showing a tier we haven't earned yet.
     """
     from .. import capabilities as caps
-    e = find(key)
+    # `entry` is a fallback for a caller that already holds the record (the setup wizard, on a new
+    # install whose catalogue hasn't been fetched yet); the catalogue's own copy wins when present.
+    e = find(key) or (entry if entry and entry.get("key") == key else None)
     if not e:
         return {"ok": False, "error": "That capability is no longer in the catalogue. Refresh and try again."}
     rp = Path(realm_root) / "realm.json"

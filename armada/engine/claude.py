@@ -197,10 +197,24 @@ class ClaudeEngine(EngineAdapter):
             log.debug('_direct_launcher: failed; returning a fallback', exc_info=True)
             return None
 
+    @staticmethod
+    def _known_install() -> Optional[str]:
+        """Claude Code's native install location, for when it isn't on this process's PATH.
+
+        The native installer puts `claude.exe` in ~/.local/bin and adds that to the *user* PATH —
+        which a process started before the install (ARMADA's window, during the setup wizard's
+        "Install Claude Code") never sees. Without this, installing from the wizard would say
+        "not installed" until ARMADA restarted."""
+        for c in (os.path.join(os.path.expanduser("~"), ".local", "bin",
+                               "claude.exe" if os.name == "nt" else "claude"),):
+            if os.path.isfile(c):
+                return c
+        return None
+
     def _launcher(self) -> Optional[list[str]]:
         if self._cached is not None:
             return self._cached or None
-        exe = shutil.which(self.binary)
+        exe = shutil.which(self.binary) or (self._known_install() if self.binary == "claude" else None)
         if not exe:
             self._cached = []
             return None
@@ -211,6 +225,14 @@ class ClaudeEngine(EngineAdapter):
         if direct:
             self._cached = direct
             return direct
+        # The native installer's claude.exe is the real program (tens of MB), not npm's ~500 B stub:
+        # run it directly, so empty-string arguments survive (they don't through cmd /c).
+        try:
+            if exe.lower().endswith(".exe") and os.path.getsize(exe) > 1_000_000:
+                self._cached = [exe]
+                return self._cached
+        except OSError:
+            pass
         shim = exe if exe.lower().endswith((".cmd", ".bat")) else (shutil.which(self.binary + ".cmd") or exe)
         self._cached = ["cmd", "/c", shim]
         return self._cached

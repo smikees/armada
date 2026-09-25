@@ -47,6 +47,7 @@
 | [`reader`](reader.md) | ARMADA realm reader — adopts a realm folder into the model. |
 | [`realmformat`](realmformat.md) | The realm's on-disk format version, and the one place that upgrades it. |
 | [`realmops`](realmops.md) | Realm lifecycle — archive, export, delete. |
+| [`recommended`](recommended.md) | ARMADA's recommended capabilities: the curated set the setup wizard offers (launch plan 6.4). |
 | [`render`](render.md) | ARMADA cockpit renderer — Realm model -> self-contained cockpit.html. |
 | [`routes.__init__`](routes.__init__.md) | Handler mixins for `armada serve` (Phase 2, 2.3), grouped by area. |
 | [`routes._shared`](routes._shared.md) | Shared helpers for the route mixins in armada/routes/. |
@@ -62,6 +63,7 @@
 | [`scheduler`](scheduler.md) | Local scheduler (SPEC §8/§12) — the missing heart: fire jobs on their cadence. |
 | [`serve`](serve.md) | `armada serve` — the interactive local app (SPEC §13). |
 | [`setup`](setup.md) | `armada new` — scaffold a ARMADA-native realm from a template (SPEC §12). |
+| [`setupflow`](setupflow.md) | The setup wizard's server side (launch plan 6.4; the page is webui/setup_wizard.py). |
 | [`skills`](skills.md) | Skills/connectors provisioning (SPEC §6 / §14) — the manifest layer. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
 | [`support`](support.md) | Report an issue (launch plan 5.6, ADR-005). |
@@ -93,6 +95,7 @@
 | [`webui.pages`](webui.pages.md) | ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3. |
 | [`webui.realmpages`](webui.realmpages.md) | Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts. |
 | [`webui.schedfmt`](webui.schedfmt.md) | Schedule / status / date-format helpers (carved from _core.py in Phase 3). |
+| [`webui.setup_wizard`](webui.setup_wizard.md) | The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide. |
 | [`webui.threadsview`](webui.threadsview.md) | Threads / chat rendering (Layer 2, carved from _core.py in Phase 3). |
 | [`webui.welcome`](webui.welcome.md) | The first-run page (launch plan 5.3): what the app shows when there is no realm to open. |
 | [`webui.widgets`](webui.widgets.md) | Dashboard widget renderers (Layer 2, carved from _core.py in Phase 3). |

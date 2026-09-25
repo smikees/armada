@@ -132,3 +132,19 @@ def test_banner_js_only_asks_and_launches():
     code = re.sub(r"//[^\n]*", "", js)          # prose about tokens is fine; code touching them isn't
     for forbidden in ("token", "password", "apiKey", "api_key"):
         assert forbidden not in code, f"the banner must not handle {forbidden}"
+
+
+def test_a_native_install_off_path_is_still_found(tmp_path, monkeypatch):
+    """Installing Claude Code from the setup wizard adds ~/.local/bin to the *user* PATH, which the
+    already-running ARMADA never sees; the launcher looks there too."""
+    import os
+    import shutil
+    from armada.engine.claude import ClaudeEngine
+    home = tmp_path / "home"
+    exe = home / ".local" / "bin" / ("claude.exe" if os.name == "nt" else "claude")
+    exe.parent.mkdir(parents=True)
+    with open(exe, "wb") as f:
+        f.truncate(2_000_000)
+    monkeypatch.setattr(os.path, "expanduser", lambda p: str(home) if p == "~" else p)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    assert ClaudeEngine()._launcher() == [str(exe)]

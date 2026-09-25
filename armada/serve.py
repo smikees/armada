@@ -149,7 +149,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     _REALM_PAGES = ("ministers", "goals", "jobs", "memory", "skills", "artefacts", "inbox")
     _GET_EXACT = {
         "/": "_get_index", "/index.html": "_get_index", "/settings": "_get_settings",
-        "/approvals": "_get_approvals", "/docs": "_get_docs", "/new/realm": "_get_new_realm", "/switch": "_get_switch",
+        "/approvals": "_get_approvals", "/docs": "_get_docs", "/setup": "_get_setup", "/new/realm": "_get_new_realm", "/switch": "_get_switch",
         "/api/pick-folder": "_get_pick_folder", "/api/check-update": "_get_check_update",
         "/api/chat-stop": "_get_chat_stop", "/api/realms": "_get_realms",
         "/api/retired-agents": "_get_retired_agents", "/api/catalogue": "_get_catalogue", "/add-section": "_get_add_section",
@@ -181,7 +181,8 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     _WELCOME_GET = {"/api/pick-folder": "_get_pick_folder", "/api/auth-status": "_get_auth_status",
                     "/switch": "_get_switch"}
     _WELCOME_POST = {"/api/set-approot": "_set_approot", "/api/first-realm": "_first_realm",
-                     "/api/new-realm": "_new_realm", "/api/auth-login": "_auth_login"}
+                     "/api/new-realm": "_new_realm", "/api/auth-login": "_auth_login",
+                     "/api/install-claude": "_install_claude"}
 
     def _route_welcome_get(self, path: str):
         if path.startswith("/static/"):
@@ -296,6 +297,8 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/open-file": "_open_file", "/api/delete-artefact": "_delete_artefact",
         "/api/auth-login": "_auth_login", "/api/scheduler-start": "_scheduler_start",
         "/api/update-auto": "_update_auto",
+        "/api/setup-step": "_setup_step", "/api/setup-capability": "_setup_capability",
+        "/api/setup-finish": "_setup_finish",
         "/api/support-preview": "_support_preview", "/api/support-send": "_support_send",
         "/api/notifications-read": "_notifications_read",
         "/api/system-job-run": "_system_job_run", "/api/system-job-toggle": "_system_job_toggle",

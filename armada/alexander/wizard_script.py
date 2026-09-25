@@ -95,18 +95,19 @@ SCRIPT: dict[str, dict[str, str]] = {
     "capabilities": {
         "intro": (
             "On their own, agents can think, write and remember. Capabilities let them do more: "
-            "read the web, work with files, use other services. Each one carries a risk level "
-            "from what it can reach."),
+            "work with documents, use other services, reach further. Each one carries a risk "
+            "level from what it can reach."),
         "curated": (
             "These are the ones we recommend to start with: the most useful for the least risk. "
-            "Everything here is Low or Medium risk. Anything High risk you add later, one agent "
-            "at a time, after reading its review."),
+            "All come from Anthropic, all are Low risk, and none needs an account. I've ticked "
+            "the ones most people want."),
         "who": (
-            "I'll give each one to the {coordinator} only. Other agents get what they need when "
-            "you decide they need it."),
-        "connect_later": (
-            "Some of these connect to your own accounts. Connecting is always something you do "
-            "yourself, in the service's own window. I've marked them."),
+            "{coordinator} can use every one you switch on. The rest of the team gets a "
+            "capability when you give it to them, on the Capabilities page."),
+        "later": (
+            "Connections to your own accounts, like email, calendars or Notion, aren't here on "
+            "purpose. They act in your name, so you add them one at a time from Capabilities, "
+            "after reading their review."),
         "none": "None is a perfectly good answer. You can add capabilities whenever you like.",
     },
     "first-job": {
@@ -143,7 +144,8 @@ SCRIPT: dict[str, dict[str, str]] = {
             "top of every page, or Ask Alexander on anything that went wrong."),
     },
     "done": {
-        "intro": "You're set up, {owner}. {realm} is ready and the scheduler is running.",
+        "intro": "You're set up, {owner}. {realm} is ready.",
+        "intro_noname": "You're set up. {realm} is ready.",
         "next": (
             "A good next step: tell {coordinator} what you're working towards. Goals are what "
             "the whole team plans around."),

@@ -29,6 +29,12 @@ stays in serve.py, only the handler bodies moved.
 - `RealmRoutes._save_covenant(self, body: dict)` — Write the realm's Covenant (tenets.md). Loaded into every agent's context, so this is the highest-leverage text in the realm — and the owner's to write, unlike System memory.
 - `RealmRoutes._set_approot(self, body: dict)` — Set the one folder on this machine ARMADA works in. Re-checks the current realm after, since moving the root can put the realm you're looking at outside it.
 - `RealmRoutes._first_realm(self, body: dict)` — The first-run page's Create: a realm named `name`, in a folder of that name inside the app root. The page never asks for a path — choosing where the first realm lives is a question a new user can't answer yet, and the root already answers it.
+- `RealmRoutes._wizard_agents(template: str, body: dict)` — The team the setup wizard asked for, built on the server from the template: the page sends which of the template's agents to keep (by id) and any it added by name — never the agents' instructions themselves. None when the page didn't choose (use the template).
+- `RealmRoutes._get_setup(self)` — —
+- `RealmRoutes._setup_step(self, body: dict)` — —
+- `RealmRoutes._setup_capability(self, body: dict)` — —
+- `RealmRoutes._setup_finish(self, body: dict)` — —
+- `RealmRoutes._install_claude(self, body: dict)` — The wizard's "Install Claude Code": Anthropic's own installer, in a console the owner can see (Windows only). The command is the one Claude Code's documentation gives (code.claude.com/docs/en/setup, native install, PowerShell). The owner pressed the button; nothing here runs unasked.
 - `RealmRoutes._set_workspace(self, body: dict)` — Point the realm at its workspace folder on this machine, then re-check.
 - `RealmRoutes._workspace_migrate(self, body: dict)` — Rewrite literal workspace paths in this realm's jobs as {workspace}.
 - `RealmRoutes._realm_export(self, body: dict)` — —

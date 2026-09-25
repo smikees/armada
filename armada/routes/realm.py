@@ -18,7 +18,10 @@ log = logging.getLogger("armada.serve")
 
 class RealmRoutes:
     def _get_index(self):
-        from .. import webui
+        from .. import webui, setupflow
+        if setupflow.needs_setup(self.realm):      # a wizard-made realm mid-setup resumes it (6.4)
+            self.send_response(302); self.send_header("Location", "/setup"); self.end_headers()
+            return
         try:
             self._send(200, webui.render_dashboard(reader.read(self.realm), self.realm, dark=self._dark()))
         except SystemExit as e:
@@ -383,8 +386,83 @@ class RealmRoutes:
         p, n = base / folder, 2
         while p.exists():
             p, n = base / f"{folder} {n}", n + 1
-        return self._new_realm({"mode": "create", "name": name, "path": str(p),
-                                "template": str(body.get("template") or "scratch")})
+        template = str(body.get("template") or "scratch")
+        payload = {"mode": "create", "name": name, "path": str(p), "template": template}
+        agents = self._wizard_agents(template, body)
+        if agents is not None:
+            if not agents:
+                return {"ok": False, "error": "A team needs at least one agent."}
+            payload["agents"] = agents
+        r = self._new_realm(payload)
+        if r.get("ok") and body.get("wizard"):
+            from .. import setupflow
+            owner = " ".join(str(body.get("owner") or "").split())[:60]
+            setupflow.begin(r["path"], owner=owner)
+        return r
+
+    @staticmethod
+    def _wizard_agents(template: str, body: dict):
+        """The team the setup wizard asked for, built on the server from the template: the page
+        sends which of the template's agents to keep (by id) and any it added by name — never the
+        agents' instructions themselves. None when the page didn't choose (use the template)."""
+        keep, extra = body.get("keep"), body.get("extra")
+        if keep is None and extra is None:
+            return None
+        from ..templates import TEMPLATES
+        import re as _re
+        tpl = TEMPLATES.get(template) or TEMPLATES["scratch"]
+        ids = {str(x) for x in (keep or []) if isinstance(x, str)}
+        out = [dict(a) for a in tpl.get("agents") or [] if str(a.get("id")) in ids]
+        seen = {str(a.get("id")) for a in out}
+        for x in (extra or [])[:12]:
+            if not isinstance(x, dict):
+                continue
+            disp = " ".join(str(x.get("display") or "").split())[:40]
+            aid = _re.sub(r"[^a-z0-9]+", "-", disp.lower()).strip("-")[:40]
+            if not disp or not aid or aid in seen:
+                continue
+            seen.add(aid)
+            out.append({"id": aid, "display": disp, "role": " ".join(str(x.get("role") or "").split())[:60]})
+        if out and not any(a.get("coordinator") for a in out):
+            out[0]["coordinator"] = True
+        return out
+
+    # --- the setup wizard, inside the realm (6.4; setupflow, webui/setup_wizard.py) ----------------
+
+    def _get_setup(self):
+        from .. import setupflow
+        from ..webui import setup_wizard
+        q = self._query()
+        step = q.get("step") or setupflow.current_step(self.realm)
+        self._send(200, setup_wizard.render_realm_half(reader.read(self.realm), self.realm, step,
+                                                       dark=self._dark()))
+
+    def _setup_step(self, body: dict) -> dict:
+        from .. import setupflow
+        return setupflow.set_step(self.realm, str(body.get("step") or ""))
+
+    def _setup_capability(self, body: dict) -> dict:
+        from .. import setupflow
+        return setupflow.add_recommended(self.realm, str(body.get("key") or ""))
+
+    def _setup_finish(self, body: dict) -> dict:
+        from .. import setupflow
+        return setupflow.finish(self.realm)
+
+    def _install_claude(self, body: dict) -> dict:
+        """The wizard's "Install Claude Code": Anthropic's own installer, in a console the owner can
+        see (Windows only). The command is the one Claude Code's documentation gives
+        (code.claude.com/docs/en/setup, native install, PowerShell). The owner pressed the button;
+        nothing here runs unasked."""
+        if os.name != "nt":
+            return {"ok": False, "error": "Install Claude Code from code.claude.com, then check again."}
+        try:
+            subprocess.Popen(["powershell", "-NoProfile", "-NoExit", "-Command",
+                              "irm https://claude.ai/install.ps1 | iex"],
+                             creationflags=0x00000010)     # CREATE_NEW_CONSOLE
+            return {"ok": True}
+        except OSError as e:
+            return {"ok": False, "error": f"Couldn't start the installer: {str(e)[:120]}"}
 
     def _set_workspace(self, body: dict) -> dict:
         """Point the realm at its workspace folder on this machine, then re-check."""

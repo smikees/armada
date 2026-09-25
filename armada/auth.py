@@ -68,8 +68,11 @@ def _status_live() -> dict:
         d = None
     if not isinstance(d, dict):      # valid JSON that isn't an object ("null", a list, a number)
         return {"ok": False, "logged_in": False, "method": "", "reason": "unreadable-status"}
+    # `plan` (Claude Code's subscriptionType: pro, max, team, enterprise…) lets the setup wizard say
+    # whether agents can run on this account; the free plan has no Claude Code access.
     return {"ok": True, "logged_in": bool(d.get("loggedIn")),
-            "method": str(d.get("authMethod") or ""), "reason": ""}
+            "method": str(d.get("authMethod") or ""), "reason": "",
+            "plan": str(d.get("subscriptionType") or "")}
 
 
 def start_login(console: bool = True) -> dict:

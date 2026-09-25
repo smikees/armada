@@ -37,6 +37,14 @@ Where a marketplace plugin's files are, if they're on this machine.
 
 {runs, touch, inspected, detail} — what this capability can do.
 
+### `_skills_archive()`
+
+The repository zip as bytes, from memory if recent. None if it can't be had.
+
+### `_extract_from_archive(data: bytes, path: str, dest: Path)`
+
+Write `skills/<path>/…` out of the repository zip into `dest`. False if it isn't there or any member name could escape `dest` (every part must pass _safe_name).
+
 ### `_get_bytes(url: str)`
 
 One HTTP GET returning raw bytes, or None. Never raises.
@@ -61,7 +69,7 @@ Fetch one registry server by name, normalised.
 
 One entry by key — from the mirrored index, or fetched from the registry if it lives there.
 
-### `add_to_realm(realm_root, key: str)`
+### `add_to_realm(realm_root, key: str, entry: dict | None=None)`
 
 Put a catalogue entry into this realm's capability list.
 

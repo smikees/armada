@@ -50,6 +50,7 @@ Concrete versioned model id for logging (so usage shows 'Opus 4.8', not bare 'Op
 
 - `ClaudeEngine.__init__(self, binary: str='claude')` — —
 - `ClaudeEngine._direct_launcher(self, exe: str)` — Resolve Claude Code's real entry, preferring a JS/CJS entry run via `node`.
+- `ClaudeEngine._known_install()` — Claude Code's native install location, for when it isn't on this process's PATH.
 - `ClaudeEngine._launcher(self)` — —
 - `ClaudeEngine._direct(self)` — True when we invoke Claude directly (native or node) — empty-string args survive. False only for the cmd-shim fallback, which eats empty args.
 - `ClaudeEngine._env(self)` — —

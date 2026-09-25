@@ -91,6 +91,7 @@ def _isolated_machine_config(monkeypatch, tmp_path_factory):
     # Same for the download side, which fetches skill files from GitHub when one is added.
     monkeypatch.setattr(catalogue, "_get_bytes", lambda url: None)
     monkeypatch.setattr(realm, "_get_bytes", lambda url: None)
+    monkeypatch.setattr(realm, "_skills_archive", lambda: None)   # the one-zip path, likewise
     # Registry answers are cached in a module-level dict to keep a filter change off the network.
     # It outlives a test, so one test's stubbed response became the next test's answer. It's a
     # single dict object shared by reference across catalogue/__init__.py, _shared.py and
