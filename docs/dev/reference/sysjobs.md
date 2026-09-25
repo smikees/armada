@@ -41,6 +41,10 @@ Answer prompts sent from Telegram. QUOTA because a message becomes an agent run 
 
 Keep Claude Code's sign-in fresh, so the usage bars don't go dark between agent runs.
 
+### `_record_keepalive(realm_root, stdout: str, ok: bool)`
+
+Count the keep-alive's few tokens as System usage (sysusage), from the CLI's JSON result.
+
 ### `_job_prune_history(realm_root)`
 
 —

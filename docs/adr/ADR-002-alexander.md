@@ -1,6 +1,6 @@
 # ADR-002 — Alexander: a guide in v1, a developer via extension points later
 
-**Status:** Accepted · 2026-09-21
+**Status:** Accepted · 2026-09-21 · **v1 scope widened by [ADR-012](ADR-012-alexander-scope.md)** (2026-09-25): he may also fix, build add-ons and report — always as a proposal the owner confirms and the app carries out
 
 ## Context
 

@@ -47,4 +47,7 @@ and what it **can touch**, and a risk colour. See [Capabilities](capabilities.md
 mini-site, or a link.
 
 **Usage** — every agent turn uses your Claude plan. The header shows your session and weekly
-limits; the Usage widget shows who used how much.
+limits; the Usage widget shows who used how much. It always has a **System** line too: ARMADA's
+own use, from the few system jobs that call Claude directly (the sign-in keep-alive) and from your
+conversations with Alexander. Tasks an agent does for a system job, such as answering its Inbox,
+count under that agent.

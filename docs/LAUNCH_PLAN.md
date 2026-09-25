@@ -511,7 +511,7 @@ generated part, one test that they don't rot.
 - [ ] 3.7 **MIHAI** reviews the user docs for voice and for anything that explains the app
       differently from how he thinks about it.
       *Phase 3 done 2026-09-24 (Opus 5.5), ready for this review:* **user docs** — 13 pages in
-      [`docs/user/`](user/index.md) (getting started, concepts, one page per surface, staying safe,
+      [`docs/user/`](../armada/docs/user/index.md) (moved into the package in v0.99.72) (getting started, concepts, one page per surface, staying safe,
       troubleshooting seeded from this month's real failures), rendered in-app at `/docs` with the
       app's own `_md()`, cross-page links that stay in the window, heading anchors, and search across
       every page's text. **Dev docs** — everything developer-facing moved to
@@ -789,10 +789,18 @@ Strangers will install this on machines we've never seen. Everything above assum
 One guides the other. Alexander's knowledge is the docs (Phase 3); the wizard's pieces are
 `preflight`/`doctor`, `templates.py`, and the mirrored sources.
 
-- [ ] 6.1 → Opus · Alexander's identity and rules: bundled with the app, not a realm agent; has the docs
+- [x] 6.1 → Opus · Alexander's identity and rules: bundled with the app, not a realm agent; has the docs
       and the app's logs as context; can read realm state; **cannot write realm state or code**
       in v1 — it explains and it guides. Its system prompt is a document in `docs/dev/` so
       it's reviewable.
+      **Done 2026-09-25 (Opus 5.5) from Mihai's brief:** a specialist in how ARMADA works (CX first,
+      developer second), a builder of add-ons, and the best support professional — explain, fix,
+      or report — the one agent the owner can't change, and ARMADA's own voice. The prompt is
+      [`armada/alexander/PROMPT.md`](../armada/alexander/PROMPT.md) (shipped with the app), the design
+      [`docs/dev/ALEXANDER.md`](dev/ALEXANDER.md), the widened scope
+      [ADR-012](adr/ADR-012-alexander-scope.md): he proposes, the owner confirms, the app acts
+      (remedies from a fixed list, data-only add-ons, reports). Scripted in the wizard; **Opus 5.5 at
+      High** for support, fixed; his usage counts as **System** in cost reports. Threat model T13.
 - [ ] 6.2 Alexander's guidance, in the thread 5.6 already opened: with the docs (Phase 3) as
       context it answers "how do I", explains what a page is for, and points at settings. The
       button and the thread exist from 5.6; this phase makes him knowledgeable.

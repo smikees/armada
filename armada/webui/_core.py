@@ -10,7 +10,7 @@ from __future__ import annotations
 import html, json, datetime, time, re
 from pathlib import Path
 from .. import memory, model, models, brand, status, datefmt
-from .. import clock, util
+from .. import clock, util, sysusage
 from .. import goals as goalsmod
 
 from .changelog import _CHANGELOG, _changelog_modal  # carved out in Phase 3
@@ -220,6 +220,13 @@ def _totals_30d(realm, realm_root, today: datetime.date):
             tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
             tok += int(tk.get("total", 0) or 0)
             usd += float(tk.get("api_equiv_usd", 0) or 0)
+    for ev in sysusage.runs(realm_root):          # ARMADA's own spend counts in every total
+        dd = str(ev.get("ts", ""))[:10]
+        if len(dd) != 10 or dd < lo30 or (epoch and dd < epoch):
+            continue
+        tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
+        tok += int(tk.get("total", 0) or 0)
+        usd += float(tk.get("api_equiv_usd", 0) or 0)
     return tok, round(usd, 2)
 
 
@@ -284,6 +291,16 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
             tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
             recs.append((dd, a.display, _pretty_model(ev.get("model")),
                          int(tk.get("total", 0) or 0), float(tk.get("api_equiv_usd", 0) or 0)))
+    # System — ARMADA's own spend (system jobs that call Claude, Alexander's support turns). A
+    # default line in every usage view, even at zero, so the owner can see it's accounted for.
+    agent_color[sysusage.NAME] = sysusage.COLOR
+    for ev in sysusage.runs(realm_root):
+        dd = str(ev.get("ts", ""))[:10]
+        if len(dd) != 10:
+            continue
+        tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
+        recs.append((dd, sysusage.NAME, _pretty_model(ev.get("model")),
+                     int(tk.get("total", 0) or 0), float(tk.get("api_equiv_usd", 0) or 0)))
 
     # usage epoch: a clean-slate cutoff (realm.json 'usage_epoch', ISO date). Runs before it are kept
     # on disk (job history/calendars still use them) but excluded from usage totals, so usage can be
@@ -371,6 +388,7 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
         window, lo = "7d", today - datetime.timedelta(days=6)
     loi, hii = lo.isoformat(), today.isoformat()
     per_agent = {a.display: 0 for a in agents}
+    per_agent[sysusage.NAME] = 0
     per_model: dict[str, int] = {}
     total, usd = 0, 0.0
     for dd, disp, lbl, tok, u in recs:
@@ -391,6 +409,9 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
     agents_list = sorted(({"name": a.display, "tok": per_agent.get(a.display, 0),
                            "color": agent_color.get(a.display)} for a in agents),
                          key=lambda x: (-x["tok"], x["name"].lower()))
+    # System is always the last row, whatever it spent: it's ARMADA's line, not one of the team's.
+    agents_list.append({"name": sysusage.NAME, "tok": per_agent.get(sysusage.NAME, 0),
+                        "color": sysusage.COLOR, "system": True})
     return {"mode": "line", "window": window, "total": total, "usd": round(usd, 2),
             "total_30d": total_30d, "usd_30d": usd_30d,
             "agents": agents_list, "models": model_rows}

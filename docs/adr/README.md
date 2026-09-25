@@ -18,6 +18,7 @@ one; the old one is not edited.
 | [008](ADR-008-name.md) | The name is ARMADA; internals stay `matcap` for the beta | Accepted 2026-09-24; internals policy superseded by 010 |
 | [009](ADR-009-installer.md) | Installer: private embeddable Python + app source, per-user Inno Setup | Accepted 2026-09-24 (unsigned for the beta) |
 | [010](ADR-010-internal-rename.md) | The internals are renamed `armada` too | Accepted 2026-09-24 |
+| [012](ADR-012-alexander-scope.md) | Alexander v1: explain, fix, build add-ons, report — through the app, never around it | Accepted 2026-09-25 (widens 002) |
 | [011](ADR-011-updater.md) | Updates: signed GitHub releases, verified in the app, swapped in at a quiet moment | Built 2026-09-24, for review |
 
 Format: **Context** (what's true that made this a question) · **Decision** · **Consequences**

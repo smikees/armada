@@ -91,13 +91,15 @@ function drawLine(body,d,by){
   const usd=d.usd?(" · api-equiv $"+d.usd.toLocaleString()):"";
   let h='<div style="padding:12px 14px 10px"><div style="display:flex;align-items:baseline;gap:8px">'
    +'<span style="font-family:var(--font-heading);font-weight:700;font-size:26px;line-height:1">'+htok(d.total)+'</span>'
-   +'<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">tokens · all agents &amp; models'+usd+'</span></div>'
+   +'<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">tokens · all agents, System &amp; models'+usd+'</span></div>'
    +'<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;margin-top:8px;background:var(--color-neutral-200)">'+seg+'</div></div>';
   function rows(title,items,colorFn){
     const mx=Math.max(1,...items.map(x=>x.tok));let r="";
     items.forEach((x,i)=>{const w=x.tok/mx*100;const c=colorFn(x,i);
-      r+='<div style="display:flex;align-items:center;gap:8px;margin:5px 0">'
-        +'<span style="flex:0 0 108px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;font-family:var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(x.name||x.label)+'">'
+      // System (ARMADA's own use) closes the agent list, set apart by a hairline
+      const sys=!!x.system,tt=sys?"System · ARMADA's own use: system jobs and Alexander":(x.name||x.label);
+      r+='<div'+(sys?' data-usage-system="1"':'')+' style="display:flex;align-items:center;gap:8px;margin:5px 0'+(sys?';padding-top:6px;border-top:1px dashed var(--color-divider)':'')+'">'
+        +'<span style="flex:0 0 108px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;font-family:var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(tt)+'">'
         +(x.claude&&window.mcIcon?'<span style="color:'+esc(x.color)+';display:flex;flex:none">'+window.mcIcon("claude",13)+'</span>'
            :(x.color?'<i style="width:9px;height:9px;border-radius:2px;flex:none;background:'+esc(x.color)+'"></i>':""))
         +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name||x.label)+'</span></span>'

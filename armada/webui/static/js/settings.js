@@ -3,7 +3,9 @@ function mcSetTab(t){['realm','user','app'].forEach(function(x){
     var p=document.getElementById('st-'+x+'-pane');if(p)p.style.display=(x===t)?'block':'none';
     var b=document.getElementById('st-tab-'+x);if(b)b.setAttribute('aria-selected',x===t?'true':'false');});
   try{localStorage.setItem('mc-settab',t);}catch(e){}}
-(function(){try{var t=localStorage.getItem('mc-settab');if(t)mcSetTab(t);}catch(e){}})();
+// ?tab=realm|user|app (a link from Alexander or Help) wins over the remembered tab
+(function(){try{var q=new URLSearchParams(location.search).get('tab');
+  var t=(q&&['realm','user','app'].indexOf(q)>=0)?q:localStorage.getItem('mc-settab');if(t)mcSetTab(t);}catch(e){}})();
 function mcPickSetIcon(el){mcSetIcon=el.dataset.icon;
   document.querySelectorAll('.mc-seticon').forEach(s=>s.style.background=s.dataset.icon===mcSetIcon?'var(--text-12)':'');
   const cur=document.getElementById('st-iconcur');if(cur)cur.innerHTML=el.innerHTML;}

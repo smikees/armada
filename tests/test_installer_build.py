@@ -108,3 +108,12 @@ def test_the_installer_is_branded_and_its_artwork_exists():
         names |= {n.strip() for n in m.group(1).split(",")}
     for n in names:
         assert (ROOT / "installer" / n.replace("\\", "/")).exists(), n
+
+
+def test_the_help_pages_ship_inside_the_package():
+    """The installer and the updater ship armada/ only. Help read docs/user/ at the repo root until
+    v0.99.72, so every installed copy had an empty Help page (found on Mihai's install)."""
+    from armada.webui import pages
+    pkg = ROOT / "armada"
+    assert pages._DOCS_USER.resolve().is_relative_to(pkg.resolve())
+    assert (pages._DOCS_USER / "index.md").exists() and len(pages._doc_toc()) >= 10

@@ -15,13 +15,15 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
+USER_DOCS = ROOT / "armada" / "docs" / "user"      # inside the package, so installs ship them (v0.99.72)
 # The plan and the historical docs narrate what WAS true; the generated reference is checked below.
 SKIP = {"LAUNCH_PLAN.md", "CODE_REVIEW_2026-09-07.md", "VOICE_SHELVED.md"}
 
 
 def _docs():
-    return sorted(p for p in DOCS.rglob("*.md")
-                  if p.name not in SKIP and "reference" not in p.relative_to(DOCS).parts)
+    return sorted([p for p in DOCS.rglob("*.md")
+                   if p.name not in SKIP and "reference" not in p.relative_to(DOCS).parts]
+                  + list(USER_DOCS.glob("*.md")))
 
 
 def _code(text: str) -> list[str]:
@@ -71,7 +73,7 @@ def _cli() -> set:
     return set(re.findall(r'add_parser\("([\w-]+)"', (ROOT / "armada" / "cli.py").read_text(encoding="utf-8")))
 
 
-@pytest.mark.parametrize("doc", _docs(), ids=lambda p: p.relative_to(DOCS).as_posix())
+@pytest.mark.parametrize("doc", _docs(), ids=lambda p: p.relative_to(ROOT).as_posix())
 def test_relative_links_resolve(doc):
     bad = []
     for m in re.finditer(r"\]\(([^)#\s]+)(#[^)]*)?\)", doc.read_text(encoding="utf-8")):
@@ -83,9 +85,9 @@ def test_relative_links_resolve(doc):
 
 # ADRs record a decision at a point in time, including files the decision says will exist; the
 # development log records files that existed then (and the owner's own scripts it ran against).
-@pytest.mark.parametrize("doc", [d for d in _docs() if "adr" not in d.relative_to(DOCS).parts
+@pytest.mark.parametrize("doc", [d for d in _docs() if "adr" not in d.relative_to(ROOT).parts
                                  and d.name != "DEV_LOG.md"],
-                         ids=lambda p: p.relative_to(DOCS).as_posix())
+                         ids=lambda p: p.relative_to(ROOT).as_posix())
 def test_code_references_exist(doc):
     exact, prefixes = _routes()
     cli = _cli()
@@ -130,14 +132,14 @@ def test_the_generated_reference_is_current():
 def test_every_user_page_is_in_the_index_and_renders(tmp_path):
     from armada.webui import pages
     toc = [s for s, _t, _b in pages._doc_toc()]
-    on_disk = sorted(p.stem for p in (DOCS / "user").glob("*.md") if p.stem != "index")
+    on_disk = sorted(p.stem for p in USER_DOCS.glob("*.md") if p.stem != "index")
     assert sorted(toc) == on_disk, "docs/user/index.md's table must list every page (and only those)"
     for s in toc:
-        html = pages._doc_html((DOCS / "user" / f"{s}.md").read_text(encoding="utf-8"))
+        html = pages._doc_html((USER_DOCS / f"{s}.md").read_text(encoding="utf-8"))
         for target, frag in re.findall(r'href="/docs/([a-z0-9-]+)(#[\w-]+)?"', html):
             assert target in toc, f"{s}.md links to missing page {target}"
             if frag:
-                linked = pages._doc_html((DOCS / "user" / f"{target}.md").read_text(encoding="utf-8"))
+                linked = pages._doc_html((USER_DOCS / f"{target}.md").read_text(encoding="utf-8"))
                 assert f'id="{frag[1:]}"' in linked, f"{s}.md links to missing heading {target}{frag}"
         assert not re.search(r'href="/docs/[^"]*" target="_blank"', html), "help links must stay in the app window"
 

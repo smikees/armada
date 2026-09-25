@@ -9,6 +9,9 @@
 | [`activerealm`](activerealm.md) | Which realm the app opens when nobody says — the last one you were actually in. |
 | [`addons`](addons.md) | Add-ons: the extension surface (Phase 2, 2.7 — ADR-002's homework) |
 | [`agentops`](agentops.md) | Agent lifecycle — retire, reinstate, delete. |
+| [`alexander.__init__`](alexander.__init__.md) | Alexander — ARMADA's guide (Phase 6; docs/dev/ALEXANDER.md, ADR-012). |
+| [`alexander.remedies`](alexander.remedies.md) | Remedies: the fixed list of app actions Alexander may propose (ADR-012, docs/dev/ALEXANDER.md). |
+| [`alexander.wizard_script`](alexander.wizard_script.md) | Everything Alexander says in the setup wizard, written in advance (ADR-012; docs/dev/ALEXANDER.md). |
 | [`app`](app.md) | Native desktop window for ARMADA (SPEC §13 — the app wrapper). |
 | [`appconfig`](appconfig.md) | App-level (per-machine) configuration — distinct from a realm's own files. |
 | [`approot`](approot.md) | The app root — the one folder on this machine that ARMADA is allowed to work in. |
@@ -64,6 +67,7 @@
 | [`support`](support.md) | Report an issue (launch plan 5.6, ADR-005). |
 | [`sysjobs`](sysjobs.md) | System jobs — the recurring work ARMADA does to keep itself current. |
 | [`sysskills`](sysskills.md) | System skills — the skills ARMADA itself needs to work. |
+| [`sysusage`](sysusage.md) | System usage: tokens ARMADA itself spends, as opposed to the owner's agents. |
 | [`telegram`](telegram.md) | Talking to your agents from Telegram. |
 | [`templates`](templates.md) | Realm templates (SPEC §3/§11): {theme} + starter agents over the neutral schema. |
 | [`threads`](threads.md) | Threads + compaction (SPEC §5). |

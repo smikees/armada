@@ -161,11 +161,13 @@ def _job_usage_keepalive(realm_root) -> dict:
     if not launcher:
         return {"ok": False, "detail": "Claude Code isn't on PATH"}
     try:
-        r = subprocess.run(launcher + ["-p", "Reply with exactly: ok", "--max-turns", "1"],
+        r = subprocess.run(launcher + ["-p", "Reply with exactly: ok", "--max-turns", "1",
+                                       "--output-format", "json"],
                            capture_output=True, text=True, timeout=120)
     except Exception as e:  # noqa
         swallowed(log, '_job_usage_keepalive: failed; error returned to the caller')
         return {"ok": False, "detail": f"keepalive call failed: {str(e)[:100]}"}
+    _record_keepalive(realm_root, r.stdout, r.returncode == 0)
     if r.returncode != 0:
         return {"ok": False, "detail": (r.stderr or "non-zero exit").strip()[:140]}
     after = _expiry()
@@ -179,6 +181,21 @@ def _job_usage_keepalive(realm_root) -> dict:
             swallowed(log, '_job_usage_keepalive: failed; ignored')
         return {"ok": True, "detail": f"sign-in renewed (+{hrs:.0f}h)"}
     return {"ok": True, "detail": "call succeeded but the token didn't move — already fresh"}
+
+
+def _record_keepalive(realm_root, stdout: str, ok: bool) -> None:
+    """Count the keep-alive's few tokens as System usage (sysusage), from the CLI's JSON result."""
+    try:
+        from . import sysusage
+        from .engine.claude import _usage_from_event, _concrete_model
+        ev = json.loads((stdout or "").strip() or "{}")
+        if not isinstance(ev, dict):
+            return
+        u = _usage_from_event(ev)
+        model = _concrete_model(ev.get("model"), ev.get("modelUsage"))
+        sysusage.record(realm_root, "system:usage-keepalive", model, u.as_dict(), ok)
+    except Exception:  # noqa — accounting never fails the job
+        swallowed(log, '_record_keepalive: failed; ignored')
 
 
 def _job_prune_history(realm_root) -> dict:

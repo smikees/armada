@@ -119,7 +119,10 @@ and what it **can touch**, and a risk colour. See [Capabilities](capabilities.md
 mini-site, or a link.
 
 **Usage** — every agent turn uses your Claude plan. The header shows your session and weekly
-limits; the Usage widget shows who used how much.
+limits; the Usage widget shows who used how much. It always has a **System** line too: ARMADA&#x27;s
+own use, from the few system jobs that call Claude directly (the sign-in keep-alive) and from your
+conversations with Alexander. Tasks an agent does for a system job, such as answering its Inbox,
+count under that agent.
 </span></a><a class="mc-docitem" href="/docs/overview" style="display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);border:1px solid var(--color-divider)"><div style="display:flex;align-items:center;gap:8px"><span style="display:flex;flex:none;color:var(--color-accent)"><svg width="16" height="16" viewBox="0 0 48 48" style="display:block;pointer-events:none;"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 4.5h-3.5a2 2 0 0 0-2 2v35a2 2 0 0 0 2 2h27a2 2 0 0 0 2-2v-35a2 2 0 0 0-2-2H24"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 4.5l1.414-1.414a2 2 0 0 1 1.414-.586H23a1 1 0 0 1 1 1v25l-5-5l-5 5v-24M14 38h20M24 10h10m-10 7h10m-10 7h10m-20 7h20"/></svg></span><span style="font-size:13.5px;font-weight:600">Overview</span></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">The dashboard: your team, usage, the job calendar</div><span style="display:none"># Overview
 
 The realm&#x27;s dashboard. Across the top: how many agents, active jobs, runs in the last 30 days,

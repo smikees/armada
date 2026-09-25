@@ -22,7 +22,7 @@ see what each one is being told before it answers.
 ## Before you give an agent tools
 
 An agent with tools acts as you: it can read and write your files, run commands and use the
-services you've connected. Read [Staying safe](docs/user/safety.md) first.
+services you've connected. Read [Staying safe](armada/docs/user/safety.md) first.
 
 ## Requirements
 
@@ -47,7 +47,7 @@ The first launch opens a welcome page that sets up ARMADA's folder and your firs
 
 ## Documentation
 
-- **Using ARMADA:** [docs/user](docs/user/index.md) — also inside the app (the book icon, top
+- **Using ARMADA:** [armada/docs/user](armada/docs/user/index.md) — also inside the app (the book icon, top
   right).
 - **How it's built:** [ARCHITECTURE.md](docs/dev/ARCHITECTURE.md), the realm format in
   [SCHEMA.md](docs/dev/SCHEMA.md), and the rest of [docs/dev](docs/dev/index.md).

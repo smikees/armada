@@ -1161,9 +1161,11 @@ def render_approvals(realm, realm_root, dark=False) -> str:
     return _page_shell(realm, "", "Approvals", f'<div style="padding:18px 24px 24px;max-width:720px">{_page_title("Approvals inbox")}{rows}</div>', dark)
 
 
-# The user docs (launch plan 3.1/3.3) are Markdown in docs/user/, rendered here with the same safe
-# _md() the rest of the app uses. docs/user/index.md's table is the table of contents.
-_DOCS_USER = Path(__file__).resolve().parents[2] / "docs" / "user"
+# The user docs (launch plan 3.1/3.3) are Markdown in armada/docs/user/, rendered here with the same
+# safe _md() the rest of the app uses; index.md's table is the table of contents. They live INSIDE
+# the package since v0.99.72: the installer and the updater ship armada/ only, so at the repo root
+# (docs/user) Help was empty on every installed copy. Alexander reads the same pages.
+_DOCS_USER = Path(__file__).resolve().parents[1] / "docs" / "user"
 _DOC_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 

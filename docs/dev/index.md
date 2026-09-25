@@ -23,4 +23,4 @@ which order, in [`../LAUNCH_PLAN.md`](../LAUNCH_PLAN.md).
 Historical, kept for the reasoning: [CODE_REVIEW_2026-09-07.md](CODE_REVIEW_2026-09-07.md) (the
 review Phase 2 finished) and [VOICE_SHELVED.md](VOICE_SHELVED.md) (read-aloud, built and shelved).
 
-The user-facing docs — what the app shows at `/docs` — are in [`../user/`](../user/index.md).
+The user-facing docs — what the app shows at `/docs` — are in [`armada/docs/user/`](../../armada/docs/user/index.md) — inside the package, so installed copies have them.
