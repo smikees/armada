@@ -24,6 +24,10 @@ _content_port: int | None = None
 # serve from the app's origin — <img> and friends never run scripts.
 ACTIVE_SUFFIXES = frozenset({".html", ".htm", ".xhtml", ".svg", ".xml", ".js", ".mjs"})
 
+# Owner/realm images need no script, network or document privileges. Keep inline SVG styling,
+# but make direct navigation as safe as embedding the same image in an <img>.
+IMAGE_CSP = "sandbox; default-src 'none'; style-src 'unsafe-inline'"
+
 # Paths the content server answers; everything else there is a 404, and there is no POST at all.
 CONTENT_PREFIXES = ("/section-raw/", "/section-asset/", "/thread-file")
 
@@ -43,10 +47,13 @@ def content_port() -> int | None:
     return _content_port
 
 
-def content_url(path: str) -> str:
+def content_url(path: str, realm_root=None) -> str:
     """The URL untrusted content at `path` is served from. Without a content server (a test that
     renders a page directly, or one that failed to bind) the path stays relative, and the app's own
     server sends it with a CSP sandbox instead — see serve.Handler._send."""
+    if realm_root is not None:
+        from .request_context import RealmContext, bound_url
+        path = bound_url(path, RealmContext.capture(realm_root), content=True)
     return f"http://{HOST}:{_content_port}{path}" if _content_port else path
 
 

@@ -91,3 +91,55 @@ def test_graph_by_models_splits_segments(monkeypatch):
     assert d["by"] == "models"
     segs = [s for b in d["bars"] for s in b["segments"]]
     assert segs and all("color" in s and s["tok"] > 0 for s in segs)
+
+
+def _model_usage(monkeypatch, runs, options, mode="line"):
+    from armada import clock
+    agent = types.SimpleNamespace(id="test", display="Test")
+    realm = types.SimpleNamespace(coordinator=None, members=[agent])
+    records = [{"ts": _ts(clock.today()), "model": mid, "tokens": {"total": tokens}}
+               for mid, tokens in runs]
+    monkeypatch.setattr(webui._core, "_runs", lambda *a: records)
+    monkeypatch.setattr(webui.models, "options", lambda root: options)
+    monkeypatch.setattr(webui._core.sysusage, "runs", lambda root: [])
+    return webui._usage_data(realm, "/nonexistent", mode, "today", "models")
+
+
+def test_models_sort_used_first_then_cost_within_each_group(monkeypatch):
+    mids = ["gpt-6-luna", "gpt-6-astra", "gpt-6-sol", "claude-fable-5-1", "claude-opus-4-8"]
+    result = _model_usage(monkeypatch, [("gpt-6-luna", 1000), ("gpt-6-astra", 10)],
+                          [(mid, mid) for mid in mids])
+    rows = result["models"]
+    assert [row["tok"] for row in rows] == [10, 1000, 0, 0, 0]
+    assert rows[0]["provider"] == rows[1]["provider"] == "codex"
+    assert [row["label"] for row in rows[2:4]] == ["Fable 5.1", "Opus 4.8"]
+    assert rows[2]["provider"] == "claude"
+    assert rows[0]["color"] != rows[1]["color"]
+
+
+def test_empty_default_and_missing_model_buckets_are_not_models(monkeypatch):
+    result = _model_usage(monkeypatch, [(None, None), ("codex:default", 0)],
+                          [("codex:default", "Default"), ("gpt-6-sol", "Sol")])
+    assert len(result["models"]) == 1
+    assert result["models"][0]["provider"] == "codex"
+    assert result["unknown_runs"] == 1
+
+
+def test_unattributed_reported_tokens_are_preserved(monkeypatch):
+    for mode in ("line", "graph"):
+        result = _model_usage(monkeypatch, [(None, 23), ("codex:default", 19), (None, None)], [], mode)
+        assert result["total"] == 42
+        assert result["unknown_runs"] == 1
+        rows = result["models"] if mode == "line" else [s for b in result["bars"] for s in b["segments"]]
+        assert {r.get("label", r.get("name")) for r in rows} == {
+            "Model not reported", "Model not reported (Codex)"}
+        assert all(r["color"] == "var(--color-neutral-400)" for r in rows)
+
+
+def test_provider_and_cost_use_concrete_id_not_catalog_display_name(monkeypatch):
+    monkeypatch.setattr("armada.engine.codex.cached_models", lambda: [
+        {"slug": "gpt-6-luna", "display_name": "Fast"},
+        {"slug": "gpt-6-astra", "display_name": "Deep"}])
+    result = _model_usage(monkeypatch, [("gpt-6-luna", 100), ("gpt-6-astra", 1)], [])
+    assert [r["label"] for r in result["models"]] == ["Deep", "Fast"]
+    assert all(r["provider"] == "codex" for r in result["models"])

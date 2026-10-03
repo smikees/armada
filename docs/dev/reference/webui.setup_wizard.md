@@ -2,9 +2,9 @@
 
 The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide.
 
-Replaces the middle of the 5.3 welcome page. Eight steps in two halves (setupflow explains why):
+Replaces the middle of the 5.3 welcome page. Nine steps in two halves (setupflow explains why):
 
-    welcome · checks · folder · team      — before a realm exists (welcome mode, "/")
+    welcome · checks · folder · naming · team — before a realm exists (welcome mode, "/")
     capabilities · first job · tour · done — inside the new realm ("/setup")
 
 Both halves are drawn by the same shell, so crossing from one to the other (creating the realm and
@@ -35,7 +35,7 @@ Alexander's lines for a step, as paragraphs; the first is the lede.
 
 —
 
-### `_known(realms: list)`
+### `_known(realms: list, title: str='Pick up where you left off')`
 
 —
 
@@ -49,15 +49,31 @@ Alexander's lines for a step, as paragraphs; the first is the lede.
 
 ### `_presets()`
 
-What the team step shows for each template: names and roles only (the instructions stay on the server — see RealmRoutes._wizard_agents).
+Read-only starter profiles; owner substitution is escaped by the client after Markdown.
+
+### `_opening_panes(note_html: str='')`
+
+—
+
+### `_team_pane()`
+
+—
+
+### `_naming_pane()`
+
+—
 
 ### `render_welcome_half(realms: list | None=None, note: str='', dark: bool=False)`
 
 —
 
-### `_cap_rows(template: str)`
+### `_cap_rows(template: str, realm_root=None)`
 
-—
+Use User capability cards with separate enabled and inclusion controls.
+
+### `_saved_start(realm, realm_root, owner: str)`
+
+Earlier steps remain reachable after creation without resubmitting a new realm.
 
 ### `render_realm_half(realm, realm_root, step: str='capabilities', dark: bool=False)`
 

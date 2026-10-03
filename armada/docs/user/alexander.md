@@ -1,8 +1,11 @@
 # Alexander
 
 Alexander is ARMADA's guide. He comes with the app, the same in every install: he isn't one of your
-agents, and you can't rename him, retire him or change how he works. Open him with his portrait
+agents, and you can't rename him or retire him. Choose his model and effort in **Settings → App → Advanced**. Open him with his portrait
 beside the gear, on every page, or with **Ask Alexander** beside a run that failed.
+
+He opens in his own desktop companion window beside ARMADA. Drag his portrait or the header to
+move him. Use the close button or Escape to dismiss him; your conversation is saved for next time.
 
 ## What he's for
 
@@ -36,11 +39,14 @@ not orders to follow. Only your own messages ask him for things.
 
 ## What it costs
 
-Each answer is one turn on Claude **Opus 5.5** at high effort, on your own Claude plan. It shows
+With Automatic selected, each answer uses **Claude Opus 5.5 at Medium** when Claude is connected,
+or **GPT-6 Sol at Medium** when Codex is connected without Claude. With only Gemini connected,
+he uses the latest available Flash model at Medium. You can override both model and effort
+in **Settings → App → Advanced**. Calls use the selected provider's subscription and show
 as **System** in Usage, together with ARMADA's own few background calls. The setup wizard is the
 exception: everything he says there is written in advance and costs nothing.
 
-He needs Claude Code **2.1.280 or newer**. If yours is older, he'll say so, and setup offers
-**Update Claude Code**.
+Connect at least one provider in **Settings → App**. Claude needs Claude Code **2.1.280 or newer**.
+If a chosen model is unavailable for your account, select an available model in Advanced.
 
 Your conversations with him stay on this computer, in ARMADA's own folder.

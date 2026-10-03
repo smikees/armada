@@ -34,6 +34,13 @@ Tabs across the top:
 - **Retire someone:** Configure, at the bottom (**Retire…**). Their folder is kept; you can
   reinstate them from **+ Appoint**. The coordinator can't be retired.
 
+## Conversation history
+
+Long conversations are compacted into a summary while recent exchanges stay in the thread.
+Messages added during summarization and unanswered questions are preserved. If you edit or
+restart the conversation while a summary is being generated, ARMADA asks you to retry against
+the current history. An interrupted summary update is recovered when the thread is next opened.
+
 ## Model and effort chips
 
 The chip shows the model family (Opus, Sonnet, Haiku, …) and the effort level (low → max). A chip

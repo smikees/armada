@@ -13,9 +13,19 @@ def _argv_for(monkeypatch, **run_kw):
     seen = {}
 
     def fake_run(argv, **kw):
+        if argv[-1] == "--version":
+            return SimpleNamespace(returncode=0, stdout="2.1.263", stderr="")
+        if argv[-2:] == ["mcp", "list"]:
+            return SimpleNamespace(returncode=0, stdout="No MCP servers configured.", stderr="")
         seen["argv"] = argv
-        return SimpleNamespace(returncode=0, stdout='{"result": "ok", "usage": {}}', stderr="")
+        return SimpleNamespace(returncode=0, stdout='{"type":"result","subtype":"success","result": "ok", "usage": {}}', stderr="")
     monkeypatch.setattr(C.subprocess, "run", fake_run)
+    def transport(argv, *, on_line, **kw):
+        from armada.engine.process import ProcessResult
+        response = fake_run(argv, **kw)
+        on_line(response.stdout)
+        return ProcessResult(returncode=response.returncode, stderr=response.stderr)
+    monkeypatch.setattr(C, "supervise", transport)
     eng = C.ClaudeEngine()
     monkeypatch.setattr(eng, "_launcher", lambda: ["claude"])
     eng.run("system", "prompt", **run_kw)

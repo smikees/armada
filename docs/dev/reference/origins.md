@@ -25,7 +25,7 @@ Nothing here imports the web layer.
 
 —
 
-### `content_url(path: str)`
+### `content_url(path: str, realm_root=None)`
 
 The URL untrusted content at `path` is served from. Without a content server (a test that renders a page directly, or one that failed to bind) the path stays relative, and the app's own server sends it with a CSP sandbox instead — see serve.Handler._send.
 

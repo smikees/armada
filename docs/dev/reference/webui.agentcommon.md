@@ -18,7 +18,7 @@ Shared agent/realm page helpers (Phase 3 split of agentpages): job cards, artefa
 
 <option>s for a model <select>, driven by the synced catalog (value=id, text=display name, newest-first). Preserves a stored value no longer offered (e.g. a retired model) so an agent or realm keeps its pick; `inherit` adds the leading 'inherit (realm default)' blank option.
 
-### `_agent_color_control(current: str, field_id: str)`
+### `_agent_color_control(current: str, field_id: str, storage_key: str='')`
 
 Preset swatches (the graph palette) + a custom colour picker, writing to a hidden field.
 

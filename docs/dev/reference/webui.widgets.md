@@ -12,7 +12,7 @@ _core, so _core imports these back without a cycle.
 
 ### `_widget_menu(widget_id: str)`
 
-The ⋮ options menu on a single-instance widget (Register / Usage / Job calendar), top-right. 'Add as section' promotes the widget to its own nav page; 'Remove widget' hides it (client handlers).
+The ⋮ options menu on a single-instance widget (Register / Usage / Job calendar), top-right. 'Promote to section' promotes the widget to its own nav page; 'Remove widget' hides it (client handlers).
 
 ### `_wid_header(title: str, meta: str='', right: str='', widget_id: str='', chrome: bool=True)`
 

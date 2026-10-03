@@ -148,7 +148,7 @@ def test_detect_root_is_empty_when_there_is_nothing_to_find(tmp_path):
 # ---------------------------------------------------------------- wiring
 
 def test_the_job_runner_expands_the_token():
-    src = __import__("inspect").getsource(runner._run_job_inner)
+    src = __import__("inspect").getsource(__import__("armada.execution", fromlist=["TurnCoordinator"]).TurnCoordinator.run)
     assert "workspace.expand" in src, "job prompts are not expanded — the token would reach the agent raw"
 
 

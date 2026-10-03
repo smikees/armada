@@ -55,11 +55,14 @@ size and colour.
 |---|---|
 | Lucide | ISC |
 | Tabler Icons | MIT |
+| GitLab Pajamas (hook icon) | MIT |
+| SVG Logos (Gemini mark) | CC0 for the drawing; the mark remains Google's trademark |
 | Phosphor Icons | MIT |
 | Ant Design Icons | MIT |
 | Healthicons | MIT |
 | Hugeicons | MIT |
-| Siemens iX Icons (the Report an issue icon) | MIT |
+| Siemens iX Icons (support and Telegram icons) | MIT |
+| Boxicons (coordinator information icon) | MIT |
 | Material Design Icons, Pictogrammers (agent memories) | Apache-2.0 |
 | Fluent UI System Icons (Microsoft) | MIT |
 | Carbon (IBM) | Apache-2.0 |

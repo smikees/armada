@@ -18,7 +18,9 @@ async function mcSaveUser(){var m=document.getElementById('us-msg');m.textConten
     gender:document.getElementById('us-gender').value,birthdate:document.getElementById('us-bday').value,
     about:(document.getElementById('us-about')||{}).value||''};
   try{const r=await(await fetch('/api/save-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})).json();
-    if(r.ok){m.textContent='saved ✓';m.style.color='var(--status-ok)';}else{m.textContent='error: '+(r.error||'failed');m.style.color='var(--status-bad)';}}catch(e){m.textContent='error: '+e;}}
+    if(r.ok){m.textContent='Saved to this realm and your agents’ core memory.';m.style.color='var(--text-muted)';
+      if(window.mcSettingsSaved)mcSettingsSaved('user');}
+    else{m.textContent='error: '+(r.error||'failed');m.style.color='var(--status-bad)';}}catch(e){m.textContent='error: '+e;}}
 // The timezone picker lives in Realm settings now (it's what the scheduler runs this realm's jobs
 // against), so this reads st-tz — falling back to the old id so a cached page doesn't break.
 function mcTzUpdate(){var sel=document.getElementById('st-tz')||document.getElementById('us-tz'),

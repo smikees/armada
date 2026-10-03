@@ -18,6 +18,28 @@ log = logging.getLogger("armada.serve")
 
 
 class CapabilityRoutes:
+    def _get_capability_connections(self):
+        from .. import connector_runtime
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        self._json(200, connector_runtime.connection_snapshot(self.realm, force=query.get('force') == ['1']))
+
+    def _codex_connector(self, body: dict) -> dict:
+        """Connect a realm-approved MCP endpoint to the owner's Codex CLI."""
+        from .. import capabilities as caps, connector_runtime
+        kind, cap = caps.find(self.realm, str(body.get("capability") or ""))
+        if kind != "connectors" or not cap or not caps.realm_enabled(cap):
+            return {"ok": False, "error": "No enabled connector with that identity is in this realm."}
+        return connector_runtime.connect_codex(cap, self.realm)
+
+    def _codex_connector_status(self, body: dict) -> dict:
+        from .. import capabilities as caps, connector_runtime
+        kind, cap = caps.find(self.realm, str(body.get("capability") or ""))
+        if kind != "connectors" or not cap:
+            return {"ok": False, "error": "Connector not found in this realm."}
+        inventory = connector_runtime.codex_live_inventory(self.realm)
+        return {"ok": True, "state": connector_runtime.codex_connection(cap, inventory),
+                "error": (inventory or {}).get(cap["id"], {}).get("runtime_error", "")}
+
     def _read_claude_mcp(self) -> list:
         """Best-effort: enumerate MCP servers Claude Code can see (~/.claude.json + project scopes + .mcp.json)."""
         names = set()
@@ -404,8 +426,17 @@ class CapabilityRoutes:
         """Map a realm capability to an agent — the owner doing it deliberately, from the
         Capabilities page. Recorded as via='user' so the thread rail won't call it new."""
         from .. import capabilities as caps
-        return caps.grant(self.realm, str(body.get("agent") or ""),
-                          str(body.get("capability") or ""), via="user")
+        from ..engine.selection import engine_for
+        agent_id = str(body.get("agent") or "")
+        cap_id = str(body.get("capability") or "")
+        result = caps.grant(self.realm, agent_id, cap_id, via="user")
+        if result.get("ok") and engine_for(self.realm, agent_id) == "codex":
+            kind, cap = caps.find(self.realm, cap_id)
+            if kind == "connectors" and cap:
+                from .. import connector_runtime
+                result["provider_connection"] = connector_runtime.codex_connection(
+                    cap, connector_runtime.codex_inventory())
+        return result
 
     def _cap_revoke(self, body: dict) -> dict:
         from .. import capabilities as caps
@@ -490,4 +521,3 @@ class CapabilityRoutes:
             log.exception("reveal failed for %s", p)
             return {"ok": False, "error": f"could not open: {e}"}
         return {"ok": True}
-

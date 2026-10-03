@@ -17,10 +17,11 @@ def test_the_window_title_still_matches_the_icon_fixer():
     assert brand.NAME.lower() in brand.window_title().lower()
 
 
-def test_nav_welcome_and_settings_show_it():
+def test_header_omits_beta_but_settings_keeps_it():
     src = Path(layout.__file__).read_text(encoding="utf-8")
-    assert "{LOGO}{brand.BETA_PILL}" in src
-    assert brand.BETA_PILL in welcome.render_welcome([])
+    assert "{LOGO}{brand.BETA_PILL}" not in src
+    assert '{LOGO}</a>{switcher}' in src
+    assert brand.NAME in welcome.render_welcome([])
     pages = (Path(layout.__file__).parent / "pages.py").read_text(encoding="utf-8")
     assert "<b>v{ver}</b>{brand.BETA_PILL}" in pages   # after </b>: RELEASING.md's version regex still matches
 

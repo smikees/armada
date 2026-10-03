@@ -29,18 +29,12 @@ async function mcSaveJob(agent,job){
     summary:(document.getElementById('j-summary')||{}).value||'',
     prompt:document.getElementById('j-prompt').value,kind:document.getElementById('j-kind').value,
     thread:document.getElementById('j-thread').value,model:document.getElementById('j-model').value,
-    effort:document.getElementById('j-effort').value,cron:cron,allowed_skills:skills,
-    on_failure:document.getElementById('j-onfail').value,budget:document.getElementById('j-budget').value};
+    effort:document.getElementById('j-effort').value,verbosity:document.getElementById('j-verbosity').value,cron:cron,allowed_skills:skills,
+    retries:Number(document.getElementById('j-onfail').value),budget:document.getElementById('j-budget').value};
   const m=document.getElementById('j-savemsg'); m.textContent='saving…';
   try{const r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     m.textContent=r.ok?'saved ✓ · '+(r.path||''):'error: '+(r.error||'failed'); m.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';
   }catch(e){m.textContent='error: '+e;}
-}
-async function mcRunJob(agent,job,engine){
-  const out=document.getElementById('j-out'); out.style.display='block'; out.textContent='running…';
-  try{const r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,job,engine})})).json();
-    out.textContent=r.output||'(no output)';
-  }catch(e){out.textContent='error: '+e;}
 }
 // Delete from the job's own page. Same two-press confirm as the list, but on success there is no
 // row left to stand on, so it returns to the agent's Jobs tab.

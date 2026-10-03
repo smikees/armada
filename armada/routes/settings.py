@@ -7,6 +7,7 @@ stays in serve.py, only the handler bodies moved.
 from __future__ import annotations
 import http.server, io, json, logging, os, subprocess, sys, threading, time, urllib.parse, contextlib
 from pathlib import Path
+from uuid import uuid4
 from .. import activerealm, reader, render, scheduler, util, brand
 from ..util import safe_seg
 from . import _shared
@@ -14,15 +15,87 @@ from ._shared import _reg_load
 from ..util import swallowed
 
 log = logging.getLogger("armada.serve")
+# Survives page navigation and realm switches; a restarted app gets a fresh notice session.
+_APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
+    def _get_providers(self):
+        from .. import providers, models
+        from ..app import webview2_version
+        from ..alexander import config as alex_config
+        states = providers.statuses(force=self._query().get("force") == "1")
+        if states["codex"].get("connected"):
+            from .. import codex_usage
+            states["codex"]["plan"] = codex_usage.cached_plan()
+        root = self.realm or ""
+        if root:
+            options = models.options(root)
+        else:
+            from ..engine.codex import cached_models
+            options = ([(m["id"], m["label"]) for m in models._SEED] if states["claude"]["connected"] else [])
+            if states["codex"]["connected"]:
+                options += [(m["slug"], "OpenAI · " + (m.get("display_name") or m["slug"])) for m in cached_models()]
+                options += [("codex:default", "OpenAI · Codex default model")]
+            if states["gemini"]["connected"]:
+                from ..engine.gemini import model_options
+                options += model_options()
+        self._json(200, {"providers": states, "models": options,
+                        "runtime": {"python": sys.version.split()[0],
+                                    "python_available": Path(sys.executable).is_file(),
+                                    "bundled": (Path(sys.executable).parent.parent / 'installed.json').is_file(),
+                                    "webview2": webview2_version()},
+                        "efforts": {m: alex_config.efforts(m) for m, _ in options},
+                        "automatic_efforts": alex_config.efforts("auto")})
+
+    def _provider_action(self, body):
+        from .. import providers
+        try:
+            action = body.get("action")
+            provider = body.get("provider")
+            providers._check(provider)
+            if action == "install":
+                from .. import provider_install, provider_login
+                provider_login.cancel(provider)
+                return provider_install.start(provider)
+            if action in ("cancel-login", "open-login"):
+                from .. import provider_login
+                return (provider_login.cancel(provider) if action == "cancel-login"
+                        else provider_login.open_page(provider))
+            if action == "disconnect":
+                return providers.disconnect(body.get("provider"))
+            if action in ("connect", "reconnect"):
+                return providers.connect(body.get("provider"))
+            return {"ok": False, "error": "Unknown connection action"}
+        except (ValueError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def _save_alexander_settings(self, body):
+        from ..alexander import config
+        try:
+            return config.save(self.realm, str(body.get("model", "auto")), str(body.get("effort", "auto")),
+                               body.get("verbosity"))
+        except (ValueError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
     def _get_settings(self):
         from .. import webui
-        from ..engine import get_engine
-        ok, detail = get_engine("claude").doctor()
+        ok, detail = False, "Checking sign-in…"
         self._send(200, webui.render_settings(reader.read(self.realm), self.realm, ok, detail, _reg_load(),
                                               dark=self._dark()))
+
+    def _get_alexander(self):
+        from ..webui.alexander_window import render
+        self._send(200, render(self.realm))
+
+    def _open_alexander_window(self, body: dict) -> dict:
+        from .. import app
+        return {"ok": app.open_alexander(body)}
+
+    def _alexander_main_action(self, body: dict) -> dict:
+        from .. import app
+        return {"ok": app.show_main(href=str(body.get("href") or ""),
+                                    report=str(body.get("report") or ""))}
 
     def _get_approvals(self):
         from .. import webui
@@ -41,7 +114,7 @@ class SettingsRoutes:
         from .. import webui
         f = webui._user_avatar_file(self.realm)
         if f and f.is_file():
-            self._send(200, f.read_bytes(), self._CT.get(f.suffix.lower(), "image/png"))
+            self._send_user_image(f)
         else:
             self._send(404, "no user avatar", "text/plain")
 
@@ -128,6 +201,8 @@ class SettingsRoutes:
     def _get_notifications(self):
         from .. import notify as _n
         items = _n.feed(self.realm, limit=50)
+        from ..request_context import navigation_url
+        items = [{**item, "href": navigation_url(item.get("href", ""), self.realm)} for item in items]
         self._json(200, {"items": items, "unread": _n.unread_count(self.realm, items),
                          "last_read": _n.last_read(self.realm)})
 
@@ -138,7 +213,19 @@ class SettingsRoutes:
     def _get_auth_status(self):
         from .. import auth
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        provider = (q.get("provider") or ["claude"])[0]
+        if provider in ("codex", "gemini"):
+            from ..engine import get_engine
+            self._json(200, get_engine(provider).auth_status())
+            return
+        if provider != "claude":
+            self._json(400, {"ok": False, "error": "Unknown provider"})
+            return
         st = dict(auth.status(force=(q.get("force") or [""])[0] == "1"))
+        st["app_session"] = _APP_SESSION_ID
+        from .. import providers
+        st["enabled"] = providers.allowed("claude")
+        st["notice_enabled"] = st["enabled"] and not any(p in providers.connected() for p in ("codex", "gemini"))
         from ..alexander import MIN_CLAUDE_CODE
         st["min_version"] = MIN_CLAUDE_CODE          # what Alexander's model needs (setup wizard)
         st["version_ok"] = auth.version_ok(st.get("version") or "", MIN_CLAUDE_CODE)
@@ -147,8 +234,7 @@ class SettingsRoutes:
     def _auth_login(self, body: dict) -> dict:
         """Start Claude Code's own sign-in in its own window. ARMADA never handles the credential:
         the owner completes the flow in their browser and Claude Code stores the result itself."""
-        from .. import auth
-        return auth.start_login()
+        return self._provider_action({"provider": body.get("provider", "claude"), "action": "connect"})
 
     # --- Alexander (6.2/6.3/6.6; alexander/support.py) -----------------------------------------
 
@@ -344,4 +430,3 @@ class SettingsRoutes:
         except Exception as e:  # noqa
             swallowed(log, '_save_appearance: failed; error returned to the caller')
             return {"ok": False, "error": str(e)}
-

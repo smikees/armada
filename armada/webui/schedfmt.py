@@ -35,8 +35,11 @@ def _humanize(cadence: str) -> str:
             day = "Sun"
         elif dow == "6" and dom == "*":
             day = "Sat"
-        elif dow == "6" and dom == "1-7":
-            day = "1st Sat"
+        elif "#" in dow:
+            weekday, ordinal = dow.split("#", 1)
+            names = {"sun": "Sun", "mon": "Mon", "tue": "Tue", "wed": "Wed",
+                     "thu": "Thu", "fri": "Fri", "sat": "Sat"}
+            day = f"{_ordinal(int(ordinal))} {names.get(weekday.lower(), _DOW_NAME.get(int(weekday) % 7, weekday) if weekday.isdigit() else weekday)}"
         elif "," in dow:
             day = ",".join(_DOW_NAME.get(int(x) % 7, x) for x in dow.split(","))
         elif "-" in dow:
@@ -69,6 +72,8 @@ def _cadence_bucket(cadence: str) -> str:
     if len(f) != 5:
         return "other"
     _minute, _hour, dom, mon, dow = f
+    if "#" in dow:
+        return "monthly"
     if mon != "*":
         return "quarterly"          # month-constrained cadences (e.g. quarter starts)
     if dom != "*":

@@ -44,7 +44,7 @@ log = logging.getLogger("armada.realmformat")
 KEY = "schema_version"
 
 # The format this build writes and understands. Bump it together with a new entry in MIGRATIONS.
-CURRENT = 2
+CURRENT = 3
 
 
 def _m0_to_1(cfg: dict, realm_root: Path) -> dict:
@@ -83,16 +83,37 @@ def _m1_to_2(cfg: dict, realm_root: Path) -> dict:
         old_dir.rename(new_dir)
     for jf in sorted((realm_root / "agents").glob("*/jobs/*.json")):
         try:
-            job = json.loads(jf.read_text(encoding="utf-8-sig"))
+            with util.file_lock(jf):
+                job = util.read_json_state(jf)
+                new_run = _renamed_run(job.get("run"))
+                if new_run is not None:
+                    job["run"] = new_run
+                    util.write_json_atomic(jf, job)
         except (OSError, ValueError):
             continue
-        new_run = _renamed_run(job.get("run")) if isinstance(job, dict) else None
-        if new_run is not None:
-            job["run"] = new_run
-            util.write_json_atomic(jf, job)
     env = cfg.get("env")
     if isinstance(env, dict) and isinstance(env.get("App"), str) and _OLD.upper() in env["App"]:
         env["App"] = env["App"].replace(_OLD.upper(), "ARMADA")
+    return cfg
+
+
+def _m2_to_3(cfg: dict, realm_root: Path) -> dict:
+    """Freeze legacy appointment dates so saving a profile cannot reappoint its agent.
+
+    Preserve explicit appointed/created history. Include retired agents so moving
+    them back into the realm does not restart their recorded tenure.
+    """
+    from .agentdates import appointment_date
+    for base in ("agents", "retired"):
+        for path in sorted((realm_root / base).glob("*/agent.json")):
+            with util.file_lock(path):
+                agent = util.read_json_state(path)
+                if agent.get("appointed"):
+                    continue
+                date = appointment_date(agent, path.parent)
+                if date:
+                    agent["appointed"] = date
+                    util.write_json_atomic(path, agent)
     return cfg
 
 
@@ -100,6 +121,7 @@ def _m1_to_2(cfg: dict, realm_root: Path) -> dict:
 MIGRATIONS: dict[int, Callable[[dict, Path], dict]] = {
     0: _m0_to_1,
     1: _m1_to_2,
+    2: _m2_to_3,
 }
 
 
@@ -160,9 +182,8 @@ def migrate(realm_root) -> dict:
     try:
         # Same lock every other realm.json read-modify-write takes, so a migration can't interleave
         # with a settings save from the web UI or the scheduler's own writes.
-        with util.file_lock(p):
-            raw = p.read_text(encoding="utf-8-sig")
-            cfg = json.loads(raw) if raw.strip() else {}
+        with util.file_lock(p, validate_state=False):
+            cfg = util.read_json_state(p, max_schema=None)
             if not isinstance(cfg, dict):
                 return {"ok": False, "from": None, "to": None, "changed": False,
                         "error": "realm.json is not a JSON object"}

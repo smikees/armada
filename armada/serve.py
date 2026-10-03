@@ -16,8 +16,10 @@ from .routes import caps as routes_caps, catalogue as routes_catalogue, settings
 from .routes import dashboard as routes_dashboard, _shared as routes_shared
 from .routes._shared import _reg_ensure, _reg_load
 from .util import swallowed
+from .request_context import RealmContext, RealmMismatch, SELECTION_LOCK, content_path, bind_content_html
 
 REPO = Path(__file__).resolve().parents[1]
+STATIC_ROOT = Path(__file__).resolve().parent / "webui" / "static"
 log = logging.getLogger("armada.serve")
 
 # Set by Handler._restart just before it re-executes this process; see _serve_until_done.
@@ -30,14 +32,65 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
               routes_settings.SettingsRoutes, routes_dashboard.DashboardRoutes,
               routes_shared.SharedRoutes, http.server.BaseHTTPRequestHandler):
     realm = "."
-    _streams: dict = {}          # tid -> running chat Popen (for stop)
+    from .execution import ACTIVE_RUNS as _streams, RUNS_LOCK as _streams_lock
 
-    def _send(self, code, body, ctype="text/html; charset=utf-8", cache: str = ""):
+    def _bind_request(self, *, mutation=False):
+        """Capture once per HTTP request, including reused connections, before dispatching work."""
+        self._body_cache = None
+        self._sandbox_this = False
+        body = self._body() if mutation else {}
+        with SELECTION_LOCK:
+            current = RealmContext.capture(type(self).realm)
+            parsed = urllib.parse.urlsplit(self.path)
+            path = parsed.path
+            route_identity = None
+            if path.startswith("/r/"):
+                pieces = path.split("/", 3)
+                if len(pieces) != 4 or not content_path("/" + pieces[3]):
+                    raise RealmMismatch("Invalid realm content link.")
+                route_identity = pieces[2]
+                path = "/" + pieces[3]
+                self.path = urllib.parse.urlunsplit(parsed._replace(path=path))
+            query_ids = urllib.parse.parse_qs(parsed.query).get("_realm", [])
+            supplied = query_ids + ([self.headers["X-Armada-Realm"]] if self.headers.get("X-Armada-Realm") else [])
+            if mutation:
+                if body.get("_realm") is not None:
+                    supplied.append(str(body["_realm"]))
+            if route_identity:
+                supplied.append(route_identity)
+            if len(set(supplied)) > 1:
+                raise RealmMismatch("Conflicting realm identities; reload the page.")
+            identity = supplied[0] if supplied else None
+            global_post = path in {"/restart", "/update", *self._WELCOME_POST}
+            requires_identity = (mutation and not global_post) or content_path(path) or path == "/api/chat-stop"
+            if requires_identity and not identity:
+                raise RealmMismatch("This request needs a realm identity. Reload the page and retry.")
+            if identity and identity != current.realm_id:
+                if not mutation and (content_path(path) or path == "/api/chat-stop"):
+                    current = RealmContext.resolve(identity, current)
+                else:
+                    raise RealmMismatch("The selected realm changed. Reload the page before continuing.")
+            self.request_context = current
+            self.realm = current.root  # instance shadow: later selector changes cannot retarget this request
+
+    def _send(self, code, body, ctype="text/html; charset=utf-8", cache: str = "", csp: str = ""):
+        ctx = getattr(self, "request_context", None)
+        if (ctx and isinstance(body, str) and ctype.startswith("text/html")
+                and not getattr(self, "_sandbox_this", False) and not getattr(self, "_CONTENT_ONLY", False)):
+            body = bind_content_html(body, ctx)
+            if "<head>" in body:
+                from .assets import js
+                # Load before any inline app script; all requests inherit this page's immutable ID.
+                body = body.replace("<head>", '<head><meta name="armada-realm" content="' + ctx.realm_id
+                                    + '">' + js("realm-context"), 1)
         b = body.encode("utf-8") if isinstance(body, str) else body
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
-        if getattr(self, "_sandbox_this", False):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if csp:
+            self.send_header("Content-Security-Policy", csp)
+        elif getattr(self, "_sandbox_this", False):
             # Untrusted content served from the app's own origin — only when the content server
             # couldn't start (5.8a). Opaque origin: its scripts can reach nothing of the app's.
             self.send_header("Content-Security-Policy",
@@ -64,13 +117,19 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         return {k: v[0] for k, v in urllib.parse.parse_qs(q).items()}
 
     def _body(self) -> dict:
+        if getattr(self, "_body_cache", None) is not None:
+            return self._body_cache
         n = int(self.headers.get("Content-Length", 0) or 0)
         if not n:
+            self._body_cache = {}
             return {}
         try:
-            return json.loads(self.rfile.read(n).decode("utf-8-sig"))  # tolerate a stray BOM
+            value = json.loads(self.rfile.read(n).decode("utf-8-sig"))
+            self._body_cache = value if isinstance(value, dict) else {}
+            return self._body_cache
         except Exception:  # noqa
             log.debug('_body: failed; returning a fallback', exc_info=True)
+            self._body_cache = {}
             return {}
 
     def _same_origin(self) -> bool:
@@ -133,8 +192,16 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
                         self.headers.get("Sec-Fetch-Site"))
             self._send(403, "cross-site request refused", "text/plain")
             return
+        if urllib.parse.urlparse(self.path).path == "/api/instance":
+            # Startup must be able to identify a live ARMADA server even when its
+            # dashboard cannot render (for example, a damaged realm/job file).
+            self._json(200, {"app": "ARMADA", "realm_id": RealmContext.capture(type(self).realm).realm_id})
+            return
         try:
+            self._bind_request()
             self._route_get()
+        except RealmMismatch as e:
+            self._json(409, {"ok": False, "error": str(e), "code": "realm_mismatch"})
         except util.UnsafeSegment as e:
             self._send(400, f"bad request: {e}", "text/plain")
         except Exception:  # noqa — never crash the handler thread; log the traceback
@@ -149,6 +216,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     _REALM_PAGES = ("ministers", "goals", "jobs", "memory", "skills", "artefacts", "inbox")
     _GET_EXACT = {
         "/": "_get_index", "/index.html": "_get_index", "/settings": "_get_settings",
+        "/alexander": "_get_alexander",
         "/approvals": "_get_approvals", "/docs": "_get_docs", "/setup": "_get_setup", "/new/realm": "_get_new_realm", "/switch": "_get_switch",
         "/api/pick-folder": "_get_pick_folder", "/api/check-update": "_get_check_update",
         "/api/chat-stop": "_get_chat_stop", "/api/realms": "_get_realms",
@@ -157,8 +225,11 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/threads": "_get_threads", "/api/proposals-count": "_get_proposals_count",
         "/api/agent-activity": "_get_agent_activity",
         "/api/thread-turns": "_get_thread_turns", "/api/thread-rail": "_get_thread_rail",
+        "/api/thread-metrics": "_get_thread_metrics",
         "/api/job-calendar": "_get_job_calendar", "/api/usage": "_get_usage",
         "/api/usage-limits": "_get_usage_limits", "/api/auth-status": "_get_auth_status",
+        "/api/providers": "_get_providers",
+        "/api/capability-connections": "_get_capability_connections",
         "/api/notifications": "_get_notifications", "/api/system-jobs": "_get_system_jobs",
         "/api/telegram-status": "_telegram_status", "/api/scheduler-status": "_get_scheduler_status",
         "/api/update-status": "_get_update_status",
@@ -179,9 +250,11 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     # (never a traceback from a handler reading realm files out of "").
     welcome_note = ""
     _WELCOME_GET = {"/api/pick-folder": "_get_pick_folder", "/api/auth-status": "_get_auth_status",
+                    "/api/providers": "_get_providers",
                     "/switch": "_get_switch"}
     _WELCOME_POST = {"/api/set-approot": "_set_approot", "/api/first-realm": "_first_realm",
                      "/api/new-realm": "_new_realm", "/api/auth-login": "_auth_login",
+                     "/api/provider-action": "_provider_action",
                      "/api/install-claude": "_install_claude"}
 
     def _route_welcome_get(self, path: str):
@@ -220,7 +293,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         if self._untrusted(path):
             if origins.content_port():
                 self.send_response(302)
-                self.send_header("Location", origins.content_url(self.path))
+                self.send_header("Location", origins.content_url(self.path, realm_root=self.realm))
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
@@ -262,7 +335,14 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             self._json(403, {"ok": False, "error": "cross-origin request blocked"})
             return
         try:
+            self._bind_request(mutation=True)
             self._route_post()
+        except RealmMismatch as e:
+            self._json(409, {"ok": False, "error": str(e), "code": "realm_mismatch"})
+        except util.FileLockTimeout as e:
+            self._json(423, {"ok": False, "error": str(e)})
+        except util.StateError as e:
+            self._json(409, {"ok": False, "error": str(e)})
         except util.UnsafeSegment as e:
             self._json(400, {"ok": False, "error": f"bad request: {e}"})
         except Exception:  # noqa — never crash the handler thread; log the traceback
@@ -280,6 +360,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/job-enable": "_job_enable", "/api/delete-job": "_delete_job",
         "/api/upload-avatar": "_upload_avatar", "/api/upload-realm-icon": "_upload_realm_icon",
         "/api/save-realm-settings": "_save_realm_settings", "/api/set-avatar-preset": "_set_avatar_preset",
+        "/api/set-all-agent-defaults": "_set_all_agent_defaults",
         "/api/remove-avatar": "_remove_avatar", "/api/save-user": "_save_user",
         "/api/user-avatar": "_user_avatar_upload", "/api/user-avatar-preset": "_user_avatar_preset",
         "/api/user-avatar-remove": "_user_avatar_remove", "/api/new-thread": "_new_thread",
@@ -296,10 +377,14 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/telegram-link": "_telegram_link", "/api/telegram-forget": "_telegram_forget",
         "/api/open-file": "_open_file", "/api/delete-artefact": "_delete_artefact",
         "/api/auth-login": "_auth_login", "/api/scheduler-start": "_scheduler_start",
+        "/api/provider-action": "_provider_action", "/api/alexander-settings": "_save_alexander_settings",
         "/api/update-auto": "_update_auto",
+        "/api/tray-setting": "_tray_setting",
         "/api/setup-step": "_setup_step", "/api/setup-capability": "_setup_capability",
-        "/api/setup-finish": "_setup_finish",
+        "/api/setup-finish": "_setup_finish", "/api/setup-team": "_setup_team", "/api/setup-folder": "_setup_folder",
         "/api/alexander-addon": "_alexander_addon", "/api/alexander-history": "_alexander_history",
+        "/api/open-alexander": "_open_alexander_window",
+        "/api/alexander-main-action": "_alexander_main_action",
         "/api/support-preview": "_support_preview", "/api/support-send": "_support_send",
         "/api/notifications-read": "_notifications_read",
         "/api/system-job-run": "_system_job_run", "/api/system-job-toggle": "_system_job_toggle",
@@ -315,6 +400,8 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/realm-preflight": "_realm_preflight", "/api/set-workspace": "_set_workspace",
         "/api/workspace-migrate": "_workspace_migrate", "/api/set-approot": "_set_approot",
         "/api/cap-grant": "_cap_grant", "/api/cap-revoke": "_cap_revoke",
+        "/api/codex-connector": "_codex_connector",
+        "/api/codex-connector-status": "_codex_connector_status",
         "/api/cap-request-approve": "_cap_request_approve",
         "/api/cap-request-reject": "_cap_request_reject",
         "/api/refresh-connectors": "_refresh_connectors", "/api/new-agent": "_new_agent",
@@ -333,6 +420,9 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         if not self.realm and path != "/restart":
             self._route_welcome_post(path)
             return
+        if self.realm and path not in {"/restart", "/update", "/api/realm-export", "/api/realm-preflight",
+                                       "/api/dryrun", "/api/render-md", "/api/new-realm"}:
+            util.assert_realm_writable(Path(self.realm) / "realm.json")
         if path == "/api/chat-stream":                      # streams its own response, not JSON
             self._chat_stream(self._body())
             return
@@ -371,9 +461,21 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
            ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8"}
 
     def _static(self, path: str):
-        rel = path[len("/static/"):].replace("..", "").lstrip("/")
-        f = Path(__file__).resolve().parent / "webui" / "static" / rel
-        if not f.is_file():
+        # Decode once, reject ambiguous Windows names, then check the resolved target. Joining a
+        # drive-qualified path discards the base on Windows; replacing '..' never confined it.
+        rel = urllib.parse.unquote(path[len("/static/"):])
+        parts = rel.split("/")
+        if (not rel or any(c in rel for c in ("\\", ":", "\x00"))
+                or any(p in ("", ".", "..") or p.endswith((".", " ")) for p in parts)):
+            self._send(400, "bad asset path", "text/plain")
+            return
+        try:
+            base = STATIC_ROOT.resolve(strict=True)
+            f = (base / rel).resolve(strict=True)
+            valid = f.is_relative_to(base) and f.is_file()
+        except (OSError, ValueError, RuntimeError):
+            valid = False
+        if not valid:
             self._send(404, "not found", "text/plain")
             return
         ct = self._CT.get(f.suffix.lower(), "application/octet-stream")
@@ -420,6 +522,11 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     def _update_auto(self, body: dict) -> dict:
         from . import updater
         return updater.set_auto(bool(body.get("on")))
+
+    def _tray_setting(self, body: dict) -> dict:
+        from . import appconfig
+        appconfig.save({"keep_in_tray": bool(body.get("on"))})
+        return {"ok": True}
 
     def _git_pull(self) -> dict:
         try:
@@ -527,11 +634,12 @@ def port_owner(port: int = 8756) -> bool:
 class ContentHandler(Handler):
     """The content-only server (5.8a): the untrusted pages and nothing else — no API, no POST.
 
-    It shares the app's realm (a class attribute read through inheritance, so /switch on the app
-    moves both) and its handlers; only the routing differs. A different port is a different origin:
+    Each content URL identifies its realm independently of the app's current selection.
+    It reuses file handlers with a captured request context. A different port is a different origin:
     what runs here can't read the app, and the app refuses its POSTs and its cross-site GETs.
     """
     _REFUSE_CROSS_SITE = False     # the app's own frames load it from :8756 — "same-site" by design
+    _CONTENT_ONLY = True
 
     def _route_get(self):
         path = urllib.parse.urlparse(self.path).path
@@ -667,5 +775,3 @@ def serve(realm: str, port: int = 8756):
     _say(f"ARMADA app → http://127.0.0.1:{port}  (realm: {realm})")
     _say("  Ctrl-C to stop · click agents/jobs, Run a job, or ⟳ Update & Restart.")
     _serve_until_done(httpd)
-
-

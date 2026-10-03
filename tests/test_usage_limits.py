@@ -7,6 +7,8 @@ result always carries a human-readable `message`, and the UI always renders it.
 """
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -92,17 +94,118 @@ def test_absent_credentials_file_is_handled(monkeypatch, tmp_path):
     assert usage_api._read_token() is None
 
 
+def _render_limits(claude=None, codex=None, bucket=None, gemini=None):
+    """Exercise the actual renderer without starting a browser or contacting either provider."""
+    if not shutil.which("node"):
+        pytest.skip("node not available")
+    script = r'''
+const fs=require('node:fs'), vm=require('node:vm');
+const source=fs.readFileSync(process.argv[1], 'utf8');
+const input=JSON.parse(fs.readFileSync(0,'utf8'));
+const context={window:{}};
+vm.runInNewContext(input.icons,context);
+vm.runInNewContext(source.slice(0,source.indexOf('// Keep the Overview'))
+  +'globalThis.renderLimits=headerLimitsHTML;})();',context);
+process.stdout.write(context.renderLimits(...input.args));
+'''
+    from armada.icons import _ICONS_JS
+    result = subprocess.run(["node", "-e", script, str(_JS)],
+                            input=json.dumps({"args": [claude, codex, bucket, gemini],
+                                              "icons": _ICONS_JS.replace("<script>", "").replace("</script>", "")}),
+                            capture_output=True, text=True, encoding="utf-8", timeout=10)
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
+def _rows(html):
+    return re.findall(r'<div class="mc-limit-row\b.*?</div>', html)
+
+
 def test_header_renderer_never_returns_empty_for_unavailable():
-    """The JS half of the contract: no early `return ""` when usage is unavailable."""
-    js = _JS.read_text(encoding="utf-8")
-    fn = js[js.index("function headerLimitsHTML"):]
-    fn = fn[:fn.index("async function renderHeaderLimits")]
-    assert "d.message" in fn, "renderer must display the server's message"
-    assert 'return "";' not in fn, "unavailable must never render as nothing"
+    html = _render_limits({"available": False, "message": 'Please sign in to "Claude".'})
+    assert html.count("Subscription limits") == 1
+    assert html.index('aria-label="Codex subscription limits"') < html.index('aria-label="Claude subscription limits"')
+    assert html.count('class="mc-limit-provider"') == 3 and html.count('class="mc-engine-logo') == 3
+    assert html.count('>Week</span>') == 1 and html.count('>Session</span>') == 1
+    rows = _rows(html)
+    assert len(rows) == 6 and all("is-unavailable" in row for row in rows)
+    assert all("mc-limit-pct" not in row and "mc-limit-reset" not in row and "aria-valuenow" not in row for row in rows)
+    assert "Please sign in to &quot;Claude&quot;." in rows[2]
+    assert "Codex usage is unavailable right now." in rows[0]
+    assert html.count('is-inactive') == 3
+    assert 'is-placeholder' not in html and 'Checking Gemini connection' in rows[4]
 
 
-def test_header_renderer_has_its_own_fallback_string():
-    """Even if the server somehow sends no message, the user sees words rather than a blank."""
-    js = _JS.read_text(encoding="utf-8")
-    fn = js[js.index("function headerLimitsHTML"):js.index("async function renderHeaderLimits")]
-    assert re.search(r'\(d&&d\.message\)\|\|"[^"]{10,}"', fn)
+def test_header_maps_codex_windows_by_duration_and_preserves_zero():
+    codex = {"available": True, "groups": [{"id": "codex", "name": "Codex", "windows": [
+        {"window_minutes": 10080, "pct": 8, "resets_in": "6d 22h"},
+        {"window_minutes": 300, "pct": 0, "resets_in": "4h 59m"}]}]}
+    claude = {"available": True, "weekly": {"pct": 72, "resets_in": "2d 3h"},
+              "session": {"pct": 17, "resets_in": "1h 20m"}}
+    rows = _rows(_render_limits(claude, codex))
+    for row, provider, pct, reset in zip(rows, ["Codex", "Codex", "Claude", "Claude"],
+                                       [8, 0, 72, 17], ["6d 22h", "4h 59m", "2d 3h", "1h 20m"]):
+        assert f'aria-label="{provider} · ' in row
+        assert f'>{provider}</span>' not in row and f'>{pct}%</span>' in row
+        assert f'resets in {reset}' in row and 'is-unavailable' not in row
+
+
+def test_weekly_only_account_does_not_invent_a_session_limit():
+    codex = {"available": True, "groups": [{"id": "codex", "windows": [
+        {"window_minutes": 10080, "pct": 8, "resets_in": "6d 22h"}]}]}
+    rows = _rows(_render_limits(None, codex))
+    assert '>8%</span>' in rows[0]
+    assert 'is-unavailable' in rows[1] and 'does not report a session limit' in rows[1]
+    assert 'aria-valuenow' not in rows[1]
+
+
+def test_stale_or_null_percentages_are_not_shown_as_current_values():
+    claude = {"available": True, "stale": True, "age_sec": 172800,
+              "weekly": {"pct": 89, "resets_in": "1h 0m"}}
+    codex = {"available": True, "groups": [{"id": "codex", "windows": [
+        {"window_minutes": 300, "pct": None, "resets_in": "1h 0m"}]}]}
+    html = _render_limits(claude, codex)
+    assert 'Last reading: 89%, 2d ago.' in html
+    assert all('is-unavailable' in row and 'mc-limit-pct' not in row and 'mc-limit-reset' not in row for row in _rows(html))
+
+
+def test_selected_codex_bucket_applies_to_both_periods():
+    codex = {"available": True, "groups": [
+        {"id": "codex", "name": "Codex", "windows": [{"window_minutes": 10080, "pct": 8}]},
+        {"id": "extra", "name": "Extra", "windows": [{"window_minutes": 300, "pct": 45}]}]}
+    html = _render_limits(None, codex, "extra")
+    assert '<option value="extra" selected>' in html
+    assert 'is-unavailable' in _rows(html)[0] and '>45%</span>' in _rows(html)[1]
+    assert 'mc-limit-reset' not in html, 'An unreported reset must not show placeholder text.'
+
+
+def test_loading_preserves_landmarks_and_never_implies_a_zero_or_unavailable_reading():
+    loading = {'loading':True}
+    html = _render_limits(loading,loading,gemini=loading)
+    rows = _rows(html)
+    assert len(rows) == 6 and all('aria-busy="true"' in row for row in rows)
+    assert html.count('mc-limit-loading') == 6 and html.count('<i aria-hidden="true">') == 18
+    assert html.count('class="mc-engine-logo') == 3
+    assert html.count('>Week</span>') == html.count('>Session</span>') == 1
+    assert 'is-inactive' not in html and 'is-unavailable' not in html
+    assert 'mc-limit-bar' not in html and 'mc-limit-pct' not in html and 'aria-valuenow' not in html
+
+
+def test_slow_provider_keeps_dots_while_ready_and_unavailable_providers_settle():
+    html = _render_limits({'available':False,'message':'Sign in required'},
+        {'available':True,'groups':[{'id':'codex','windows':[{'window_minutes':10080,'pct':24}]}]},
+        gemini={'loading':True})
+    rows = _rows(html)
+    assert '>24%</span>' in rows[0]
+    assert 'does not report a session limit' in rows[1] and 'mc-limit-loading' not in rows[1]
+    assert all('is-unavailable' in row and 'mc-limit-loading' not in row for row in rows[2:4])
+    assert all('mc-limit-loading' in row for row in rows[4:])
+
+
+def test_server_render_contains_loading_landmarks_before_javascript():
+    from armada.webui.pages import _initial_header_limits
+    html = _initial_header_limits(True)
+    assert len(_rows(html)) == 6 and html.count('mc-limit-loading') == 6
+    assert html.count('>Week</span>') == html.count('>Session</span>') == 1
+    assert html.count('mc-limit-provider') == 3
+    assert _initial_header_limits(False).count('mc-limit-loading') == 4

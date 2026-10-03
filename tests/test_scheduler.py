@@ -39,6 +39,22 @@ def test_cron_match_vixie_dom_dow_or():
     assert not S.cron_match(expr, datetime.datetime(2026, 9, 5, 8, 1))   # right day, wrong minute
 
 
+def test_first_saturday_cron_matches_only_the_first_saturday():
+    from armada.webui.schedfmt import _cadence_bucket, _humanize, _job_next_dt
+    expr = "0 8 * * sat#1"
+    first = datetime.datetime(2026, 10, 3, 8, 0)
+    second = datetime.datetime(2026, 10, 10, 8, 0)
+    assert S.cron_match(expr, first)
+    assert S.cron_day_times(expr, first.date()) == [(8, 0)]
+    assert S.due_now({"schedule": expr}, first, 0)
+    assert not S.cron_match(expr, second)
+    assert S.cron_day_times(expr, second.date()) == []
+    assert not S.due_now({"schedule": expr}, second, 0)
+    assert _cadence_bucket(expr) == "monthly"
+    assert _humanize(expr) == "1st Sat 08:00"
+    assert _job_next_dt(expr, datetime.datetime(2026, 10, 3, 8, 1)) == datetime.datetime(2026, 11, 7, 8, 0)
+
+
 def test_cron_match_quarterly():
     expr = "0 11 1 1,4,7,10 *"   # 11:00 on the 1st of Jan/Apr/Jul/Oct
     assert S.cron_match(expr, datetime.datetime(2026, 4, 1, 11, 0))

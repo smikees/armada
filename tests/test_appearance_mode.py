@@ -129,4 +129,4 @@ def test_the_endpoint_validates_the_mode():
 def test_telegram_sits_after_engine_in_app_settings():
     src = Path(pages.__file__).read_text(encoding="utf-8")
     tab = src.split("app_tab = (")[1].split("\n\n")[0]
-    assert tab.index('sect("Engine"') < tab.index('sect("Telegram"') < tab.index('sect("Notifications"')
+    assert tab.index('sect("Engine"') < tab.index('_telegram_box()') < tab.index('sect("Notifications"')

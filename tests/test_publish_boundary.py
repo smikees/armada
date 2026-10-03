@@ -106,6 +106,6 @@ def test_nothing_is_flagged_when_no_root_is_set(tmp_path):
 
 
 def test_the_run_report_carries_the_strays():
-    src = inspect.getsource(runner._run_job_inner)
+    src = inspect.getsource(__import__("armada.execution", fromlist=["TurnCoordinator"]).TurnCoordinator.run)
     assert "outside_root" in src and "cap.stray" in src, \
         "a job that scatters files must say so where the record survives"

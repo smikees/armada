@@ -35,6 +35,32 @@ def test_begin_turn_records_the_message_on_its_own(agent_dir):
     assert th.open_turn()["content"] == "what is the plan?"
 
 
+def test_live_thread_metrics_include_the_new_message(agent_dir):
+    from armada.webui.threadsview import thread_metrics
+    root = agent_dir.parent.parent
+    before = thread_metrics(root, "hand", "main")
+    th = Thread(agent_dir, "main")
+    turn = th.begin_turn("A question with enough context to count")
+    during = thread_metrics(root, "hand", "main")
+    assert during["messages"] == before["messages"] + 1
+    assert during["chars"] > before["chars"]
+    th.complete_turn(turn, "A short reply")
+    assert thread_metrics(root, "hand", "main")["messages"] == during["messages"] + 1
+
+
+def test_saved_activity_and_partial_text_reappear_in_one_pending_turn(agent_dir):
+    root = agent_dir.parent.parent
+    turn = Thread(agent_dir, "main").begin_turn("Check an account")
+    Thread(agent_dir, "main").save_progress(turn, "The balance is ", "Continuing…", [
+        {"kind": "tool", "name": "Bash", "id": "call", "input": {"command": "check"},
+         "result": "ok", "is_error": False}])
+    _mark(agent_dir)
+    html = _turns(root)
+    assert "The balance is" in html and "Running a command · done" in html
+    assert html.count('class="mc-turn mc-pending"') == 1
+    assert "/static/working.gif" in html
+
+
 def test_complete_turn_closes_it(agent_dir):
     th = Thread(agent_dir, "main")
     t = th.begin_turn("hello")
@@ -153,7 +179,8 @@ def test_a_run_that_returns_nothing_still_says_so(agent_dir, monkeypatch):
     _run_chat(agent_dir, monkeypatch, _Res(True, ""))
     th = Thread(agent_dir, "main")
     assert th.open_turn() is None
-    assert "without producing a reply" in _roles(th)[1][1]
+    assert "Completed without a text reply" in _roles(th)[1][1]
+    assert th._messages()[-1].get("status", "ok") == "ok"
 
 
 # --- what the transcript shows while a turn is open ----------------------------------------------
@@ -213,4 +240,79 @@ def test_a_closed_turn_shows_no_placeholder(agent_dir):
     th = Thread(agent_dir, "main")
     th.complete_turn(th.begin_turn("hello"), "hi")
     html = _turns(agent_dir.parent.parent)
+    assert "mc-pending" not in html and "No reply" not in html
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_streamed_reply_survives_navigation_and_engine_failure(agent_dir, fail):
+    """Render through a fresh Thread while the engine is still running, as a return visit does."""
+    root = agent_dir.parent.parent
+    _mark(agent_dir)
+
+    class Streaming:
+        name = "codex"
+
+        def run_stream(self, on_event, **kwargs):
+            on_event({"kind": "text", "text": "Ping received."})
+            on_event({"kind": "tool", "name": "Bash", "id": "clock", "input": {}})
+            html = _turns(root)
+            assert "Ping received." in html
+            assert "Running a command" in html and "mc-pending" in html
+            # Checkpoints are UI state, not duplicated conversation context.
+            assert "Ping received." not in Thread(agent_dir).render()
+            if fail:
+                raise RuntimeError("connection interrupted")
+            return _Res(True, "Ping received. All done.")
+
+    result = runner.chat_stream(root, "hand", "main", "test ping", lambda e: None, engine=Streaming())
+    assert result["ok"] is not fail
+    html = _turns(root)
+    assert html.count("Ping received.") == 2  # rendered body + raw-text copy template
+    assert "mc-pending" not in html
+    assert ("connection interrupted" in html) is fail
+    assert not list((agent_dir / "threads" / "main").glob(".progress-*.json"))
+
+
+def test_dead_server_marker_does_not_claim_agent_is_still_working(agent_dir, monkeypatch):
+    from armada import util
+    from armada.webui.agentbits import _agent_busy
+    th = Thread(agent_dir)
+    turn = th.begin_turn("ping")
+    th.save_progress(turn, "Reply started")
+    _mark(agent_dir)
+    mark = agent_dir / "runs" / ".running" / "_chat.json"
+    mark.write_text(json.dumps({"thread": "main", "owner_pid": 987654}), encoding="utf-8")
+    monkeypatch.setattr(util, "pid_alive", lambda pid: False)
+    assert not _agent_busy(agent_dir.parent.parent, "hand")
+    html = _turns(agent_dir.parent.parent)
+    assert "Reply started" in html and "mc-pending" not in html
+
+
+def test_title_generation_happens_after_the_working_marker_is_cleared(agent_dir, monkeypatch):
+    import io
+    from armada.routes.agents import AgentRoutes
+    monkeypatch.setattr(runner, "chat_stream", lambda *a, **kw: {"ok": True, "output": "Done"})
+    marker = agent_dir / "runs" / ".running" / "_chat-test.json"
+
+    class Handler(AgentRoutes):
+        realm = agent_dir.parent.parent
+        _streams = {}
+        wfile = io.BytesIO()
+        send_response = send_header = end_headers = lambda *a: None
+
+        def _autoname_thread(self, *args):
+            assert not marker.exists()
+            assert not self._streams
+            return "Ping"
+
+    Handler()._chat_stream({"agent": "hand", "thread": "main", "message": "ping", "tid": "test"})
+
+
+def test_completion_during_page_render_does_not_leave_a_frozen_transcript(agent_dir, monkeypatch):
+    question = {"role": "user", "content": "ping", "turn": "one"}
+    reply = {"role": "assistant", "content": "Pong completed", "turn": "one"}
+    reads = iter([[question], [question, reply]])
+    monkeypatch.setattr(Thread, "snapshot", lambda self: ("", next(reads)))
+    html = _turns(agent_dir.parent.parent)
+    assert "Pong completed" in html
     assert "mc-pending" not in html and "No reply" not in html

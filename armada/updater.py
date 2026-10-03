@@ -479,6 +479,11 @@ def _restart_window(port: int = 8756) -> None:
 def reexec() -> None:
     """Start this command again on the (new) code on disk. On Windows os.execv starts a new process
     and ends this one, which is why the scheduler releases its locks before calling this."""
+    if len(sys.argv) > 1 and sys.argv[1] == 'app' and os.name == 'nt':
+        from .desktop_launch import spawn
+        host = Path(sys.executable).with_name('ARMADA.exe')
+        spawn([str(host if host.is_file() else sys.executable), '-m', 'armada', *sys.argv[1:]], ROOT)
+        raise SystemExit(0)
     argv = [sys.executable, "-m", "armada", *sys.argv[1:]]
     log.info("update: restarting %s", argv)
     os.chdir(ROOT)

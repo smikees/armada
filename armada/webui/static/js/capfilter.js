@@ -7,7 +7,7 @@ function mcCapFilterClear(){mcFDClear(MC_CAP_F,"mcCapFilter");}
 function mcCapFilter(){
 var s=document.getElementById("cap-search"),q=((s&&s.value)||"").toLowerCase().trim();
 var av=mcCapVal("cap-f-avail"),md=mcCapVal("cap-f-source"),tr=mcCapVal("cap-f-tier"),ty=mcCapVal("cap-f-type");
-document.querySelectorAll(".mc-cap").forEach(function(c){
+document.querySelectorAll("#cap-pane-user .mc-cap").forEach(function(c){
 // whole-word match on the id list, so "hand" can't match an agent called "handover"
 var ids=" "+(c.getAttribute("data-agents")||"")+" ";
 var ok=(!q||c.textContent.toLowerCase().indexOf(q)>=0)&&(!av||ids.indexOf(" "+av+" ")>=0)

@@ -1,18 +1,9 @@
-"""Is the scheduler running, and starting it if not (launch plan 5.5).
+"""Scheduler lifecycle for the Armada desktop app.
 
-Scheduled jobs run from a separate, windowless process (`armada schedule`), on purpose: a realm's jobs
-don't pause because the window is closed. The cost of that design was a failure nobody could see —
-after a reboot, or if the process died, nothing ran, and nothing on screen said so. "My jobs
-stopped" with no explanation is the worst kind of bug report because it's true and unhelpful.
-
-So: the app window starts the scheduler if it isn't already running for the realm it opens; every
-page shows a bar when it isn't running, with a button to start it; and whether it's running is
-answered by the same per-realm lock the scheduler already holds (2.9) — a live pid in
-`scheduler.lock.json` means a scheduler is ticking that realm. Nothing here can start a second one:
-`run_daemon` refuses to start over a realm another live process owns.
-
-Starting at logon (surviving a reboot) is the installer's job (5.2): it's a Windows setting, and
-it's the installer that knows where it put things.
+The GUI starts the windowless scheduler so jobs run while Armada is visible or in the tray.
+The child carries its GUI owner's PID and stops when that owner exits. A cooperative stop
+marker lets a normal quit release leases before process exit. Older unowned schedulers are
+retired on full quit. CLI users can still explicitly run ``armada schedule``.
 """
 from __future__ import annotations
 
@@ -22,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import appconfig
+from . import appconfig, util
 from .util import swallowed
 
 log = logging.getLogger(__name__)
@@ -66,6 +57,8 @@ def _python_for_background() -> str:
     """pythonw.exe beside the running interpreter on Windows (no console window), else python."""
     exe = Path(sys.executable)
     if os.name == "nt":
+        if exe.name.lower() == "armada.exe":
+            return str(exe)  # the branded host is windowless and can run the scheduler too
         w = exe.with_name("pythonw.exe")
         if w.exists():
             return str(w)
@@ -76,8 +69,12 @@ _last_spawn = 0.0
 _SPAWN_GRACE = 20.0   # seconds a just-started scheduler gets to claim its lock before we'd start another
 
 
+def _stop_marker(pid: int) -> Path:
+    return util.data_dir() / f"scheduler-stop-{pid}"
+
+
 def start() -> dict:
-    """Start `armada schedule` detached from this process, so it outlives the window. Never raises.
+    """Start `armada schedule` with this app process as its lifetime owner. Never raises.
 
     A second click (or the window launching while the owner also clicks Start) within a few seconds
     doesn't spawn a second process: a new scheduler takes a moment to claim its lock, and until it
@@ -87,7 +84,9 @@ def start() -> dict:
     import time
     if time.monotonic() - _last_spawn < _SPAWN_GRACE:
         return {"ok": True, "starting": True}
-    cmd =[_python_for_background(), "-m", "armada", "schedule", "--engine", "claude"]
+    _stop_marker(os.getpid()).unlink(missing_ok=True)
+    cmd =[_python_for_background(), "-m", "armada", "schedule", "--engine", "auto",
+          "--app-owner", str(os.getpid())]
     flags = 0
     if os.name == "nt":
         DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW = 0x8, 0x200, 0x08000000
@@ -104,9 +103,47 @@ def start() -> dict:
     return {"ok": True, "starting": True, "pid": p.pid}
 
 
+def stop_for_app_exit() -> None:
+    """Stop all schedulers attached to this app, including pre-tray legacy daemons."""
+    import time
+    from . import activerealm, scheduler
+    marker = _stop_marker(os.getpid())
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("stop", encoding="ascii")
+    holders = {}
+    for root in activerealm.every():
+        holder = scheduler.lock_holder(root)
+        if holder and holder.get("pid") != os.getpid():
+            holders[holder["pid"]] = root
+    if not holders:
+        return
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        if all(not scheduler.lock_holder(root) for root in holders.values()):
+            return
+        time.sleep(0.2)
+    # A scheduler from an older Armada version cannot read the new stop marker.
+    # The owner chose a full quit, so it must not continue firing jobs in the background.
+    for pid, root in holders.items():
+        if not scheduler.lock_holder(root) or not util.pid_alive(pid):
+            continue
+        try:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                               capture_output=True, timeout=5, check=False, creationflags=0x08000000)
+            else:
+                import signal
+                os.kill(pid, signal.SIGTERM)
+        except (OSError, subprocess.SubprocessError):
+            swallowed(log, "stop_for_app_exit: could not stop old scheduler")
+
+
 def ensure_running(realm_root) -> dict:
     """What the app window calls on launch: start the scheduler unless one is already running for
     this realm, or the owner switched autostart off."""
+    from . import setupflow
+    if setupflow.needs_setup(realm_root):
+        return {"ok": True, "skipped": "setup in progress"}
     st = status(realm_root)
     if st["running"]:
         return {"ok": True, "already": True, **st}

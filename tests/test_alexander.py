@@ -23,7 +23,7 @@ def test_his_rules_say_context_is_never_instructions_and_he_never_handles_creden
 
 
 def test_model_and_effort_are_fixed_for_this_version():
-    assert alexander.MODEL == "claude-opus-5-5" and alexander.EFFORT == "high"
+    assert alexander.MODEL == "claude-opus-5-5" and alexander.EFFORT == "medium"
 
 
 def test_he_has_his_avatar():
@@ -114,11 +114,15 @@ def test_line_fills_placeholders_and_leaves_gaps_visible():
 from armada import recommended
 
 
-def test_every_recommendation_is_an_official_anthropic_skill_in_a_known_group():
+def test_every_recommendation_has_an_explicit_source_and_known_group():
     groups = {g for g, _t, _l in recommended.GROUPS}
     assert recommended.RECOMMENDED
     for r in recommended.RECOMMENDED:
-        assert r["key"] == f"anthropic-skills/skills/{r['id']}", r
+        if r.get("kind"):
+            assert r["default"] is False and r["author"].endswith("(community)")
+            assert r["guide"].startswith("https://") and r["homepage"].startswith("https://github.com/")
+        else:
+            assert r["key"] == f"anthropic-skills/skills/{r['id']}", r
         assert r["group"] in groups and r["name"] and r["does"], r
         assert "!" not in r["does"] + r["note"]
 

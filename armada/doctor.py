@@ -7,10 +7,10 @@ provisioner (P5). It blocks only what's actually broken and prints an actionable
 from __future__ import annotations
 import shutil, sys
 from pathlib import Path
-from .engine import get_engine
+from .engine import get_engine, engine_for
 
 
-def run(realm: str | None = None, engine: str = "claude") -> int:
+def run(realm: str | None = None, engine: str = "auto") -> int:
     checks: list[tuple[str, bool, str]] = []
 
     checks.append(("Python ≥ 3.10", sys.version_info >= (3, 10),
@@ -18,6 +18,7 @@ def run(realm: str | None = None, engine: str = "claude") -> int:
     git = shutil.which("git")
     checks.append(("Git present", bool(git), git or "not found — needed for realm versioning/backup"))
 
+    engine = engine_for(realm or ".", override=engine)
     ok, detail = get_engine(engine).doctor()
     checks.append((f"Engine '{engine}'", ok, detail))
 

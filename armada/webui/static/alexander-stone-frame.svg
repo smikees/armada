@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <!-- Plain circular stone bezel: broad outer bevel and recessed inner lip, without ornaments. -->
+  <defs>
+    <linearGradient id="stone-face" x1="0" y1="0" x2=".75" y2="1">
+      <stop stop-color="#b6b7af"/><stop offset=".3" stop-color="#cacbc2"/>
+      <stop offset=".55" stop-color="#eeece4"/><stop offset=".8" stop-color="#c2c3b9"/>
+      <stop offset="1" stop-color="#a5a79e"/>
+    </linearGradient>
+    <linearGradient id="stone-lip" x1="0" y1="0" x2=".75" y2="1">
+      <stop stop-color="#eeeae0"/><stop offset=".32" stop-color="#d4d2c7"/>
+      <stop offset=".62" stop-color="#9d9f94"/><stop offset="1" stop-color="#85877e"/>
+    </linearGradient>
+    <mask id="ring"><rect width="96" height="96" fill="white"/><circle cx="48" cy="48" r="40" fill="black"/></mask>
+  </defs>
+  <g mask="url(#ring)">
+    <circle cx="48" cy="48" r="47.5" fill="url(#stone-face)"/>
+    <circle cx="48" cy="48" r="43" fill="url(#stone-lip)"/>
+    <circle cx="48" cy="48" r="47" fill="none" stroke="#777b70" stroke-opacity=".55" stroke-width=".75"/>
+    <circle cx="48" cy="48" r="43" fill="none" stroke="#f4f0e6" stroke-opacity=".55" stroke-width=".6"/>
+    <circle cx="48" cy="48" r="40.35" fill="none" stroke="#61665c" stroke-opacity=".75" stroke-width=".7"/>
+  </g>
+</svg>

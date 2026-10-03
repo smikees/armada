@@ -18,7 +18,7 @@ from ._base import (  # base layer carved out in Phase 3
     E, _STAR, _md_inline, _md, _page_title, _chip, _poss, _REVEAL_JS)
 from .consumption import (  # carved out in Phase 3 (pure lower layer)
     _MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE, _CONSUMPTION_STOPS,
-    _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js, _model_is_claude)
+    _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js, _picker_model_mark, _cost_bar, _model_is_claude)
 from .schedfmt import (  # carved out in Phase 3 (pure lower layer)
     _DOW_NAME, _humanize, _cadence_bucket, _sysjob_cadence_bucket, _status_bucket, _STATUS_FILTERS,
     _CADENCE_FILTERS, _next_run_dt, _ordinal, _next_hint, _fmt_ts)
@@ -178,11 +178,11 @@ def _ver_tuple(label: str) -> tuple:
 
 def _model_color_map(labels) -> dict:
     """label → colour by token-consumption index on the shared gradient (light = low, dark = high).
-    All versions of a family share a price tier, so they share a colour; non-Claude labels fall back."""
+    All versions of a family share a tier; non-provider labels fall back."""
     out: dict[str, str] = {}
     fb = 0
     for lb in dict.fromkeys(labels):
-        if _model_is_claude(lb):
+        if _model_is_claude(lb) or models.is_codex_model(lb) or models.is_gemini_model(lb):
             out[lb] = _consumption_color(models.model_index(lb))
         else:
             out[lb] = _MODEL_CLR.get(lb) or _MODEL_FALLBACK[fb % len(_MODEL_FALLBACK)]
@@ -199,7 +199,7 @@ def _htok(n: int) -> str:
     return str(n)
 
 
-def _totals_30d(realm, realm_root, today: datetime.date):
+def _totals_30d(realm, realm_root, today: datetime.date, *, details=False):
     """Epoch-aware rolling-30-day (today-29 … today) token + api-eq totals from run telemetry.
     THE single source for both the Overview header KPIs (server-rendered) and the Usage endpoint's
     total_30d/usd_30d, so the header value doesn't change when usage.js refreshes it on load."""
@@ -211,23 +211,30 @@ def _totals_30d(realm, realm_root, today: datetime.date):
         swallowed(log, '_totals_30d: failed; using a default')
         epoch = ""
     agents = ([realm.coordinator] if realm.coordinator else []) + list(realm.members)
-    tok, usd = 0, 0.0
-    for a in agents:
-        for ev in _runs(realm_root, a.id):
-            dd = str(ev.get("ts", ""))[:10]
-            if len(dd) != 10 or dd < lo30 or (epoch and dd < epoch):
-                continue
-            tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
-            tok += int(tk.get("total", 0) or 0)
-            usd += float(tk.get("api_equiv_usd", 0) or 0)
-    for ev in sysusage.runs(realm_root):          # ARMADA's own spend counts in every total
+    from ..token_cost import for_run
+    tok, usd, known_tok, known_usd, unknown_tok, unknown_usd = 0, 0., 0, 0, 0, 0
+    records = (ev for a in agents for ev in _runs(realm_root, a.id))
+    import itertools
+    for ev in itertools.chain(records, sysusage.runs(realm_root)):
         dd = str(ev.get("ts", ""))[:10]
-        if len(dd) != 10 or dd < lo30 or (epoch and dd < epoch):
+        if len(dd) != 10 or dd < lo30 or dd > today.isoformat() or (epoch and dd < epoch):
             continue
         tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
-        tok += int(tk.get("total", 0) or 0)
-        usd += float(tk.get("api_equiv_usd", 0) or 0)
-    return tok, round(usd, 2)
+        if tk.get('total') is None:
+            unknown_tok += 1
+        else:
+            tok += int(tk['total']); known_tok += 1
+        cost = for_run(ev)
+        if cost is None:
+            unknown_usd += 1
+        else:
+            usd += cost; known_usd += 1
+    total = tok if known_tok or not unknown_tok else None
+    cost = round(usd, 2) if known_usd or not unknown_usd else None
+    if details:
+        return {'total_30d': total, 'usd_30d': cost,
+                'unknown_token_runs_30d': unknown_tok, 'unknown_cost_runs_30d': unknown_usd}
+    return total, cost
 
 
 def _usage_stats(realm, realm_root: Path, today: datetime.date):
@@ -245,16 +252,16 @@ def _usage_stats(realm, realm_root: Path, today: datetime.date):
                 continue
             tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
             t = int(tk.get("total", 0) or 0)
-            usd = float(tk.get("api_equiv_usd", 0) or 0)
+            usd = float(tk["api_equiv_usd"]) if tk.get("api_equiv_usd") is not None else None
             atok += t
-            ausd += usd
+            ausd = ausd + usd if ausd is not None and usd is not None else None
             lbl = _pretty_model(ev.get("model"))
             m = per_model.setdefault(lbl, {"tok": 0, "usd": 0.0})
             m["tok"] += t
-            m["usd"] += usd
+            m["usd"] = m["usd"] + usd if m["usd"] is not None and usd is not None else None
         per_agent.append((a, atok, ausd))          # every agent, even idle ones
         total_tok += atok
-        total_usd += ausd
+        total_usd = total_usd + ausd if total_usd is not None and ausd is not None else None
     per_agent.sort(key=lambda x: (-x[1], x[0].display.lower()))   # top-usage → least
     # every available model (from the catalog) + any recorded model, with its token use
     labels: list[str] = []
@@ -278,19 +285,31 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
     graph: a stacked time series (weekly = last 7 days; monthly = last 12 months),
     split per agent (default) or per model."""
     realm_root = Path(realm_root)
+    from ..token_cost import for_run
     today = clock.today()
     agents = ([realm.coordinator] if realm.coordinator else []) + list(realm.members)
     agent_color = {a.display: (_agent_stored_color(realm_root, a.id) or _AGENT_PALETTE[i % len(_AGENT_PALETTE)])
                    for i, a in enumerate(agents)}
     recs = []   # (date_iso, agent_display, model_label, tokens, usd)
+    model_ids = {}  # Keep concrete ids: catalog display names aren't provider identifiers.
+
+    def usage_model(value):
+        mid = str(value or "").strip()
+        if not mid:
+            return "Model not reported"
+        if mid.lower() == "codex:default":
+            return "Model not reported (Codex)"
+        label = _pretty_model(mid)
+        model_ids[label] = mid
+        return label
     for a in agents:
         for ev in _runs(realm_root, a.id):
             dd = str(ev.get("ts", ""))[:10]
             if len(dd) != 10:
                 continue
             tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
-            recs.append((dd, a.display, _pretty_model(ev.get("model")),
-                         int(tk.get("total", 0) or 0), float(tk.get("api_equiv_usd", 0) or 0)))
+            recs.append((dd, a.display, usage_model(ev.get("model")),
+                         int(tk["total"]) if tk.get("total") is not None else None, for_run(ev)))
     # System — ARMADA's own spend (system jobs that call Claude, Alexander's support turns). A
     # default line in every usage view, even at zero, so the owner can see it's accounted for.
     agent_color[sysusage.NAME] = sysusage.COLOR
@@ -299,8 +318,8 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
         if len(dd) != 10:
             continue
         tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
-        recs.append((dd, sysusage.NAME, _pretty_model(ev.get("model")),
-                     int(tk.get("total", 0) or 0), float(tk.get("api_equiv_usd", 0) or 0)))
+        recs.append((dd, sysusage.NAME, usage_model(ev.get("model")),
+                     int(tk["total"]) if tk.get("total") is not None else None, for_run(ev)))
 
     # usage epoch: a clean-slate cutoff (realm.json 'usage_epoch', ISO date). Runs before it are kept
     # on disk (job history/calendars still use them) but excluded from usage totals, so usage can be
@@ -316,19 +335,25 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
     # rolling-30-day totals (epoch-aware) — surfaced on every response so the Overview header's
     # Tokens/30d KPI can refresh on the Usage widget's cadence instead of only at page load. Same
     # helper the header uses at render time, so the two never disagree (no jump on load).
-    total_30d, usd_30d = _totals_30d(realm, realm_root, today)
+    totals = _totals_30d(realm, realm_root, today, details=True)
 
-    # model universe = currently-available models (from the synced catalog) + any model actually used
-    # in the data (so a since-retired model still appears); coloured by family, newest = strongest.
+    # Concrete available models + recorded models. "Codex default" is a selector,
+    # not a model. Unattributed usage gets a row only when there are tokens to account for.
     model_universe: list[str] = []
     for mid, _lab in models.options(realm_root):
-        p = _pretty_model(mid)
+        if not mid or mid.lower() in ("codex:default", "gemini:auto", "gemini:default"):
+            continue
+        p = usage_model(mid)
         if p not in model_universe:
             model_universe.append(p)
     for _dd, _disp, lbl, _t, _u in recs:
-        if lbl not in model_universe:
+        if lbl in model_ids and lbl not in model_universe:
             model_universe.append(lbl)
-    model_colors = _model_color_map(model_universe)
+    model_colors = {p: _model_color_map([mid])[mid] for p, mid in model_ids.items()}
+
+    def quota_impact(label):
+        mid = model_ids.get(label, "")
+        return models.base_cost(mid) if _model_is_claude(mid) or models.is_codex_model(mid) or models.is_gemini_model(mid) else 0
 
     if mode == "graph":
         by = "models" if by == "models" else "agents"
@@ -357,9 +382,13 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
             bkey = lambda dd: dd
         keys = {k for k, _ in order}
         perbucket = {k: {} for k in keys}
+        unknown_runs = 0
         for dd, disp, lbl, tok, _u in recs:
             k = bkey(dd)
             if k not in perbucket:
+                continue
+            if tok is None:
+                unknown_runs += 1
                 continue
             seg = disp if by == "agents" else lbl
             perbucket[k][seg] = perbucket[k].get(seg, 0) + tok
@@ -370,14 +399,16 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
         def seg_color(name, i):
             if by == "agents":
                 return agent_color.get(name, _AGENT_PALETTE[i % len(_AGENT_PALETTE)])
-            return model_colors.get(name) or _model_color(name, i)
+            return model_colors.get(name) or "var(--color-neutral-400)"
         bars = []
         for k, label in order:
-            segs = sorted(perbucket[k].items(), key=lambda kv: -kv[1])
+            segs = sorted(perbucket[k].items(), key=lambda kv:
+                          (-quota_impact(kv[0]), kv[0].lower()) if by == "models" else (-kv[1], kv[0].lower()))
             segments = [{"name": s, "tok": v, "color": seg_color(s, kidx.get(s, 0))} for s, v in segs if v > 0]
             bars.append({"label": label, "tok": sum(perbucket[k].values()), "segments": segments})
         return {"mode": "graph", "window": window, "by": by, "bars": bars,
-                "total": sum(b["tok"] for b in bars), "total_30d": total_30d, "usd_30d": usd_30d}
+                "total": sum(b["tok"] for b in bars), **totals,
+                "unknown_runs": unknown_runs}
 
     # line mode
     if window == "today":
@@ -391,30 +422,38 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
     per_agent[sysusage.NAME] = 0
     per_model: dict[str, int] = {}
     total, usd = 0, 0.0
+    unknown_runs = 0
     for dd, disp, lbl, tok, u in recs:
         if dd < loi or dd > hii:
+            continue
+        usd = usd + u if usd is not None and u is not None else None
+        if tok is None:
+            unknown_runs += 1
             continue
         per_agent[disp] = per_agent.get(disp, 0) + tok
         per_model[lbl] = per_model.get(lbl, 0) + tok
         total += tok
-        usd += u
     labels = list(model_universe)                 # available + used (retired-but-used included)
     for p in per_model:
-        if p not in labels:
+        if per_model[p] > 0 and p not in labels:
             labels.append(p)
-    labels.sort(key=lambda p: (-per_model.get(p, 0), p.lower()))
+    labels.sort(key=lambda p: (per_model.get(p, 0) <= 0, -quota_impact(p), p.lower()))
     model_rows = [{"label": p, "tok": per_model.get(p, 0),
-                   "color": model_colors.get(p) or _model_color(p, i),
-                   "claude": _model_is_claude(p)} for i, p in enumerate(labels)]
+                   "color": model_colors.get(p) or "var(--color-neutral-400)",
+                   "claude": _model_is_claude(model_ids.get(p, "")),
+                   "provider": ("gemini" if models.is_gemini_model(model_ids.get(p, "")) else "codex" if models.is_codex_model(model_ids.get(p, "")) else
+                                "claude" if _model_is_claude(model_ids.get(p, "")) else ""),
+                   "description": ("Recorded tokens whose actual model was not reported by the provider."
+                                   if p not in model_ids else p)} for p in labels]
     agents_list = sorted(({"name": a.display, "tok": per_agent.get(a.display, 0),
                            "color": agent_color.get(a.display)} for a in agents),
                          key=lambda x: (-x["tok"], x["name"].lower()))
     # System is always the last row, whatever it spent: it's ARMADA's line, not one of the team's.
     agents_list.append({"name": sysusage.NAME, "tok": per_agent.get(sysusage.NAME, 0),
                         "color": sysusage.COLOR, "system": True})
-    return {"mode": "line", "window": window, "total": total, "usd": round(usd, 2),
-            "total_30d": total_30d, "usd_30d": usd_30d,
-            "agents": agents_list, "models": model_rows}
+    return {"mode": "line", "window": window, "total": total, "usd": round(usd, 2) if usd is not None else None,
+            **totals,
+            "agents": agents_list, "models": model_rows, "unknown_runs": unknown_runs}
 
 
 def _jc_norm(st) -> str:

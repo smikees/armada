@@ -1,19 +1,31 @@
-// Live-recolour the Configure avatar preview as the colour changes, before Save. The colour is the
-// plume under the avatar now, not its ring — the ring is the same grey as every other border — so
-// this rebuilds the gradient. Kept in step with _colour_plume() in agentbits.py: same three stops.
-function mcAvPreview(col){document.querySelectorAll('#c-avatar-prev .mc-avglow')
-  .forEach(g=>{const w=Math.round(g.offsetWidth/2),h=g.offsetHeight;
-    g.style.background='radial-gradient(ellipse '+w+'px '+h+'px at 50% 0%,'
-      +'color-mix(in srgb,'+col+' 62%,transparent) 0%,'
-      +'color-mix(in srgb,'+col+' 26%,transparent) 42%,transparent 75%)';});}
-function mcPickColor(el){const fid=el.dataset.fid,c=el.dataset.c;document.getElementById(fid).value=c;
-  const pk=document.getElementById(fid+'-pick'); if(pk&&/^#/.test(c))pk.value=c;
-  el.parentNode.querySelectorAll('.mc-color-sw').forEach(s=>{const on=s===el;
-    s.style.boxShadow='0 0 0 2px '+(on?'var(--color-text)':'transparent')+',0 0 0 4px var(--color-bg)';});
-  const cir=document.getElementById(fid+'-circle'); if(cir){cir.style.background='transparent';cir.style.border='2px dashed var(--color-divider)';}
-  mcAvPreview(c);}
-function mcColorCustom(fid,v){document.getElementById(fid).value=v;
-  const pk=document.getElementById(fid+'-pick'); if(pk)document.querySelectorAll('.mc-color-sw[data-fid="'+fid+'"]')
-    .forEach(s=>{s.style.boxShadow='0 0 0 2px transparent,0 0 0 4px var(--color-bg)';});
-  const cir=document.getElementById(fid+'-circle'); if(cir){cir.style.background=v;cir.style.border='2px solid '+v;}
-  mcAvPreview(v);}
+// Preview the current portrait's colour disc without saving the agent configuration.
+function mcAvPreview(col){document.querySelectorAll('#c-avatar-prev .mc-avdisc,#mc-agent-header .mc-avdisc')
+  .forEach(d=>{d.style.background=col;});}
+function mcColorChanged(fid,col){const input=document.getElementById(fid);input.value=col;
+  if(fid==='c-color')mcAvPreview(col);
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  input.dispatchEvent(new Event('change',{bubbles:true}));}
+function mcPickColor(el){const fid=el.dataset.fid,c=el.dataset.c;
+  el.parentNode.querySelectorAll('.mc-color-sw').forEach(s=>s.classList.toggle('is-selected',s===el));
+  const cir=document.getElementById(fid+'-circle'); if(cir)cir.classList.remove('is-selected');
+  mcColorChanged(fid,c);}
+function mcColorCustom(fid,v){document.querySelectorAll('.mc-color-sw[data-fid="'+fid+'"]')
+    .forEach(s=>s.classList.remove('is-selected'));
+  if(!/^#[0-9a-f]{6}$/i.test(v))return;
+  const picker=document.getElementById(fid+'-pick');if(picker)picker.value=v;
+  const cir=document.getElementById(fid+'-circle'); if(cir){cir.dataset.color=v;cir.classList.add('is-selected');cir.style.background=v;cir.style.border='2px solid '+v;}
+  const input=document.getElementById(fid);
+  try{localStorage.setItem('mc-custom-color:'+input.dataset.colorKey,v);}catch(e){}
+  mcColorChanged(fid,v);}
+function mcSelectCustom(fid){const cir=document.getElementById(fid+'-circle');
+  if(cir&&cir.dataset.color)mcColorCustom(fid,cir.dataset.color);
+  else document.getElementById(fid+'-pick').click();}
+function mcRestoreCustomColors(){document.querySelectorAll('[data-color-key]').forEach(input=>{
+  const cir=document.getElementById(input.id+'-circle');if(!cir)return;
+  let color='';try{color=localStorage.getItem('mc-custom-color:'+input.dataset.colorKey)||'';}catch(e){}
+  if(cir.classList.contains('is-selected')){color=input.value;
+    try{localStorage.setItem('mc-custom-color:'+input.dataset.colorKey,color);}catch(e){}}
+  if(/^#[0-9a-f]{6}$/i.test(color)){cir.dataset.color=color;cir.style.background=color;cir.style.border='2px solid '+color;
+    const picker=document.getElementById(input.id+'-pick');if(picker)picker.value=color;}
+});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mcRestoreCustomColors);else mcRestoreCustomColors();

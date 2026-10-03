@@ -162,24 +162,29 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
     model = jc.get("model") or ""
     effort = jc.get("effort") or ""
     thread = jc.get("thread", "main")
-    onfail = jc.get("on_failure", "Retry ×3, then alert me")
+    from ..job_retries import count as retry_count
+    retries = retry_count(jc)
+    retry_options = ''.join(f'<option value="{n}" {"selected" if retries == n else ""}>'
+                            f'{"No retries" if n == 0 else str(n) + " retry" if n == 1 else str(n) + " retries"}</option>'
+                            for n in range(4))
     budget = jc.get("budget", "")
     allowed = jc.get("allowed_skills") or [s.id for s in a.skills]
-
-    runs = [ev for ev in _runs(realm_root, a.id) if ev.get("task") == job_id][-12:][::-1]
-    hist = "".join(f'<tr><td class="mono" style="font-size:11px">{E(_fmt_ts(ev.get("ts","")))}</td>'
-                   f'<td style="color:{status.color(ev.get("status",""))};font-size:11.5px">{E(str(ev.get("status","")))}</td>'
-                   f'<td style="font-size:11.5px">{E(str(ev.get("summary",""))[:90])}{_ask_alexander(a.id, job_id, ev)}</td>'
-                   f'<td class="mono" style="font-size:11px;text-align:right">{(ev.get("tokens") or {}).get("total","") if isinstance(ev.get("tokens"),dict) else ""}</td></tr>' for ev in runs) \
-           or '<tr><td colspan=4 style="font-size:11.5px;color:var(--text-muted)">no runs yet</td></tr>'
 
     day_circles = "".join(
         f'<span class="mc-day" data-dow="{dow}" onclick="mcTglDay(this)" style="width:30px;height:30px;border-radius:50%;'
         f'display:grid;place-items:center;cursor:pointer;font-size:11px;border:1px solid var(--color-divider);'
         f'{"background:var(--color-accent-100);border-color:var(--color-accent-300);color:var(--color-accent-800)" if dow in sel_days else ""}">{lbl}</span>'
         for lbl, dow in _DOWS)
-    model_opts = _model_options(realm_root, model, inherit=True)
-    effort_opts = _effort_options(realm_root, effort, inherit=True)
+    from .. import verbosity as V
+    agent_model, agent_effort = _agent_model_effort(realm, realm_root, a.id)
+    agent_verbosity = V.agent_level(realm_root, a.id)
+    model_opts = (f'<option value="">Inherit agent ({E(_model_chip_label(agent_model)[1])})</option>'
+                  + _model_options(realm_root, model))
+    effort_opts = (f'<option value="">Inherit agent ({E(agent_effort)})</option>'
+                   + _effort_options(realm_root, effort))
+    verb_opts = (f'<option value="">Inherit agent ({E(V.label(agent_verbosity))})</option>' + ''.join(
+        f'<option value="{k}" {"selected" if jc.get("verbosity") == k else ""}>{E(lab)} — {E(desc)}</option>'
+        for k, (lab, desc, _) in V.LEVELS.items()))
     skill_chips = "".join(
         f'<label style="display:inline-flex;gap:5px;align-items:center;margin:0 8px 6px 0;font-size:12px">'
         f'<input type="checkbox" class="mc-skill" value="{E(s.id)}" {"checked" if s.id in allowed else ""}>{E(s.id)}</label>'
@@ -204,9 +209,8 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<div><label style="{lbl}">Kind</label><select id="j-kind" style="{field}">'
         f'<option value="agent" {"selected" if kind=="agent" else ""}>Agent · prompt</option>'
         f'<option value="command" {"selected" if kind=="command" else ""}>Command · script</option></select></div>'
-        f'<div><label style="{lbl}">Target thread</label><input id="j-thread" value="{E(thread)}" style="{field}"></div>'
-        f'<div><label style="{lbl}">Model</label><select id="j-model" style="{field}">{model_opts}</select></div>'
-        f'<div><label style="{lbl}">Effort</label><select id="j-effort" style="{field}">{effort_opts}</select></div></div>'
+        f'<input type="hidden" id="j-thread" value="{E(thread)}">'
+        f'</div>'
         f'<label style="{lbl};display:inline-flex;align-items:center;gap:5px">Cadence'
         f'<span onclick="mcCronHelp(true)" title="What is cron?" style="cursor:pointer;display:inline-flex;'
         f'color:var(--text-faint)">{_icon("info",13)}</span></label>'
@@ -222,34 +226,25 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<div id="j-next" style="font-size:11px;color:var(--text-muted);margin-top:6px"></div></div>'
         f'<label style="{lbl}">Allowed skills</label><div>{skill_chips}</div>'
         f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-        f'<div><label style="{lbl}">On failure</label><input id="j-onfail" value="{E(onfail)}" style="{field}"></div>'
-        f'<div><label style="{lbl}">Budget / run</label><input id="j-budget" value="{E(budget)}" placeholder="8k tokens" style="{field}"></div></div>'
+        f'<div><label style="{lbl}">On failure</label><select id="j-onfail" style="{field}">{retry_options}</select>'
+        f'<small>Retry failed execution after 30s, 1m and 2m. Completed, stopped or uncertain-delivery runs are not repeated.</small></div>'
+        f'<div><label style="{lbl}">Budget / run</label><input id="j-budget" value="{E(budget)}" placeholder="E.g. 10K token" style="{field}"></div></div>'
         )
 
-    # Run history leads this column. It used to sit under a Run-now button and an output pane that
-    # is empty on arrival, so the thing you came to read started below the fold on a page whose
-    # other half is a form.
     execution = (
-        f'<div class="mc-h-card" style="margin-bottom:6px">Run history</div>'
-        f'<table class="table" style="font-size:12px"><thead><tr><th>When</th><th>Status</th><th>Summary</th><th style="text-align:right">Tokens</th></tr></thead>'
-        f'<tbody>{hist}</tbody></table>'
-        f'<pre id="j-out" style="display:none;margin-top:10px;background:var(--color-sand-100);border:1px solid var(--color-sand-300);color:var(--color-text);'
-        f'border-radius:var(--r);padding:10px;white-space:pre-wrap;max-height:300px;overflow:auto;resize:vertical;font-size:11.5px"></pre>')
+        f'<div class="mc-h-card" style="margin-bottom:6px">Model and output</div>'
+        f'<p style="font-size:13px;color:var(--text-muted)">Inherit the agent’s settings, or choose a combination for this job.</p>'
+        f'<label style="{lbl}">Model</label><select id="j-model" style="{field}">{model_opts}</select>'
+        f'<label style="{lbl}">Effort</label><select id="j-effort" style="{field}">{effort_opts}</select>'
+        f'<label style="{lbl}">Output verbosity</label><select id="j-verbosity" style="{field}">{verb_opts}</select>'
+        f'<p style="font-size:11.5px;color:var(--text-muted)">Verbosity controls how much the agent writes back. Run output and history are available in the Jobs list.</p>')
 
-    # Every action on one bar at the foot of the page, rather than Save buried mid-form and Run at
-    # the top of the other column — the two things you do when you are finished were the two
-    # furthest apart on the page. Sized exactly like the buttons in an expanded job row, because
-    # these are the same four actions and the two views should not look like two products. Delete
-    # sits in the line with the rest rather than pushed to the far edge: it reads as one of the
-    # things you can do here, and it asks twice before it does anything.
+    # Editing stays focused on definition and model choices; runs are launched in the list.
     actions = (
         f'<div style="display:flex;gap:8px;align-items:center;margin-top:20px;padding-top:14px;'
         f'border-top:1px solid var(--color-divider)">'
         f'<button class="btn btn-primary btn-sm" '
         f'onclick="mcSaveJob({_J(a.id)},{_J(job_id)})">Save</button>'
-        f'<button class="btn btn-secondary btn-sm" '
-        f'onclick="mcRunJob({_J(a.id)},{_J(job_id)},\'claude\')">'
-        f'{_icon("play",12)}Run now</button>'
         f'<a href="/agent/{E(a.id)}/jobs" class="btn btn-secondary btn-sm" style="text-decoration:none">'
         f'Back to jobs</a>'
         f'<button class="btn btn-secondary is-danger btn-sm" '
@@ -266,13 +261,16 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
               # Created moved here from a column on the Jobs list. It is worth knowing once, when
               # you are looking at this job; it was not worth a column on a page you scan.
               f'<span style="font-size:12px;color:var(--text-muted)">owned by {E(a.display)} · '
-              f'{_humanize(cadence)} · → {E(thread)}'
+              f'{_humanize(cadence)}'
               + (f' · created {E(_job_created(realm_root, agent_id, job_id, jc))}'
                  if _job_created(realm_root, agent_id, job_id, jc) else "")
               + f'</span></div>')
     body = (f'{crumb}{header}<div class="mc-appscroll" style="flex:1;min-height:0;overflow:auto;padding:8px 24px 24px">'
-            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
+            f'<div class="mc-job-edit-columns">'
             f'<div>{definition}</div><div>{execution}</div></div>{actions}</div>{_CRON_HELP}')
+    body += (f'<template id="mc-job-chevron">{CHEVR}</template>' + _FDROP_JS
+             + '<script>["j-kind","j-model","j-effort","j-verbosity","j-onfail"].forEach(id=>{'
+               'mcFDFromSelect(document.getElementById(id),document.getElementById("mc-job-chevron").content.firstElementChild);});</script>')
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{brand.NAME} — {E(name)}</title>
 {_CSS_LINKS}{_theme_style()}</head>
@@ -327,15 +325,17 @@ def _telegram_box() -> str:
              'are we to tech?</code> and it lands in Warren\'s main thread — same context, same '
              'autonomy, same capabilities — and the answer comes back to the chat. It\'s a real '
              'thread turn, so it\'s in the app afterwards too.</div>')
+    def frame(body, details):
+        return ('<div class="mc-frame" style="border-radius:var(--r);padding:14px 16px;margin-bottom:14px">'
+                f'<div class="mc-telegram-head">{_icon("telegram-logo",20)}<strong>Telegram</strong>'
+                f'<div class="mc-telegram-details">{details}</div></div>{intro}{body}</div>')
     if st["linked"]:
         who = f" · linked to {E(st['chat_name'])}" if st["chat_name"] else ""
         src = {"environment": "from environment variables", "env file": f"reading {E(st['env_file'])}",
                "ARMADA": "token held by ARMADA"}.get(st["source"], st["source"])
-        head = (f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
-                f'{_pill("connected", "ok")}'
-                f'<span style="font-size:12.5px">@{E(st["bot"]) or "your bot"}{who}</span>'
-                f'<span style="font-size:11px;color:var(--text-muted)">· {src}</span></div>'
-                f'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+        details = (f'{_pill("connected", "ok")}'
+                   f'<span>@{E(st["bot"]) or "your bot"}{who} · {src}</span>')
+        head = (f'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
                 f'<button class="btn btn-secondary btn-sm" '
                 f'onclick="mcTgTest(this)">Send a test message</button>'
                 f'<button class="btn btn-secondary btn-sm" '
@@ -343,7 +343,7 @@ def _telegram_box() -> str:
                 f'<button class="btn btn-secondary is-danger btn-sm" '
                 f'onclick="mcTgForget(this)">Disconnect</button>'
                 f'<span id="st-tg-msg" style="font-size:11.5px;color:var(--text-muted)"></span></div>')
-        return intro + head
+        return frame(head, details)
     # Not connected (or connected but not yet pointed at a chat).
     token_row = (
         f'<div style="margin-bottom:12px"><label class="mc-label" style="margin-top:0">Step 1 — bot token</label>'
@@ -373,8 +373,9 @@ def _telegram_box() -> str:
         f'only ever listen to that one — a bot is reachable by anyone who knows its name.</div>'
         f'<button class="btn btn-primary" '
         f'onclick="mcTgLink(this)">I\'ve messaged the bot</button></div>')
-    return (intro + token_row + env_row + link_row
-            + '<div id="st-tg-msg" style="font-size:11.5px;color:var(--text-muted);margin-top:8px"></div>')
+    details = ('<span>Bot configured · Link your chat</span>' if st['configured'] else '<span>Not connected</span>')
+    return frame(token_row + env_row + link_row
+                 + '<div id="st-tg-msg" style="font-size:11.5px;color:var(--text-muted);margin-top:8px"></div>', details)
 
 
 def _a2a_defaults_box(realm_root) -> str:
@@ -432,14 +433,11 @@ def _approot_box() -> str:
     elif root:
         note, colour = f"{root} isn't on this machine — realms can't start.", "var(--status-bad)"
     else:
-        note, colour = ("Not set. Pick the folder ARMADA should work in before adding a realm.",
+        note, colour = ("Not set.",
                         "var(--status-warn)")
     return (f'<div style="max-width:520px">'
             f'<label class="mc-label" style="margin-top:0">Root folder</label>'
-            f'<div style="display:flex;gap:8px;align-items:center">'
-            f'<input id="st-approot" value="{E(root)}" placeholder="D:\\Work2" class="mc-field" style="flex:1">'
-            f'<button class="mc-frame" style="padding:7px 12px;border-radius:var(--r);font-size:12px;'
-            f'cursor:pointer;white-space:nowrap" onclick="mcRootSave(this)">Save</button></div>'
+            f'<code id="st-approot" class="mc-settings-path">{E(root) or "Not set"}</code>'
             f'<div id="st-approot-msg" style="font-size:11px;color:{colour};margin-top:5px">{E(note)}</div>'
             f'<div style="font-size:11.5px;color:var(--text-muted);margin-top:8px;line-height:1.5">'
             f'The one folder on this machine ARMADA works in. Every realm has to live inside it, '
@@ -461,25 +459,39 @@ def _workspace_box(realm, cfg) -> str:
     elif root:
         note, colour = f"Not found on this machine — jobs that use it will fail.", "var(--status-bad)"
     else:
-        note, colour = ("Not set. Set this if your jobs read or write files outside the realm.",
+        note, colour = ("Not set.",
                         "var(--text-muted)")
     return (f'<div style="margin-top:14px;max-width:520px">'
             f'<label class="mc-label">Workspace folder</label>'
-            f'<div style="display:flex;gap:8px;align-items:center">'
-            f'<input id="st-ws" value="{E(root)}" placeholder="D:\\Work" class="mc-field" style="flex:1">'
-            f'<button class="mc-frame" style="padding:7px 12px;border-radius:var(--r);font-size:12px;'
-            f'cursor:pointer;white-space:nowrap" onclick="mcWsSave(this)">Save</button></div>'
+            f'<code id="st-ws" class="mc-settings-path">{E(root) or "Not set"}</code>'
             f'<div id="st-ws-msg" style="font-size:11px;color:{colour};margin-top:5px">{E(note)}</div>'
             f'<div style="font-size:11.5px;color:var(--text-muted);margin-top:8px;line-height:1.5">'
             f'Write <code>{{workspace}}</code> in a job prompt instead of a full path and ARMADA '
             f'fills it in when the job runs. That way the job still works if this realm moves to '
-            f'another computer — you set this folder once and every job follows.</div>'
+            f'another computer — every job follows the configured workspace.</div>'
             f'<div style="margin-top:8px">'
             f'<button class="mc-frame" style="padding:6px 11px;border-radius:var(--r);font-size:12px;'
             f'cursor:pointer;display:inline-flex;align-items:center;gap:6px" '
             f'onclick="mcWsMigrate(this)">{_icon("batch-job",18)}Make existing jobs portable…</button>'
             f'<span id="st-ws-mig" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span>'
             f'</div></div>')
+
+
+def _settings_actions(kind: str, note: str) -> str:
+    save = {"realm": "mcSaveRealmSettings()", "user": "mcSaveUser()",
+            "app": "mcSaveAppSettings()"}[kind]
+    msg = {"realm": "st-msg", "user": "us-msg", "app": "app-msg"}[kind]
+    return (f'<aside class="mc-settings-actions">'
+            f'<div style="display:flex;gap:8px">'
+            f'<button type="button" class="btn btn-primary" style="color:#fff;font-size:12.5px;'
+            f'padding:7px 4px;flex:1" onclick="{save}">Save</button>'
+            f'<button type="button" class="btn btn-secondary" style="font-size:12.5px;'
+            f'padding:7px 4px;flex:1" onclick="mcSettingsCancel()">Cancel</button></div>'
+            f'<div id="{kind}-saved" style="display:none;align-items:center;gap:5px;'
+            f'font-size:12px;color:var(--status-ok);font-weight:600">'
+            f'{_icon("circle-check", 14)}<span>Saved</span></div>'
+            f'<div id="{msg}" style="font-size:11px;color:var(--text-muted);line-height:1.45">'
+            f'{E(note)}</div></aside>')
 
 
 def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=False) -> str:
@@ -493,9 +505,12 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
     dmaxbudget = cfg.get("default_max_budget_usd")
     dmaxbudget = "" if dmaxbudget in (None, "", 0) else str(dmaxbudget)
 
-    def sect(title, body):
+    from .memoryview import _covenant_block, _covenant_modal
+
+    def sect(title, body, icon=""):
+        mark = _icon(icon, 18) + " " if icon else ""
         return (f'<div class="mc-frame" style="border-radius:var(--r);padding:14px 16px;margin-bottom:14px">'
-                f'<div class="mc-h-sect" style="margin-bottom:8px">{E(title)}</div>{body}</div>')
+                f'<div class="mc-h-sect" style="margin-bottom:8px">{mark}{E(title)}</div>{body}</div>')
 
     try:
         from .. import telegram as _tgmod
@@ -580,7 +595,8 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         """Archive / export / delete, ordered from harmless to irreversible and described that way
         — the consequence should be obvious before the click, not after."""
         p = E(str(root))
-        nm = E(Path(root).name)
+        js_path = _J(str(root))
+        js_name = _J(Path(root).name)
 
         def act(label, desc, btn, onclick, danger=False):
             col = "var(--status-bad)" if danger else "var(--color-text)"
@@ -605,32 +621,13 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
             + act("Archive realm", "Remove this realm from ARMADA's list without touching a single "
                                    "file. The folder stays where it is and you can add it back at "
                                    "any time.",
-                  "Archive realm…", f"mcRealmArchive(this,'{p}')")
+                  "Archive realm…", f"mcRealmArchive(this,{js_path})")
             + act("Delete realm", f"Delete the folder and everything in it. On Windows it goes to the "
                             f"Recycle Bin, so it can be recovered — but nothing inside ARMADA will "
                             f"bring it back. You'll be asked to type “{Path(root).name}” "
                             f"to confirm.",
-                  "Delete realm…", f"mcRealmDelete(this,'{p}','{nm}')", danger=True))
+                  "Delete realm…", f"mcRealmDelete(this,{js_path},{js_name})", danger=True))
 
-    realm_opts = "".join(f'<option value="{E(r["path"])}" {"selected" if r["path"]==str(realm_root) else ""}>{E(r["name"])}</option>'
-                         for r in realms) or f'<option selected>{E(realm.name)}</option>'
-    # Engines a realm can run on. Multi-select now so that adding a second one (Codex, say) is a
-    # list entry rather than a reshape of the setting — and so the stored value is already a list.
-    _ENGINES = [("claude", "Claude — Max/Pro subscription", True),
-                ("codex", "OpenAI Codex", False)]
-    _enabled_engines = cfg.get("providers")
-    if not isinstance(_enabled_engines, list) or not _enabled_engines:
-        _enabled_engines = [provider]            # carry the old single value forward
-    _soon_pill = _pill("soon", style="margin-left:2px")
-
-    def _prov_row(v, lab, avail):
-        cur = "pointer" if avail else "not-allowed"
-        return (f'<label style="display:flex;align-items:center;gap:9px;font-size:12.5px;'
-                f'margin:6px 0;cursor:{cur};{"" if avail else "opacity:.5"}">'
-                f'<input type="checkbox" class="st-prov" value="{v}" '
-                f'{"checked" if v in _enabled_engines else ""}{"" if avail else " disabled"} '
-                f'style="cursor:{cur}">{E(lab)}{"" if avail else _soon_pill}</label>')
-    prov_opts = "".join(_prov_row(v, lab, avail) for v, lab, avail in _ENGINES)
     model_opts = _model_options(realm_root, dmodel)
     eff_opts = "".join(f'<option {"selected" if e==deffort else ""}>{E(e)}</option>' for e in _EFFORTS)
     fb_opts = '<option value="">None (no fallback)</option>' + _model_options(realm_root, dfallback)
@@ -648,17 +645,12 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'style="cursor:pointer;padding:4px;border-radius:var(--r);display:inline-flex;'
         f'{_SETICON_ON if ic == _cur_icon else ""}'
         f'color:var(--text-strong)">{_icon(ic,20)}</span>' for ic in _REALM_ICON_NAMES)
-    # Realm picker and its icon are the same subject and both narrow, so they share a row.
+    # Realm name and icon share a row; realm selection belongs to the header.
     realm_tab = (
         sect("Realm",
              f'<div style="display:grid;grid-template-columns:minmax(240px,1fr) minmax(400px,1.3fr);'
              f'gap:22px;align-items:start">'
-             f'<div><label class="mc-label" style="margin-top:0">Active realm</label>'
-             f'<select id="st-realm" class="mc-field" onchange="if(this.value)location.href=\'/switch?to=/settings&path=\'+encodeURIComponent(this.value)">{realm_opts}</select>'
-             # The name, directly under the picker that shows it. It is a label rather than an
-             # identity: the folder is what everything else is keyed on, so renaming is free and
-             # breaks nothing — no job, memory or run report refers to a realm by name.
-             f'<label class="mc-label">Name</label>'
+             f'<div><label class="mc-label" style="margin-top:0">Name</label>'
              f'<input id="st-realmname" value="{E(realm.name)}" maxlength="60" '
              f'placeholder="{E(Path(realm_root).name)}" class="mc-field">'
              f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">'
@@ -683,27 +675,26 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
              f'<select id="st-tz" onchange="mcTzUpdate()" class="mc-field" style="height:36px">{_tz_options(cfg.get("timezone", ""))}</select>'
              f'<div id="us-tz-time" style="font-size:11px;color:var(--text-muted);margin-top:5px">'
              f'Job schedules in this realm will be based on this time.</div></div>')
-        + sect("AI provider & defaults",
+        + sect("Model defaults",
                f'<div style="font-size:11.5px;color:var(--text-muted);margin:-2px 0 10px">'
-               f'Agents and threads inherit these unless you make specific agent and thread-level settings.</div>'
-               f'<label class="mc-label" style="margin-top:0">AI providers</label>'
-               f'<div id="st-provider" style="margin:2px 0 4px">{prov_opts}</div>'
-               f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-               f'<div><label class="mc-label">Default model</label><select id="st-model" class="mc-field">{model_opts}</select></div>'
-               f'<div><label class="mc-label">Default thinking</label><select id="st-effort" class="mc-field">{eff_opts}</select></div></div>'
-               f'<div style="margin-top:12px;max-width:420px"><label class="mc-label">Default verbosity</label>'
-               f'<select id="st-verbosity" class="mc-field">{verb_opts}</select>'
+               f'Agents and threads inherit these unless you make specific agent and thread-level settings.'
+               '<br>See connected providers in <a href="/settings?tab=app">App settings</a>.</div>'
+               f'<div class="mc-realm-model-defaults">'
+               f'<div><label class="mc-label">Default model</label><select id="st-model" data-provider-models class="mc-field">{model_opts}</select></div>'
+               f'<div><label class="mc-label">Default thinking</label><select id="st-effort" class="mc-field">{eff_opts}</select></div>'
+               f'<div><label class="mc-label">Default verbosity</label>'
+               f'<select id="st-verbosity" class="mc-field">{verb_opts}</select></div></div>'
                f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">How much your agents '
                f'write back. It never changes how much work they do, and failures, warnings and anything '
-               f'needing your approval are always spelled out in full.</div></div>'
-               f'<div id="st-cons" style="margin-top:12px"><label class="mc-label">Relative token consumption '
+               f'needing your approval are always spelled out in full.</div>'
+               f'<div id="st-cons" style="margin-top:12px"><label class="mc-label">Relative cost '
                f'<span style="text-transform:none;letter-spacing:0;color:var(--text-muted)">· default model, effort &amp; verbosity</span></label>'
-               f'<div style="display:flex;align-items:center;gap:10px">'
-               f'<span class="mc-modelmark" style="display:inline-flex;color:var(--text-muted)">{_icon("claude", 16)}</span>'
-               f'<div style="position:relative;flex:1;height:12px;border-radius:6px;background:{_consumption_gradient_css()}">'
-               f'<div id="st-consmarker" style="position:absolute;top:-3px;left:0%;transform:translateX(-50%);width:4px;height:18px;'
-               f'border-radius:3px;background:var(--color-text);box-shadow:0 0 0 2px var(--color-bg)"></div></div>'
-               f'<span style="font-size:10px;color:var(--text-muted);white-space:nowrap">low → high</span></div></div>')
+               f'{_cost_bar("st-consmarker")}</div>'
+               f'<div style="display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap">'
+               f'<button type="button" class="btn btn-secondary btn-sm" data-realm-name="{E(realm.name)}" '
+               f'onclick="mcSetAllAgentDefaults(this)">Set for all agents</button>'
+               f'<span id="st-all-agents-msg" role="status" style="font-size:11.5px;color:var(--text-muted)"></span></div>')
+        + _covenant_block(realm, realm_root) + _covenant_modal(realm_root)
         + sect("Agent-to-agent communication", _a2a_defaults_box(realm_root))
         + sect("Notifications", notif_box)
         # Realm management lives INSIDE Advanced — folded away behind a deliberate click, because
@@ -714,7 +705,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
            '<div style="font-size:11.5px;color:var(--text-muted);margin:8px 0 10px">'
            'Optional guardrails passed to Claude Code on every run. Agents inherit these unless overridden per agent.</div>'
            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-           f'<div><label class="mc-label" style="margin-top:0">Fallback model</label><select id="st-fallback" class="mc-field">{fb_opts}</select>'
+           f'<div><label class="mc-label" style="margin-top:0">Fallback model</label><select id="st-fallback" data-provider-models class="mc-field">{fb_opts}</select>'
            f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Switches to this model if the default is overloaded or unavailable.</div></div>'
            f'<div><label class="mc-label" style="margin-top:0">Max budget — USD per run</label><input id="st-maxbudget" type="number" min="0" step="0.01" value="{E(dmaxbudget)}" placeholder="no cap" class="mc-field">'
            f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Hard spend ceiling for a single run. Blank or 0 = no cap.</div></div>'
@@ -733,12 +724,10 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
            f'{_realm_manage_box(realm, realm_root)}</div>'
            '</details>'
            + _REVEAL_JS)
-        + f'<button class="btn btn-primary" onclick="mcSaveRealmSettings()">Save realm settings</button>'
-          f'<span id="st-msg" style="font-size:12px;margin-left:10px;color:var(--text-muted)"></span>')
+        )
 
     # --- App settings tab ---
     edot = "var(--status-ok)" if engine_ok else "var(--status-bad)"
-    engine_short = str(engine_detail).split(" — launcher")[0].split("launcher:")[0].strip(" —")
     ver = _m.__version__
     from .. import updater as _updater
     _installed = _updater.installed()
@@ -747,12 +736,12 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                  "Restart reloads the app with the current local code (use after a change). Check for "
                  "updates pulls from git — this is a development copy.")
     version_box = (
-        f'<div style="margin-bottom:10px">{brand.WORDMARK_SMALL}</div>'
+        f'<div class="mc-version-heading">{brand.WORDMARK_SMALL}'
+        f'<div class="mc-version-label"><b>v{ver}</b>{brand.BETA_PILL}</div>'
+        f'<a onclick="mcChangelog(true)" class="mc-version-changelog">{_icon("book-open",13)}Changelog</a></div>'
         f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-        f'<div style="font-size:12.5px;display:flex;align-items:center;gap:6px"><b>v{ver}</b>{brand.BETA_PILL}</div>'
         f'<button class="btn btn-secondary btn-sm" onclick="mcRestart(this)">{_icon("refresh-cw",13)}Restart</button>'
         f'<button class="btn btn-secondary btn-sm" onclick="mcCheckUpd(this)">{_icon("download",13)}Check for updates</button>'
-        f'<a onclick="mcChangelog(true)" style="cursor:pointer;font-size:12px;color:var(--color-accent);display:inline-flex;align-items:center;gap:4px">{_icon("book-open",13)}Changelog</a>'
         f'<span id="mc-updcheck" style="font-size:12px;color:var(--text-muted)"></span></div>'
         # The tick for "Using the latest version" (settings.js copies it; this page has no mcIcon).
         f'<template id="mc-ico-ok">{_icon("circle-check-fill", 13)}</template>'
@@ -761,17 +750,8 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'<button class="btn btn-primary" id="mc-updbtn" onclick="mcUpd(this)">{_icon("download",14)}Update &amp; Restart</button>'
         f'<span id="mc-updmsg" style="font-size:12px;margin-left:10px;color:var(--text-muted)"></span></div>')
 
-    def prov_row(icon, name, detail, status):
-        ok = status == "connected"
-        lab = "Connected" if ok else "Coming soon"
-        return (f'<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--color-divider)">'
-                f'<span style="display:flex;color:var(--text-strong)">{icon}</span>'
-                f'<div style="flex:1"><span style="font-size:12.5px;font-weight:600">{E(name)}</span>'
-                f'<div style="font-size:11px;color:var(--text-muted)">{E(detail)}</div></div>'
-                f'{_pill((_icon("circle-check",11) if ok else _icon("info",11)) + lab, "ok" if ok else "neutral")}</div>')
-    engine_box = (
-        prov_row(_icon("claude", 16), "Anthropic — Claude", engine_short or "Claude Code", "connected" if engine_ok else "error")
-        + prov_row(_icon("zap", 16), "OpenAI — Codex", "GPT engine", "soon"))
+    from .provider_settings import connections
+    engine_box = connections()
 
     cur_theme = appconfig.get("theme", vtheme.DEFAULT)
     theme_cards = ""
@@ -781,17 +761,17 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         theme_cards += (
             # Fixed width + a reserved caption line: the card must not resize when it becomes
             # selected, or picking a theme reflows the whole grid under the cursor.
-            f'<div class="mc-themecard" onclick="mcSetTheme(\'{_tid}\')" title="{E(_t["name"])}" '
+            f'<div class="mc-themecard" data-theme-id="{_tid}" data-selected="{"true" if _sel else "false"}" onclick="mcSelectTheme(\'{_tid}\')" title="{E(_t["name"])}" '
             f'style="cursor:pointer;border:1px solid {"var(--color-accent)" if _sel else "var(--color-divider)"};'
             f'border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;gap:9px;'
-            f'width:186px;box-sizing:border-box;flex:none;'
+            f'width:140px;box-sizing:border-box;flex:none;'
             f'{"background:var(--color-accent-100)" if _sel else ""}">'
             f'<span style="width:30px;height:30px;border-radius:50%;flex:none;'
             f'background:linear-gradient(135deg,{_a} 0 50%,{_a2} 50% 100%)"></span>'
             f'<div style="min-width:0">'
             f'<div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;'
             f'text-overflow:ellipsis">{E(_t["name"])}</div>'
-            f'<div style="font-size:11px;color:var(--text-muted);white-space:nowrap">'
+            f'<div data-theme-caption style="font-size:11px;color:var(--text-muted);white-space:nowrap">'
             f'{"selected" if _sel else "&#8203;"}</div></div></div>')
 
     _mode = _layout.appearance_mode()
@@ -803,7 +783,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                   # Checked from the SAVED mode, not from how this page happens to be rendering.
                   # Deriving it from `dark` meant System could never show as selected: it renders
                   # light, so the radio snapped back to Light the moment you chose it.
-                  f'<input type="radio" name="mc-mode" value="{v}" style="margin:0" {"checked" if v==_mode else ""} onchange="mcSetMode(\'{v}\')">'
+                  f'<input type="radio" name="mc-mode" value="{v}" onchange="mcPreviewMode(this.value)" style="margin:0" {"checked" if v==_mode else ""}>'
                   f'<span style="display:flex;color:var(--text-dim)">{_icon(ic,15)}</span>{lab}</label>'
                   for v, lab, ic in [("light", "Light", "sun"), ("dark", "Dark", "moon"), ("system", "System", "monitor")])
         + '</div>'
@@ -817,7 +797,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         return (f'<div style="display:flex;align-items:flex-start;gap:10px;margin:9px 0;'
                 f'opacity:{".55" if disabled else "1"}">'
                 f'<input id="{cid}" type="checkbox" {"checked" if on else ""}'
-                f'{" disabled" if disabled else ""} onchange="mcSaveChannels()" '
+                f'{" disabled" if disabled else ""} '
                 f'style="margin-top:2px;cursor:{"not-allowed" if disabled else "pointer"}">'
                 f'<label for="{cid}" style="cursor:{"not-allowed" if disabled else "pointer"}">'
                 f'<div style="font-size:12.5px;font-weight:600">{E(label)}{badge}</div>'
@@ -852,14 +832,16 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                f'{E(brand.LICENCE)} <a href="{E(brand.LICENCE_URL)}" target="_blank" rel="noopener" '
                f'style="color:var(--color-accent)">Licence terms ↗</a> · Third-party notices are in '
                f'<code>THIRD_PARTY_NOTICES.md</code> in the install folder.</div>')
-        + sect("Engine", f'<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px">'
-               f'Per-provider engine status. ARMADA runs on your own subscription.</div>{engine_box}')
+        + sect("Engine", '<div style="font-size:12.5px;line-height:1.55;margin-bottom:10px">'
+               'Per-provider engine status. ARMADA can run on one or more of your subscriptions.'
+               '<p style="margin:6px 0 0">To enable using a provider, their CLI needs to be installed and logged-into.</p>'
+               f'</div>{engine_box}')
         # Telegram sits with Engine: both are "what ARMADA is connected to", and it reads better
         # above Notifications, which refers to it.
-        + sect("Telegram", _telegram_box())
+        + '<div id="st-telegram">' + _telegram_box() + '</div>'
         + sect("Notifications", channels)
         + sect("Appearance", appearance)
-        + _app_advanced(_updater))
+        + _app_advanced(_updater, realm_root))
 
     # --- User settings tab ---
     u = _user(realm_root)
@@ -895,9 +877,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'leave out anything you wouldn\'t want in a prompt.</div>'
         f'<textarea id="us-about" rows="5" placeholder="E.g. I think in writing and prefer a draft I can react to over a list of options. I work in English and Spanish. Don\'t hedge — tell me when something is a bad idea." '
         f'class="mc-textarea" style="min-height:96px">{E(u.get("about", ""))}</textarea></div>'
-        f'<div style="margin-top:14px;display:flex;gap:8px;align-items:center">'
-        f'<button class="btn btn-primary" onclick="mcSaveUser()">Save user settings</button>'
-        f'<span id="us-msg" style="font-size:12px;color:var(--text-muted)">The source of truth — collected at setup, editable here. Saved to the realm and the agents’ core memory.</span></div>')
+        )
 
     # Creating a realm isn't a setting of the realm you're in — it sits with the page, not inside
     # the Realm section where it read as one of that realm's options.
@@ -905,7 +885,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                      f'onclick="mcNewRealmOpen(event)">{_icon("plus", 14)}New realm</button>')
     # A touch wider than the other pages so the nine realm-icon tiles sit on one line with the
     # current icon and Upload, instead of wrapping onto a row of their own.
-    body = (f'<div style="padding:18px 24px 24px;max-width:900px">'
+    body = (f'<div style="padding:18px 24px 24px;max-width:1100px">'
             f'{_page_title("Settings", right_html=new_realm_btn)}'
             f'<div style="border-bottom:1px solid var(--color-divider);margin-bottom:16px">'
             # The same tabs as Capabilities' (DESIGN_SYSTEM §12, UI audit TB1).
@@ -913,13 +893,23 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
             f'<button type="button" role="tab" id="st-tab-realm" class="mc-captab" aria-selected="true" onclick="mcSetTab(\'realm\')">Realm settings</button>'
             f'<button type="button" role="tab" id="st-tab-user" class="mc-captab" aria-selected="false" onclick="mcSetTab(\'user\')">User settings</button>'
             f'<button type="button" role="tab" id="st-tab-app" class="mc-captab" aria-selected="false" onclick="mcSetTab(\'app\')">App settings</button></div></div>'
-            f'<div id="st-realm-pane">{realm_tab}</div>'
-            f'<div id="st-user-pane" style="display:none">{user_tab}</div>'
-            f'<div id="st-app-pane" style="display:none">{app_tab}</div></div>'
+            f'<div id="st-realm-pane"><div class="mc-settings-pane"><div class="mc-settings-main">{realm_tab}</div>'
+            f'{_settings_actions("realm", "Save changes to this realm.")}</div></div>'
+            f'<div id="st-user-pane" style="display:none"><div class="mc-settings-pane">'
+            f'<div class="mc-settings-main">{user_tab}</div>'
+            f'{_settings_actions("user", "Saved to this realm and your agents’ core memory.")}</div></div>'
+            f'<div id="st-app-pane" style="display:none"><div class="mc-settings-pane">'
+            f'<div class="mc-settings-main">{app_tab}</div>'
+            f'{_settings_actions("app", "Save app preferences here. Provider and Telegram connections apply when you use their buttons.")}'
+            f'</div></div></div>'
             + _changelog_modal(ver) + _SETTINGS_JS + _USER_JS + _REALM_ICON_JS
+            + f'<template id="mc-settings-chevron">{CHEVR}</template>' + _FDROP_JS
+            + '<script>document.querySelectorAll(".mc-settings-main select").forEach((select,i)=>{'
+              'if(!select.id)select.id="mc-settings-select-"+i;'
+              'mcFDFromSelect(select,document.getElementById("mc-settings-chevron").content.firstElementChild);});</script>'
             + _consumption_js(realm, "st-model", "st-effort", "st-consmarker", "#st-cons",
                            verbosity_id="st-verbosity"))
-    return _page_shell(realm, "", "Settings", body, dark)
+    return _page_shell(realm, "Settings", "Settings", body, dark)
 
 
 def _font_picker() -> str:
@@ -932,7 +922,7 @@ def _font_picker() -> str:
         fams = E(json.dumps({k: fonts.family(role, k) for k in fonts.CHOICES}))
         return (f'<label class="mc-fontpick"><span class="mc-hint">{label}</span>'
                 f'<select class="mc-field" data-role="{role}" data-families="{fams}" '
-                f'onchange="mcSetFont(this)">{opts}</select></label>')
+                f'>{opts}</select></label>')
     return (f'<label class="mc-label">Fonts <span style="text-transform:none;letter-spacing:0">'
             f'(trial — these will become part of themes)</span></label>'
             f'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
@@ -1010,7 +1000,7 @@ def render_new_realm(realm, dark=False, embed=False) -> str:
         return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
                 f'<meta name="viewport" content="width=device-width, initial-scale=1">{_CSS_LINKS}{_theme_style()}'
                 f'<style>html,body{{margin:0;background:var(--color-bg)}}</style></head>'
-                f'<body class="{body_cls}">{inner}{_FORM_JS}</body></html>')
+                f'<body class="{body_cls}">{_ICONS_JS}{inner}{_FORM_JS}</body></html>')
     body = (f'<div style="padding:18px 24px 24px;max-width:760px">{_page_title("New realm")}'
             f'{stepbar}{intro}{step1}{step2}</div>{scripts}')
     return _page_shell(realm, "", "New realm", body, dark)
@@ -1076,7 +1066,7 @@ def render_section(realm, idx: int, dark=False) -> str:
     # From the content origin, sandboxed (5.8a): a section is someone's HTML and JavaScript — a
     # mini-site, a mirrored page, a live site — and must not share the app's origin or steer its window.
     from .. import origins as _origins
-    iframe = (f'<iframe src="{E(_origins.content_url(f"/section-raw/{idx}"))}" title="{E(name)}" '
+    iframe = (f'<iframe src="{E(_origins.content_url(f"/section-raw/{idx}", realm_root=realm.root))}" title="{E(name)}" '
               f'sandbox="{_origins.FRAME_SANDBOX}" '
               f'style="width:100%;height:100%;border:0;background:#fff"></iframe>')
     if assets and (s.get("entry") if isinstance(s, dict) else ""):
@@ -1195,66 +1185,50 @@ def _doc_html(md_text: str) -> str:
 
 
 def render_docs(realm, realm_root, dark=False, slug: str = "") -> str:
-    """Help: the index (searchable across every page's text) or one page of docs/user/."""
+    """One reading layout and persistent full-text search for every help page."""
     toc = _doc_toc()
     if not toc:
         body = ('<div style="padding:18px 24px 24px;max-width:820px">'
                 f'{_page_title("Documentation", "help")}<div style="font-size:13px;color:var(--text-muted)">'
                 'The help pages aren\u2019t installed with this copy of ARMADA.</div></div>')
-        return _page_shell(realm, "", "Documentation", body, dark)
+        return _page_shell(realm, "Docs", "Documentation", body, dark)
+    if slug == "index":
+        slug = ""
     nav = "".join(
-        f'<a href="/docs/{s}" style="display:block;padding:5px 10px;border-radius:var(--r);font-size:13px;'
-        f'text-decoration:none;color:{"var(--color-text);font-weight:600;background:var(--text-8)" if s == slug else "var(--text-dim)"}">'
+        f'<a href="/docs/{s}" {"aria-current=\"page\"" if s == slug else ""}>'
         f'{E(t)}</a>' for s, t, _b in toc)
-    nav = (f'<nav style="flex:none;width:200px;position:sticky;top:0;align-self:flex-start">'
-           f'<a href="/docs" style="display:block;padding:5px 10px;font-size:13px;text-decoration:none;'
-           f'color:{"var(--color-text);font-weight:600" if not slug else "var(--text-dim)"}">Help home</a>{nav}</nav>')
-    if slug:
-        if not _DOC_SLUG.match(slug) or not (_DOCS_USER / f"{slug}.md").is_file():
-            main = '<div style="font-size:13px;color:var(--text-muted)">No such help page.</div>'
-            title = "Documentation"
-        else:
-            main = f'<div class="mc-md" style="font-size:14px;line-height:1.6;max-width:760px">{_doc_html((_DOCS_USER / f"{slug}.md").read_text(encoding="utf-8"))}</div>'
-            title = next((t for s, t, _b in toc if s == slug), "Documentation")
-        body = (f'<div style="padding:18px 24px 24px;display:flex;gap:28px">{nav}'
-                f'<div style="min-width:0;flex:1">{main}</div></div>')
-        return _page_shell(realm, "", title, body, dark)
-    # The index: a card per page, each carrying its page's text (hidden) so search finds words
-    # inside pages, not just in titles.
-    cards = ""
-    for s, t, b in toc:
+    nav = (f'<nav class="mc-doc-nav" aria-label="Documentation sections">'
+           f'<a href="/docs" {"aria-current=\"page\"" if not slug else ""}>Help home</a>{nav}</nav>')
+    documents = {}
+    search_index = []
+    for s, t, b in [("index", "Help home", "About ARMADA and its documentation"), *toc]:
         try:
             full = (_DOCS_USER / f"{s}.md").read_text(encoding="utf-8")
         except OSError:
             log.debug("render_docs: missing %s.md", s, exc_info=True)
-            full = ""
-        cards += (f'<a class="mc-docitem" href="/docs/{s}" style="display:block;text-decoration:none;color:inherit;'
-                  f'padding:12px 14px;border-radius:var(--r);margin-bottom:8px;background:var(--color-sand-100);'
-                  f'border:1px solid var(--color-divider)">'
-                  f'<div style="display:flex;align-items:center;gap:8px">'
-                  f'<span style="display:flex;flex:none;color:var(--color-accent)">{_icon("documentation",16)}</span>'
-                  f'<span style="font-size:13.5px;font-weight:600">{E(t)}</span></div>'
-                  f'<div style="font-size:12px;color:var(--text-muted);margin-top:4px">{_md_inline(E(b))}</div>'
-                  f'<span style="display:none">{E(full)}</span></a>')
+            continue
+        rendered = _doc_html(full)
+        documents[s] = rendered
+        plain = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]*>", " ", rendered))).strip()
+        search_index.append({"title": t, "body": plain, "href": "/docs" if s == "index" else f"/docs/{s}"})
+    valid = not slug or bool(_DOC_SLUG.fullmatch(slug))
+    main = documents.get(slug or "index") if valid else None
+    if main is None:
+        main = '<p>No such help page.</p>'
+    title = next((t for s, t, _b in toc if s == slug), "Documentation")
     search = (
-        '<div style="max-width:520px;margin:0 0 16px"><div style="position:relative">'
-        f'<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;color:var(--text-muted);pointer-events:none">{_icon("search", 14)}</span>'
-        '<input id="doc-search" oninput="mcDocSearch()" placeholder="Search help…" '
-        'style="width:100%;box-sizing:border-box;padding:7px 30px 7px 32px;border:1px solid var(--color-divider);'
-        'border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:13px">'
-        f'<span id="doc-search-x" onclick="mcDocSearchClear()" title="Clear" style="display:none;position:absolute;'
-        f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-muted);padding:2px">{_icon("x", 13)}</span></div></div>')
-    empty = ('<div id="mc-docempty" style="display:none;font-size:12.5px;color:var(--text-muted);padding:8px 2px">'
-             'Nothing in the help matches that.</div>')
-    try:
-        intro_md = (_DOCS_USER / "index.md").read_text(encoding="utf-8").split("| Page |")[0]
-        intro = f'<div class="mc-md" style="font-size:13.5px;line-height:1.6;max-width:760px;margin:0 0 14px">{_doc_html(re.sub(r"^# .*$", "", intro_md, count=1, flags=re.M))}</div>'
-    except OSError:
-        log.debug("render_docs: no intro", exc_info=True)
-        intro = ""
-    body = (f'<div style="padding:18px 24px 24px;max-width:820px">{_page_title("Documentation", "help")}'
-            f'{intro}{search}{cards}{empty}</div>{_DOCSEARCH_JS}')
-    return _page_shell(realm, "", "Documentation", body, dark)
+        '<aside class="mc-doc-search mc-frame" aria-label="Search documentation">'
+        '<label for="doc-search" class="mc-doc-search-title">Search help</label>'
+        '<div class="mc-doc-search-input">'
+        f'<span aria-hidden="true">{_icon("search",14)}</span>'
+        '<input id="doc-search" type="search" oninput="mcDocSearch()" placeholder="Search all help pages…" autocomplete="off">'
+        f'<button type="button" id="doc-search-x" onclick="mcDocSearchClear()" aria-label="Clear search" hidden>{_icon("x",13)}</button></div>'
+        '<p id="doc-search-status" class="mc-hint" role="status">Search titles and content across all help pages.</p>'
+        '<div id="doc-search-results" class="mc-doc-results" hidden></div></aside>')
+    data = json.dumps(search_index, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    body = (f'<div class="mc-doc-layout">{nav}<article class="mc-doc-main mc-md">{main}</article>{search}</div>'
+            f'<script type="application/json" id="doc-search-index">{data}</script>{_DOCSEARCH_JS}')
+    return _page_shell(realm, "Docs", title, body, dark)
 
 
 def _realm_inbox(realm, realm_root) -> str:
@@ -1510,7 +1484,41 @@ def _addon_widget(w: dict) -> str:
             f'<div class="mc-scroll" style="flex:1;min-height:0;overflow:auto;padding:10px 14px">{inner}</div></div>')
 
 
+def _overview_kpis(realm, root):
+    totals = _totals_30d(realm, root, clock.today(), details=True)
+    return _kpis(realm, totals['total_30d'], totals['usd_30d'],
+                 unknown_token_runs=totals['unknown_token_runs_30d'],
+                 unknown_cost_runs=totals['unknown_cost_runs_30d'])
+
+
+def _initial_header_limits(codex_enabled: bool) -> str:
+    """Keep provider landmarks visible even before the usage script starts."""
+    from ..icons import _provider_logo
+    from .. import providers
+    connected = providers.connected()
+    groups = []
+    for provider in ('Codex', 'Claude', 'Gemini'):
+        loading = provider != 'Codex' or codex_enabled
+        rows = []
+        for period in ('Week', 'Session'):
+            rest = (f'<span class="mc-limit-loading" role="status" aria-label="Loading {provider} {period.lower()} limit">'
+                    '<i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></span>'
+                    if loading else '<span class="mc-limit-bar" role="img" aria-label="Codex is not enabled for this realm."></span>')
+            rows.append(f'<div class="mc-limit-row {"is-loading" if loading else "is-unavailable"}"'
+                        f'{" aria-busy=\"true\"" if loading else ""}>'
+                        f'{rest}</div>')
+        groups.append(f'<div class="mc-limit-group {"is-loading" if loading else "is-inactive"}" role="group" '
+                      f'aria-label="{provider} subscription limits"><div class="mc-limit-group-head">'
+                      f'<span class="mc-limit-provider" role="img" aria-label="{provider}" title="{provider}">'
+                      f'{_provider_logo(provider.lower(),16, provider.lower() in connected)}</span></div>{"".join(rows)}</div>')
+    return ('<div class="mc-limits-title">Subscription limits</div><div class="mc-limit-groups">'
+            '<div class="mc-limit-periods" aria-hidden="true"><span class="mc-limit-label">Week</span>'
+            '<span class="mc-limit-label">Session</span></div>'+''.join(groups)+'</div>')
+
+
 def render_dashboard(realm, realm_root, dark: bool = False) -> str:
+    from ..engine import enabled_providers
+    has_codex = "codex" in enabled_providers(realm_root)
     realm_root = Path(realm_root)
     today = clock.today()
     body_cls = "armada-dark" if dark else ""
@@ -1534,7 +1542,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
             # was a solid band that cut the last line of content in half wherever you stopped; here
             # it is scrollable room, so the fade below can never be the reason you cannot read
             # something — scroll to the end and the last row clears it.
-            f'padding-top:14px;padding-bottom:22px">{cells}</div>')
+            f'margin-right:-24px;padding-right:24px;padding-top:14px;padding-bottom:22px">{cells}</div>')
     # dot=True: the thread widget's header used to carry a separate status dot beside the title.
     # It's on the avatar now, like everywhere else.
     agents_json = json.dumps([{"id": a.id, "display": a.display, "icon": _portrait(realm_root, a, 22, dot=True)}
@@ -1583,7 +1591,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
 <!-- No bottom padding: a solid band below the scroller cut the last row of content off mid-glyph,
      which reads as a rendering fault rather than as "there is more down there". The grid now runs
      to the window edge and the strip at the end of this block fades it out instead. -->
-<div style="flex:1;min-height:0;padding:16px 0 0 24px;display:flex;flex-direction:column;gap:0;position:relative">
+<div style="flex:1;min-height:0;padding:16px 24px 0;display:flex;flex-direction:column;gap:0;position:relative">
  <!-- The header's shadow is its edge, so the box has to reach both window edges or the shadow
       stops short on one side. The parent indents by 24px on the left, so this pulls back out and
       re-pays the same 24px as padding: content unmoved, shadow symmetric. -->
@@ -1591,22 +1599,17 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
       values come from a usage fetch, the limit bars from another — so the bar grew as each landed
       and shoved the grid down under it, twice, a second or two apart. Pinning it means the late
       content fills a space that was already the right size. -->
- <div id="mc-ovh" style="display:flex;align-items:flex-start;gap:24px;padding:0 24px 14px;margin-left:-24px;height:76px;box-sizing:border-box;position:relative;z-index:2;transition:box-shadow .18s ease">
+ <div id="mc-ovh" style="display:flex;align-items:flex-start;gap:14px;padding:0 24px 14px;margin-left:-24px;margin-right:-24px;height:76px;flex-shrink:0;box-sizing:border-box;position:relative;z-index:2;transition:box-shadow .18s ease">
   <div style="display:flex;flex-direction:column;line-height:1.05">
    <h2 style="font-family:var(--font-heading);font-size:28px;margin:0">Overview</h2>
    <span style="font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;
     text-transform:uppercase;color:var(--text-soft);margin-top:3px">Dashboard</span></div>
-  {_kpis(realm, *_totals_30d(realm, realm_root, clock.today()))}
-  <!-- Wide enough for the longest row this can hold: "Current session · 5h … 47% · resets in
-       5d 12h". The label column inside is a FIXED width rather than a shrinking one, so the bars
-       and everything after them line up between the two rows instead of starting wherever the
-       label happened to end. -->
-  <!-- flex-start, not center. Both this and a KPI cell are 62px tall, but a KPI stacks its
-       caption and value from the top while this was centring its whole block — which put
-       "CLAUDE SUBSCRIPTION LIMITS" a few pixels below every other caption on the row. -->
+  {_overview_kpis(realm, realm_root)}
+  <!-- Three providers share the same 62px as the KPIs; fetching limits cannot grow the header. -->
   <div id="mc-hdr-limits" style="display:flex;flex-direction:column;justify-content:flex-start;
-   min-width:340px;max-width:430px;height:62px;overflow:hidden"></div>
-  <div style="margin-left:auto;display:flex;gap:8px">
+   height:62px;overflow:hidden" data-codex-enabled="{str(has_codex).lower()}">
+   {_initial_header_limits(has_codex)}</div>
+  <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">
    <button id="mc-addwidget" class="btn btn-secondary" onclick="mcAddWidget()">{addicon}&nbsp;Manage widgets</button></div>
  </div>
  {grid}
@@ -1616,17 +1619,31 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
 <script>window.MC_AGENTS={agents_json};window.MC_GRIP={grip_json};window.MC_DASH={dash_json};window.MC_ADDON_W={json.dumps(addon_w).replace("</", "<\\/")};</script>{_ICONS_JS}{_DASH_JS}{_LAYOUT_JS}{_JOBCAL_JS}{_USAGE_JS}{_NEW_JS}{_AUTONOMY_JS}{_AGENT_COLOR_JS}{_FORM_JS}{_APPOINT_JS}{_consumption_js(realm, "n-model", "n-effort", "n-consmarker", "#n-cons")}</body></html>"""
 
 
-def _app_advanced(updater) -> str:
+def _app_advanced(updater, realm_root="") -> str:
     """Settings → App → Advanced: the automatic-updates switch (5.4, decided in ADR-005)."""
+    from .provider_settings import alexander_settings
+    alexander = alexander_settings(realm_root)
     on = updater.auto_enabled()
     note = ("" if updater.installed() else
             '<div style="font-size:11px;color:var(--text-muted);margin-top:6px">This is a development '
             'copy, so it never updates itself; the switch applies once ARMADA is installed.</div>')
+    from .. import appconfig
+    tray_on = appconfig.get("keep_in_tray", True) is not False
     return ('<details class="mc-frame" id="st-app-advanced" style="border-radius:var(--r);padding:14px 16px;margin-bottom:14px">'
             '<summary style="cursor:pointer;font-family:var(--font-heading);font-weight:600;font-size:15px">Advanced</summary>'
             '<div style="margin-top:12px;display:flex;align-items:flex-start;gap:12px">'
+            f'<label class="mc-toggle" title="{"On" if tray_on else "Off"}">'
+            f'<input type="checkbox" id="st-keep-tray" {"checked" if tray_on else ""}>'
+            '<span class="mc-toggle-sl"></span></label>'
+            '<div><div style="font-size:12.5px;font-weight:600">Keep Armada open in the tray when closing the window</div>'
+            '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;margin-top:2px">'
+            'When on, minimizing or closing the window hides Armada in the tray and scheduled jobs keep running. '
+            'When off, closing Armada stops future scheduled jobs until you open it again.</div>'
+            '<span id="mc-tray-msg" style="font-size:11.5px;color:var(--text-muted)"></span>'
+            '</div></div>'
+            '<div style="margin-top:12px;display:flex;align-items:flex-start;gap:12px">'
             f'<label class="mc-toggle" title="{"On" if on else "Off"}">'
-            f'<input type="checkbox" id="st-update-auto" {"checked" if on else ""} onchange="mcUpdAuto(this)">'
+            f'<input type="checkbox" id="st-update-auto" {"checked" if on else ""}>'
             '<span class="mc-toggle-sl"></span></label>'
             '<div><div style="font-size:12.5px;font-weight:600">Update automatically</div>'
             '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;margin-top:2px">'
@@ -1636,4 +1653,4 @@ def _app_advanced(updater) -> str:
             'settings are never touched. Off: nothing is checked or downloaded until you use Check '
             'for updates.</div>'
             '<span id="mc-updauto-msg" style="font-size:11.5px;color:var(--text-muted)"></span>'
-            f'{note}</div></div></details>')
+            f'{note}</div></div>{alexander}</details>')

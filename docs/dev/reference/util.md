@@ -21,7 +21,7 @@ Return `value` as a str if it's a single safe path segment, else raise.
 
 os.replace, patient with Windows' momentary locks.
 
-### `write_text_atomic(path, text: str, encoding: str='utf-8')`
+### `write_text_atomic(path, text: str, encoding: str='utf-8', *, newline=None)`
 
 Write text so a crash/concurrent reader never sees a half-written file.
 
@@ -37,9 +37,40 @@ Delete stale `.tmp-*` files left by an atomic write that never completed. Return
 
 Best-effort: is a process with this pid currently running on this machine?
 
-### `file_lock(target, timeout: float=5.0, poll: float=0.05)`
+### class `StateError`
 
-Best-effort cross-process advisory lock, so the web server and the always-on scheduler daemon don't lose each other's updates on a read-modify-write (e.g. appending to the same thread, or two edits of realm.json). Creates a sibling `<name>.lock` with O_CREAT|O_EXCL and spins up to `timeout`; if it can't acquire (stale/contended) it proceeds anyway rather than ever deadlocking the app — atomic writes still prevent corruption in that rare case.
+Stored state cannot safely be changed; preserve it for recovery.
+
+
+### class `UnsupportedSchemaError`
+
+A newer application owns the format; this build must leave it read-only.
+
+
+### class `FileLockTimeout`
+
+Another writer still owns the lock. The critical section was not entered.
+
+
+### `read_json_state(path, *, default=None, max_schema='current')`
+
+Strict mutation input. Only a missing file may use a supplied default factory.
+
+### `assert_realm_writable(target, *, allow_invalid_realm=False)`
+
+Any writer inside a known realm must understand its format; no tolerant write fallback.
+
+### `_os_lock(fd, *, release=False)`
+
+—
+
+### `file_lock(target, timeout: float=5.0, poll: float=0.05, *, validate_state=True)`
+
+Exclusive process/thread lock. Timeout and I/O errors never enter the critical section.
+
+### `mutate_json(path, mutate, *, default=None, validate=None, timeout=5.0)`
+
+Read, validate, mutate and atomically commit under one exclusive lock.
 
 ### `data_dir()`
 

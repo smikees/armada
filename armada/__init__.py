@@ -1,10 +1,9 @@
 """ARMADA — a local, provider-agnostic app for building and running a personal
-team of AI agents. v0.1: read-only cockpit over an existing realm folder.
+team of AI agents through connected Claude, Codex and Gemini engines.
 
 See ../SPEC.md for the full product & architecture spec.
 """
-__version__ = "0.99.73"
-
+__version__ = "0.99.74"
 
 
 

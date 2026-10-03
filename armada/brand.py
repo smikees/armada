@@ -28,7 +28,7 @@ LICENCE_URL = "https://polyformproject.org/licenses/noncommercial/1.0.0"
 LOGO_ASSET = "armada-logo.png"         # the mark shown in the titlebar (transparent PNG, 47x30 —
                                         # exported from "Armada - logo - symbol.svg" at 30px tall)
 WORDMARK_ASSET = "armada-wordmark.png"  # full lockup (mark + "ARMADA"), used where there's room for
-                                         # it — exported from "Armada - logo - standard.svg", 208x36
+                                         # it — exported from "Armada - logo - standard.svg", 257x36
 # White versions for dark mode (Mihai, v0.99.66), exported the same way and at the same sizes from
 # "Armada logo symbol/standard white (for dark bg).svg".
 LOGO_DARK_ASSET = "armada-logo-dark.png"
@@ -94,3 +94,37 @@ def page_title(sub: str = "") -> str:
 def icon_path() -> Path:
     """Absolute path to the OS window/taskbar icon file."""
     return _STATIC / ICON_FILE
+
+
+def native_icon(size: int = 32):
+    """Render the original mark to the full Windows icon slot, without ICO frame padding."""
+    import ctypes
+    import clr
+    clr.AddReference('System.Drawing')
+    from System import IntPtr
+    from System.Drawing import Bitmap, Graphics, Icon, Image, Rectangle
+    from System.Drawing.Drawing2D import InterpolationMode, PixelOffsetMode
+    image = Image.FromFile(str(_STATIC / LOGO_ASSET))
+    bitmap = Bitmap(size, size)
+    graphics = Graphics.FromImage(bitmap)
+    handle = None
+    try:
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic
+        graphics.PixelOffsetMode = PixelOffsetMode.HighQuality
+        height = max(1, round(size * image.Height / image.Width))
+        graphics.DrawImage(image, Rectangle(0, (size-height)//2, size, height))
+        handle = bitmap.GetHicon()
+        borrowed = Icon.FromHandle(handle)
+        try:
+            return borrowed.Clone()
+        finally:
+            borrowed.Dispose()
+    finally:
+        graphics.Dispose()
+        image.Dispose()
+        bitmap.Dispose()
+        if handle is not None:
+            destroy = ctypes.windll.user32.DestroyIcon
+            destroy.argtypes = [ctypes.c_void_p]
+            destroy.restype = ctypes.c_bool
+            destroy(handle.ToInt64())

@@ -45,6 +45,19 @@ def test_rendering_the_page_never_queries_the_registry(realm, monkeypatch):
     CAP._realm_skills(reader.read(str(realm)), realm)
 
 
+def test_rendering_the_page_never_starts_provider_cli(realm, monkeypatch):
+    from armada import reader, connector_runtime
+    data = json.loads((realm / "realm.json").read_text(encoding="utf-8"))
+    data["toolkit"] = {"connectors": [{"id": "ibkr", "status": "connected"}]}
+    (realm / "realm.json").write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(connector_runtime, "codex_inventory", lambda *a, **kw:
+                        pytest.fail("Codex CLI on the page render path"))
+    monkeypatch.setattr(connector_runtime, "claude_inventory", lambda *a, **kw:
+                        pytest.fail("Claude CLI on the page render path"))
+    page = CAP._realm_skills(reader.read(str(realm)), realm)
+    assert 'data-provider="codex"' in page and 'data-provider="claude"' in page
+
+
 def test_the_results_area_arrives_as_a_placeholder(realm, monkeypatch):
     from armada import reader
     monkeypatch.setattr(C, "_get_json", lambda url: pytest.fail("network on render"))

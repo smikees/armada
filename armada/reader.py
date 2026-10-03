@@ -222,6 +222,8 @@ def read_native(root: Path) -> Realm:
                     ev = json.loads(ln)
                 except json.JSONDecodeError:
                     continue
+                from .job_history import apply_annotation
+                ev = apply_annotation(adir, ev)
                 ts = str(ev.get("ts", ""))[:19]
                 tid = ev.get("task")
                 if tid and (tid not in latest or ts > latest[tid][0]):
@@ -231,7 +233,7 @@ def read_native(root: Path) -> Realm:
                     tk = ev.get("tokens")
                     if isinstance(tk, dict):
                         tok30 += int(tk.get("total", 0) or 0)
-                        cost30 += float(tk.get("api_equiv_usd", 0) or 0)
+                        cost30 = cost30 + float(tk["api_equiv_usd"]) if cost30 is not None and tk.get("api_equiv_usd") is not None else None
         status = "unknown"
         if latest:
             s = max(latest.values(), key=lambda x: x[0])[1]
@@ -241,16 +243,12 @@ def read_native(root: Path) -> Realm:
         from . import skills as skills_mod
         is_coord = bool(c.get("coordinator"))
         role = c.get("role") or (realm.theme_coordinator if is_coord else realm.theme_agent)
-        appointed = c.get("appointed") or c.get("created") or ""
-        if not appointed:
-            try:
-                appointed = datetime.date.fromtimestamp((adir / "agent.json").stat().st_mtime).isoformat()
-            except OSError:
-                appointed = ""
+        from .agentdates import appointment_date
+        appointed = appointment_date(c, adir)
         a = Agent(id=aid, display=c.get("display", aid.title()), leader=c.get("leader", ""),
                   theme_role=role, is_coordinator=is_coord, membership=c.get("membership", "cabinet"),
                   status=status, bulletin=_first_headline(mandate),
-                  runs_30d=count30, tokens_30d=tok30, cost_30d=round(cost30, 4), appointed=appointed,
+                  runs_30d=count30, tokens_30d=tok30, cost_30d=round(cost30, 4) if cost30 is not None else None, appointed=appointed,
                   skills=skills_mod.load(root, aid))
         jdir = adir / "jobs"
         if jdir.is_dir():

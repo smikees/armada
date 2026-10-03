@@ -14,10 +14,14 @@ from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger("armada.runner")
-from .engine import get_engine, EngineAdapter
+from .engine import get_engine, EngineAdapter, engine_for, model_provider
+from .engine.authentication import recipient_access
 from . import memory, model, models, workspace
+from .capabilities import CapabilityPolicyError, execution_policy, _policy_json
+from .memory_boundary import MemoryAudit, claude_denials
+from .request_context import RunContext
 from .threads import Thread
-from .util import swallowed
+from .util import swallowed, read_json_state
 
 
 # Tool names whose file_path we treat as an OUTPUT artifact of the turn.
@@ -32,7 +36,7 @@ def _fs_snapshot(agent_dir: Path) -> dict:
     root = Path(agent_dir)
     if not root.is_dir():
         return snap
-    skip = {"jobs", "threads", "memory"}
+    skip = {"jobs", "threads", "memory", "memory-audits"}
     for dp, dirs, files in os.walk(root):
         dirs[:] = [d for d in dirs if d not in skip and not d.startswith((".", "_"))]
         for fn in files:
@@ -44,67 +48,6 @@ def _fs_snapshot(agent_dir: Path) -> dict:
             except OSError:
                 pass
     return snap
-
-
-def _guard_snapshot(realm_root: Path, agent_dir: Path) -> dict:
-    """Snapshot every memory file the acting agent is NOT allowed to change — the realm memory dir
-    and every OTHER agent's memory dir (its own is exempt). Paired with _guard_restore to revert any
-    out-of-bounds writes an agent makes during a tool turn."""
-    realm_root, agent_dir = Path(realm_root), Path(agent_dir)
-    own = (agent_dir / "memory").resolve()
-    roots = [realm_root / "memory"]
-    adir = realm_root / "agents"
-    if adir.is_dir():
-        for d in adir.iterdir():
-            md = d / "memory"
-            try:
-                if md.is_dir() and md.resolve() != own:
-                    roots.append(md)
-            except OSError:
-                pass
-    files = {}
-    for r in roots:
-        if not r.is_dir():
-            continue
-        for f in r.rglob("*"):
-            if f.is_file():
-                try:
-                    files[str(f.resolve())] = f.read_bytes()
-                except OSError:
-                    pass
-    return {"files": files, "roots": [str(r) for r in roots], "own": str(own)}
-
-
-def _guard_restore(snap: dict) -> int:
-    """Undo any change the agent made to guarded memory files: delete files it created, restore ones
-    it edited or deleted. The agent's own memory folder is untouched. Returns the number reverted."""
-    if not snap:
-        return 0
-    before, own = snap.get("files", {}), Path(snap.get("own", ""))
-    reverted = 0
-    for rt in snap.get("roots", []):
-        rp = Path(rt)
-        if not rp.is_dir():
-            continue
-        for f in rp.rglob("*"):
-            try:
-                if f.is_file() and str(f.resolve()) not in before and own not in f.resolve().parents:
-                    f.unlink()                                   # agent-created → remove
-                    reverted += 1
-            except OSError:
-                pass
-    for p, data in before.items():
-        try:
-            fp = Path(p)
-            if own in fp.parents:
-                continue
-            if not fp.exists() or fp.read_bytes() != data:
-                fp.parent.mkdir(parents=True, exist_ok=True)
-                fp.write_bytes(data)                             # edited/deleted → restore
-                reverted += 1
-        except OSError:
-            pass
-    return reverted
 
 
 def _is_internal_artifact(path: str, agent_dir: Path) -> bool:
@@ -122,7 +65,7 @@ def _is_internal_artifact(path: str, agent_dir: Path) -> bool:
         log.debug('_is_internal_artifact: failed; returning a fallback', exc_info=True)
         return False                                    # outside the agent dir → a real deliverable
     parts = set(rel.parts)
-    return bool(parts & {"jobs", "threads", "memory"}) or rel.name.startswith("_")
+    return bool(parts & {"jobs", "threads", "memory", "memory-audits"}) or rel.name.startswith("_")
 
 
 def _running_marker(agent_dir: Path, job_id: str, on: bool) -> None:
@@ -132,7 +75,7 @@ def _running_marker(agent_dir: Path, job_id: str, on: bool) -> None:
     try:
         if on:
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(json.dumps({"ts": datetime.datetime.now().astimezone().isoformat(timespec="seconds")}),
+            p.write_text(json.dumps({"owner_pid": os.getpid(), "ts": datetime.datetime.now().astimezone().isoformat(timespec="seconds")}),
                          encoding="utf-8")
         else:
             p.unlink(missing_ok=True)
@@ -146,6 +89,46 @@ def _read(p: Path) -> str:
 
 def _load_json(p: Path) -> dict:
     return json.loads(_read(p)) if p.exists() else {}
+
+
+def _select_engine(realm_root, agent_id, engine, job=None):
+    if not isinstance(engine, (str, type(None))):
+        return engine
+    eng = get_engine(engine_for(realm_root, agent_id, job, override=engine))
+    return eng
+
+
+def _engine_model(eng, value):
+    """An explicit --engine override uses that CLI's default if the stored model is incompatible."""
+    provider = model_provider(value)
+    return value if not provider or eng.name in (provider, "mock") else ""
+
+
+def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
+    """Resolve permissions before context assembly or any provider/model call."""
+    from . import util
+    util.assert_realm_writable(Path(realm_root) / "agents" / agent_id / "agent.json", allow_invalid_realm=True)
+    agent = _policy_json(Path(realm_root) / "agents" / agent_id / "agent.json")
+    if "allow_tools" in agent and type(agent["allow_tools"]) is not bool:
+        raise CapabilityPolicyError("Capability policy: allow_tools must be true or false.")
+    command = job and (job.get("kind") == "command" or job.get("run") or job.get("command"))
+    policy = execution_policy(realm_root, agent_id) if (allow_tools or agent.get("allow_tools")) and not command else None
+    eng = _select_engine(realm_root, agent_id, engine, job)
+    from .engine.contracts import ExecutionPolicy
+    from . import job_access
+    grant = job_access.grant_for(realm_root, agent_id, job) if job and not command else job_access.Grant()
+    roots = [str(Path(realm_root).resolve())]
+    work = workspace.root(realm_root)
+    if work:
+        roots.append(work)
+    roots.extend(grant.roots)
+    binding = ExecutionPolicy(policy.allowed_mcp_ids if policy else frozenset(),
+                              tuple(dict.fromkeys(roots)), grant.network)
+    if isinstance(eng, EngineAdapter):
+        eng = eng.configure(binding)
+    else:  # legacy injected adapter compatibility
+        eng.allowed_mcp_ids = binding.allowed_mcp_ids
+    return eng, agent
 
 
 def _cli_model(display: str, realm_root=None) -> str:
@@ -165,6 +148,12 @@ def _cli_model(display: str, realm_root=None) -> str:
     d = (display or "").strip().lower()
     if not d:
         return ""
+    if model_provider(display) == "gemini":
+        return display.strip()
+    if model_provider(display) == "codex":
+        # Keep the sentinel until engine selection; the adapter translates it to CLI default.
+        from .engine.codex import model_id
+        return model_id(display) or "codex:default"
     if d.startswith("claude-"):
         return display.strip()      # already a concrete model id (from the synced catalog) — pass through
     if realm_root is not None:
@@ -246,11 +235,15 @@ def _resolve_max_budget(realm_root: Path, agent: dict) -> Optional[float]:
     v = agent.get("max_budget_usd")
     if v in (None, ""):
         v = _load_json(Path(realm_root) / "realm.json").get("default_max_budget_usd")
+    if isinstance(v, bool):
+        raise ValueError("Invalid per-run dollar budget.")
     try:
         f = float(v)
     except (TypeError, ValueError):
-        return None
-    return f if f > 0 else None
+        if v in (None, ""):
+            return None
+        raise ValueError("Invalid per-run dollar budget.")
+    return f
 
 
 def _disallowed_tools(realm_root: Path, agent: dict) -> list:
@@ -263,17 +256,33 @@ def _disallowed_tools(realm_root: Path, agent: dict) -> list:
     can and cannot reach (MCP servers yes, skills no).
     """
     from . import capabilities
-    try:
-        return capabilities.denied_tool_patterns(realm_root, agent)
-    except Exception:  # noqa — never let a capability lookup take down a run
-        log.exception("capability denial list failed; falling back to realm-disabled only")
-        pats = set()
-        rj = (_load_json(Path(realm_root) / "realm.json").get("toolkit") or {})
-        for kind in ("connectors", "extensions", "plugins"):
-            for it in (rj.get(kind) or []):
-                if it.get("enabled", True) is False and str(it.get("id") or "").strip():
-                    pats.add(f"mcp__{str(it['id']).strip()}")
-        return sorted(pats)
+    return list(capabilities.execution_policy(realm_root, agent).denied_tools)
+
+
+def _tool_grants(realm_root, agent_id, eng, use_tools):
+    """Refresh grants at launch, including revocations made during context assembly."""
+    policy = execution_policy(realm_root, agent_id) if use_tools else None
+    eng.allowed_mcp_ids = policy.allowed_mcp_ids if policy else frozenset()
+    eng.native_filesystem_ids = policy.native_filesystem_ids if policy else frozenset()
+    # Production adapters enforce MCP grants against their own effective inventory.
+    # Catalogue IDs may be Claude-only display names, not executable Codex/Gemini
+    # tool patterns. Do not transport those as individual tool restrictions.
+    # Legacy injected adapters retain their existing denial contract.
+    inventory_gated = isinstance(eng, EngineAdapter) and eng.name in ('claude', 'codex', 'gemini')
+    if policy and inventory_gated:
+        from .engine.mcp import server_id
+        # An explicitly disabled alias also revokes its canonical grant. Translate
+        # only to remove access; unknown catalogue names cannot create a grant.
+        blocked = {server_id(t.removeprefix('mcp__')) for t in policy.denied_tools}
+        eng.allowed_mcp_ids = frozenset(sid for sid in policy.allowed_mcp_ids
+                                      if server_id(sid) not in blocked)
+    denied = list(policy.denied_tools) if policy and not inventory_gated else []
+    if use_tools and getattr(eng, "name", "") == "claude":
+        try:
+            denied += claude_denials(realm_root, Path(realm_root) / "agents" / agent_id)
+        except OSError as exc:
+            raise CapabilityPolicyError("Cannot establish Claude memory restrictions; run blocked.") from exc
+    return denied
 
 
 def _record_used_capabilities(realm_root: Path, tool_names) -> None:
@@ -289,7 +298,9 @@ def _record_used_capabilities(realm_root: Path, tool_names) -> None:
     servers = []
     for nm in (tool_names or []):
         m = re.match(r"mcp__([A-Za-z0-9_.\-]+)__", str(nm or ""))
-        if m and m.group(1) not in servers:
+        # Provider applications are system dependencies, not user connectors. Earlier
+        # discovery created a phantom `codex` connector from this tool namespace.
+        if m and m.group(1).lower() not in ("claude", "codex", "gemini") and m.group(1) not in servers:
             servers.append(m.group(1))
     if not servers:
         return
@@ -765,7 +776,7 @@ class _TurnCapture:
     folder catches everything else — a file written by Bash, or by a script the agent ran.
     """
 
-    def __init__(self, realm_root, agent_dir, use_tools: bool):
+    def __init__(self, realm_root, agent_dir, use_tools: bool, *, thread=None, provider="unknown"):
         self.realm_root = realm_root
         self.agent_dir = Path(agent_dir)
         self.use_tools = bool(use_tools)
@@ -776,10 +787,13 @@ class _TurnCapture:
         self._seen: set = set()
         self._index = _capability_index(realm_root, agent_dir) if self.use_tools else []
         self._before = _fs_snapshot(self.agent_dir) if self.use_tools else {}
+        self._thread = thread
+        self._memory = MemoryAudit(realm_root, agent_dir, provider) if self.use_tools else None
+        self.memory_report = None
 
     def _add_output(self, path: str) -> None:
         p = str(path)
-        if not p or _is_internal_artifact(p, self.agent_dir):
+        if not p or _is_internal_artifact(p, self.agent_dir) or (self._memory and self._memory.protects(p)):
             return
         if any(o["path"] == p for o in self.outputs):
             return
@@ -801,6 +815,8 @@ class _TurnCapture:
         """Sniff one streamed engine event. Never raises — it sits directly in the event path, so
         a capture bug must not be able to kill the run it is only observing."""
         try:
+            if self._memory:
+                self._memory.observe(ev)
             if (ev or {}).get("kind") != "tool":
                 return
             inp = ev.get("input") or {}
@@ -823,8 +839,7 @@ class _TurnCapture:
     def finish(self) -> "_TurnCapture":
         """Fold in files the event stream couldn't see, and register tools used as capabilities.
 
-        Call AFTER the memory guardrail has restored any out-of-bounds writes, or reverted files
-        get listed as artefacts of a turn that no longer owns them.
+        Called in finally on every execution path. Memory observations never undo another writer.
         """
         if not self.use_tools:
             return self
@@ -838,6 +853,10 @@ class _TurnCapture:
             _record_used_capabilities(self.realm_root, self.tools)   # used ⇒ listed (auto-discover)
         except Exception:  # noqa — telemetry must never break the turn
             swallowed(log, 'finish: failed; ignored')
+        try:
+            self.memory_report = self._memory.record(self._thread)
+        except Exception:  # noqa — observation must preserve the engine's result/exception
+            swallowed(log, 'Could not finish memory observation')
         return self
 
 
@@ -868,8 +887,7 @@ def _publish_boundary(realm_root: Path, agent_dir: Path) -> str:
 
 
 def _memory_boundary(agent_dir: Path) -> str:
-    """Tell the agent where it may and may not write memory. Pairs with the runtime guardrail that
-    reverts any writes it makes outside its own memory folder."""
+    """State the write agreement without claiming an isolation guarantee the providers lack."""
     own = str(Path(agent_dir) / "memory")
     return (
         "[Memory boundaries — respect these]\n"
@@ -879,8 +897,9 @@ def _memory_boundary(agent_dir: Path) -> str:
         "folder.\n"
         "- Do NOT edit the realm's System memory (memory/core-context.md), any realm-level memory, or "
         "another agent's memory. The System memory is auto-generated from the realm's real data and is "
-        "rewritten on a schedule, so an edit there is pointless — and ARMADA reverts writes you make "
-        "outside your own memory folder.\n"
+        "rewritten on a schedule. ARMADA requests file-tool restrictions where supported and records "
+        "memory change observations; this does not isolate shell or MCP writes. Respect the boundary "
+        "with every tool.\n"
         "- To change realm-level facts (owner details, goals, the agent roster, the environment), don't "
         "edit memory — tell the owner so they change it at the source (Settings, Goals, Appoint). "
         "Propose; the owner disposes.\n")
@@ -974,7 +993,7 @@ def _inbox_capability(realm_root: Path, agent_dir: Path) -> str:
 
 
 def run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str = "main",
-                   engine="claude", allow_tools: bool = True, label: str = "adhoc") -> dict:
+                   engine="auto", allow_tools: bool = True, label: str = "adhoc") -> dict:
     """Run a one-off prompt as this agent, through exactly the same path a scheduled job takes.
 
     Deliberately not a shortcut: reusing _run_job_inner means an inbox task gets the same context
@@ -982,17 +1001,12 @@ def run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str = "main",
     other run. Delegated work must not be more privileged than work the agent does for its owner.
     """
     realm_root = Path(realm_root)
-    eng = get_engine(engine) if isinstance(engine, str) else engine
-    agent_dir = realm_root / "agents" / agent_id
-    agent = _load_json(agent_dir / "agent.json")
-    if not agent:
-        raise SystemExit(f"ARMADA: no agent '{agent_id}' at {agent_dir}")
     job = {"id": label, "name": "Inbox task", "kind": "agent", "prompt": prompt}
     return _run_job_inner(realm_root, agent_id, label, engine, thread, allow_tools,
-                          eng, agent_dir, agent, job)
+                          None, realm_root / "agents" / agent_id, None, job)
 
 
-def run_inbox(realm_root, agent_id: str, engine="claude") -> dict:
+def run_inbox(realm_root, agent_id: str, engine="auto") -> dict:
     """Act on whatever is waiting in one agent's inbox.
 
     Only ever called once a cheap file check has found mail, so no tokens are spent discovering an
@@ -1002,13 +1016,13 @@ def run_inbox(realm_root, agent_id: str, engine="claude") -> dict:
     from . import inbox
     realm_root = Path(realm_root)
     batch = inbox.next_batch(realm_root, agent_id)
-    inbox.mark_checked(realm_root, agent_id)
     if not batch:
         return {"ok": True, "handled": 0}
     agent_dir = realm_root / "agents" / agent_id
     agent = _load_json(agent_dir / "agent.json") or {}
     who = agent.get("display") or agent_id
     handled, failed = 0, 0
+    access = None
     for msg in batch:
         ok_to_run, why = inbox.screen(realm_root, agent_id, msg)
         if not ok_to_run:
@@ -1017,6 +1031,11 @@ def run_inbox(realm_root, agent_id: str, engine="claude") -> dict:
             if claimed:
                 inbox.complete(realm_root, agent_id, claimed, False, f"Not actioned: {why}.")
             continue
+        if access is None:
+            access = recipient_access(realm_root, agent_id, engine)
+        if not access["ok"]:
+            # Leave pending mail and cadence intact so a restored sign-in can run it next tick.
+            return {**access, "handled": handled, "failed": failed}
         claimed = inbox.claim(realm_root, agent_id, msg)
         if not claimed:                     # someone else took it
             continue
@@ -1025,7 +1044,8 @@ def run_inbox(realm_root, agent_id: str, engine="claude") -> dict:
                 str(claimed.get("ask", ""))[:200], _thread_href(agent_id, inbox.INBOX_THREAD))
         try:
             report = run_job_prompt(realm_root, agent_id, inbox.prompt_for(claimed),
-                                    thread=inbox.INBOX_THREAD, engine=engine,
+                                    thread=inbox.INBOX_THREAD,
+                                    engine=access["provider"] if isinstance(engine, (str, type(None))) else engine,
                                     allow_tools=True, label=f"inbox:{claimed.get('id')}")
             ok = (report or {}).get("status") == "ok"
             detail = (report or {}).get("summary") or ""
@@ -1038,10 +1058,11 @@ def run_inbox(realm_root, agent_id: str, engine="claude") -> dict:
             failed += 1
             _notify(realm_root, "inbox_failed", f"{who} couldn't complete {sender}'s task",
                     detail[:200], _thread_href(agent_id, inbox.INBOX_THREAD))
+    inbox.mark_checked(realm_root, agent_id)
     return {"ok": failed == 0, "handled": handled, "failed": failed}
 
 
-def process_message_now(realm_root, agent_id: str, msg_id: str, engine="claude") -> dict:
+def process_message_now(realm_root, agent_id: str, msg_id: str, engine="auto") -> dict:
     """Run one waiting message immediately, ignoring the agent's cadence.
 
     Cadence is a "how soon at the latest" promise; asking for it now is the owner overriding that,
@@ -1065,6 +1086,9 @@ def process_message_now(realm_root, agent_id: str, msg_id: str, engine="claude")
         if claimed:
             inbox.complete(realm_root, agent_id, claimed, False, f"Not actioned: {why}.")
         return {"ok": False, "error": why}
+    access = recipient_access(realm_root, agent_id, engine)
+    if not access["ok"]:
+        return {**access, "error": access["detail"]}  # existing Process now UI reads error
     claimed = inbox.claim(realm_root, agent_id, target)
     if not claimed:
         return {"ok": False, "error": "That message was just picked up by the scheduler."}
@@ -1074,7 +1098,9 @@ def process_message_now(realm_root, agent_id: str, msg_id: str, engine="claude")
         who = agent.get("display") or agent_id
         try:
             report = run_job_prompt(realm_root, agent_id, inbox.prompt_for(claimed),
-                                    thread=inbox.INBOX_THREAD, engine=engine, allow_tools=True,
+                                    thread=inbox.INBOX_THREAD,
+                                    engine=access["provider"] if isinstance(engine, (str, type(None))) else engine,
+                                    allow_tools=True,
                                     label=f"inbox:{claimed.get('id')}")
             ok = (report or {}).get("status") == "ok"
             detail = (report or {}).get("summary") or ""
@@ -1090,7 +1116,7 @@ def process_message_now(realm_root, agent_id: str, msg_id: str, engine="claude")
     return {"ok": True, "started": True}
 
 
-def dispatch_inboxes(realm_root, engine="claude") -> dict:
+def dispatch_inboxes(realm_root, engine="auto") -> dict:
     """One pass across every agent. The expensive part happens only where mail is actually
     waiting — everything else is a directory listing."""
     from . import inbox
@@ -1099,6 +1125,7 @@ def dispatch_inboxes(realm_root, engine="claude") -> dict:
         return {"ok": True, "checked": 0, "handled": 0, "skipped": "disabled"}
     adir = realm_root / "agents"
     checked = handled = failed = 0
+    blocked = []
     if not adir.is_dir():
         return {"ok": True, "checked": 0, "handled": 0, "failed": 0}
     for d in sorted(p for p in adir.iterdir() if p.is_dir()):
@@ -1111,10 +1138,12 @@ def dispatch_inboxes(realm_root, engine="claude") -> dict:
         r = run_inbox(realm_root, aid, engine=engine)
         handled += int(r.get("handled") or 0)
         failed += int(r.get("failed") or 0)
-    # ok describes DELIVERY, not the tasks: a task that fails is reported to its sender and to the
-    # bell, but the dispatcher did its job. Marking the pass failed would make the Jobs page say
-    # inbox delivery is broken when it's working perfectly.
-    return {"ok": True, "checked": checked, "handled": handled, "failed": failed}
+        if r.get("reason"):
+            blocked.append({"agent": aid, **r})
+    # Keep delivery counts separate from task outcomes. System upkeep reports failed tasks and
+    # blocked recipients explicitly; a missing sign-in never consumes pending mail.
+    return {"ok": not blocked, "checked": checked, "handled": handled, "failed": failed,
+            "blocked": blocked}
 
 
 def _write_report(agent_dir: Path, agent_id: str, report: dict) -> Path:
@@ -1129,6 +1158,8 @@ def _write_report(agent_dir: Path, agent_id: str, report: dict) -> Path:
 def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_dir: Path) -> dict:
     """Deterministic job: run a shell command / script, capture status+output. No engine, no tokens.
     This is what runs the cabinet's Python collectors (collect_*.py, render_status.py, telegram push)."""
+    from . import util
+    util.assert_realm_writable(agent_dir / "agent.json")
     cmd = job.get("run") or job.get("command", "")
     if not cmd:
         raise SystemExit(f"ARMADA: command job '{job_id}' has no 'run' field")
@@ -1150,7 +1181,15 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     env["PYTHONPATH"] = os.pathsep.join(
         [p for p in (_pkg_root, os.environ.get("PYTHONPATH", "")) if p])
     env.update({str(k): str(v) for k, v in (job.get("env") or {}).items()})
+    import uuid
+    from . import job_results, job_access
+    run_id = uuid.uuid4().hex
+    env["ARMADA_RUN_ID"] = run_id
+    grant = job_access.grant_for(realm_root, agent_id, job)
+    checks = job_access.expanded_checks(realm_root, grant.checks)
+    result_job = job_results.requirements(job, checks)
     t0 = time.time()
+    timed_out = False
     try:
         p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout,
                            encoding="utf-8", errors="replace", env=env,
@@ -1159,7 +1198,12 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
         err = (p.stderr or "").strip()
         ok = p.returncode == 0
         rc = p.returncode
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+    except subprocess.TimeoutExpired as e:
+        timed_out = True
+        out = e.stdout or ""
+        out = out.decode("utf-8", errors="replace") if isinstance(out, bytes) else out
+        err, ok, rc = f"TimeoutExpired: {e}", False, -1
+    except (FileNotFoundError, OSError) as e:
         out, err, ok, rc = "", f"{type(e).__name__}: {e}", False, -1
     dur = round(time.time() - t0, 2)
     ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
@@ -1175,6 +1219,22 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
               "cmd": cmd if isinstance(cmd, str) else " ".join(cmd),
               "status": "ok" if ok else "error", "returncode": rc, "duration_s": dur,
               "summary": tail}
+    from .job_history import save_transcript
+    report["run_id"] = run_id
+    report["result"] = job_results.evaluate(out, run_id=run_id, job=result_job,
+        root=realm_root, started=t0, runtime_execution="timed_out" if timed_out else "completed" if ok else "failed",
+        runtime_error=err if not ok else "", roots=grant.roots, checks=checks)
+    report["status"] = job_results.status(report["result"])
+    report["app_errors"] = report["result"]["app_errors"]
+    report["summary"] = job_results.label(report["result"]) + (": " + tail if tail else "")
+    text = job_results.original_answer(out)
+    try:
+        report["output_file"] = save_transcript(agent_dir, report["run_id"], {
+            "content": text, "raw_final_answer": out, "stderr": err,
+            "app_errors": report["app_errors"]})
+    except OSError:
+        log.exception("Could not save command output; retaining it in the report")
+        report["output"] = text
     f = _write_report(agent_dir, agent_id, report)
     _say(f"ARMADA run · {agent_id}/{job_id} · kind=command · {'OK' if ok else 'ERROR'} "
           f"(rc={rc}) · {dur}s")
@@ -1185,74 +1245,22 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     return report
 
 
+def _result_status(result):
+    return "ok" if result.ok else ("stopped" if getattr(result, "cancelled", False) else "error")
+
+
+def _failed_output(result, partial=""):
+    text = result.output or partial
+    why = (result.error or "").strip() or "The run ended without producing a reply."
+    return (text + "\n\n" if text else "") + why
+
+
 def chat(realm_root, agent_id: str, thread: str, message: str,
          engine: EngineAdapter | str = "mock", allow_tools: bool = False) -> dict:
-    """Ad-hoc owner↔agent turn in a thread (SPEC §5). Same context assembly as a job run:
-    always-on core as system + thread history + the owner's message; appends the turn."""
-    realm_root = Path(realm_root)
-    eng = get_engine(engine) if isinstance(engine, str) else engine
-    agent_dir = realm_root / "agents" / agent_id
-    agent = _load_json(agent_dir / "agent.json")
-    if not agent:
-        raise SystemExit(f"ARMADA: no agent '{agent_id}'")
-    core = memory.assemble_core(realm_root, agent_dir, agent)
-    if allow_tools or bool(agent.get("allow_tools")):
-        core = _tool_preamble(realm_root, agent_dir) + "\n" + core
-    th = Thread(agent_dir, thread)
-    th.compact_if_needed(eng, threshold_chars=_compact_threshold(realm_root, agent))
-    convo = th.render()
-    prompt = (convo + "\n\n---\nOwner: " + message) if convo else message
-    _uses_tools = allow_tools or bool(agent.get("allow_tools"))
-    # This is the non-streaming turn — it serves Telegram, which is as unattended as a job. It gets
-    # the same capture and the same memory guardrail as the other two paths; it previously had
-    # neither, so a turn arriving by Telegram recorded nothing it produced and was the one entry
-    # point where a write into another agent's memory folder would not be reverted.
-    mguard = _guard_snapshot(realm_root, agent_dir) if _uses_tools else None
-    cap = _TurnCapture(realm_root, agent_dir, _uses_tools)
-    _args = dict(system=core, prompt=prompt, model=_resolve_model(realm_root, agent) or None,
-                 cwd=str(agent_dir), allow_tools=_uses_tools,
-                 effort=_resolve_effort(realm_root, agent),
-                 fallback_model=_resolve_fallback_model(realm_root, agent) or None,
-                 max_budget_usd=_resolve_max_budget(realm_root, agent),
-                 disallowed_tools=_disallowed_tools(realm_root, agent))
-    if hasattr(eng, "run_stream"):
-        # Stream only to see the tool events; nothing consumes them live here. Timeout passed
-        # explicitly because run_stream's default is half of run's (see _DEFAULT_RUN_TIMEOUT).
-        res = eng.run_stream(**_args, on_event=cap.on_event, timeout=_DEFAULT_RUN_TIMEOUT)
-    else:
-        res = eng.run(**_args)
-    if mguard:
-        n = _guard_restore(mguard)
-        if n:
-            log.warning("guardrail: reverted %d out-of-bounds memory write(s) by agent %s", n, agent_id)
-    cap.finish()        # after the restore, so reverted files aren't listed as this turn's output
-    # Same rule as the streaming path: the owner said something, so the thread records that they
-    # said it, whether or not the agent managed to answer. This path serves Telegram, where a
-    # message swallowed by a failed run is a message the owner has no way to see again.
-    if res.ok and res.output:
-        th.append(message, res.output, outputs=cap.outputs or None, caps=cap.caps or None)
-    else:
-        why = (res.error or "").strip() or "The run ended without producing a reply."
-        t = th.begin_turn(message)
-        th.complete_turn(t, why, status="error")
-    _sync_proposals(realm_root, agent_id)
-    _sync_cap_requests(realm_root, agent_id, thread)
-    # Same run-report the streaming turn writes. This path serves Telegram and the plain /api/chat
-    # endpoint, and it was the last one spending tokens that never reached the Usage widget — the
-    # turn happened, the quota went down, and the day showed nothing. Best-effort, as there too:
-    # telemetry must never be the reason a turn fails.
-    try:
-        _write_report(agent_dir, agent_id, {
-            "ts": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-            "agent": agent_id, "task": f"chat:{thread}", "thread": thread, "kind": "chat",
-            "engine": getattr(eng, "name", "claude"), "model": res.model,
-            "status": "ok" if res.ok else "error",
-            "summary": (res.output.splitlines()[0][:200] if res.output else (res.error or "")[:200]),
-            "tokens": res.usage.as_dict(),
-        })
-    except Exception:  # noqa — telemetry is not worth failing a chat turn over
-        log.exception("usage log failed for %s chat turn on thread %s", agent_id, thread)
-    return {"ok": res.ok, "output": res.output or res.error, "tokens": res.usage.as_dict(), "model": res.model}
+    """Compatibility entry point for one coordinator-owned plain chat turn (including Telegram)."""
+    from .execution import TurnCoordinator, TurnRequest
+    return TurnCoordinator(TurnRequest(RunContext.capture(realm_root, agent_id, thread),
+                           message, engine, allow_tools)).run()
 
 
 def _save_images(agent_dir: Path, thread: str, images: list) -> list[dict]:
@@ -1291,120 +1299,59 @@ def _save_images(agent_dir: Path, thread: str, images: list) -> list[dict]:
 
 
 def chat_stream(realm_root, agent_id: str, thread: str, message: str, on_event,
-                engine: EngineAdapter | str = "claude", allow_tools: bool = False, on_proc=None,
-                images: list | None = None, files: list | None = None) -> dict:
-    """Streaming version of chat(): emits intermediate steps via on_event(dict) as the agent
-    works, then appends the completed turn to the thread. Falls back to a single event for
-    engines without run_stream (e.g. mock)."""
-    realm_root = Path(realm_root)
-    eng = get_engine(engine) if isinstance(engine, str) else engine
-    agent_dir = realm_root / "agents" / agent_id
-    agent = _load_json(agent_dir / "agent.json")
-    if not agent:
-        on_event({"kind": "error", "error": f"no agent '{agent_id}'"})
-        return {"ok": False, "output": f"no agent '{agent_id}'"}
-    # Attached images: save to disk and let the agent view them via its Read tool (which renders
-    # images to the model). This turn needs tools even if the agent is otherwise propose-only.
-    saved = _save_images(agent_dir, thread, images or [])
-    # attachment refs to persist on the user turn (thumbnails for images, names for files)
-    attach = [{"kind": "image", "name": s["name"], "file": s["file"]} for s in saved]
-    attach += [{"kind": "file", "name": str(fn)} for fn in (files or []) if str(fn).strip()]
-    use_tools = allow_tools or bool(agent.get("allow_tools")) or bool(saved)
-    core = memory.assemble_core(realm_root, agent_dir, agent)
-    if use_tools:
-        core = _tool_preamble(realm_root, agent_dir) + "\n" + core
-    th = Thread(agent_dir, thread)
-    th.compact_if_needed(eng, threshold_chars=_compact_threshold(realm_root, agent))
-    convo = th.render()
-    msg = message
-    if saved:
-        paths = "; ".join(s["path"] for s in saved)   # saved is a list of dicts, not strings
-        msg = (message + "\n\n" if message else "") + (
-            f"[The owner attached {len(saved)} image(s), saved on this machine at: {paths}. "
-            f"Use your Read tool to open and view each image, then respond taking them into account.]")
-    prompt = (convo + "\n\n---\nOwner: " + msg) if convo else msg
-    # Record the owner's message NOW — after rendering the history above, so it isn't in the
-    # prompt twice. It used to be written only when the reply landed, which meant it existed
-    # nowhere but the open browser tab while the agent worked: walk away from a long turn and the
-    # thread you came back to had no record of what you'd asked, and a run that failed lost it for
-    # good. The turn is closed below whatever happens, including on an error.
-    turn = th.begin_turn(message, attachments=attach or None)
-    mdl = _resolve_model(realm_root, agent) or None
-    eff = _resolve_effort(realm_root, agent)
-    fbm = _resolve_fallback_model(realm_root, agent) or None
-    budg = _resolve_max_budget(realm_root, agent)
-    # Capture the files the agent creates/edits this turn (Write/Edit tool-use) so the thread can list
-    # them as OUTPUT artifacts. We sniff the tool events as they stream past, then persist on the turn.
-    cap = _TurnCapture(realm_root, agent_dir, use_tools)
-
-    def _cap(ev):
-        cap.on_event(ev)
-        on_event(ev)
-    mguard = _guard_snapshot(realm_root, agent_dir) if use_tools else None   # protect other memories
-    _disallow = _disallowed_tools(realm_root, agent)
-    if not hasattr(eng, "run_stream"):
-        res = eng.run(system=core, prompt=prompt, model=mdl,
-                      cwd=str(agent_dir), allow_tools=use_tools, effort=eff,
-                      fallback_model=fbm, max_budget_usd=budg, disallowed_tools=_disallow)
-        on_event({"kind": "text", "text": res.output or ""})
-    else:
-        res = eng.run_stream(system=core, prompt=prompt, model=mdl, cwd=str(agent_dir),
-                             allow_tools=use_tools, on_event=_cap, on_proc=on_proc, effort=eff,
-                             fallback_model=fbm, max_budget_usd=budg, disallowed_tools=_disallow)
-    if mguard:
-        n = _guard_restore(mguard)                          # revert any writes outside its own memory
-        if n:
-            log.warning("guardrail: reverted %d out-of-bounds memory write(s) by agent %s", n, agent_id)
-    cap.finish()        # after the restore, so reverted files aren't listed as this turn's output
-    # Always close the turn. An owner message with nothing after it reads as the app having lost
-    # the message, not as the agent having had a problem — so a failure says so in the thread,
-    # where the question is, rather than only in a toast that is gone by the time you look.
-    if res.ok and res.output:
-        th.complete_turn(turn, res.output, outputs=cap.outputs or None, caps=cap.caps or None)
-    else:
-        why = (res.error or "").strip() or "The run ended without producing a reply."
-        stopped = "stop" in why.lower()[:40]
-        th.complete_turn(turn, why, status="stopped" if stopped else "error")
-    _sync_proposals(realm_root, agent_id)   # record any job the agent just proposed (Write tool)
-    _sync_cap_requests(realm_root, agent_id, thread)   # …and any capability it asked for
-    # Log a run-report for this interactive turn so chat usage shows in the Usage widget. Previously
-    # only scheduled/manual JOBS were logged, so live chat token use was invisible (and "today" stayed
-    # empty even while chatting). Telemetry must never break the turn, so it's best-effort.
-    try:
-        _write_report(agent_dir, agent_id, {
-            "ts": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
-            "agent": agent_id, "task": f"chat:{thread}", "thread": thread, "kind": "chat",
-            "engine": getattr(eng, "name", "claude"), "model": res.model,
-            "status": "ok" if res.ok else "error",
-            "summary": (res.output.splitlines()[0][:200] if res.output else (res.error or "")[:200]),
-            "tokens": res.usage.as_dict(),
-        })
-    except Exception:  # noqa — telemetry is not worth failing a chat turn over
-        log.exception("usage log failed for %s chat turn on thread %s", agent_id, thread)
-    return {"ok": res.ok, "output": res.output or res.error, "tokens": res.usage.as_dict(), "model": res.model}
+                engine: EngineAdapter | str = "auto", allow_tools: bool = False, on_proc=None,
+                images: list | None = None, files: list | None = None, context: RunContext | None = None,
+                session=None) -> dict:
+    """Compatibility streaming entry point; the coordinator owns persistence and cleanup."""
+    from .execution import TurnCoordinator, TurnRequest
+    expected = RunContext.capture(realm_root, agent_id, thread)
+    if context is not None and (context.realm != expected.realm or context.agent != agent_id or context.thread != thread):
+        raise ValueError("Run context does not match the requested realm, agent and thread.")
+    return TurnCoordinator(TurnRequest(context or expected, message, engine, allow_tools,
+        images=tuple(images or ()), files=tuple(files or ())),
+        on_event=on_event, on_proc=on_proc, session=session).run()
 
 
 def run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str = "mock",
             thread: str = "main", allow_tools: bool = False) -> dict:
+    from . import util
+    lock = Path(realm_root) / 'agents' / agent_id / 'runs' / '.invocations' / f'{job_id}.json'
+    with util.file_lock(lock, timeout=.05):
+        return _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools)
+
+
+def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
     realm_root = Path(realm_root)
-    eng = get_engine(engine) if isinstance(engine, str) else engine
     agent_dir = realm_root / "agents" / agent_id
-    agent = _load_json(agent_dir / "agent.json")
-    if not agent:
-        raise SystemExit(f"ARMADA: no agent '{agent_id}' at {agent_dir}")
-    job = _load_json(agent_dir / "jobs" / f"{job_id}.json")
-    if not job:
-        raise SystemExit(f"ARMADA: no job '{job_id}' for agent '{agent_id}'")
+    job_path = agent_dir / "jobs" / f"{job_id}.json"
+    from . import realmops, util
+    with realmops.lifecycle_lock(realm_root):
+        realmops.assert_active(realm_root)
+        job = read_json_state(job_path) if job_path.exists() else {}
+        if not job:
+            raise SystemExit(f"ARMADA: no job '{job_id}' for agent '{agent_id}'")
+        util.write_json_atomic(agent_dir / "runs" / ".running" / f"{job_id}.json",
+                               {"owner_pid": os.getpid(), "ts": datetime.datetime.now().astimezone().isoformat()})
+    # Metadata here only labels notifications. Execution admission is owned by the coordinator.
+    try:
+        agent = _load_json(agent_dir / "agent.json") or {}
+    except (OSError, ValueError):
+        agent = {}
+    eng = None
 
     who = agent.get("display") or agent.get("name") or agent_id
     what = job.get("title") or job.get("name") or job_id
-    link = _thread_href(agent_id, thread)     # the run's output and errors land in this thread
-    _running_marker(agent_dir, job_id, True)
+    from .job_history import thread_name
+    thread = thread_name(job_id)
+    import urllib.parse
+    link = f"/agent/{urllib.parse.quote(agent_id, safe='')}/jobs?job={urllib.parse.quote(job_id, safe='')}"
     _t0 = time.time()
     _notify(realm_root, "job_started", *_job_note("started", who, what, thread=thread), href=link)
     try:
-        report = _run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools,
-                                eng, agent_dir, agent, job)
+        from . import job_retries
+        report = job_retries.execute(realm_root, agent_id, job_id, job,
+            lambda attempt_job: _run_job_inner(realm_root, agent_id, job_id, engine,
+                thread, allow_tools, eng, agent_dir, agent, attempt_job))
     except BaseException as e:  # noqa — tell the owner the job died, then let it propagate
         _notify(realm_root, "job_failed",
                 *_job_note("failed", who, what, why=f"{type(e).__name__}: {e}"[:400],
@@ -1413,7 +1360,8 @@ def run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str 
     finally:
         _running_marker(agent_dir, job_id, False)
     _dur = (report or {}).get("duration_s") or (time.time() - _t0)
-    if (report or {}).get("status") == "ok":
+    if ((report or {}).get("status") == "ok"
+            or (report or {}).get("result", {}).get("execution") == "completed"):
         _notify(realm_root, "job_finished",
                 *_job_note("finished", who, what, why=(report.get("summary") or "")[:300],
                            took=_dur, thread=thread), href=link)
@@ -1428,79 +1376,11 @@ def run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str 
 
 def _run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools,
                    eng, agent_dir, agent, job) -> dict:
-    # Command jobs are deterministic scripts — no engine, no context, no tokens.
+    """Keep the old job entry point; all model turns go through the shared coordinator."""
     if job.get("kind") == "command" or job.get("run") or job.get("command"):
-        return _run_command(realm_root, agent_id, job_id, job, agent_dir)
-
-    # SPEC §5 context assembly: always-on core (memory) as system + thread history in the prompt.
-    core = memory.assemble_core(realm_root, agent_dir, agent)
-    if allow_tools or bool(agent.get("allow_tools")):
-        core = _tool_preamble(realm_root, agent_dir) + "\n" + core     # host/path parity + job-proposal contract
-    th = Thread(agent_dir, thread)
-    compacted = th.compact_if_needed(eng, threshold_chars=_compact_threshold(realm_root, agent, job))  # keep lean
-    convo = th.render()
-    # {workspace} is expanded here, at run time, and never written back to the job file: the stored
-    # prompt stays portable however many times it runs.
-    ask = workspace.expand(job.get("prompt", ""), realm_root)
-    prompt = (convo + "\n\n---\nRequest: " + ask) if convo else ask
-
-    job_model = _cli_model(job.get("model"), realm_root) if job.get("model") else _resolve_model(realm_root, agent)
-    _uses_tools = allow_tools or bool(agent.get("allow_tools"))
-    mguard = _guard_snapshot(realm_root, agent_dir) if _uses_tools else None
-    cap = _TurnCapture(realm_root, agent_dir, _uses_tools)
-    _tmo = _resolve_timeout(realm_root, job)      # per-job, else the realm default, else ours
-    _args = dict(system=core, prompt=prompt, model=job_model or None,
-                 cwd=str(agent_dir), allow_tools=_uses_tools, effort=_resolve_effort(realm_root, agent),
-                 fallback_model=_resolve_fallback_model(realm_root, agent) or None,
-                 max_budget_usd=_resolve_max_budget(realm_root, agent),
-                 disallowed_tools=_disallowed_tools(realm_root, agent))
-    if hasattr(eng, "run_stream"):
-        # Stream the run so the turn can record which capabilities the job exercised: tool names
-        # exist only in the event stream, so a non-streamed job could never report them. Pass the
-        # timeout explicitly — run_stream's own default is half of run's, and a job's time limit
-        # must not change because of which method happened to be called.
-        res = eng.run_stream(**_args, on_event=cap.on_event, timeout=_tmo or _DEFAULT_RUN_TIMEOUT)
-    else:
-        res = eng.run(**_args, **({"timeout": _tmo} if _tmo else {}))
-    if mguard:
-        n = _guard_restore(mguard)
-        if n:
-            log.warning("guardrail: reverted %d out-of-bounds memory write(s) by job %s/%s", n, agent_id, job_id)
-    cap.finish()        # after the restore, so reverted files aren't listed as this job's output
-    if res.ok and res.output:
-        # Record what the run produced. A job is the case that needs this most: nobody watched it
-        # happen, so this entry is the only account of the files it wrote and the tools it used.
-        th.append(ask, res.output, outputs=cap.outputs or None, caps=cap.caps or None)
-    _sync_proposals(realm_root, agent_id)
-    _sync_cap_requests(realm_root, agent_id, thread)
-
-    ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
-    report = {
-        "ts": ts, "agent": agent_id, "task": job_id, "thread": thread, "engine": eng.name,
-        "model": res.model, "status": "ok" if res.ok else "error", "compacted": compacted,
-        "summary": (res.output.splitlines()[0][:200] if res.output else res.error[:200]),
-        "tokens": res.usage.as_dict(),
-    }
-    if cap.stray:
-        # The realm is meant to be self-contained. It can't be enforced, so it's recorded: on the
-        # run report, so it survives, and in the log now, so it isn't only discoverable by someone
-        # already looking for it.
-        report["outside_root"] = cap.stray[:20]
-        log.warning("job %s/%s wrote %d file(s) outside the app root: %s",
-                    agent_id, job_id, len(cap.stray), "; ".join(cap.stray[:5]))
-    runs = agent_dir / "runs"
-    runs.mkdir(exist_ok=True)
-    with (runs / f"{agent_id}.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps(report, ensure_ascii=False) + "\n")
-
-    st = memory.core_stats(realm_root, agent_dir, agent)
-    _say(f"ARMADA run · {agent_id}/{job_id} · thread={thread} · engine={eng.name} model={res.model or '-'} · "
-          f"{'OK' if res.ok else 'ERROR'} · tokens={res.usage.total} "
-          f"(api-equiv ${res.usage.cost_usd:.4f} — subscription quota, not a $ charge)")
-    _say(f"context · core: realm+{st['realm_memories']} realm-mem + agent+{st['agent_memories']} agent-mem"
-          f" · thread history: {len(convo)} chars{' · COMPACTED' if compacted else ''}")
-    _say("─" * 60)
-    _say(res.output or res.error)
-    _say("─" * 60)
-    _say(f"run-report → {runs / (agent_id + '.jsonl')}  ·  thread → {th.dir}")
-    return report
+        return _run_command(Path(realm_root), agent_id, job_id, job, agent_dir)
+    from .execution import TurnCoordinator, TurnRequest
+    context = RunContext.capture(realm_root, agent_id, thread)
+    return TurnCoordinator(TurnRequest(context, job.get("prompt", ""),
+                           engine, allow_tools or job.get("allow_tools") is True,
+                           task=job_id, job=job)).run()

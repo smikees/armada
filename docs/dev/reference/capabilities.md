@@ -105,9 +105,31 @@ The agent's own grant entry for a capability — carries granted_at / granted_vi
 
 Was this capability granted to this agent through THIS conversation?
 
+### class `CapabilityPolicyError`
+
+A tool turn cannot safely determine its permissions.
+
+
+### class `CapabilityPolicy`
+
+Validated per-turn MCP grants. An empty set grants no MCP servers.
+
+
+### `_policy_json(path: Path)`
+
+—
+
+### `_policy_toolkit(data: dict, label: str, *, grants_only=False)`
+
+—
+
+### `execution_policy(realm_root, agent)`
+
+Read policy strictly for execution; display/discovery fallbacks never authorize tools.
+
 ### `denied_tool_patterns(realm_root, agent)`
 
-`mcp__<id>` patterns to withhold from this run: every MCP capability the agent may not use.
+Compatibility facade for validated catalogue denials; adapters also gate their inventory.
 
 ### `_slug(s: str)`
 

@@ -1,6 +1,9 @@
 function mcArtGV(id){var e=document.getElementById(id);return e?((e.dataset&&e.dataset.val!==undefined&&e.dataset.val!=='')?e.dataset.val:(e.value||'')):'';}
-function mcArtApply(){
+let mcArtCurrentPage=0;
+const mcArtPageSize=100;
+function mcArtApply(resetPage=true){
   var t=document.getElementById('art-table'); if(!t)return;
+  if(resetPage)mcArtCurrentPage=0;
   var today=t.dataset.today||'';
   var fe=document.getElementById('art-from'), te=document.getElementById('art-to');
   [fe,te].forEach(function(e){if(e&&today&&e.value&&e.value>today)e.value=today;});   // no future dates
@@ -13,18 +16,32 @@ function mcArtApply(){
   if(when==='custom'){fr=fe?fe.value:'';to=te?te.value:'';}
   else if(when!==''&&today){var d=new Date(today+'T12:00:00');d.setDate(d.getDate()-(+when));
     fr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-  var n=0, shown=0;
+  var n=0, matches=[];
   [...t.tBodies[0].rows].forEach(function(r){
     if(!r.dataset||r.dataset.search===undefined)return;
     n++;
     var ok=(!q||r.dataset.search.indexOf(q)>=0)&&(!ow||r.dataset.owner===ow)&&(!ty||r.dataset.type===ty)
       &&(!fr||r.dataset.ymd>=fr)&&(!to||r.dataset.ymd<=to);
-    r.style.display=ok?'':'none'; if(ok)shown++;
+    r.style.display='none'; if(ok)matches.push(r);
+  });
+  var shown=matches.length, pages=Math.max(1,Math.ceil(shown/mcArtPageSize));
+  mcArtCurrentPage=Math.max(0,Math.min(mcArtCurrentPage,pages-1));
+  var start=mcArtCurrentPage*mcArtPageSize,end=Math.min(start+mcArtPageSize,shown);
+  matches.slice(start,end).forEach(r=>r.style.display='');
+  document.querySelectorAll('.mc-art-pager').forEach(function(pager){
+    pager.style.display=shown>mcArtPageSize?'flex':'none';
+    pager.querySelector('[data-art-prev]').disabled=mcArtCurrentPage===0;
+    pager.querySelector('[data-art-next]').disabled=mcArtCurrentPage===pages-1;
+    pager.querySelector('[data-art-range]').textContent=(shown?start+1:0)+'–'+end+' of '+shown+' · Page '+(mcArtCurrentPage+1)+' of '+pages;
   });
   var c=document.getElementById('art-count'); if(c)c.textContent=shown+(shown===1?' artefact':' artefacts')+(shown!==n?(' of '+n):'');
   var active=q||ow||ty||when;
   var cl=document.getElementById('art-clear'); if(cl)cl.style.display=active?'inline-flex':'none';
   var sx=document.getElementById('art-q-x'); if(sx)sx.style.display=q?'block':'none';
+}
+function mcArtPage(delta){
+  mcArtCurrentPage+=delta;mcArtApply(false);
+  document.getElementById('art-pager-top')?.scrollIntoView({block:'start'});
 }
 function mcArtSearchClear(){var e=document.getElementById('art-q');if(e){e.value='';mcArtApply();e.focus();}}
 function mcArtClear(ddIds){['art-q','art-from','art-to'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
@@ -37,6 +54,7 @@ function mcArtSort(th){
   rows.sort(function(a,b){var va=key(a),vb=key(b);var cmp=(type==='date')?(va<vb?-1:va>vb?1:0):va.localeCompare(vb,undefined,{numeric:true});return dir==='desc'?-cmp:cmp;});
   var tb=t.tBodies[0]; rows.forEach(function(r){tb.appendChild(r);});
   [...t.tHead.rows[0].cells].forEach(function(h){var a=h.querySelector('.mc-arr');if(a){a.textContent=(h===th)?(dir==='asc'?' ↑':' ↓'):' ↕';a.style.opacity=(h===th)?'0.8':'0.4';}});
+  mcArtApply();
 }
 async function mcRevealFile(path){try{await fetch('/api/reveal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:path})});}catch(e){}}
 // Clicking a row opens the artifact in whatever app owns the file type. Anything runnable
@@ -68,7 +86,7 @@ async function mcArtDelete(el,path){
   try{const r=await(await fetch('/api/delete-artefact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:path})})).json();
     if(!r.ok){mcArtToast(r.error||'Could not delete the file.');return;}
     const tr=el.closest('tr');                       // drop the row; the file is gone
-    if(tr){tr.style.transition='opacity .15s';tr.style.opacity='0';setTimeout(function(){tr.remove();},160);}
+    if(tr){tr.style.transition='opacity .15s';tr.style.opacity='0';setTimeout(function(){tr.remove();mcArtApply(false);},160);}
     mcArtToast('Deleted '+name);}
   catch(e){mcArtToast('Could not delete the file: '+e);}}
 // One delegated handler. Paths come from data- attributes, never from inline JS strings.

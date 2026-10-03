@@ -6,7 +6,7 @@
 // show one changed cell is a bad trade.
 //
 // Cost is shown on every row and never inferred: "free" means deterministic local work, "uses your
-// quota" means it invokes agents and spends your Claude subscription. A system job must never
+// quota" means it invokes agents and spends the selected provider's quota. A system job must never
 // quietly become a thing that spends money.
 (function(){
   function row(id){return document.querySelector('[data-sysjob="'+id+'"]');}
@@ -38,7 +38,8 @@
     if(week&&window.MC_HEALTH){
       const sq=week.children[week.children.length-4];       // today: 3 days of outlook follow it
       const lbl=!j.enabled?'Not scheduled'
-               :(j.status==='error'?'Failed':(j.last_run?'Success':'Scheduled'));
+               :(j.status==='error'?'Failed':(j.status==='held'?'Warning':
+                 (j.status==='skipped'?'Not scheduled':(j.last_run?'Success':'Scheduled'))));
       const st=window.MC_HEALTH[lbl];
       if(sq&&st){
         sq.setAttribute('style','display:inline-block;width:11px;height:11px;border-radius:2px;'
@@ -68,7 +69,7 @@
     try{
       const r=await(await fetch('/api/system-job-run',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({id:id})})).json();
-      if(r.skipped){ msg(id,'skipped — '+(r.error||'not available right now'),true); }
+      if(r.skipped){ msg(id,'skipped — '+(r.detail||r.error||'not available right now'),false); }
       else if(r.ok){ msg(id,'done'+(r.detail?' — '+r.detail:''),false); }
       else { msg(id,r.error||r.detail||'failed',true); }
     }catch(e){ msg(id,'failed: '+e,true); }

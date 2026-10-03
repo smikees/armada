@@ -6,6 +6,7 @@ from __future__ import annotations
 import html, datetime, time, re
 from .. import datefmt
 from pathlib import Path
+from .. import covenant
 from .. import memory, model, models, brand, status
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
@@ -272,25 +273,26 @@ def _covenant_block(realm, realm_root) -> str:
         txt = p.read_text(encoding="utf-8-sig") if p.exists() else ""
     except OSError:
         txt = ""
+    txt = covenant.adapt(txt, covenant.template_of(realm_root))
     heads = [ln.lstrip("# ").strip() for ln in txt.splitlines()
              if ln.startswith("## ")][:6]
     summary = (" · ".join(h.split(". ", 1)[-1] for h in heads)
-               if heads else "Not written yet — the terms every minister is bound by.")
+               if heads else "Not written yet — the terms every agent is bound by.")
     n = len([ln for ln in txt.splitlines() if ln.strip().startswith("- ")])
     upd = _covenant_updated(realm_root)
     stamp = (f'<span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;'
              f'color:var(--text-ghost)" '
-             f'title="When the Covenant was last edited">updated {E(upd)}</span>') if upd else ""
+             f'title="When {E(covenant.name(realm_root))} was last edited">updated {E(upd)}</span>') if upd else ""
     return (
         f'<div class="mc-frame" style="border-radius:var(--r);padding:14px 16px;margin-bottom:16px;'
-        f'border-left:4px solid var(--color-accent-2);background:var(--color-bg)">'
+        f'border-left:4px solid var(--color-accent);background:var(--color-bg)">'
         f'<div style="display:flex;align-items:flex-start;gap:10px">'
-        f'<span style="display:flex;flex:none;color:var(--color-accent-2);margin-top:1px">{_icon("agreement",18)}</span>'
+        f'<span style="display:flex;flex:none;color:var(--color-accent);margin-top:1px">{_icon("agreement",18)}</span>'
         f'<div style="flex:1;min-width:0">'
         f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-        f'<span style="font-family:var(--font-heading);font-weight:600;font-size:15px">The Covenant</span>'
+        f'<span style="font-family:var(--font-heading);font-weight:600;font-size:15px">{E(covenant.name(realm_root))}</span>'
         f'<span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;'
-        f'color:var(--text-soft)">binds every minister · {n} terms</span>'
+        f'color:var(--text-soft)">binds every agent · {n} terms</span>'
         f'{stamp}</div>'
         f'<div style="font-size:11.5px;color:var(--text-muted);margin-top:3px;line-height:1.5">{E(summary)}</div>'
         f'<div style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.5">'
@@ -320,11 +322,12 @@ def _covenant_modal(realm_root=None) -> str:
             txt = p.read_text(encoding="utf-8-sig") if p.exists() else ""
         except OSError:
             txt = ""
+    txt = covenant.adapt(txt, covenant.template_of(realm_root))
     rendered = _md(txt) if txt.strip() else (
         '<div style="color:var(--text-muted)">Nothing written yet. Use Edit to set the terms every '
         'agent in this realm is bound by.</div>')
     upd = _covenant_updated(realm_root) if realm_root is not None else ""
-    sub = "binds every minister in this realm" + (f" · updated {upd}" if upd else "")
+    sub = "binds every agent in this realm" + (f" · updated {upd}" if upd else "")
     return (
         f'<template id="mc-cov-rendered">{E(rendered)}</template>' +
         '<div id="mc-cov-modal" style="display:none;position:fixed;inset:0;z-index:70;'
@@ -333,7 +336,7 @@ def _covenant_modal(realm_root=None) -> str:
         '<div class="mc-frame" style="background:var(--color-bg);border-radius:var(--r);'
         'width:min(860px,96vw);max-height:88vh;display:flex;flex-direction:column;padding:18px 20px">'
         '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">'
-        '<div style="font-family:var(--font-heading);font-weight:600;font-size:17px">The Covenant</div>'
+        f'<div style="font-family:var(--font-heading);font-weight:600;font-size:17px">{E(covenant.name(realm_root))}</div>'
         f'<div id="mc-cov-sub" style="font-size:11.5px;color:var(--text-muted)">{E(sub)}</div></div>'
         '<div id="mc-cov-read" class="mc-md" style="overflow:auto;font-size:13px;line-height:1.6;'
         'padding:6px 2px 2px"></div>'

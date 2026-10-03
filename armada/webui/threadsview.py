@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 def _user_avatar_file(realm_root):
     d = Path(realm_root) / "user"
-    for ext in ("png", "jpg", "jpeg", "webp", "gif"):
+    for ext in ("png", "jpg", "jpeg", "webp", "gif", "svg"):
         f = d / f"avatar.{ext}"
         if f.exists():
             return f
@@ -85,12 +85,8 @@ def _touch_last_thread(agent_dir, slug: str) -> None:
         return
     f = _meta_path(agent_dir)
     try:
-        with util.file_lock(f):
-            meta = _thread_meta(agent_dir)            # re-read under the lock
-            if meta.get("last") == slug:
-                return
-            meta["last"] = slug
-            util.write_json_atomic(f, meta)
+        from ..thread_metadata import set_last
+        set_last(agent_dir, slug)
     except OSError:
         log.debug("_touch_last_thread: could not persist the last-open thread", exc_info=True)
 
@@ -108,12 +104,11 @@ def _mark_thread_unread(agent_dir, slug: str) -> None:
     posts a reply, so the owner sees there's something new even away from that thread."""
     if _thread_meta(agent_dir).get("unread", {}).get(slug):
         return                                   # already flagged — no rewrite
-    with util.file_lock(_meta_path(agent_dir)):
-        meta = _thread_meta(agent_dir)
-        if meta.get("unread", {}).get(slug):
-            return
-        meta.setdefault("unread", {})[slug] = True
-        _write_thread_meta(agent_dir, meta)
+    try:
+        from ..thread_metadata import set_unread
+        set_unread(agent_dir, slug, True)
+    except OSError:
+        log.warning("Could not persist unread state", exc_info=True)
 
 
 def _clear_thread_unread(agent_dir, slug: str, render_meta: dict | None = None) -> None:
@@ -124,16 +119,20 @@ def _clear_thread_unread(agent_dir, slug: str, render_meta: dict | None = None) 
         render_meta.setdefault("unread", {})[slug] = False
     if not was:
         return                                   # already read — skip the disk write
-    with util.file_lock(_meta_path(agent_dir)):
-        disk = _thread_meta(agent_dir)           # re-read under the lock so no concurrent write is lost
-        disk.setdefault("unread", {})[slug] = False
-        _write_thread_meta(agent_dir, disk)
+    try:
+        from ..thread_metadata import set_unread
+        set_unread(agent_dir, slug, False)
+    except OSError:
+        log.warning("Could not persist read state", exc_info=True)
 
 
 def _ordered_threads(agent_dir):
     """Thread slugs in display order: main first, then pinned, then the rest (by saved order, else name)."""
     from ..threads import Thread
     names = Thread.list_threads(agent_dir)
+    names = [n for n in names if n == "main" or not (
+        (messages := Thread(agent_dir, n).display_snapshot()[1]) and
+        all(m.get("kind") == "job" for m in messages))]
     if "main" not in names:
         names = ["main"] + names
     meta = _thread_meta(agent_dir)
@@ -199,6 +198,29 @@ def _event_card(m: dict) -> str:
     href = str(m.get("href", "") or "").strip()
     muted = "var(--text-muted)"
     faint = "var(--text-ghost)"
+
+    if et == "memory_boundary":
+        # Paths come from tool events and the filesystem; keep every detail as escaped text.
+        meta = m.get("meta") if isinstance(m.get("meta"), dict) else {}
+        def entries(key):
+            value = meta.get(key)
+            return value[:100] if isinstance(value, list) else []
+        rows = []
+        for change in entries("changes"):
+            if isinstance(change, dict):
+                rows.append(f'<li>{E(str(change.get("path", "")))} — '
+                            f'{E(str(change.get("change", "observed")))}; writer unknown</li>')
+        for path in entries("write_attempts"):
+            rows.append(f'<li>Write attempt: {E(str(path))}; execution not confirmed</li>')
+        for issue in entries("scan_issues"):
+            rows.append(f'<li>{E(str(issue))}</li>')
+        limitation = E(str(meta.get("limitation", "")))
+        return (f'<details class="mc-turn mc-event" data-role="event" style="margin:8px auto 14px;'
+                f'max-width:92%;border:1px solid var(--color-divider);border-radius:var(--r);'
+                f'padding:9px 12px;font-size:12px;color:{muted};overflow-wrap:anywhere">'
+                f'<summary style="cursor:pointer;color:var(--color-text)">{title or "Memory observation"}</summary>'
+                f'<p>{subtitle}</p><ul>{"".join(rows)}</ul>'
+                f'<p>{limitation} Details show up to 100 paths per category.</p></details>')
 
     # --- compaction: a live progress bar while summarizing, or a settled marker when done ---
     if et == "compaction":
@@ -280,7 +302,7 @@ def _attachments_html(att, aid: str, thread: str) -> str:
     return f'<div class="mc-att-row">{"".join(out)}</div>'
 
 
-def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None) -> str:
+def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True) -> str:
     content = E(str(raw).strip())
     when = str(ts)[11:16]
     tpl = f'<template class="mc-raw">{content}</template>'
@@ -290,7 +312,7 @@ def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, threa
                 f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av or _bust(28, coord)}</div>'
                 f'<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
                 f'<div class="mc-body">{body}</div>'
-                f'{_turn_actions("assistant", idx, aid, thread, False, when)}</div></div>{tpl}</div>')
+                f'{_turn_actions("assistant", idx, aid, thread, False, when) if actions else ""}</div></div>{tpl}</div>')
     ubub = (f'<div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex:none;border:1px solid var(--color-divider)">{userav}</div>'
             if userav else
             '<div style="width:28px;height:28px;border-radius:50%;background:var(--color-accent);color:#fff;display:grid;place-items:center;font-size:11px;flex:none">You</div>')
@@ -298,7 +320,7 @@ def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, threa
             f'<div style="display:flex;flex-direction:row-reverse;gap:10px">{ubub}'
             f'<div style="max-width:72%">{_attachments_html(att, aid, thread)}'
             f'<div class="mc-body mc-md" style="background:var(--color-sand-100);border-radius:var(--r);padding:8px 10px;font-size:13px;line-height:1.5">{_md(str(raw).strip())}</div>'
-            f'{_turn_actions("user", idx, aid, thread, is_last_user, when)}</div></div>{tpl}</div>')
+            f'{_turn_actions("user", idx, aid, thread, is_last_user, when) if actions else ""}</div></div>{tpl}</div>')
 
 
 def _agent_model_label(realm_root, aid: str) -> str:
@@ -314,6 +336,20 @@ def _agent_model_label(realm_root, aid: str) -> str:
         except Exception:  # noqa
             swallowed(log, '_agent_model_label: failed; ignored')
     return m or ""
+
+
+def thread_metrics(realm_root, aid: str, selected: str, *, thread=None, snapshot=None) -> dict:
+    """The same persisted message count and compaction estimate for page load and live refresh."""
+    from ..threads import Thread
+    th = thread or Thread(Path(realm_root) / "agents" / aid, selected)
+    summ, msgs = snapshot if snapshot is not None else th.display_snapshot()
+    label = _agent_model_label(realm_root, aid)
+    history_chars = len(th.render())
+    threshold = max(1, model.compaction_threshold_chars(label))
+    return {"messages": sum(m.get("role") in ("user", "assistant") and m.get("kind") != "job" for m in msgs),
+            "pct": min(100, round(100 * history_chars / threshold)),
+            "compacted": bool(summ), "chars": history_chars,
+            "context_window": model.context_window_tokens(label)}
 _CAP_ICON = {"connectors": "cap-connector", "extensions": "puzzle", "skills": "cap-skill",
              "plugins": "cap-plugin", "builtin": "search"}
 _CAP_KIND_LABEL = {"connectors": "connector", "extensions": "extension", "skills": "skill",
@@ -508,7 +544,7 @@ def _thread_rail(realm_root, a, selected: str) -> str:
                   f'<i style="width:9px;height:9px;background:{col};flex:none;border-radius:2px;position:relative;top:2px"></i>'
                   f'<div style="flex:1"><div style="font-size:12px">{E(name)}</div></div>'
                   f'<div class="mono" style="font-size:11px;color:var(--text-muted)">{_est_tokens(c)}</div></div>')
-    _allmsgs = th._messages()
+    _allmsgs = [m for m in th.display_snapshot()[1] if m.get("kind") != "job"]
     caps_block = _thread_caps_rail(_thread_caps_used(_allmsgs, realm_root, a.id, selected))
     _ins, _outs = _thread_artifacts(agent_dir, a.id, selected, _allmsgs)
     arts_block = _thread_arts_rail(_ins, _outs, a.id)
@@ -529,8 +565,14 @@ def _render_turns(realm_root, a, selected: str) -> str:
     from ..threads import Thread
     agent_dir = Path(realm_root) / "agents" / a.id
     th = Thread(agent_dir, selected)
-    msgs = th._messages()
-    summ = th.summary()
+    summ, msgs = th.display_snapshot()
+    pending = th.open_turn([m for m in msgs if m.get("kind") != "job"])
+    running = bool(pending) and _chat_running(realm_root, a.id, selected)
+    if pending and not running:
+        # Completion can land between the transcript read and the marker check. Reconcile
+        # before rendering, or this page can lose both the answer and the poller's spinner.
+        summ, msgs = th.display_snapshot()
+        pending = th.open_turn([m for m in msgs if m.get("kind") != "job"])
     av = _portrait(realm_root, a, 28)
     userav = _user_avatar(realm_root, 28)
     turns = ""
@@ -538,8 +580,10 @@ def _render_turns(realm_root, a, selected: str) -> str:
         turns += (f'<div class="mc-frame" style="align-self:center;background:var(--color-surface);border-radius:var(--r);'
                   f'padding:6px 12px;font-size:11.5px;color:var(--text-dim);margin:0 auto 6px">'
                   f'📚 Earlier in this thread — compacted</div>')
-    last_user = max((i for i, m in enumerate(msgs) if m.get("role") == "user"), default=-1)
+    last_user = max((i for i, m in enumerate(msgs) if m.get("role") == "user" and m.get("kind") != "job"), default=-1)
     for i, m in enumerate(msgs):
+        if m.get("kind") == "job":
+            continue
         if m.get("role") == "event" or m.get("kind") == "event":
             turns += _event_card(m)
             continue
@@ -550,18 +594,75 @@ def _render_turns(realm_root, a, selected: str) -> str:
     # which case the page has to say so, because the reply is arriving over an event stream this
     # page load knows nothing about — or the run died without answering, and saying that is far
     # better than a message sitting there looking ignored.
-    if th.open_turn() is not None:
-        if _chat_running(realm_root, a.id, selected):
-            turns += _working_turn(av, a.display)
+    if pending is not None:
+        progress = th.progress(pending.get("turn", ""))
+        if running:
+            turns += _working_turn(av, a.display, progress)
         else:
-            turns += _unanswered_turn(av, a.display)
+            if progress.get("content"):
+                turns += _turn("assistant", progress["content"], "", len(msgs), False,
+                               a.id, selected, a.display, a.is_coordinator, av=av, userav=userav)
+            turns += _unanswered_turn(av, a.display, bool(progress.get("content")))
     if not msgs and not summ:
         turns = ('<div style="color:var(--text-muted);font-size:13px;padding:20px 0">'
                  'No messages yet. Say hello below — the reply is generated with this agent\'s core context + this thread.</div>')
     return turns
 
 
-def _working_turn(av: str, disp: str) -> str:
+def _progress_steps(events) -> str:
+    """Render the same compact activity chips shown on the original streaming tab."""
+    out = []
+    for ev in events or []:
+        if not isinstance(ev, dict):
+            continue
+        kind = ev.get("kind")
+        if kind == "thinking":
+            label, icon, detail = "Thought for a moment", "think", str(ev.get("text") or "")
+        elif kind == "tool":
+            name = str(ev.get("name") or "a tool")
+            inp = ev.get("input") if isinstance(ev.get("input"), dict) else {}
+            if name == "Bash":
+                label = "Running a command"
+                detail = str(inp.get("command") or "")
+            elif name == "Read":
+                label = "Reading " + str(inp.get("file_path") or inp.get("path") or "a file")
+                detail = json.dumps(inp, ensure_ascii=False, indent=2)
+            elif name in ("Write", "Edit", "MultiEdit"):
+                label = "Editing " + str(inp.get("file_path") or "a file")
+                detail = json.dumps(inp, ensure_ascii=False, indent=2)
+            elif name == "WebSearch":
+                label = "Searching the web"
+                detail = json.dumps(inp, ensure_ascii=False, indent=2)
+            elif name == "WebFetch":
+                label = "Fetching a page"
+                detail = json.dumps(inp, ensure_ascii=False, indent=2)
+            elif name in ("Glob", "Grep"):
+                label = "Searching files"
+                detail = json.dumps(inp, ensure_ascii=False, indent=2)
+            elif name == "Task":
+                label = "Delegating a subtask"
+                detail = json.dumps(inp, ensure_ascii=False, indent=2)
+            else:
+                label = "Using " + name
+                detail = json.dumps(inp, ensure_ascii=False, indent=2)
+            if "result" in ev:
+                detail += "\n— result —\n" + str(ev["result"])
+                label += " · failed" if ev.get("is_error") else " · done"
+            icon = "terminal"
+        else:
+            continue
+        arrow = '<span class="mc-step-c" style="margin-left:6px;opacity:.5">▸</span>' if detail else ''
+        detail_html = (f'<pre class="mc-step-d" style="display:none;margin:4px 0 2px 20px;background:var(--color-sand-100);'
+                f'border:1px solid var(--color-sand-300);border-radius:var(--r);padding:6px 8px;font-size:11px;'
+                f'line-height:1.45;white-space:pre-wrap;max-height:220px;overflow:auto">{E(detail)}</pre>') if detail else ""
+        out.append(f'<div class="mc-step"><div class="mc-step-h" style="display:flex;align-items:center;gap:6px;'
+                   f'font-size:11.5px;color:var(--text-dim);{("cursor:pointer" if detail else "")}">'
+                   f'<span style="display:flex">{_icon(icon,13)}</span><span class="mc-step-l">{E(label)}</span>'
+                   f'{arrow}</div>{detail_html}</div>')
+    return "".join(out)
+
+
+def _working_turn(av: str, disp: str, progress: dict | None = None) -> str:
     """The agent is working on the message above, right now.
 
     Rendered server-side, which is the whole point: the live reply streams over an SSE connection
@@ -569,34 +670,40 @@ def _working_turn(av: str, disp: str) -> str:
     that connection isn't yours — without this the transcript looks like nothing is happening.
     mcRefreshTurns replaces it with the real reply when the turn lands.
     """
+    progress = progress or {}
+    activity = str(progress.get("activity") or "working on it…")
+    content = str(progress.get("content") or "")
+    steps = _progress_steps(progress.get("events"))
     return (f'<div class="mc-turn mc-pending" data-role="pending" style="margin-bottom:12px">'
             f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av}</div>'
             f'<div style="flex:1;min-width:0">'
             f'<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
-            f'<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-muted)">'
-            f'<span class="mc-dots"><i></i><i></i><i></i></span>working on it…</div></div></div></div>'
-            '<style>.mc-dots{display:inline-flex;gap:3px;align-items:center}'
-            '.mc-dots i{width:5px;height:5px;border-radius:50%;background:var(--color-accent-2);'
-            'display:block;animation:mc-dots 1.1s ease-in-out infinite}'
-            '.mc-dots i:nth-child(2){animation-delay:.16s}.mc-dots i:nth-child(3){animation-delay:.32s}'
-            '@keyframes mc-dots{0%,80%,100%{opacity:.25}40%{opacity:1}}'
-            '@media (prefers-reduced-motion:reduce){.mc-dots i{animation:none;opacity:.6}}</style>')
+            f'<div class="mc-steps" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">{steps}</div>'
+            f'<div class="mc-answer mc-body mc-md">{_md(content) if content else ""}</div>'
+            f'<div class="mc-work" style="display:flex;flex-direction:column;gap:4px;margin-top:6px">'
+            f'<div class="mc-step"><div class="mc-step-h" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim)">'
+            f'<span style="display:flex"><img src="/static/working.gif" width="34" height="34" style="display:block" alt=""></span>'
+            f'<span class="mc-step-l" style="animation:mc-pulse 1.4s ease-in-out infinite">{E(activity)}</span>'
+            f'</div></div></div></div></div></div>')
 
 
-def _unanswered_turn(av: str, disp: str) -> str:
+def _unanswered_turn(av: str, disp: str, partial: bool = False) -> str:
     """The message above never got a reply and nothing is working on it.
 
     Reachable when the app was closed or the server stopped mid-turn — the run can't write its
     own failure if it isn't there any more. Says so plainly rather than leaving the message
     looking ignored, and points at the one thing that fixes it.
     """
+    message = ("The run stopped before finishing. The partial reply above has been kept. "
+               "Send another message to continue." if partial else
+               "No reply — the run stopped before it answered, most likely because the app was "
+               "closed mid-turn. Send it again when you want an answer.")
     return (f'<div class="mc-turn" data-role="pending" style="margin-bottom:12px">'
             f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none;opacity:.6">{av}</div>'
             f'<div style="flex:1;min-width:0">'
             f'<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
             f'<div style="font-size:12.5px;color:var(--text-muted);line-height:1.5">'
-            f'No reply — the run stopped before it answered, most likely because the app was '
-            f'closed mid-turn. Send it again when you want an answer.</div></div></div></div>')
+            f'{E(message)}</div></div></div></div>')
 
 
 def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = "") -> str:
@@ -607,8 +714,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
     from ..threads import Thread
     agent_dir = Path(realm_root) / "agents" / a.id
     th = Thread(agent_dir, selected)
-    msgs = th._messages()
-    summ = th.summary()
+    summ, msgs = th.display_snapshot()
     av = _portrait(realm_root, a, 28)       # for the optimistic-turn <template> that chat.js clones
     userav = _user_avatar(realm_root, 28)
     turns = _render_turns(realm_root, a, selected)
@@ -624,18 +730,17 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
     # how full the live history is toward the next auto-compaction. The threshold is derived from the
     # agent model's real context window (Opus/Haiku 200K tokens, Sonnet 5 / Fable 1M) — the same value
     # threads.compact_if_needed uses — so the % is grounded in Claude's actual limits, not a guess.
-    _mlabel = _agent_model_label(realm_root, a.id)
-    _thr = max(1, model.compaction_threshold_chars(_mlabel))
-    _pct = min(100, round(100 * len(th.render()) / _thr))          # always shown, even with no messages
-    _cw = model.context_window_tokens(_mlabel)
-    _comp_title = (f"History uses ~{_est_tokens(len(th.render()))} of the model's {_cw//1000}K-token "
+    metrics = thread_metrics(realm_root, a.id, selected, thread=th, snapshot=(summ, msgs))
+    _pct = metrics["pct"]
+    _message_count = metrics["messages"]
+    _comp_title = (f"History uses ~{_est_tokens(metrics['chars'])} of the model's {metrics['context_window']//1000}K-token "
                    f"context window. At 100% the oldest turns are summarised to keep the thread lean.")
     _comp_col = "var(--status-bad)" if _pct >= 90 else ("var(--status-warn)" if _pct >= 70 else "var(--color-accent-2)")
     _comp_bar = (f'<span style="display:inline-block;width:74px;height:5px;border-radius:3px;'
                  f'background:var(--color-neutral-200);overflow:hidden;vertical-align:middle">'
-                 f'<span style="display:block;width:{_pct}%;height:100%;background:{_comp_col}"></span></span>')
-    _comp = (f' · <span title="{_comp_title}" style="display:inline-flex;align-items:center;gap:6px">'
-             f'{_pct}% to compaction {_comp_bar}</span>')
+                 f'<span id="mc-comp-bar" style="display:block;width:{_pct}%;height:100%;background:{_comp_col}"></span></span>')
+    _comp = (f' · <span id="mc-comp-wrap" title="{_comp_title}" style="display:inline-flex;align-items:center;gap:6px">'
+             f'<span id="mc-comp-pct">{_pct}</span>% to compaction {_comp_bar}</span>')
     header = "" if embed else (
         f'<div style="padding:12px 20px 6px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--color-divider)">'
         f'{lead}'
@@ -643,11 +748,12 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
         f'style="display:inline-block;max-width:100%;min-width:0;font-family:var(--font-heading);font-weight:600;font-size:17px;'
         f'cursor:text;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{_title}</span>'
         f'<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">'
-        f'{"main thread" if selected=="main" else "sub-thread"} · {sum(1 for _m in msgs if _m.get("role") in ("user","assistant"))} messages{" · compacted" if summ else ""}{_comp}</span>'
+        f'{"main thread" if selected=="main" else "sub-thread"} · <span id="mc-message-count">{_message_count}</span> messages'
+        f'<span id="mc-compacted-note">{" · compacted" if summ else ""}</span>{_comp}</span>'
         + f'</div>')
-    return (f'<div style="position:relative;display:flex;flex-direction:column;min-height:0;height:100%">'
+    return (f'<div class="mc-chat-center" style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%">'
             f'{header}<template class="mc-av">{av}</template><template class="mc-userav">{userav}</template>'
-            f'<div style="position:relative;flex:1;min-height:0">'
+            f'<div style="position:relative;flex:1;min-width:0;min-height:0">'
             f'<div id="mc-turns" class="mc-scroll" data-agent="{E(a.id)}" data-thread="{E(selected)}" data-display="{E(a.display)}" '
             f'data-coord="{"1" if a.is_coordinator else ""}" data-comp-pct="{_pct}" data-activity="{_agent_activity(realm_root, a.id)}" '
             f'style="height:100%;overflow:auto;padding:16px 20px 160px;display:flex;flex-direction:column">{turns}</div>'
@@ -707,7 +813,7 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
     left_rows = ""
     for n in names:
         th = Thread(agent_dir, n)
-        msgs = th._messages()
+        msgs = [m for m in th.display_snapshot()[1] if m.get("kind") != "job"]
         sub = E(msgs[-1]["content"][:40]) if msgs else "empty"
         is_main = n == "main"
         pinned = bool(meta.get("pinned", {}).get(n)) or is_main
@@ -799,14 +905,13 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
 
     # center transcript + composer (shared helper)
     th = Thread(agent_dir, selected)
-    msgs = th._messages()
-    summ = th.summary()
+    summ, msgs = th.display_snapshot()
     center = _chat_center(realm_root, a, selected)
 
     # right rail — loaded context + capabilities + artifacts (refetched live after each reply)
     rail = _thread_rail(realm_root, a, selected)
 
-    return (f'<div id="mc-thgrid" style="display:grid;grid-template-columns:var(--mc-thleft,220px) 5px 1fr 300px;height:100%;min-height:0">'
+    return (f'<div id="mc-thgrid" style="display:grid;grid-template-columns:var(--mc-thleft,220px) 5px minmax(0,1fr) 300px;height:100%;min-width:0;min-height:0">'
             f'{left}'
             f'<div class="mc-thresize" onmousedown="mcThResizeStart(event)" title="Drag to resize the thread list"></div>'
             f'{center}{rail}</div>{_THRESIZE_JS}')

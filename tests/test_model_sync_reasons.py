@@ -5,10 +5,16 @@ have touched the network. fetch_live() had six ways to return None and reported 
 network fault, including the ones where ARMADA had simply declined to ask.
 """
 import json
+import datetime as dt
 
 import pytest
 
-from armada import models, sysjobs
+@pytest.fixture(autouse=True)
+def existing_realm(tmp_path):
+    (tmp_path / "realm.json").write_text('{"name":"Test"}', encoding="utf-8")
+
+
+from armada import clock, models, sysjobs
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +89,8 @@ def test_the_old_signature_still_works(monkeypatch):
 def test_each_reason_gets_an_honest_sentence(reason, is_failure, says, monkeypatch, tmp_path):
     monkeypatch.setattr(models, "refresh", lambda _r: {"ok": False, "reason": reason})
     out = sysjobs._job_model_catalog(tmp_path)
-    assert out["ok"] is not is_failure, f"{reason} should{'' if is_failure else ' not'} be a failure"
+    assert out["status"] == ("error" if is_failure else "skipped")
+    assert out["reason"] == reason
     assert says in out["detail"], out["detail"]
 
 
@@ -91,7 +98,9 @@ def test_a_self_healing_state_is_not_recorded_as_a_failure(monkeypatch, tmp_path
     """A signed-out session is already shown by the sign-in banner; recording it as a job failure
     puts a red mark on the Jobs page for something that isn't broken."""
     monkeypatch.setattr(models, "refresh", lambda _r: {"ok": False, "reason": "signed-out"})
-    assert sysjobs._job_model_catalog(tmp_path)["ok"] is True
+    result = sysjobs.run_one(tmp_path, "model-catalog")
+    assert result["status"] == "skipped" and not result["error"]
+    assert sysjobs.state(tmp_path)["model-catalog"]["fails"] == 0
 
 
 # ---- not crying wolf ------------------------------------------------------------------------------
@@ -112,8 +121,11 @@ def test_a_pattern_does_interrupt(monkeypatch, tmp_path):
     sent = []
     monkeypatch.setitem(sysjobs._BY_ID["prune-history"], "run", _always_fails)
     monkeypatch.setattr("armada.notify.emit", lambda *a, **k: sent.append(a))
-    for _ in range(sysjobs._NOTIFY_AFTER_FAILS):
-        sysjobs.run_one(tmp_path, "prune-history")
+    start = clock.now()
+    interval = dt.timedelta(minutes=sysjobs.interval_minutes(sysjobs._BY_ID["prune-history"]))
+    for i in range(sysjobs._NOTIFY_AFTER_FAILS):
+        with clock.frozen(start + i * interval):
+            assert sysjobs.run_one(tmp_path, "prune-history")["status"] == "error"
     assert len(sent) == 1
     assert "3 times in a row" in sent[0][3], "and it should say that it's a pattern"
 
@@ -121,11 +133,11 @@ def test_a_pattern_does_interrupt(monkeypatch, tmp_path):
 def test_the_counter_resets_on_success(monkeypatch, tmp_path):
     monkeypatch.setitem(sysjobs._BY_ID["prune-history"], "run", _always_fails)
     sysjobs.run_one(tmp_path, "prune-history")
-    sysjobs.run_one(tmp_path, "prune-history")
+    sysjobs.run_one(tmp_path, "prune-history", manual=True)
     assert sysjobs.state(tmp_path)["prune-history"]["fails"] == 2
     monkeypatch.setitem(sysjobs._BY_ID["prune-history"], "run",
                         lambda _r: {"ok": True, "detail": "fine"})
-    sysjobs.run_one(tmp_path, "prune-history")
+    sysjobs.run_one(tmp_path, "prune-history", manual=True)
     assert sysjobs.state(tmp_path)["prune-history"]["fails"] == 0
 
 

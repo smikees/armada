@@ -35,6 +35,8 @@ INSTALLED = "installed"
 # sources are therefore "marketplace:<its name>", and the label is the name the marketplace gives
 # itself. MARKETPLACE stays as the prefix everything else keys off.
 SOURCE_LABEL = {
+    "workspace-mcp": "Workspace MCP (community)",
+    "cursortouch": "CursorTouch (community)",
     MARKETPLACE: "Claude plugin marketplaces",
     REGISTRY: "MCP registry",
     SKILLS: "Anthropic skills",

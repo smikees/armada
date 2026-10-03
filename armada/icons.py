@@ -19,6 +19,12 @@ E = html.escape
 
 # Lucide icon bodies (design's icon set), + simple-icons Claude mark — inlined from Iconify.
 ICONS = {
+    "arrow-bar-to-up-dashed": '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10v10"/><path d="M12 10l4 4"/><path d="M12 10l-4 4"/><path d="M4 4h3m13 0h-3m-3.5 0h-3"/></g>',
+    # Monochrome Gemini sparkle for the upcoming provider's Overview placeholder.
+    "gemini": '<path fill="currentColor" d="M12 0C12 6.627 6.627 12 0 12c6.627 0 12 5.373 12 12c0-6.627 5.373-12 12-12C17.373 12 12 6.627 12 0Z"/>',
+    "external-link": '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></g>',
+    # Iconify logos/openai-icon: the OpenAI mark labels Codex throughout the UI.
+    "codex": '<path fill="currentColor" d="M239.184 106.203a64.72 64.72 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.72 64.72 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.67 64.67 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.77 64.77 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483m-97.56 136.338a48.4 48.4 0 0 1-31.105-11.255l1.535-.87l51.67-29.825a8.6 8.6 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.545-48.601 48.601M37.158 197.93a48.35 48.35 0 0 1-5.781-32.589l1.534.921l51.722 29.826a8.34 8.34 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803M23.549 85.38a48.5 48.5 0 0 1 25.58-21.333v61.39a8.29 8.29 0 0 0 4.195 7.316l62.874 36.272l-21.845 12.636a.82.82 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405zm179.466 41.695l-63.08-36.63L161.73 77.86a.82.82 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.54 8.54 0 0 0-4.4-7.213m21.742-32.69l-1.535-.922l-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.72.72 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391zM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87l-51.67 29.825a8.6 8.6 0 0 0-4.246 7.367zm11.868-25.58L128.067 97.3l28.188 16.218v32.434l-28.086 16.218l-28.188-16.218z"/>',
     "bell": '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.268 21a2 2 0 0 0 3.464 0m-10.47-5.674A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
     "settings": '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0a2.34 2.34 0 0 0 3.319 1.915a2.34 2.34 0 0 1 2.33 4.033a2.34 2.34 0 0 0 0 3.831a2.34 2.34 0 0 1-2.33 4.033a2.34 2.34 0 0 0-3.319 1.915a2.34 2.34 0 0 1-4.659 0a2.34 2.34 0 0 0-3.32-1.915a2.34 2.34 0 0 1-2.33-4.033a2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></g>',
     "play": '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',
@@ -256,13 +262,25 @@ ICONS["head-snowflake"] = ('<path fill="currentColor" d="M13 3C9.23 3 6.19 5.95 
 # ix/support-ai (Siemens iX Icons, MIT) — the Report an issue button beside the settings gear (5.6).
 ICONS["support-ai"] = '<path fill="currentColor" d="M19.96 10.18C19.69 6.96 17.81 2 12 2c-1.54 0-2.81.35-3.84.93l2.98 1.12h.01c.27-.03.55-.05.85-.05c4.76 0 5.74 4.37 5.94 6.21a2.8 2.8 0 0 0-1.74 2.59v1.4c0 1.08.62 2.05 1.59 2.52c-.42.79-1.49 1.86-4.12 2.18a2.015 2.015 0 0 0-2.78-.59c-.93.61-1.19 1.85-.58 2.78c.6.93 1.84 1.19 2.77.58c.3-.19.54-.46.7-.78c4.29-.49 5.66-2.7 6.09-4.04a2.8 2.8 0 0 0 1.93-2.65v-1.4c0-1.17-.74-2.22-1.84-2.62m-.16 4.02c0 .44-.36.8-.8.8s-.8-.36-.8-.8v-1.4c0-.44.36-.8.8-.8s.8.36.8.8zM4.99 10c-1.54 0-2.8 1.25-2.8 2.8v1.41c0 1.54 1.25 2.8 2.8 2.8s2.8-1.25 2.8-2.8V12.8c0-1.54-1.25-2.8-2.8-2.8m.8 4.21c0 .44-.36.8-.8.8s-.8-.36-.8-.8V12.8c0-.44.36-.8.8-.8s.8.36.8.8zm.67-9.66L9 5.5l-2.54.95L5.5 9l-.95-2.55L2 5.5l2.55-.95L5.5 2z"/>'
 
-_ICON_VB = {"cap-plugin": "0 0 256 256", "ai-agent": "0 0 32 32",
+# boxicons/info-circle (Boxicons, MIT) and ix/telegram-logo (Siemens iX, MIT).
+ICONS["info-circle"] = '<path fill="currentColor" d="M11 11h2v6h-2zm0-4h2v2h-2z"/><path fill="currentColor" d="M12 22c5.51 0 10-4.49 10-10S17.51 2 12 2S2 6.49 2 12s4.49 10 10 10m0-18c4.41 0 8 3.59 8 8s-3.59 8-8 8s-8-3.59-8-8s3.59-8 8-8"/>'
+ICONS["telegram-logo"] = '<path fill="currentColor" d="M461.226 111.998c-4.48 29.013-34.773 226.133-44.586 288a27.1 27.1 0 0 1-12.824 23.14a27.09 27.09 0 0 1-26.43 1.18a138.9 138.9 0 0 1-36.053-18.987c-33.92-22.613-68.48-44.16-100.48-69.333c-15.36-12.16-15.573-23.467 0-36.907a3589 3589 0 0 0 109.44-104.106c4.693-4.694 15.36-15.147 9.387-21.334c-5.974-6.186-18.347 2.56-24.32 6.614c-49.92 33.28-100.267 66.346-149.334 100.48A62.5 62.5 0 0 1 128 289.918c-23.467-7.04-46.72-14.72-69.76-22.4c-9.387-2.987-34.134-13.013 11.733-31.787c117.12-48.64 236.587-97.493 354.133-145.92c28.587-10.88 40.534-1.28 37.12 22.187"/>'
+
+_ICON_VB = {"telegram-logo": "0 0 512 512", "cap-plugin": "0 0 256 256", "ai-agent": "0 0 32 32",
             "circle-check-fill": "0 0 12 12", "documentation": "0 0 48 48",
             "cap-reads": "0 0 1024 1024", "cap-code": "0 0 512 512",
             "warning-tri": "0 0 1024 1024", "warning-filled": "0 0 1024 1024",
             "risk-analysis": "0 0 48 48", "go-to-file": "0 0 16 16",
             "link": "0 0 16 16", "edit-off": "0 0 16 16",
-            "batch-job": "0 0 32 32"}   # per-icon viewBox override
+            "batch-job": "0 0 32 32", "codex": "0 0 256 260"}   # per-icon viewBox override
+
+
+# Iconify Codex loader, kept local so pending checks never wait for an icon download.
+ICONS['loader'] = '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M12 6.99998C9.1747 6.99987 6.99997 9.24998 7 12C7.00003 14.55 9.02119 17 12 17C14.7712 17 17 14.75 17 12"><animateTransform attributeName="transform" attributeType="XML" dur="560ms" from="0,12,12" repeatCount="indefinite" to="360,12,12" type="rotate"/></path>'
+
+
+ICONS['hook'] = '<path fill="currentColor" fill-rule="evenodd" d="M1 11.125a3.875 3.875 0 0 0 7 2.292a3.875 3.875 0 0 0 7-2.292V7.002l-1.28 1.28l-1.49 1.488a.75.75 0 0 0 1.061 1.061l.208-.208v.502a2.375 2.375 0 1 1-4.75 0v-5.24a2.501 2.501 0 1 0-1.5 0v5.24a2.375 2.375 0 1 1-4.75 0v-.502l.208.208a.75.75 0 1 0 1.06-1.06L2.28 8.281L1 7.002zM9 3.5a1 1 0 1 0-2 0a1 1 0 0 0 2 0" clip-rule="evenodd"/>'
+_ICON_VB['hook'] = '0 0 16 16'
 
 
 def _icon(name: str, size: int = 18, style: str = "") -> str:
@@ -280,6 +298,23 @@ _ICONS_JS = ("<script>window.MC_ICONS=" + json.dumps(ICONS) + ";window.MC_ICON_V
              ";window.mcIcon=function(n,s,st){return '<svg width=\"'+(s||18)+'\" height=\"'+(s||18)+"
              "'\" viewBox=\"'+(window.MC_ICON_VB[n]||'0 0 24 24')+'\" style=\"display:block;pointer-events:none;'"
              "+(st||'')+'\">'+(window.MC_ICONS[n]||'')+'</svg>';};</script>")
+
+
+_ICONS_JS += ('<script>window.mcProviderLogo=function(p,s,connected){'
+              's=s||18;return \'<span class="mc-engine-logo\'+(connected?\' is-connected\':\'\')+\'" data-provider="\'+p+\'" aria-hidden="true">\''
+              '+\'<span class="mc-engine-mono">\'+window.mcIcon(p,s)+\'</span><span class="mc-engine-color">\''
+              '+(p===\'gemini\'?\'<img src="/static/gemini-color.svg" width="\'+s+\'" height="\'+s+\'" alt="">\':'
+              'window.mcIcon(p,s,\'color:\'+(p===\'codex\'?\'#000\':\'#D97757\')))+\'</span></span>\';};</script>')
+
+
+def _provider_logo(provider: str, size: int = 18, connected: bool = False) -> str:
+    """Original provider artwork when connected, monochrome when disconnected."""
+    color = (f'<img src="/static/gemini-color.svg" width="{size}" height="{size}" alt="">'
+             if provider == 'gemini' else _icon(provider, size, 'color:' + ('#000' if provider == 'codex' else '#D97757')))
+    return (f'<span class="mc-engine-logo{" is-connected" if connected else ""}" '
+            f'data-provider="{provider}" aria-hidden="true">'
+            f'<span class="mc-engine-mono">{_icon(provider, size)}</span>'
+            f'<span class="mc-engine-color">{color}</span></span>')
 
 
 def _realm_icon(realm, size: int = 15) -> str:

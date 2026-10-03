@@ -18,6 +18,13 @@ _COMPACT_FRACTION = 0.75             # summarise history before it reaches this 
 
 def context_window_tokens(model_label: str) -> int:
     d = (model_label or "").lower()
+    from .engine.selection import model_provider
+    if model_provider(d) == "gemini":
+        return 1_000_000
+    if model_provider(d) == "codex":
+        from .engine.codex import cached_models, model_id
+        entry = next((m for m in cached_models() if m["slug"] == model_id(d)), {})
+        return int(entry.get("context_window") or 200_000)
     if "fable" in d or "sonnet 5" in d or "sonnet-5" in d:
         return 1_000_000
     return 200_000
@@ -74,7 +81,7 @@ class Agent:
     connectors: list[str] = field(default_factory=list)
     runs_30d: int = 0
     tokens_30d: int = 0                # summed from run-reports that carry usage (P2 telemetry)
-    cost_30d: float = 0.0              # summed api-equiv $ over 30d (subscription: quota, not billed)
+    cost_30d: float | None = 0.0              # summed api-equiv $ over 30d (subscription: quota, not billed)
     appointed: str = ""               # ISO date the agent was appointed/created
     placeholder: str = ""              # set when the agent is planned, not established
 
@@ -112,5 +119,5 @@ class Realm:
         return sum(a.tokens_30d for a in self.agents)
 
     @property
-    def cost_30d(self) -> float:
-        return sum(a.cost_30d for a in self.agents)
+    def cost_30d(self) -> float | None:
+        return None if any(a.cost_30d is None for a in self.agents) else sum(a.cost_30d for a in self.agents)

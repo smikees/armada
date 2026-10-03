@@ -34,7 +34,7 @@ Apply the OS colour scheme when the mode is 'system'.
 
 Token count formatted EXACTLY like usage.js's htok(), so the server-rendered header value and the value usage.js writes on load are byte-identical — no visible 'jump' on every Overview visit.
 
-### `_kpis(realm, tok30=None, usd30=None)`
+### `_kpis(realm, tok30=_UNSUPPLIED, usd30=_UNSUPPLIED, *, unknown_token_runs=0, unknown_cost_runs=0)`
 
 —
 

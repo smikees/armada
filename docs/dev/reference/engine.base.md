@@ -20,5 +20,8 @@ not a realm change.
 
 —
 
+- `EngineAdapter.configure(self, policy: ExecutionPolicy)` — Bind an invocation-local policy; never mutate a shared adapter's grants.
+- `EngineAdapter.execute(self, request: RunRequest, *, on_event: EventSink | None=None, on_proc: ProcessSink | None=None)` — —
+- `EngineAdapter.run_stream(self, *args, **kwargs)` — —
 - `EngineAdapter.doctor(self)` — Is the engine installed + authenticated? (ok, human-readable detail).
-- `EngineAdapter.run(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=300, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None, only_tools: Optional[list]=None)` — Run one turn. `system` = assembled context; `prompt` = the job ask.
+- `EngineAdapter.run(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=300, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None, only_tools: Optional[list]=None, verbosity: Optional[str]=None)` — Run one turn. `system` = assembled context; `prompt` = the job ask.

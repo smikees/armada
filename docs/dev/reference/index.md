@@ -4,12 +4,14 @@
 
 | Module | What it is |
 |---|---|
-| [`__init__`](__init__.md) | ARMADA — a local, provider-agnostic app for building and running a personal team of AI agents |
+| [`__init__`](__init__.md) | ARMADA — a local, provider-agnostic app for building and running a personal team of AI agents through connected Claude, Codex and Gemini engines. |
 | [`__main__`](__main__.md) |  |
 | [`activerealm`](activerealm.md) | Which realm the app opens when nobody says — the last one you were actually in. |
 | [`addons`](addons.md) | Add-ons: the extension surface (Phase 2, 2.7 — ADR-002's homework) |
+| [`agentdates`](agentdates.md) | Appointment dates are profile history, not configuration modification times. |
 | [`agentops`](agentops.md) | Agent lifecycle — retire, reinstate, delete. |
 | [`alexander.__init__`](alexander.__init__.md) | Alexander — ARMADA's guide (Phase 6; docs/dev/ALEXANDER.md, ADR-012). |
+| [`alexander.config`](alexander.config.md) | Alexander's app-wide model preference, independent of realm defaults. |
 | [`alexander.remedies`](alexander.remedies.md) | Remedies: the fixed list of app actions Alexander may propose (ADR-012, docs/dev/ALEXANDER.md). |
 | [`alexander.support`](alexander.support.md) | Alexander in the app: support conversations (launch plan 6.2, 6.3, 6.6; docs/dev/ALEXANDER.md). |
 | [`alexander.wizard_script`](alexander.wizard_script.md) | Everything Alexander says in the setup wizard, written in advance (ADR-012; docs/dev/ALEXANDER.md). |
@@ -27,29 +29,54 @@
 | [`catalogue.sources`](catalogue.sources.md) | The catalogue's three mirrored/queried sources — Claude plugin marketplaces, the MCP registry, anthropics/skills, and the skills you wrote yourself — normalised |
 | [`cli`](cli.md) | ARMADA CLI |
 | [`clock`](clock.md) | One place the app asks what time it is. |
+| [`codex_usage`](codex_usage.md) | Account-wide OpenAI limits through Codex's authenticated app-server protocol. |
+| [`connector_runtime`](connector_runtime.md) | Provider-specific MCP connections for realm capabilities. |
+| [`covenant`](covenant.md) | One shared governing document, named for the realm's chosen vocabulary. |
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
+| [`desktop_launch`](desktop_launch.md) | Start the desktop app with Explorer's lifetime and unvirtualized user context. |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
 | [`ed25519`](ed25519.md) | Ed25519 signatures (RFC 8032), in plain Python — for checking that an update came from us (5.4). |
 | [`engine.__init__`](engine.__init__.md) | Engine adapters — the provider seam |
+| [`engine.authentication`](engine.authentication.md) | Admission for background model work; cost alone never identifies a provider. |
 | [`engine.base`](engine.base.md) | Engine adapter contract (SPEC §9) |
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
+| [`engine.codex`](engine.codex.md) | Codex CLI turns, using the owner's login and Armada's existing context and history. |
+| [`engine.contracts`](engine.contracts.md) | Provider-independent requests, events and enforceable execution capabilities. |
+| [`engine.gemini`](engine.gemini.md) | Google Gemini through the supported Antigravity CLI; cached login, fresh scoped turns. |
+| [`engine.mcp`](engine.mcp.md) | Translate MCP display names to their tool namespace without granting access. |
+| [`engine.mcp_runtime`](engine.mcp_runtime.md) | Live MCP startup evidence; saved OAuth credentials are not a connection test. |
 | [`engine.mock`](engine.mock.md) | Mock engine — lets the runner + telemetry be tested end-to-end offline, with no Claude Code and no tokens spent |
+| [`engine.process`](engine.process.md) | Owned CLI lifetime: bounded pipe draining, output-independent deadlines and tree cleanup. |
+| [`engine.selection`](engine.selection.md) | Resolve the provider from the chosen model, keeping old Claude realms readable. |
+| [`engine.windows_job`](engine.windows_job.md) | Windows CLI process-tree ownership using documented Job Object and thread APIs. |
+| [`execution`](execution.md) | Own agent turns across HTTP, plain chat, jobs, inbox and Telegram. |
 | [`fonts`](fonts.md) | The app's font faces — a temporary Appearance setting (v0.99.62), to become part of themes/skins. |
 | [`goals`](goals.md) | Realm goals — the objectives agents actively advance (distinct from passive memory). |
 | [`icons`](icons.md) | Icon subsystem — the single source of every SVG the UI draws. |
 | [`inbox`](inbox.md) | Agent-to-agent delegation — an inbox per agent. |
+| [`job_access`](job_access.md) | Machine-local, owner-approved access and completion checks for external jobs. |
+| [`job_history`](job_history.md) | Job transcripts live separately from owner conversations; old logs stay intact. |
+| [`job_results`](job_results.md) | Versioned per-run job results |
+| [`job_retries`](job_retries.md) | Bounded job retries with durable attempt evidence and conservative replay rules. |
 | [`jobs`](jobs.md) | Agent-authored job proposals (pending owner approval). |
 | [`memory`](memory.md) | Layered memory + always-on core assembly (SPEC §5). |
+| [`memory_boundary`](memory_boundary.md) | Non-destructive memory boundary: provider denials where available, observation everywhere. |
 | [`model`](model.md) | ARMADA domain model (neutral ontology). |
+| [`modeldefaults`](modeldefaults.md) | Apply a confirmed realm model combination to the current team. |
 | [`models`](models.md) | Model catalog — the Claude models ARMADA offers in its dropdowns, synced from the live API list. |
 | [`notify`](notify.md) | Desktop notifications — native Windows toasts, best-effort. |
 | [`origins`](origins.md) | Where untrusted content is served from (launch plan 5.8a, THREAT_MODEL T3). |
 | [`preflight`](preflight.md) | Is this realm actually able to run *here*? |
+| [`provider_install`](provider_install.md) | Opt-in CLI installation through the vendors' official Windows installers. |
+| [`provider_limits`](provider_limits.md) | Independent, bounded subscription checks; HTTP requests never wait on a CLI. |
+| [`provider_login`](provider_login.md) | Owned browser-login processes |
+| [`providers`](providers.md) | App-wide provider connections |
 | [`reader`](reader.md) | ARMADA realm reader — adopts a realm folder into the model. |
 | [`realmformat`](realmformat.md) | The realm's on-disk format version, and the one place that upgrades it. |
 | [`realmops`](realmops.md) | Realm lifecycle — archive, export, delete. |
-| [`recommended`](recommended.md) | ARMADA's recommended capabilities: the curated set the setup wizard offers (launch plan 6.4). |
+| [`recommended`](recommended.md) | Starter capabilities with explicit upstream sources and connection requirements. |
 | [`render`](render.md) | ARMADA cockpit renderer — Realm model -> self-contained cockpit.html. |
+| [`request_context`](request_context.md) | Immutable request/run destinations; the selected realm is only an admission-time default. |
 | [`routes.__init__`](routes.__init__.md) | Handler mixins for `armada serve` (Phase 2, 2.3), grouped by area. |
 | [`routes._shared`](routes._shared.md) | Shared helpers for the route mixins in armada/routes/. |
 | [`routes.agents`](routes.agents.md) | Agents, their threads and chat. |
@@ -60,12 +87,18 @@
 | [`routes.realm`](routes.realm.md) | Realm lifecycle: switch/new/archive/export/delete, preflight, workspace/approot, icon, settings, covenant. |
 | [`routes.settings`](routes.settings.md) | Settings, the signed-in user, notification channels (incl |
 | [`runner`](runner.md) | Runner (SPEC §8) — runs ONE job through an engine and writes a tokenized run-report. |
-| [`schedsvc`](schedsvc.md) | Is the scheduler running, and starting it if not (launch plan 5.5). |
+| [`schedsvc`](schedsvc.md) | Scheduler lifecycle for the Armada desktop app. |
 | [`scheduler`](scheduler.md) | Local scheduler (SPEC §8/§12) — the missing heart: fire jobs on their cadence. |
+| [`scheduler_state`](scheduler_state.md) | Scheduler leases and durable daily attempts |
 | [`serve`](serve.md) | `armada serve` — the interactive local app (SPEC §13). |
 | [`setup`](setup.md) | `armada new` — scaffold a ARMADA-native realm from a template (SPEC §12). |
 | [`setupflow`](setupflow.md) | The setup wizard's server side (launch plan 6.4; the page is webui/setup_wizard.py). |
+| [`setupfolder`](setupfolder.md) | Relocate an unfinished realm, preserving its files and machine registration. |
+| [`setupteam`](setupteam.md) | Edit a wizard's existing team without replacing its realm or agent histories. |
 | [`skills`](skills.md) | Skills/connectors provisioning (SPEC §6 / §14) — the manifest layer. |
+| [`starter_generic_profiles`](starter_generic_profiles.md) | Full, role-based starter profiles for Company and Ship setup rosters. |
+| [`starter_profiles`](starter_profiles.md) | Bundled starter profiles, separate from personal realms and copied only at creation. |
+| [`startup_splash`](startup_splash.md) | Loading artwork inside the main window, including while WebView2 starts. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
 | [`support`](support.md) | Report an issue (launch plan 5.6, ADR-005). |
 | [`sysjobs`](sysjobs.md) | System jobs — the recurring work ARMADA does to keep itself current. |
@@ -73,7 +106,11 @@
 | [`sysusage`](sysusage.md) | System usage: tokens ARMADA itself spends, as opposed to the owner's agents. |
 | [`telegram`](telegram.md) | Talking to your agents from Telegram. |
 | [`templates`](templates.md) | Realm templates (SPEC §3/§11): {theme} + starter agents over the neutral schema. |
+| [`thread_metadata`](thread_metadata.md) | Thread navigation state belongs to persistence, not to HTML renderers. |
+| [`thread_store`](thread_store.md) | Recoverable thread history mutations, serialized on the existing messages-file lock. |
 | [`threads`](threads.md) | Threads + compaction (SPEC §5). |
+| [`token_cost`](token_cost.md) | Approximate standard-text API equivalents; subscription charges are never inferred. |
+| [`tray`](tray.md) | Windows notification-area icon for a hidden Armada window. |
 | [`updater`](updater.md) | Automatic updates for an installed ARMADA (launch plan 5.4, ADR-011). |
 | [`usage_api`](usage_api.md) | Read the real Claude subscription usage (session + weekly) that powers the Claude app's Usage view. |
 | [`util`](util.md) | Small shared utilities: filesystem-path safety and atomic writes. |
@@ -86,14 +123,17 @@
 | [`webui.agentbits`](webui.agentbits.md) | Agent-rendering primitives (Layer 1, carved from _core.py in Phase 3). |
 | [`webui.agentcommon`](webui.agentcommon.md) | Shared agent/realm page helpers (Phase 3 split of agentpages): job cards, artefact gathering, autonomy/colour controls, filter dropdowns and the status-filter p |
 | [`webui.agentframe`](webui.agentframe.md) | Agent frame (Phase 3 split of agentpages): agent header/body + the Jobs/Inbox/Configure sub-tabs, avatar + appoint modals. |
+| [`webui.alexander_window`](webui.alexander_window.md) | Transparent shell for Alexander's independent desktop companion. |
 | [`webui.capabilities`](webui.capabilities.md) | Capabilities / connectors / skills rendering (Layer 2, Phase 3). |
 | [`webui.catalogue`](webui.catalogue.md) | Catalogue tab rendering: search results, filters, the bring-a-link review report, and the info box (ADR-004) — everything that renders from CATALOGUE/registry d |
 | [`webui.changelog`](webui.changelog.md) | Changelog data + its modal renderer (carved out of _core.py in Phase 3). |
 | [`webui.consumption`](webui.consumption.md) | Token-consumption gradient + model-colour mapping (carved from _core.py in Phase 3). |
 | [`webui.goalsview`](webui.goalsview.md) | Goals rendering (realm goals page + agent goals tab) (Layer 2, Phase 3). |
+| [`webui.jobresults`](webui.jobresults.md) | Shared execution/audit/delivery evidence for realm and agent job outputs. |
 | [`webui.layout`](webui.layout.md) | Page chrome / layout (carved from _core.py in Phase 3). |
 | [`webui.memoryview`](webui.memoryview.md) | Memory rendering (realm + agent memory pages) (Layer 2, Phase 3). |
 | [`webui.pages`](webui.pages.md) | ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3. |
+| [`webui.provider_settings`](webui.provider_settings.md) | Shared connection controls for setup and App Settings; no probes during rendering. |
 | [`webui.realmpages`](webui.realmpages.md) | Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts. |
 | [`webui.schedfmt`](webui.schedfmt.md) | Schedule / status / date-format helpers (carved from _core.py in Phase 3). |
 | [`webui.setup_wizard`](webui.setup_wizard.md) | The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide. |

@@ -4,8 +4,8 @@ Static-asset plumbing — how server-rendered pages reference the CSS/JS served 
 
 `CSSV` is a cache-buster derived from the stylesheets' mtimes, so a CSS edit + restart forces
 browsers to refetch. `js()` builds a <script src> tag for an externalized JS module (kept out of
-webui.py for smaller diffs / lintability); the per-module tags are pre-built here. `CSS_LINKS` is
-the stylesheet <link> pair, cache-buster baked in, used in every page's <head>.
+webui.py for smaller diffs / lintability); the per-module tags are pre-built here. `CSS_LINKS`
+loads the shared styles and deferred scrollbar controller in every page's <head>.
 
 ### `js(name: str)`
 

@@ -54,6 +54,10 @@ The app root — one folder per machine, the outer boundary for the whole instal
 
 The realm's workspace root, and the state of its portability.
 
+### `_settings_actions(kind: str, note: str)`
+
+—
+
 ### `render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=False)`
 
 —
@@ -92,7 +96,7 @@ _md() plus what in-app docs need: page links stay in the app (and in this window
 
 ### `render_docs(realm, realm_root, dark=False, slug: str='')`
 
-Help: the index (searchable across every page's text) or one page of docs/user/.
+One reading layout and persistent full-text search for every help page.
 
 ### `_realm_inbox(realm, realm_root)`
 
@@ -118,10 +122,18 @@ Tasks agents have handed each other. Waiting and recently-handled are what you c
 
 One add-on widget: a markdown body or a list of links, in the dashboard's widget chrome.
 
+### `_overview_kpis(realm, root)`
+
+—
+
+### `_initial_header_limits(codex_enabled: bool)`
+
+Keep provider landmarks visible even before the usage script starts.
+
 ### `render_dashboard(realm, realm_root, dark: bool=False)`
 
 —
 
-### `_app_advanced(updater)`
+### `_app_advanced(updater, realm_root='')`
 
 Settings → App → Advanced: the automatic-updates switch (5.4, decided in ADR-005).

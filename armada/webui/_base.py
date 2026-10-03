@@ -26,7 +26,7 @@ def _J(value) -> str:
     """
     return E(json.dumps("" if value is None else str(value)))
 # The field/label/textarea looks are classes now: .mc-field, .mc-label, .mc-textarea (brand.css; UI audit FI1).
-_STAR = '<span class="mc-star" style="color:var(--status-bad)">*</span>'
+_STAR = ''  # Required fields have no marker; optional fields are named explicitly.
 
 
 def _md_inline(s: str) -> str:
@@ -37,16 +37,33 @@ def _md_inline(s: str) -> str:
         codes.append(m.group(1))
         return f"\x00{len(codes)-1}\x00"
     s = re.sub(r"`([^`]+)`", _stash, s)                                   # inline code (protected)
-    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)               # **bold**
-    s = re.sub(r"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", s)   # *italic*
-    s = re.sub(r"(?<![\w_])_(?!\s)([^_\n]+?)(?<!\s)_(?![\w_])", r"<em>\1</em>", s)     # _italic_
-
+    # Protect destinations before applying emphasis: underscores in paths/URLs aren't italics.
+    # Scan balanced parentheses so filenames and Wikipedia URLs containing them remain intact.
+    links: list[str] = []
     def _link(m):
-        txt, url = m.group(1), m.group(2)
-        if not re.match(r"(https?:|/|mailto:)", url, re.I):
+        txt, destination = m.group(1), m.group(2)
+        url = html.unescape(destination.strip())
+        if url.startswith("<") and url.endswith(">"):
+            url = url[1:-1]
+        if any(ord(c) < 32 for c in url):
             return m.group(0)
-        return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{txt}</a>'
-    s = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", _link, s)                    # [text](url)
+        # Code spans were stashed by this invocation; restore them before parsing the label.
+        label = re.sub(r"\x00(\d+)\x00", lambda c: "`" + codes[int(c.group(1))] + "`", txt)
+        label = _md_inline(label)
+        if re.match(r"^[a-z]:[/\\]", url, re.I):
+            rendered = (f'<a href="#" data-local-file="{E(url)}" '
+                        f'title="Open {E(url)}">{label}</a>')
+        elif re.match(r"^(https?://|mailto:|/(?!/))", url, re.I) and not re.search(r"\s", url):
+            rendered = f'<a href="{E(url)}" target="_blank" rel="noopener noreferrer">{label}</a>'
+        else:
+            return m.group(0)
+        links.append(rendered)
+        return f"\x01{len(links)-1}\x01"
+    s = re.sub(r"\[([^\]\n]+)\]\(((?:[^()\n]|\([^()\n]*\))*)\)", _link, s)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    s = re.sub(r"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", s)
+    s = re.sub(r"(?<![\w_])_(?!\s)([^_\n]+?)(?<!\s)_(?![\w_])", r"<em>\1</em>", s)
+    s = re.sub(r"\x01(\d+)\x01", lambda m: links[int(m.group(1))], s)
     return re.sub(r"\x00(\d+)\x00", lambda m: f"<code>{codes[int(m.group(1))]}</code>", s)
 
 

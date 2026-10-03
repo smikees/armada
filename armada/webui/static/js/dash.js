@@ -26,7 +26,7 @@ const MC_DOTS=window.mcIcon('dots',18);
 const MC_MI={
  user:window.mcIcon('user',16,'flex:none'), mail:window.mcIcon('mail',16,'flex:none'),
  mailopen:window.mcIcon('mail-open',16,'flex:none'), pen:window.mcIcon('square-pen',16,'flex:none'),
- plus:window.mcIcon('plus',16,'flex:none'), trash:window.mcIcon('trash',16,'flex:none')};
+ plus:window.mcIcon('arrow-bar-to-up-dashed',16,'flex:none'), trash:window.mcIcon('trash',16,'flex:none')};
 function mcMenuItem(act,label,icon){const bad=(act==='remove');
   return '<a data-act="'+act+'" onclick="event.stopPropagation();mcTWMenuClick(this)" style="display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:12.5px;cursor:pointer;color:'+(bad?'var(--status-bad)':'inherit')+';text-decoration:none;border-radius:var(--r)">'
    +'<span class="mc-mi-ic" style="display:flex;color:'+(bad?'var(--status-bad)':'var(--text-dim)')+'">'+icon+'</span><span class="mc-mi-l" style="flex:1">'+label+'</span></a>';}
@@ -36,7 +36,7 @@ function mcTWEl(w){
   cell.dataset.agent=w.agent;cell.dataset.thread=w.thread;
   cell.style.cssText='grid-column:span '+span+';grid-row:span 19;min-height:0;position:relative';
   const title=(w.agentDisp||w.agent)+' · '+(w.threadTitle||w.thread);
-  const src='/embed/thread?agent='+encodeURIComponent(w.agent)+'&thread='+encodeURIComponent(w.thread);
+  const src=window.mcRealmUrl('/embed/thread?agent='+encodeURIComponent(w.agent)+'&thread='+encodeURIComponent(w.thread));
   const ag=(window.MC_AGENTS||[]).find(a=>a.id===w.agent);const ava=(ag&&ag.icon)||'';
   cell.innerHTML=
    '<div class="mc-widget mc-tw'+(unread?' mc-tw-unread':'')+'" style="height:100%;display:flex;flex-direction:column;overflow:hidden">'
@@ -51,7 +51,7 @@ function mcTWEl(w){
    +'<button class="mc-tw-dots" title="Options" onclick="mcTWMenu(event,this)" style="border:0;background:transparent;cursor:pointer;padding:3px;border-radius:var(--r);display:inline-flex;color:var(--text-65)">'+MC_DOTS+'</button>'
    +'<div class="mc-tw-menu" style="display:none;min-width:180px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:4px">'
    +mcMenuItem('goto','Go to agent',MC_MI.user)
-   +mcMenuItem('section','Add as section',MC_MI.plus)
+   +mcMenuItem('section','Promote to section',MC_MI.plus)
    +mcMenuItem('unread',unread?'Mark read':'Mark unread',unread?MC_MI.mailopen:MC_MI.mail)
    +mcMenuItem('rename','Rename',MC_MI.pen)
    +mcMenuItem('remove','Remove widget',MC_MI.trash)

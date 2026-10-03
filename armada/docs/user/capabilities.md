@@ -1,5 +1,13 @@
 # Capabilities
 
+Connectors show separate Claude, Codex and Gemini status badges. A spinner means the engine's
+check is pending; a saved connector entry alone is not proof of a working connection. Authorize
+each engine you intend to use. The bundled filesystem capability uses Gemini's native scoped
+file tools. See [Gemini models](gemini.md) for setup and current tool limitations.
+Checks finish independently for each engine; a slow check does not hide another engine's result.
+A timed-out check is marked unverified with a reason, rather than left spinning. Recheck retries
+the live connection. The legend starts open and remembers whether you last left it open or closed.
+
 The tools your agents can use — and, more importantly, where each came from, what it can reach,
 and who may use it.
 

@@ -42,7 +42,7 @@ Keep the registry's copy of a realm's name in step with realm.json.
 
 —
 
-### `_job_detail(realm_root, agent_id, job_id)`
+### `_job_detail(realm_root, agent_id, job_id, selected_run='')`
 
 —
 
@@ -50,6 +50,7 @@ Keep the registry's copy of a realm's name in step with realm.json.
 
 —
 
+- `SharedRoutes._send_user_image(self, path: Path)` — —
 - `SharedRoutes._refresh_system_ep(self, body: dict)` — —
 - `SharedRoutes._slug(s: str)` — —
 - `SharedRoutes._refresh_system(self, trigger: str)` — Regenerate the read-only System memory after a change that affects realm basics. Best-effort — never let it break the triggering action.

@@ -164,7 +164,8 @@ def test_delete_sits_in_the_line_not_at_the_far_edge(realm):
     assert "margin-left:auto" not in seg, "delete is still pushed to the far edge"
 
 
-def test_the_bar_keeps_all_four_actions(realm):
+def test_edit_bar_keeps_definition_actions_and_runs_stay_in_the_list(realm):
     bar = _job_page(realm)
-    for token in ("mcSaveJob", "mcRunJob", "Back to jobs", "mcDeleteJobPage"):
+    for token in ("mcSaveJob", "Back to jobs", "mcDeleteJobPage"):
         assert token in bar
+    assert "Run now" not in bar

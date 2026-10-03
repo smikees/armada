@@ -148,16 +148,14 @@ def test_settings_js_sends_the_whole_grid():
     assert "dataset.ch" in js and "mcNotifCol" in js
 
 
-def test_providers_are_a_multi_select_ready_for_more_engines():
-    """Stored as a list from the start, so adding Codex is a list entry rather than a reshape of
-    the setting (and of everyone's saved realm.json)."""
-    from armada.webui import pages
-    src = Path(pages.__file__).read_text(encoding="utf-8")
-    assert '_ENGINES = [' in src and '"codex"' in src
-    assert 'class="st-prov"' in src
+def test_provider_connections_are_managed_outside_realm_saves():
+    """Saving unrelated realm defaults must never reconnect or disconnect an app provider."""
+    from armada.webui.provider_settings import connections
+    html = connections()
+    assert 'data-connection="claude"' in html and 'data-connection="codex"' in html
     js = (Path(__file__).resolve().parents[1] / "armada" / "webui" / "static" / "js"
           / "settings.js").read_text(encoding="utf-8")
-    assert ".st-prov:checked" in js and "providers:provs" in js
+    assert ".st-prov:checked" not in js and "providers:provs" not in js
 
 
 def test_saving_providers_keeps_at_least_one(tmp_path):

@@ -159,36 +159,12 @@ def test_finish_is_safe_when_the_agent_dir_vanishes(tmp_path):
 _TURN_PATHS = (runner.chat, runner.chat_stream, runner._run_job_inner)
 
 
-def test_every_turn_path_persists_what_it_captured():
-    """The bug was structural: two of the three paths called th.append with no outputs= or caps=.
-    A unit test of _TurnCapture alone would have passed throughout, so assert the wiring."""
+def test_every_turn_path_uses_the_same_coordinator():
+    # Behavioral coverage of all entry points lives in test_execution_contracts. This structural
+    # guard prevents a new direct invocation from quietly bypassing that shared lifecycle.
     for fn in _TURN_PATHS:
-        src = inspect.getsource(fn)
-        assert "_TurnCapture" in src, f"{fn.__name__} does not capture at all"
-        assert "outputs=cap.outputs" in src and "caps=cap.caps" in src, \
-            f"{fn.__name__} captures but does not persist"
-
-
-def test_every_turn_path_applies_the_memory_guardrail():
-    """chat() - the Telegram entry point - was the one path where a write into another agent's
-    memory folder would not be reverted."""
-    for fn in _TURN_PATHS:
-        src = inspect.getsource(fn)
-        assert "_guard_snapshot" in src and "_guard_restore" in src, fn.__name__
-
-
-def test_streaming_paths_pin_the_timeout():
-    for fn in (runner.chat, runner._run_job_inner):
-        src = inspect.getsource(fn)
-        assert "_DEFAULT_RUN_TIMEOUT" in src, \
-            f"{fn.__name__} streams without pinning the timeout — run_stream defaults to half of run"
-
-
-def test_finish_runs_after_the_memory_guardrail():
-    """Order matters: a file the guardrail reverted must not be reported as this turn's output."""
-    for fn in _TURN_PATHS:
-        src = inspect.getsource(fn)
-        assert src.index("_guard_restore") < src.index("cap.finish()"), fn.__name__
+        source = inspect.getsource(fn)
+        assert "TurnCoordinator" in source and ".run_stream(" not in source
 
 
 def test_no_path_falls_back_to_a_bare_append():

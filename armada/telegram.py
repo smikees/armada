@@ -456,8 +456,8 @@ def poll(realm_root, wait: int = 0) -> list:
     return msgs
 
 
-def handle(realm_root, m: dict, engine="claude") -> str:
-    """One message, start to finish. Returns 'answered', 'failed', or '' (nothing was run).
+def handle(realm_root, m: dict, engine="auto") -> str:
+    """One message: 'answered', 'failed', 'skipped' (signed out), or '' (no agent turn).
 
     Split out of the polling so the acknowledgement can go out the instant a message arrives —
     which only means anything if something is actually waiting on the wire for it."""
@@ -491,6 +491,13 @@ def handle(realm_root, m: dict, engine="claude") -> str:
         send("That's the hourly limit for Telegram prompts — each one is a full agent run. "
              "Try again shortly, or use the app.")
         return ""
+    from .engine.authentication import recipient_access
+    access = recipient_access(realm_root, agent_id, engine)
+    if not access["ok"]:
+        # Polling has consumed the update. Tell the owner to retry; don't silently drop it,
+        # claim an agent run happened, or charge the hourly prompt allowance.
+        send(f"{disp} couldn't start. {access['detail']}")
+        return "skipped" if access["skipped"] else "failed"
     # Before the run, not after: a silent minute reads as the message not having arrived.
     send(f"Sent to {disp} — answers usually take {_ETA}.")
     typing()
@@ -501,7 +508,8 @@ def handle(realm_root, m: dict, engine="claude") -> str:
     try:
         # A real thread turn: same context, autonomy and capabilities as the app, and it's in the
         # thread afterwards. Telegram is a second door into the room, not a side channel.
-        res = runner.chat(realm_root, agent_id, "main", prompt, engine=engine, allow_tools=True)
+        selected = access["provider"] if isinstance(engine, (str, type(None))) else engine
+        res = runner.chat(realm_root, agent_id, "main", prompt, engine=selected, allow_tools=True)
     except Exception as e:  # noqa — one bad turn must not stop the rest
         swallowed(log, 'handle: failed; recorded as an error')
         res = {"ok": False, "output": f"{type(e).__name__}: {e}"}
@@ -513,7 +521,7 @@ def handle(realm_root, m: dict, engine="claude") -> str:
     return "failed"
 
 
-def dispatch(realm_root, engine="claude") -> dict:
+def dispatch(realm_root, engine="auto") -> dict:
     """One non-blocking pass. The fallback path: used by the telegram-inbox system job when no
     listener is running, so Telegram still works (slowly) without the scheduler."""
     if not ready():
@@ -521,13 +529,18 @@ def dispatch(realm_root, engine="claude") -> dict:
     msgs = poll(realm_root)
     if not msgs:
         return {"ok": True, "detail": "nothing waiting", "handled": 0}
-    handled = failed = 0
+    handled = failed = skipped = 0
     for m in msgs:
         r = handle(realm_root, m, engine)
         handled += r == "answered"
         failed += r == "failed"
-    detail = f"{handled} answered" + (f", {failed} failed" if failed else "")
-    return {"ok": failed == 0, "detail": detail or "nothing to do", "handled": handled}
+        skipped += r == "skipped"
+    detail = (f"{handled} answered" + (f", {failed} failed" if failed else "")
+              + (f", {skipped} skipped (provider signed out; retry after sign-in)" if skipped else ""))
+    return {"ok": failed == 0 and skipped == 0, "detail": detail, "handled": handled,
+            "failed": failed, "skipped": bool(skipped), "skipped_count": skipped,
+            "status": "error" if failed else "skipped" if skipped else "ok",
+            "reason": "message-failed" if failed else "signed-out" if skipped else "completed"}
 
 
 # ---- the listener --------------------------------------------------------------------------------
@@ -554,7 +567,7 @@ def busy() -> bool:
     return _handling > 0
 
 
-def listen(realm_root, engine="claude", stop=None) -> None:
+def listen(realm_root, engine="auto", stop=None) -> None:
     """Hold a long poll open and answer messages as they land. Runs on a daemon thread.
 
     The one-a-minute system job was never going to feel responsive: the acknowledgement it sends is
@@ -586,7 +599,7 @@ def listen(realm_root, engine="claude", stop=None) -> None:
             time.sleep(10)
 
 
-def start_listener(realm_root, engine="claude"):
+def start_listener(realm_root, engine="auto"):
     """Start the listener on a daemon thread if Telegram is set up. Returns the thread or None."""
     import threading
     try:

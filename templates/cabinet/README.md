@@ -21,7 +21,7 @@ All eight figures are long dead and their lives are a matter of public record.
 
 | Agent | Ministry | After | Chosen for |
 |---|---|---|---|
-| Marcus | The Hand (coordinator) | Marcus Agrippa | Competence without ambition for the throne |
+| Marcus | Prime Minister (coordinator) | Marcus Agrippa | Competence without ambition for the throne |
 | Ricardo | Strategy | David Ricardo | Second-level thinking, 200 years early |
 | Graham | Finance | Benjamin Graham | Margin of safety; Mr Market |
 | Wedgwood | Development | Josiah Wedgwood | Polish, customer judgement, operations |

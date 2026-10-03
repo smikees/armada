@@ -45,18 +45,18 @@ class RealmRoutes:
         newp = q.get("path", "")
         if newp and activerealm.is_realm(newp):
             realmformat.ensure(newp)          # opening a realm brings its format up to date (2.8)
-            first = not type(self).realm      # leaving the first-run page (5.3)
-            type(self).realm = newp
-            type(self).welcome_note = ""
+            from ..request_context import SELECTION_LOCK, RealmContext
+            with SELECTION_LOCK:
+                first = not type(self).realm
+                type(self).realm = RealmContext.capture(newp).root
+                type(self).welcome_note = ""
+                # Keep the machine default consistent with this process selection.
+                activerealm.remember(newp)
             if first:
                 # The window's launch-time scheduler start had no realm to start for; now there is
                 # one. A running scheduler picks the new realm up by itself (5.5 rescan).
                 from .. import schedsvc
                 threading.Thread(target=schedsvc.ensure_running, args=(newp,), daemon=True).start()
-            # Remember it on the machine, not just in this process: closing the app and reopening
-            # it from a shortcut has to land in the realm you switched to, the same way Update &
-            # Restart does. Without this the two ways of restarting disagree.
-            activerealm.remember(newp)
         to = q.get("to", "/")
         if not to.startswith("/") or to.startswith("//"):  # only local paths
             to = "/"
@@ -85,8 +85,7 @@ class RealmRoutes:
             if cand.is_file():
                 f = cand; break
         if f:
-            ct = "image/svg+xml" if f.suffix == ".svg" else self._CT.get(f.suffix.lower(), "image/png")
-            self._send(200, f.read_bytes(), ct)
+            self._send_user_image(f)
         else:
             self._send(404, "no icon", "text/plain")
 
@@ -110,7 +109,11 @@ class RealmRoutes:
                 kind = getattr(getattr(webview, "FileDialog", None), "FOLDER", None)
                 if kind is None:
                     kind = webview.FOLDER_DIALOG
-                picked = wins[0].create_file_dialog(kind)
+                # A redirected or removed Desktop must not strand the Windows picker.
+                start = Path.home() / "Documents"
+                if not start.is_dir():
+                    start = Path.home() if Path.home().is_dir() else Path.cwd()
+                picked = wins[0].create_file_dialog(kind, directory=str(start))
                 path = (picked[0] if isinstance(picked, (list, tuple)) and picked else picked) or ""
                 return {"ok": bool(path), "path": str(path)}
         except ImportError:
@@ -156,17 +159,24 @@ class RealmRoutes:
             # Import: an adopted folder may come from an older ARMADA (2.8). A newer one is
             # reported rather than refused — it still opens, with the tolerant readers.
             fmt = realmformat.migrate(p)
+            if fmt.get("newer"):
+                # Register for tolerant viewing without restoring, reviewing or migrating state
+                # this build cannot safely write. Execution admission also rejects newer schemas.
+                _reg_ensure(str(p), name or p.name)
+                return {"ok": True, "path": str(p.resolve()), "format_warning": (
+                    f"This realm was saved by a newer version of ARMADA (format v{fmt['from']}; "
+                    f"this one understands v{realmformat.CURRENT}). It will open read-only; "
+                    "update ARMADA before editing it.")}
             # An adopted realm is someone else's jobs; they wait for the owner's go-ahead (5.8c).
             from .. import preflight as _pf
+            if mode == "adopt":
+                from .. import realmops
+                realmops.restore(p)
             review = _pf.begin_adopt_review(p) if mode == "adopt" else {}
             _reg_ensure(str(p), name or p.name)
             out = {"ok": True, "path": str(p.resolve())}
             if review.get("command_jobs") or review.get("agent_jobs"):
                 out["review"] = review
-            if fmt.get("newer"):
-                out["format_warning"] = (f"This realm was saved by a newer version of ARMADA (format "
-                                         f"v{fmt['from']}; this one understands v{realmformat.CURRENT}). "
-                                         "It will open, but update ARMADA before editing it.")
             # Adopting an existing folder is how a realm arrives from another machine, and the parts
             # that don't travel — the workspace root, the engine sign-in — are invisible until a job
             # fails at 03:00. Check on arrival, while someone is looking, and hold the scheduler if
@@ -186,6 +196,15 @@ class RealmRoutes:
         except Exception as e:  # noqa
             swallowed(log, '_new_realm: failed; error returned to the caller')
             return {"ok": False, "error": str(e)}
+
+    def _set_all_agent_defaults(self, body: dict) -> dict:
+        from .. import modeldefaults
+        try:
+            return modeldefaults.apply_to_agents(self.realm, body.get("model"),
+                                                body.get("effort"), body.get("verbosity"))
+        except (OSError, ValueError, TypeError) as exc:
+            log.warning("Could not set the realm's agent defaults: %s", exc)
+            return {"ok": False, "error": str(exc)}
 
     def _save_realm_settings(self, body: dict) -> dict:
         rj = Path(self.realm) / "realm.json"
@@ -296,20 +315,31 @@ class RealmRoutes:
             return {"ok": False, "error": str(e)}
 
     def _realm_archive(self, body: dict) -> dict:
-        """Drop a realm from ARMADA's list. Touches no files — the folder stays where it is and can
-        be added back with the realm picker."""
+        """Stop all scheduled work and remove the realm from the list, retaining its folder."""
         path = str(body.get("path") or "").strip()
         if not path:
             return {"ok": False, "error": "no path"}
         target = str(Path(path).resolve())
-        if target == str(Path(self.realm).resolve()):
-            return {"ok": False, "error": "That's the realm you're using. Switch to another first."}
-        items = _reg_load()
-        kept = [i for i in items if str(Path(i.get("path", "")).resolve()) != target]
-        if len(kept) == len(items):
-            return {"ok": False, "error": "That realm isn't in the list."}
-        _reg_save(kept)
-        return {"ok": True, "remaining": len(kept)}
+        from ..request_context import SELECTION_LOCK
+        with SELECTION_LOCK:
+            items = _reg_load()
+            kept = [i for i in items if str(Path(i.get("path", "")).resolve()) != target]
+            if len(kept) == len(items):
+                return {"ok": False, "error": "That realm isn't in the list."}
+            from .. import realmops
+            result = realmops.archive(target)
+            if not result.get("ok"):
+                return result
+            active = target == str(Path(type(self).realm).resolve()) if type(self).realm else False
+            fallback = next((str(Path(i["path"]).resolve()) for i in kept
+                             if activerealm.is_realm(i.get("path", ""))), "") if active else ""
+            _reg_save(kept)
+            activerealm.forget(target)
+            if active:
+                type(self).realm = fallback
+                if fallback:
+                    activerealm.remember(fallback)
+            return {"ok": True, "remaining": len(kept), "selected": fallback if active else type(self).realm}
 
     def _adopt_release(self, body: dict) -> dict:
         """The owner has read what an adopted realm will run and allows it (5.8c)."""
@@ -325,7 +355,7 @@ class RealmRoutes:
         and the consequence can't disagree."""
         from .. import preflight
         target = str(body.get("path") or self.realm)
-        engine = str(body.get("engine") or "claude")
+        engine = str(body.get("engine") or "auto")
         res = preflight.apply_hold(target, engine)
         # detect_root gives the UI something to offer when the workspace is the problem.
         from .. import workspace as ws
@@ -338,7 +368,8 @@ class RealmRoutes:
         the highest-leverage text in the realm — and the owner's to write, unlike System memory."""
         text = str(body.get("text") or "")
         if len(text) > 40_000:
-            return {"ok": False, "error": "Too long — keep the Covenant under 40,000 characters."}
+            from .. import covenant
+            return {"ok": False, "error": f"Too long — keep {covenant.name(self.realm)} under 40,000 characters."}
         try:
             util.write_text_atomic(Path(self.realm) / "tenets.md", text)
         except OSError as e:
@@ -375,6 +406,9 @@ class RealmRoutes:
         question a new user can't answer yet, and the root already answers it."""
         from .. import approot
         name = " ".join(str(body.get("name") or "").split())[:60]
+        owner = " ".join(str(body.get("owner") or "").split())[:60]
+        if body.get('wizard') and not owner:
+            return {"ok": False, "error": "Enter your name before appointing your team."}
         if not name:
             return {"ok": False, "error": "Give it a name."}
         if not approot.exists():
@@ -388,16 +422,37 @@ class RealmRoutes:
             p, n = base / f"{folder} {n}", n + 1
         template = str(body.get("template") or "scratch")
         payload = {"mode": "create", "name": name, "path": str(p), "template": template}
-        agents = self._wizard_agents(template, body)
+        try:
+            agents = self._wizard_agents(template, body)
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}
         if agents is not None:
             if not agents:
                 return {"ok": False, "error": "A team needs at least one agent."}
             payload["agents"] = agents
+        connected = None
+        if body.get("wizard") and body.get("check_providers"):
+            from .. import providers
+            connected = [p for p, st in providers.statuses(force=True).items() if st["connected"]]
+            if not connected:
+                return {"ok": False, "error": "Connect a provider before appointing your team."}
+            from ..alexander.config import resolve
+            try:
+                resolve('', states={p: {'connected': p in connected} for p in providers.NAMES})
+            except ValueError as exc:
+                return {"ok": False, "error": str(exc)}
         r = self._new_realm(payload)
         if r.get("ok") and body.get("wizard"):
             from .. import setupflow
             owner = " ".join(str(body.get("owner") or "").split())[:60]
-            setupflow.begin(r["path"], owner=owner)
+            setup = setupflow.begin(r["path"], owner=owner, connected_providers=connected)
+            if not setup.get("ok"):
+                return {**r, "ok": False, "error": setup["error"]}
+            if connected:
+                # Scaffolding checks its initial Claude default. Recheck the chosen provider
+                # so a Codex- or Gemini-only setup does not inherit a stale scheduler hold.
+                from .. import preflight
+                r["preflight"] = preflight.apply_hold(r["path"])
         return r
 
     @staticmethod
@@ -408,23 +463,26 @@ class RealmRoutes:
         keep, extra = body.get("keep"), body.get("extra")
         if keep is None and extra is None:
             return None
-        from ..templates import TEMPLATES
-        import re as _re
-        tpl = TEMPLATES.get(template) or TEMPLATES["scratch"]
+        from ..starter_profiles import roster, custom
+        if not isinstance(keep or [], list) or not isinstance(extra or [], list):
+            raise ValueError('Choose agents from the roster or add a profile.')
+        owner = " ".join(str(body.get('owner') or '').split())[:60] or 'the owner'
         ids = {str(x) for x in (keep or []) if isinstance(x, str)}
-        out = [dict(a) for a in tpl.get("agents") or [] if str(a.get("id")) in ids]
-        seen = {str(a.get("id")) for a in out}
-        for x in (extra or [])[:12]:
+        # Existing callers used coordinator as Marcus's template id.
+        if template == 'state' and 'coordinator' in ids:
+            ids.add('hand')
+        out = [a for a in roster(template, owner) if a['id'] in ids]
+        for i, x in enumerate((extra or [])[:12]):
             if not isinstance(x, dict):
-                continue
-            disp = " ".join(str(x.get("display") or "").split())[:40]
-            aid = _re.sub(r"[^a-z0-9]+", "-", disp.lower()).strip("-")[:40]
-            if not disp or not aid or aid in seen:
-                continue
-            seen.add(aid)
-            out.append({"id": aid, "display": disp, "role": " ".join(str(x.get("role") or "").split())[:60]})
-        if out and not any(a.get("coordinator") for a in out):
-            out[0]["coordinator"] = True
+                raise ValueError('Invalid agent profile.')
+            out.append(custom(x, i))
+        # A custom coordinator is an explicit choice and takes precedence over a starter leader.
+        leaders = [a for a in out if a.get('coordinator') and a['id'].startswith('custom-')]
+        if len(leaders) > 1:
+            raise ValueError('Choose one coordinator for your team.')
+        leader = (leaders or [a for a in out if a.get('coordinator')] or out or [None])[0]
+        for a in out:
+            a['coordinator'] = a is leader
         return out
 
     # --- the setup wizard, inside the realm (6.4; setupflow, webui/setup_wizard.py) ----------------
@@ -432,6 +490,9 @@ class RealmRoutes:
     def _get_setup(self):
         from .. import setupflow
         from ..webui import setup_wizard
+        if not setupflow.needs_setup(self.realm):
+            self.send_response(302); self.send_header("Location", "/"); self.end_headers()
+            return
         q = self._query()
         step = q.get("step") or setupflow.current_step(self.realm)
         self._send(200, setup_wizard.render_realm_half(reader.read(self.realm), self.realm, step,
@@ -441,9 +502,36 @@ class RealmRoutes:
         from .. import setupflow
         return setupflow.set_step(self.realm, str(body.get("step") or ""))
 
+    def _setup_folder(self, body: dict) -> dict:
+        from .. import setupfolder, execution
+        from ..request_context import SELECTION_LOCK, RealmContext
+        context = RealmContext.capture(self.realm)
+        with execution.RUNS_LOCK, SELECTION_LOCK:
+            if any(run.context.realm.realm_id == context.realm_id for run in execution.ACTIVE_RUNS.values()):
+                return {'ok': False, 'error': 'Wait for the current task to finish before moving the realm.'}
+            result = setupfolder.relocate(self.realm, str(body.get('path') or ''))
+            if result.get('ok'):
+                type(self).realm = result['path']
+            return result
+
+    def _setup_team(self, body: dict) -> dict:
+        from .. import setupteam
+        from ..templates import TEMPLATES
+        template = str(body.get('template') or '')
+        if template not in TEMPLATES:
+            return {'ok': False, 'error': 'Choose a realm type.'}
+        try:
+            agents = self._wizard_agents(template, body)
+            result = setupteam.update(self.realm, body, agents or [])
+        except (ValueError, TypeError) as exc:
+            return {'ok': False, 'error': str(exc)}
+        if result.get('ok'):
+            _reg_rename(self.realm, ' '.join(str(body.get('name') or '').split())[:60])
+        return result
+
     def _setup_capability(self, body: dict) -> dict:
         from .. import setupflow
-        return setupflow.add_recommended(self.realm, str(body.get("key") or ""))
+        return setupflow.add_recommended(self.realm, str(body.get("key") or ""), body.get("enabled"))
 
     def _setup_finish(self, body: dict) -> dict:
         from .. import setupflow
@@ -506,10 +594,32 @@ class RealmRoutes:
         p = Path(path)
         if confirm.lower() != p.name.lower():
             return {"ok": False, "error": f'Type "{p.name}" to confirm.'}
-        r = realmops.delete(p, current_realm=self.realm)
-        if r.get("ok"):
-            target = str(p.resolve())
-            _reg_save([i for i in _reg_load()
-                       if str(Path(i.get("path", "")).resolve()) != target])
-        return r
-
+        from .. import execution
+        from ..request_context import SELECTION_LOCK, RealmContext
+        target = str(p.resolve())
+        with execution.RUNS_LOCK, SELECTION_LOCK:
+            items = _reg_load()
+            kept = [i for i in items if str(Path(i.get("path", "")).resolve()) != target]
+            if len(kept) == len(items):
+                return {"ok": False, "error": "That realm isn't in the list."}
+            identity = RealmContext.capture(target).realm_id
+            if any(Path(target) in Path(i.get("path", "")).resolve().parents for i in kept):
+                return {"ok": False, "error": "This folder contains another registered realm. Move that realm before deleting its parent."}
+            if any(run.context.realm.realm_id == identity for run in execution.ACTIVE_RUNS.values()):
+                return {"ok": False, "error": "Wait for this realm's current tasks to finish before deleting it."}
+            active = target == str(Path(type(self).realm).resolve()) if type(self).realm else False
+            fallback = next((str(Path(i["path"]).resolve()) for i in kept
+                             if activerealm.is_realm(i.get("path", ""))), "") if active else type(self).realm
+            if active:
+                type(self).realm = fallback
+            r = realmops.delete(p, current_realm=type(self).realm)
+            if not r.get("ok"):
+                if active:
+                    type(self).realm = target
+                return r
+            _reg_save(kept)
+            activerealm.forget(target)
+            if active and fallback:
+                activerealm.remember(fallback)
+            r["selected"] = fallback
+            return r

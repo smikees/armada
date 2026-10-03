@@ -10,6 +10,7 @@ knows the owner's name; only Travel knows he prefers hotels." Thread history is 
 """
 from __future__ import annotations
 import re, os, json, datetime
+from . import clock
 from pathlib import Path
 import logging
 from .util import swallowed
@@ -394,7 +395,7 @@ def _snapshot_system(realm_root: Path, old_text: str, trigger: str, changed_summ
     from .util import write_text_atomic
     vd = Path(realm_root) / "memory" / _SYS_VERSIONS_DIR
     vd.mkdir(parents=True, exist_ok=True)
-    ts = datetime.datetime.now().astimezone()
+    ts = clock.now()
     stamp = ts.strftime("%Y%m%dT%H%M%S")
     write_text_atomic(vd / f"{Path(SYSTEM_MEMORY_FILE).stem}.{stamp}.md", old_text)
     with (vd / "_ledger.jsonl").open("a", encoding="utf-8") as f:
@@ -420,7 +421,7 @@ def refresh_system_memory(realm_root, trigger: str = "") -> dict:
     _, old_body = _frontmatter(old_text)
     if old_text and old_body.strip() == body.strip():
         return {"changed": False, "path": str(p)}
-    updated = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+    updated = clock.now().isoformat(timespec="seconds")
     front = (f"---\ntitle: System memory\nkind: system\nmanaged: true\nupdated_by: system\nupdated: {updated}\n---\n")
     new_text = front + body
     with file_lock(p):

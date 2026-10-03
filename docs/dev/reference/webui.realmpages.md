@@ -74,6 +74,14 @@ What one run of this job costs you, in the same language the System jobs list us
 
 —
 
+### `_job_history_rows(aid, runs)`
+
+—
+
+### `_job_week_html(week)`
+
+—
+
 ### `_job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_job: str='')`
 
 One job, expandable, identical on both pages bar the Kind and Owner cells.

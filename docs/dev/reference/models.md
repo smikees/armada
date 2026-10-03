@@ -16,15 +16,27 @@ on demand via `armada refresh-models`; either keeps the app in sync as Claude's 
 
 —
 
+### `is_codex_model(model_id: str)`
+
+—
+
+### `is_gemini_model(model_id: str)`
+
+—
+
+### `codex_family(model_id: str)`
+
+—
+
 ### `prices_for(model_id: str)`
 
 (input, output) $/Mtok for a model id or label; family lookup, default when unknown.
 
 ### `base_cost(model_id: str)`
 
-Output-weighted blended $/Mtok — the model's intrinsic consumption cost (output dominates).
+Output-weighted list-price proxy for a model tier; never an actual subscription charge.
 
-### `effort_mult(effort: str)`
+### `effort_mult(effort: str, model_id: str='')`
 
 —
 
@@ -36,21 +48,21 @@ Output-weighted blended $/Mtok — the model's intrinsic consumption cost (outpu
 
 Map value∈[lo,hi] to 0..99 on a log scale (costs span ~100×, so log reads evenly).
 
-### `_model_costs()`
+### `_model_costs(codex: bool=False)`
 
 —
 
-### `_combo_costs()`
+### `_combo_costs(codex: bool=False)`
 
 Every model × effort × verbosity. The scale has to span what is actually reachable, or the marker can never touch either end.
 
 ### `model_index(model_id: str)`
 
-0..99 consumption index for a model on its own (relative to the cheapest/priciest model).
+0..99 model-tier index within its provider; a heuristic, not observed token usage.
 
 ### `combo_index(model_id: str, effort: str, verbosity: str='')`
 
-0..99 consumption index for a model + effort + verbosity combo, relative to the cheapest and priciest combination reachable. This is what the agent icon + config marker use.
+0..99 usage-intensity index for a model + effort + verbosity within its provider. This is what the agent icon and config marker use; it is a relative estimate.
 
 ### `js_tables()`
 

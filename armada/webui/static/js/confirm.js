@@ -2,7 +2,7 @@
 // foreign, can't be styled, and can't ask someone to type a name back.
 //
 // Two call shapes, one dialog. Positional:
-//   mcConfirm(title, detail, {ok, danger, mustType})
+//   mcConfirm(title, detail, {ok, danger, primary, mustType})
 // or the older options-object form still used by section and job-proposal deletes:
 //   mcConfirm({title, body, confirm, danger})
 // Accepting both matters: this is a global, and a second definition with a different contract is
@@ -47,7 +47,7 @@
           'font:inherit;font-size:13px">':'')+
         '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'+
         (opts.noCancel?'':'<button class="btn btn-secondary" data-no>Cancel</button>')+
-        '<button class="btn btn-danger" style="'+
+        '<button class="btn '+(opts.primary?'btn-primary':'btn-danger')+'" style="'+
         (opts.danger?';':'')+
         '" data-yes></button></div></div>';
       ov.querySelector('[data-t]').textContent=title||'Are you sure?';

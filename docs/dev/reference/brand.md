@@ -30,3 +30,7 @@ Browser-tab / OS-window title: 'ARMADA — <sub>' (or just the name).
 ### `icon_path()`
 
 Absolute path to the OS window/taskbar icon file.
+
+### `native_icon(size: int=32)`
+
+Render the original mark to the full Windows icon slot, without ICO frame padding.

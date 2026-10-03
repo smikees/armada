@@ -15,14 +15,106 @@ the `cmd /c` shim eats them. Falls back to the cmd shim + a non-empty deny-list 
 native/js entry can't be resolved.
 """
 from __future__ import annotations
-import json, os, shutil, subprocess, tempfile, threading, time
+import json, os, re, shutil, subprocess, tempfile, time
 from typing import Optional, Callable
 from .base import EngineAdapter, RunResult, Usage
+from .mcp import server_id as _mcp_server_id
+from .mcp import connected_names
+from .process import supervise, safe_emit
 import logging
 from ..util import swallowed
 log = logging.getLogger(__name__)
 
 _DENY = "Bash Read Edit Write Glob Grep WebFetch WebSearch Task NotebookEdit BashOutput KillShell"
+
+
+def _verbosity_system(system, level):
+    """Honor the shared writing-style setting without duplicating an assembled prompt section."""
+    if not level:
+        return system
+    from ..verbosity import prompt_block
+    block = prompt_block(level)
+    return system if block in system else system + "\n\n" + block
+
+
+def _recover_auth_cache(verified_names, probe_started):
+    """Remove old negative health markers only after a granted server's live success.
+
+    This is CLI health metadata, not OAuth storage. Preserve other servers and any
+    failure written since the live probe began. Unknown formats remain untouched.
+    """
+    from pathlib import Path
+    import math
+    # Do not guess a vendor cache location when the owner uses a custom config.
+    if not verified_names or os.environ.get('CLAUDE_CONFIG_DIR'):
+        return frozenset()
+    path = Path.home() / '.claude/mcp-needs-auth-cache.json'
+    temporary = ''
+    try:
+        if path.stat().st_size > 1024 * 1024:
+            return frozenset()
+        original = path.read_bytes()
+        data = json.loads(original.decode('utf-8-sig'))
+        if not isinstance(data, dict):
+            return frozenset()
+        removable = set()
+        for name in verified_names:
+            entry = data.get(name)
+            if not isinstance(entry, dict) or not set(entry).issubset({'timestamp', 'id'}):
+                continue
+            timestamp = entry.get('timestamp')
+            if (type(timestamp) in (int, float) and math.isfinite(timestamp)
+                    and 0 <= timestamp <= probe_started * 1000):
+                removable.add(name)
+        if not removable:
+            return frozenset()
+        for name in removable:
+            data.pop(name)
+        fd, temporary = tempfile.mkstemp(prefix='armada-mcp-health-', suffix='.tmp', dir=path.parent)
+        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if path.read_bytes() != original:
+            return frozenset()  # Another CLI wrote newer state; leave it alone.
+        os.replace(temporary, path)
+        return frozenset(removable)
+    except (OSError, ValueError):
+        log.debug('Could not reconcile Claude MCP health cache; leaving existing state intact.')
+        return frozenset()
+    finally:
+        if temporary:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                log.debug('Could not remove temporary MCP health cache file.')
+
+
+def _mcp_inventory(text: str) -> list[str]:
+    """Parse the CLI's human inventory strictly; unknown output is never an empty inventory.
+
+    Keep only names. Commands/URLs can contain credentials and must not reach logs or reports.
+    """
+    text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+    names, empty = [], False
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line in ("Checking MCP server health...", "Checking MCP server health…"):
+            continue
+        if line.startswith("No MCP servers configured"):
+            empty = True
+            continue
+        name, sep, detail = line.partition(": ")
+        if not sep or " - " not in detail or not name or any(ord(c) < 32 for c in name):
+            raise ValueError("Could not validate Claude MCP inventory; inspect `claude mcp list` before running tools.")
+        if name in names or empty:
+            raise ValueError("Ambiguous Claude MCP inventory; refusing a tool turn.")
+        names.append(name)
+    if (not names and not empty) or (names and empty):
+        raise ValueError("Incomplete Claude MCP inventory; refusing a tool turn.")
+    return names
 
 def _sealed_tool_args(tools: list) -> list:
     """A turn that may use exactly `tools` and nothing else (THREAT_MODEL T4, launch plan 5.8b).
@@ -126,20 +218,21 @@ def _usage_from_event(ev: dict) -> Usage:
     whole run. The `usage` block is the fallback for when it is absent.
     """
     mu = ev.get("modelUsage")
-    cost = float(ev.get("total_cost_usd", 0.0) or 0.0)
+    cost = float(ev["total_cost_usd"]) if ev.get("total_cost_usd") is not None else None
     if isinstance(mu, dict) and mu:
         inp = out = cr = cw = 0
         for v in mu.values():
             if not isinstance(v, dict):
+                inp = out = None
                 continue
-            inp += int(v.get("inputTokens", 0) or 0)
-            out += int(v.get("outputTokens", 0) or 0)
+            inp = inp + int(v["inputTokens"]) if inp is not None and v.get("inputTokens") is not None else None
+            out = out + int(v["outputTokens"]) if out is not None and v.get("outputTokens") is not None else None
             cr += int(v.get("cacheReadInputTokens", 0) or 0)
             cw += int(v.get("cacheCreationInputTokens", 0) or 0)
         return Usage(input=inp, output=out, cache_read=cr, cache_write=cw, cost_usd=cost)
     u = ev.get("usage", {}) or {}
-    return Usage(input=int(u.get("input_tokens", 0) or 0),
-                 output=int(u.get("output_tokens", 0) or 0),
+    return Usage(input=int(u["input_tokens"]) if u.get("input_tokens") is not None else None,
+                 output=int(u["output_tokens"]) if u.get("output_tokens") is not None else None,
                  cache_read=int(u.get("cache_read_input_tokens", 0) or 0),
                  cache_write=int(u.get("cache_creation_input_tokens", 0) or 0),
                  cost_usd=cost)
@@ -158,12 +251,52 @@ def _concrete_model(reported, model_usage, fallback: str = "") -> str:
     return r or (fallback or "")
 
 
+from .contracts import ProviderCapabilities, RunRequest, validate_request
+
 class ClaudeEngine(EngineAdapter):
     name = "claude"
+    capabilities = ProviderCapabilities(streaming=True, cancellation=True, budget=True, fallback=True, sealed_tools=True, tool_denials=True)
 
     def __init__(self, binary: str = "claude"):
         self.binary = binary
         self._cached: Optional[list[str]] = None
+        self.allowed_mcp_ids = frozenset()
+
+    def _mcp_args(self, denied, cwd=None):
+        """Deny every effective server absent from this agent's validated grants."""
+        if not self._direct():
+            raise ValueError("Capability gating requires Claude's native or Node launcher; reinstall Claude Code to repair its launcher.")
+        kwargs = dict(capture_output=True, text=True, timeout=25, cwd=cwd, env=self._env(),
+                      encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+        version = subprocess.run(self._launcher() + ["--version"], **kwargs)
+        match = re.match(r"(\d+)\.(\d+)\.(\d+)", version.stdout.strip())
+        if version.returncode or not match or tuple(map(int, match.groups())) < (2, 1, 263):
+            raise ValueError("Capability gating requires Claude Code 2.1.263 or newer.")
+        probe_started = time.time()
+        result = subprocess.run(self._launcher() + ["mcp", "list"], **kwargs)
+        if result.returncode or result.stderr.strip():
+            raise ValueError("Could not inspect Claude MCP configuration; refusing to run without capability gating.")
+        names = _mcp_inventory(result.stdout)
+        allowed = set(self.allowed_mcp_ids or ())
+        patterns = set(denied or ())
+        blocked = []
+        identities = {}
+        for name in names:
+            sid = _mcp_server_id(name)
+            if sid in identities:
+                raise ValueError("Ambiguous Claude MCP server identities; rename the colliding servers.")
+            identities[sid] = name
+            if (name not in allowed and sid not in allowed) or f"mcp__{sid}" in patterns or f"mcp__{name}" in patterns:
+                blocked.append({"serverName": name})
+                patterns.add(f"mcp__{sid}")
+        if not allowed:
+            patterns.add("mcp__*")
+        admitted = set(names) - {row['serverName'] for row in blocked}
+        _recover_auth_cache(connected_names(result.stdout) & admitted, probe_started)
+        args = ["--settings", json.dumps({"deniedMcpServers": blocked})]
+        if patterns:
+            args += ["--disallowedTools", *sorted(patterns)]
+        return args
 
     # --- launcher resolution ---
     def _direct_launcher(self, exe: str) -> Optional[list[str]]:
@@ -214,7 +347,7 @@ class ClaudeEngine(EngineAdapter):
     def _launcher(self) -> Optional[list[str]]:
         if self._cached is not None:
             return self._cached or None
-        exe = shutil.which(self.binary) or (self._known_install() if self.binary == "claude" else None)
+        exe = (self._known_install() if self.binary == "claude" else None) or shutil.which(self.binary)
         if not exe:
             self._cached = []
             return None
@@ -281,10 +414,21 @@ class ClaudeEngine(EngineAdapter):
             cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = DEFAULT_TIMEOUT,
             effort: Optional[str] = None, fallback_model: Optional[str] = None,
             max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
-            only_tools: Optional[list] = None) -> RunResult:
+            only_tools: Optional[list] = None, verbosity: Optional[str] = None) -> RunResult:
+        try:
+            validate_request(self.name, self.capabilities, RunRequest(system, prompt,
+                fallback_model=fallback_model, max_budget_usd=max_budget_usd,
+                disallowed_tools=tuple(disallowed_tools or ()),
+                only_tools=tuple(only_tools) if only_tools is not None else None))
+        except ValueError as exc:
+            return RunResult(ok=False, error=str(exc))
         lp = self._launcher()
         if not lp:
             return RunResult(ok=False, error="claude binary not found (install Claude Code)")
+        try:
+            mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None else []
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            return RunResult(ok=False, error=str(exc))
         # The prompt goes on STDIN, not argv: a long thread as a command-line arg overflows Windows'
         # ~32K command-line limit (WinError 206). `claude -p` with no positional prompt reads stdin.
         args = ["-p", "--output-format", "json"]
@@ -300,7 +444,7 @@ class ClaudeEngine(EngineAdapter):
         # files. This is the memory-management thesis: ARMADA owns the whole context. (--append-…
         # only adds to the coder prompt, which caused hallucinated tool-call transcripts.) A large
         # one travels by file; see _system_args.
-        sys_args, sys_file = _system_args(system)
+        sys_args, sys_file = _system_args(_verbosity_system(system, verbosity))
         args += sys_args
         if only_tools is not None:
             args += _sealed_tool_args(only_tools)
@@ -308,159 +452,185 @@ class ClaudeEngine(EngineAdapter):
             # NO --safe-mode: load the real MCP servers / skills / plugins so the agent can actually
             # use its capabilities (Telegram, filesystem, skills, …), not just be told they exist.
             args += ["--tools", "default", "--dangerously-skip-permissions"]
-            if disallowed_tools:     # ARMADA-disabled capabilities are blocked at the tool level
-                args += ["--disallowedTools"] + [str(t) for t in disallowed_tools if t]
+            args += mcp_args
         elif self._direct():
             args += ["--safe-mode", "--tools", ""]     # no-tool turn: skip the harness + strip schemas (lean)
         else:
             args += ["--safe-mode", "--disallowedTools", _DENY, "--permission-prompts", "none"]
+        chunks = []
+        size = 0
+        def collect(line):
+            nonlocal size
+            size += len(line)
+            if size > 16 * 1024 * 1024:
+                raise ValueError("Claude result exceeded the 16 MiB limit")
+            chunks.append(line)
         try:
-            p = subprocess.run(lp + args, input=prompt, capture_output=True, text=True, timeout=timeout,
-                               cwd=cwd, env=self._env(), encoding="utf-8", errors="replace",
-                               creationflags=_NO_WINDOW)
-        except subprocess.TimeoutExpired:
-            return RunResult(ok=False, error=f"claude timed out after {timeout}s")
-        except Exception as e:  # noqa
-            swallowed(log, 'run: failed; error returned to the caller')
-            return RunResult(ok=False, error=f"claude failed to launch: {e}")
+            process = supervise(lp + args, prompt=prompt, on_line=collect, timeout=timeout,
+                                cwd=cwd, env=self._env())
         finally:
             _drop_system_file(sys_file)
-        if p.returncode != 0:
-            msg = (p.stderr or "").strip()
-            if not msg and p.stdout:
-                try:
-                    d = json.loads(p.stdout)
-                    msg = str(d.get("error") or d.get("result")
-                              or f"exit {p.returncode}; stop_reason={d.get('stop_reason')}; usage zeroed")
-                except json.JSONDecodeError:
-                    msg = p.stdout.strip()
-            return RunResult(ok=False, error=(msg or f"claude exit {p.returncode}")[:400])
+        raw = "".join(chunks)
         try:
-            data = json.loads(p.stdout)
-        except json.JSONDecodeError:
-            return RunResult(ok=True, output=p.stdout.strip(), model=model or "", raw={"unparsed": True})
-        usage = _usage_from_event(data)          # same accounting as the streamed path
-        model_used = _concrete_model(data.get("model"), data.get("modelUsage"), model)
-        return RunResult(ok=not data.get("is_error", False),
-                         output=str(data.get("result", "")).strip(),
-                         usage=usage, model=model_used,
-                         error=str(data.get("error", "")), raw=data)
+            data = json.loads(raw)
+            if not isinstance(data, dict) or data.get("type") != "result":
+                raise ValueError("missing terminal result")
+            usage = _usage_from_event(data)
+            model_used = _concrete_model(data.get("model"), data.get("modelUsage"), model)
+            error = process.error or _result_error(data)
+        except (ValueError, TypeError, AttributeError) as exc:
+            return RunResult(ok=False, output=raw.strip(), model=model or "",
+                             error=process.error or f"Invalid Claude result: {exc}",
+                             cancelled=process.cancelled, timed_out=getattr(process, "timed_out", False))
+        return RunResult(ok=not error, output=str(data.get("result", "")).strip(),
+                         usage=usage, model=model_used, error=error, raw=data,
+                         cancelled=process.cancelled, timed_out=getattr(process, "timed_out", False))
 
     def run_stream(self, system: str, prompt: str, model: Optional[str] = None,
                    cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = 600,
                    on_event: Optional[Callable[[dict], None]] = None,
                    on_proc: Optional[Callable] = None, effort: Optional[str] = None,
                    fallback_model: Optional[str] = None,
-                   max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None) -> RunResult:
+                   max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
+                   only_tools: Optional[list] = None, verbosity: Optional[str] = None) -> RunResult:
         """Run a turn in streaming mode, calling on_event(dict) for each intermediate step
         (thinking / tool use / tool result / text) as Claude Code emits them (stream-json NDJSON).
-        Returns the final RunResult. Falls back to a single 'result' event on any parse gap."""
-        def emit(o):
-            if on_event:
-                try:
-                    on_event(o)
-                except Exception:  # noqa - a dropped SSE client must not kill the run
-                    log.debug('emit: failed; ignored', exc_info=True)
+        Returns the final RunResult; malformed or missing terminal output fails the turn."""
+        def emit(event):
+            safe_emit(on_event, event)
+        try:
+            validate_request(self.name, self.capabilities, RunRequest(system, prompt,
+                fallback_model=fallback_model, max_budget_usd=max_budget_usd,
+                disallowed_tools=tuple(disallowed_tools or ()),
+                only_tools=tuple(only_tools) if only_tools is not None else None))
+        except ValueError as exc:
+            return RunResult(ok=False, error=str(exc))
         lp = self._launcher()
         if not lp:
             emit({"kind": "error", "error": "claude binary not found"})
             return RunResult(ok=False, error="claude binary not found")
+        try:
+            mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None else []
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            emit({"kind": "error", "error": str(exc)})
+            return RunResult(ok=False, error=str(exc))
         # prompt via STDIN (see run(): keeps a long thread off the command line — WinError 206)
-        args = ["-p", "--output-format", "stream-json", "--verbose"]
+        args = ["-p", "--output-format", "stream-json", "--verbose",
+                "--include-partial-messages"]
         if model:
             args += ["--model", model]
         if effort:
             args += ["--effort", effort]     # adaptive-reasoning level (see run())
         args += _advanced_args(fallback_model, max_budget_usd)
-        sys_args, sys_file = _system_args(system)     # large context travels by file, not argv
+        sys_args, sys_file = _system_args(_verbosity_system(system, verbosity))  # large context travels by file
         args += sys_args
-        if allow_tools:
+        if only_tools is not None:
+            args += _sealed_tool_args(only_tools)
+        elif allow_tools:
             # NO --safe-mode: real MCP/skills/plugins load so the agent can actually use its capabilities.
             args += ["--tools", "default", "--dangerously-skip-permissions"]
-            if disallowed_tools:     # ARMADA-disabled capabilities blocked at the tool level
-                args += ["--disallowedTools"] + [str(t) for t in disallowed_tools if t]
+            args += mcp_args
         elif self._direct():
             args += ["--safe-mode", "--tools", ""]     # no-tool turn: lean, no harness
         else:
             args += ["--safe-mode", "--disallowedTools", _DENY, "--permission-prompts", "none"]
+        state = _ClaudeStream(emit, model or "")
+        def accept(line):
+            event = json.loads(line)
+            if not isinstance(event, dict) or not isinstance(event.get("type"), str):
+                raise ValueError("Malformed Claude stream event")
+            state.accept(event)
         try:
-            proc = subprocess.Popen(lp + args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, cwd=cwd, env=self._env(), text=True,
-                                    encoding="utf-8", errors="replace", bufsize=1,
-                                    creationflags=_NO_WINDOW)
-        except Exception as e:  # noqa
-            swallowed(log, 'run_stream: failed; falling back')
-            _drop_system_file(sys_file)
-            emit({"kind": "error", "error": f"claude failed to launch: {e}"})
-            return RunResult(ok=False, error=str(e))
-        # feed the prompt on a background thread so a very large prompt can't deadlock against stdout
-        def _feed():
-            try:
-                proc.stdin.write(prompt)
-                proc.stdin.close()
-            except Exception:  # noqa
-                log.debug('_feed: failed; ignored', exc_info=True)
-        threading.Thread(target=_feed, daemon=True).start()
-        if on_proc:
-            try:
-                on_proc(proc)                              # let the caller register it (for stop/kill)
-            except Exception:  # noqa
-                swallowed(log, 'run_stream: failed; ignored')
-        texts, out, mdl, ok, err = [], "", model or "", True, ""
-        usage = Usage()
-        start = time.time()
-        try:
-            for line in proc.stdout:                       # yields as the CLI writes each event
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    ev = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                t = ev.get("type")
-                if t == "system" and ev.get("subtype") == "init":
-                    emit({"kind": "start"})
-                elif t == "assistant":
-                    for b in (ev.get("message", {}).get("content") or []):
-                        bt = b.get("type")
-                        if bt == "thinking":
-                            emit({"kind": "thinking", "text": (b.get("thinking") or "").strip()[:4000]})
-                        elif bt == "text":
-                            txt = b.get("text") or ""
-                            if txt.strip():
-                                texts.append(txt)
-                                emit({"kind": "text", "text": txt})
-                        elif bt == "tool_use":
-                            emit({"kind": "tool", "name": b.get("name", ""),
-                                  "input": b.get("input", {}), "id": b.get("id", "")})
-                elif t == "user":
-                    for b in (ev.get("message", {}).get("content") or []):
-                        if b.get("type") == "tool_result":
-                            c = b.get("content")
-                            if isinstance(c, list):
-                                c = "\n".join(x.get("text", "") for x in c if isinstance(x, dict))
-                            emit({"kind": "tool_result", "id": b.get("tool_use_id", ""),
-                                  "content": str(c or "").strip()[:4000],
-                                  "is_error": bool(b.get("is_error"))})
-                elif t == "result":
-                    out = str(ev.get("result", "")).strip()
-                    usage = _usage_from_event(ev)
-                    ok = not ev.get("is_error", False)
-                    mdl = _concrete_model(ev.get("model"), ev.get("modelUsage"), mdl)
-                if timeout and time.time() - start > timeout:
-                    proc.kill()
-                    err = f"timed out after {timeout}s"
-                    break
-            proc.wait(timeout=10)
-        except Exception as e:  # noqa
-            swallowed(log, 'run_stream: failed; using a default')
-            ok, err = False, str(e)
+            process = supervise(lp + args, prompt=prompt, on_line=accept, timeout=timeout,
+                                cwd=cwd, env=self._env(), on_proc=on_proc)
         finally:
-            _drop_system_file(sys_file)       # the CLI has read it by the time the process is done
-        if not out:
-            out = "\n".join(texts).strip()
-        if proc.returncode not in (0, None) and not out:
-            ok = False
-            err = err or ((proc.stderr.read() if proc.stderr else "").strip() or f"claude exit {proc.returncode}")[:400]
-        return RunResult(ok=ok, output=out, error=err, model=mdl, usage=usage)
+            _drop_system_file(sys_file)
+        error = process.error or state.error
+        if not state.completed and not error:
+            error = "Claude ended before completing the turn."
+        if error:
+            emit({"kind": "error", "error": error})
+        return RunResult(ok=state.completed and not error, output=state.output or "".join(state.texts).strip(),
+                         error=error, model=state.model, usage=state.usage, cancelled=process.cancelled,
+                         timed_out=getattr(process, "timed_out", False))
+
+
+def _result_error(event):
+    for field in ("usage", "modelUsage"):
+        if field in event and not isinstance(event[field], dict):
+            raise ValueError(f"Malformed Claude {field}")
+    if "is_error" in event and not isinstance(event["is_error"], bool):
+        raise ValueError("Malformed Claude result status")
+    if event.get("is_error") or event.get("subtype", "success") != "success":
+        return str(event.get("error") or event.get("errors") or event.get("result") or "Claude turn failed")
+    if event.get("subtype") != "success" or not isinstance(event.get("result"), str):
+        raise ValueError("Malformed Claude terminal success result")
+    return ""
+
+
+class _ClaudeStream:
+    """Claude protocol state; success requires a terminal result and a clean process exit."""
+    def __init__(self, emit, model):
+        self.emit, self.model = emit, model
+        self.texts, self.output, self.error = [], "", ""
+        self.usage, self.completed = Usage(), False
+        self._partial_text = False
+
+    def accept(self, event):
+        kind = event["type"]
+        if self.completed:
+            raise ValueError("Claude emitted an event after its terminal result")
+        if kind == "system" and event.get("subtype") == "init":
+            self.emit({"kind": "start"})
+        elif kind == "stream_event":
+            stream = event.get("event")
+            if not isinstance(stream, dict):
+                raise ValueError("Invalid Claude partial message")
+            if stream.get("type") == "content_block_delta":
+                delta = stream.get("delta")
+                if not isinstance(delta, dict):
+                    raise ValueError("Invalid Claude content delta")
+                if delta.get("type") == "text_delta":
+                    text = delta.get("text", "")
+                    if not isinstance(text, str):
+                        raise ValueError("Invalid Claude text delta")
+                    if text:
+                        self._partial_text = True
+                        self.texts.append(text)
+                        self.emit({"kind": "text", "text": text})
+        elif kind in ("assistant", "user"):
+            message = event.get("message")
+            if not isinstance(message, dict):
+                raise ValueError("Invalid Claude message")
+            blocks = message.get("content", [])
+            if not isinstance(blocks, list):
+                raise ValueError("Invalid Claude message content")
+            for block in blocks:
+                bt = block.get("type")
+                if bt == "thinking":
+                    self.emit({"kind": "thinking", "text": (block.get("thinking") or "").strip()})
+                elif bt == "text":
+                    text = block.get("text") or ""
+                    if text.strip() and not (kind == "assistant" and self._partial_text):
+                        self.texts.append(text)
+                        self.emit({"kind": "text", "text": text})
+                elif bt == "tool_use":
+                    self.emit({"kind": "tool", "name": block.get("name", ""),
+                               "input": block.get("input", {}), "id": block.get("id", "")})
+                elif bt == "tool_result":
+                    content = block.get("content")
+                    if isinstance(content, list):
+                        content = "\n".join(x.get("text", "") for x in content if isinstance(x, dict))
+                    self.emit({"kind": "tool_result", "id": block.get("tool_use_id", ""),
+                               "content": str(content or "").strip()[:4000],
+                               "is_error": bool(block.get("is_error"))})
+            if kind == "assistant":
+                self._partial_text = False
+        elif kind == "result":
+            self.usage = _usage_from_event(event)
+            self.error = self.error or _result_error(event)
+            self.model = _concrete_model(event.get("model"), event.get("modelUsage"), self.model)
+            self.output = str(event.get("result", "")).strip()
+            self.completed = True
+        elif kind == "error":
+            self.error = str(event.get("error") or event.get("message") or "Claude turn failed")

@@ -43,6 +43,10 @@ A command job's `run` with `-m matcap` → `-m armada`, or None if it has no suc
 
 1 → 2: the app's internal name changed from `matcap` to `armada` (ADR-010).
 
+### `_m2_to_3(cfg: dict, realm_root: Path)`
+
+Freeze legacy appointment dates so saving a profile cannot reappoint its agent.
+
 ### `version_of(cfg)`
 
 The version a parsed realm.json is at. Unstamped, the legacy "0.1", or unreadable → 0.

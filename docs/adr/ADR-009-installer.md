@@ -1,5 +1,18 @@
 # ADR-009 — Installer: a private Python runtime in a per-user Inno Setup installer
 
+**2026-09-30 amendment:** installed shortcuts now run `python\ARMADA.exe`. A small windowless
+C# host calls the bundled CPython DLL in the same process and forwards the existing CLI arguments.
+Its executable metadata and icon identify both the native window and background scheduler as
+ARMADA in Task Manager; the original signed Python executables remain intact. The build compiles
+the host with Windows' .NET Framework compiler and smoke-tests its private-runtime imports.
+Startup probes `/api/instance` rather than rendering the dashboard, attaches only to the requested
+realm, and chooses another free app/content port pair when the default is occupied by another server.
+
+**2026-09-29 amendment:** ARMADA keeps its window process alive in the tray by default. The
+scheduler is owned by that process and stops on a full quit. The installer no longer creates
+the scheduler's Windows sign-in entry; upgrades remove the old entry. References below to the
+independent logon scheduler describe the superseded design.
+
 **Status:** Accepted · 2026-09-24 · written by Opus 5.5, accepted by Mihai: option B, unsigned for
 the beta, Inno Setup (launch plan 5.2)
 

@@ -20,6 +20,16 @@ def realm(tmp_path):
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def offline_housekeeping(monkeypatch):
+    """These tests exercise orchestration, never the developer's CLI auth or live upkeep."""
+    from armada import auth
+    monkeypatch.setattr(auth, "status", lambda force=False: {"ok": True, "logged_in": False})
+    for job in sysjobs.JOBS:
+        if job["id"] not in ("prune-history", "environment-context"):
+            monkeypatch.setitem(job, "run", lambda realm: {"ok": True, "detail": "fixture upkeep"})
+
+
 def test_definitions_live_in_the_package_not_the_realm(realm):
     """'Can't be edited or deleted' is structural: there's nothing in the realm to change."""
     assert sysjobs.JOBS and all(callable(j["run"]) for j in sysjobs.JOBS)
@@ -66,9 +76,22 @@ def test_a_switched_off_job_does_not_run_even_by_hand(realm):
     assert sysjobs.due(realm, "prune-history") is False
     assert sysjobs.run_one(realm, "prune-history")["ok"] is False
     r = sysjobs.run_one(realm, "prune-history", manual=True)
-    assert r["ok"] is False and "switched off" in r["error"]
+    assert r["ok"] is False and "switched off" in r["detail"] and not r["error"]
     sysjobs.set_enabled(realm, "prune-history", True)
     assert sysjobs.run_one(realm, "prune-history", manual=True)["ok"] is True
+
+
+def test_retired_realm_can_disable_its_app_update_without_disabling_the_machine(realm):
+    from armada import appconfig, util
+
+    appconfig.save({"auto_update": True})
+    util.mutate_json(realm / "system_jobs.json",
+                     lambda state: state.setdefault("app-update", {}).update(enabled=False),
+                     default=dict)
+
+    assert sysjobs.is_enabled(realm, "app-update") is False
+    assert sysjobs.due(realm, "app-update") is False
+    assert appconfig.get("auto_update") is True
 
 
 def test_a_failing_job_is_recorded_and_eventually_notified(realm, monkeypatch):
@@ -84,7 +107,7 @@ def test_a_failing_job_is_recorded_and_eventually_notified(realm, monkeypatch):
     assert s["status"] == "error", "the Jobs page shows it straight away"
     assert not notify.feed(realm), "but one miss does not interrupt"
     for _ in range(sysjobs._NOTIFY_AFTER_FAILS - 1):
-        sysjobs.run_one(realm, "prune-history")
+        sysjobs.run_one(realm, "prune-history", manual=True)
     fed = notify.feed(realm)
     assert fed and fed[0]["event"] == "system_job_failed" and fed[0]["href"] == "/jobs"
     assert "disk on fire" in fed[0]["body"]
@@ -112,14 +135,25 @@ def test_one_broken_job_does_not_stop_the_others(realm, monkeypatch):
     assert by_id["capability-updates"]["ok"] and by_id["prune-history"]["ok"]
 
 
-def test_quota_jobs_are_skipped_when_signed_out(realm, monkeypatch):
+def test_only_explicit_provider_jobs_are_skipped_when_signed_out(realm, monkeypatch):
     """With notifications live, running these signed out would produce a storm of failures rather
     than one clear message — the sign-in banner already says what's wrong."""
     from armada import auth
-    monkeypatch.setattr(auth, "status", lambda force=False: {"logged_in": False})
+    monkeypatch.setattr(auth, "status", lambda force=False: {"ok": True, "logged_in": False})
     monkeypatch.setitem(sysjobs._BY_ID["prune-history"], "cost", sysjobs.QUOTA)
     r = sysjobs.run_one(realm, "prune-history")
+    assert r["ok"] is True, "quota cost does not identify a provider"
+    r = sysjobs.run_one(realm, "usage-keepalive")
     assert r["ok"] is False and r.get("skipped") is True
+    assert r["id"] == "usage-keepalive" and r["status"] == "skipped"
+
+
+def test_disabled_and_unknown_results_keep_the_job_identity(realm):
+    sysjobs.set_enabled(realm, "prune-history", False)
+    result = sysjobs.run_one(realm, "prune-history")
+    assert result["id"] == "prune-history" and result["status"] == "skipped"
+    result = sysjobs.run_one(realm, "unknown")
+    assert result["id"] == "unknown" and result["status"] == "error"
 
 
 def test_free_jobs_run_regardless_of_sign_in(realm, monkeypatch):
@@ -291,6 +325,7 @@ def test_a_recorded_run_today_beats_the_pencilled_in_one():
 
 
 def test_running_a_job_records_it_in_a_bounded_history(tmp_path, monkeypatch):
+    (tmp_path / "realm.json").write_text('{"name":"Test"}', encoding="utf-8")
     monkeypatch.setattr(sysjobs, "_HISTORY_MAX", 3)
     jid = "prune-history"
     for _ in range(5):

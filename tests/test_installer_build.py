@@ -51,12 +51,15 @@ def test_the_shortcut_carries_the_same_app_id_as_the_window():
     from armada import app
     m = re.search(r'#define AppUserModelID "([^"]+)"', ISS)
     assert m and m.group(1) == app._APP_ID, "toasts and the taskbar need the shortcut and the window to agree"
+    assert '#define AppExe "{app}\\python\\ARMADA.exe"' in ISS
+    assert 'Filename: "{#AppExe}"; Parameters: "-m armada app"' in ISS
+    assert (ROOT / "installer" / "ArmadaLauncher.cs").exists()
 
 
-def test_installs_per_user_and_starts_the_scheduler_at_sign_in():
+def test_installs_per_user_and_starts_the_scheduler_with_the_app():
     assert "PrivilegesRequired=lowest" in ISS
-    assert re.search(r'ValueName: "ARMADA Scheduler".*-m armada schedule', ISS, re.S)
-    assert "Tasks: not scheduler" in ISS                       # unticking it on reinstall removes it
+    assert re.search(r'ValueName: "ARMADA Scheduler"; Flags: deletevalue', ISS)
+    assert "schedsvc.ensure_running(root)" in (ROOT / "armada" / "app.py").read_text(encoding="utf-8")
 
 
 def test_uninstall_never_touches_the_users_data():
@@ -70,6 +73,7 @@ def test_uninstall_never_touches_the_users_data():
 def test_uninstall_and_upgrade_only_stop_processes_running_this_installs_python():
     stop = ISS[ISS.index("procedure StopArmada"):ISS.index("function PrepareToInstall")]
     assert "StartsWith(" in stop and "\\python\\" in stop
+    assert "Get-Process python,pythonw,ARMADA" in stop
     assert "taskkill" not in ISS.lower()                       # would kill every Python on the machine
 
 
@@ -79,6 +83,13 @@ def test_webview2_is_installed_when_missing():
     wv = ISS[ISS.index("procedure InstallWebView2"):ISS.index("procedure CurStepChanged")]
     # quietly for this user first, then (asking first) for all users with Windows' admin prompt
     assert wv.index("Exec(Exe") < wv.index("ShellExec('runas'") and "WizardSilent()" in wv
+
+
+def test_gemini_install_is_optional_and_detected_alongside_other_engines():
+    assert 'Name: "geminicli"' in ISS
+    assert "InstallProviderCLI('gemini', 'Antigravity CLI for Gemini')" in ISS
+    assert "not ClaudeFound() and not CodexFound() and not GeminiFound()" in ISS
+    assert r"{localappdata}\agy\bin\agy.exe" in ISS
 
 
 def test_the_window_refuses_to_open_without_webview2_before_starting_anything():

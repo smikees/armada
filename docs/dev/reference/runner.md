@@ -14,14 +14,6 @@ objectives + tenets + agent mandate + soul + the job prompt. (Threads/compaction
 
 {abs_path: mtime} for candidate artifact files under the agent dir — pruning the plumbing subtrees (jobs/threads/memory) and dot/underscore files. Used to detect files a turn creates via ANY tool (Bash, scripts, …), not just the Write/Edit tools we can see in the event stream.
 
-### `_guard_snapshot(realm_root: Path, agent_dir: Path)`
-
-Snapshot every memory file the acting agent is NOT allowed to change — the realm memory dir and every OTHER agent's memory dir (its own is exempt). Paired with _guard_restore to revert any out-of-bounds writes an agent makes during a tool turn.
-
-### `_guard_restore(snap: dict)`
-
-Undo any change the agent made to guarded memory files: delete files it created, restore ones it edited or deleted. The agent's own memory folder is untouched. Returns the number reverted.
-
 ### `_is_internal_artifact(path: str, agent_dir: Path)`
 
 True for files that are plumbing, not a user-facing artifact: the agent's own realm records (job proposals, ledgers, thread logs/attachments, memory). We still surface anything the agent writes OUTSIDE its own agent dir (e.g. into D:\Work\Hand), which is where real deliverables land.
@@ -37,6 +29,18 @@ Write/remove a transient marker so the UI can show a job as 'running' while it e
 ### `_load_json(p: Path)`
 
 —
+
+### `_select_engine(realm_root, agent_id, engine, job=None)`
+
+—
+
+### `_engine_model(eng, value)`
+
+An explicit --engine override uses that CLI's default if the stored model is incompatible.
+
+### `_prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None)`
+
+Resolve permissions before context assembly or any provider/model call.
 
 ### `_cli_model(display: str, realm_root=None)`
 
@@ -65,6 +69,10 @@ Per-run spend ceiling in USD (--max-budget-usd): the agent's value, else the rea
 ### `_disallowed_tools(realm_root: Path, agent: dict)`
 
 MCP tool patterns to withhold for this run — every capability this agent may NOT use.
+
+### `_tool_grants(realm_root, agent_id, eng, use_tools)`
+
+Refresh grants at launch, including revocations made during context assembly.
 
 ### `_record_used_capabilities(realm_root: Path, tool_names)`
 
@@ -158,7 +166,7 @@ Which capabilities a single tool call exercised. Real capability tools count: MC
 
 Records what a single agent turn produced: the files it wrote, and which of its declared capabilities it actually exercised.
 
-- `_TurnCapture.__init__(self, realm_root, agent_dir, use_tools: bool)` — —
+- `_TurnCapture.__init__(self, realm_root, agent_dir, use_tools: bool, *, thread=None, provider='unknown')` — —
 - `_TurnCapture._add_output(self, path: str)` — —
 - `_TurnCapture.on_event(self, ev)` — Sniff one streamed engine event. Never raises — it sits directly in the event path, so a capture bug must not be able to kill the run it is only observing.
 - `_TurnCapture.finish(self)` — Fold in files the event stream couldn't see, and register tools used as capabilities.
@@ -169,7 +177,7 @@ Tell the agent where its own output belongs.
 
 ### `_memory_boundary(agent_dir: Path)`
 
-Tell the agent where it may and may not write memory. Pairs with the runtime guardrail that reverts any writes it makes outside its own memory folder.
+State the write agreement without claiming an isolation guarantee the providers lack.
 
 ### `_tool_preamble(realm_root: Path, agent_dir: Path)`
 
@@ -183,19 +191,19 @@ Every agent records where a skill it wrote or fetched came from.
 
 How this agent hands a task to a teammate — the delegation contract, addressed to THIS agent. Same shape as the job-proposal contract: write one file, no exploration needed.
 
-### `run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str='main', engine='claude', allow_tools: bool=True, label: str='adhoc')`
+### `run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str='main', engine='auto', allow_tools: bool=True, label: str='adhoc')`
 
 Run a one-off prompt as this agent, through exactly the same path a scheduled job takes.
 
-### `run_inbox(realm_root, agent_id: str, engine='claude')`
+### `run_inbox(realm_root, agent_id: str, engine='auto')`
 
 Act on whatever is waiting in one agent's inbox.
 
-### `process_message_now(realm_root, agent_id: str, msg_id: str, engine='claude')`
+### `process_message_now(realm_root, agent_id: str, msg_id: str, engine='auto')`
 
 Run one waiting message immediately, ignoring the agent's cadence.
 
-### `dispatch_inboxes(realm_root, engine='claude')`
+### `dispatch_inboxes(realm_root, engine='auto')`
 
 One pass across every agent. The expensive part happens only where mail is actually waiting — everything else is a directory listing.
 
@@ -207,22 +215,34 @@ One pass across every agent. The expensive part happens only where mail is actua
 
 Deterministic job: run a shell command / script, capture status+output. No engine, no tokens. This is what runs the cabinet's Python collectors (collect_*.py, render_status.py, telegram push).
 
+### `_result_status(result)`
+
+—
+
+### `_failed_output(result, partial='')`
+
+—
+
 ### `chat(realm_root, agent_id: str, thread: str, message: str, engine: EngineAdapter | str='mock', allow_tools: bool=False)`
 
-Ad-hoc owner↔agent turn in a thread (SPEC §5). Same context assembly as a job run: always-on core as system + thread history + the owner's message; appends the turn.
+Compatibility entry point for one coordinator-owned plain chat turn (including Telegram).
 
 ### `_save_images(agent_dir: Path, thread: str, images: list)`
 
 Decode data-URL images from the composer to files under the thread. Returns [{"path": abs, "file": basename, "name": original}] for saved images.
 
-### `chat_stream(realm_root, agent_id: str, thread: str, message: str, on_event, engine: EngineAdapter | str='claude', allow_tools: bool=False, on_proc=None, images: list | None=None, files: list | None=None)`
+### `chat_stream(realm_root, agent_id: str, thread: str, message: str, on_event, engine: EngineAdapter | str='auto', allow_tools: bool=False, on_proc=None, images: list | None=None, files: list | None=None, context: RunContext | None=None, session=None)`
 
-Streaming version of chat(): emits intermediate steps via on_event(dict) as the agent works, then appends the completed turn to the thread. Falls back to a single event for engines without run_stream (e.g. mock).
+Compatibility streaming entry point; the coordinator owns persistence and cleanup.
 
 ### `run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str='mock', thread: str='main', allow_tools: bool=False)`
 
 —
 
-### `_run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools, eng, agent_dir, agent, job)`
+### `_run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools)`
 
 —
+
+### `_run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools, eng, agent_dir, agent, job)`
+
+Keep the old job entry point; all model turns go through the shared coordinator.

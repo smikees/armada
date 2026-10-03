@@ -27,6 +27,10 @@ The last realm the app was in, or '' when there isn't one that still exists.
 
 Record `path` as the realm the app is in. Best-effort; never raises at the caller.
 
+### `forget(path)`
+
+Clear the last-opened preference only if it still names this realm.
+
 ### `resolve(explicit: str='')`
 
 The realm to open: what was asked for, else where we were, else the one we know about.

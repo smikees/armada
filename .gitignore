@@ -1,4 +1,6 @@
 .venv/
+.venv-codex/
+.test-tmp*
 __pycache__/
 *.pyc
 app_out.txt

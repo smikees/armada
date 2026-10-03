@@ -118,12 +118,12 @@ def _fetch_live() -> dict:
 # went blank (no bars, no explanation) when the stored OAuth token was emptied.
 _REASONS = {
     "no-credentials": "Claude Code is signed out, so usage can’t be read — use the Sign in "
-                      "button at the top of the window.",
+                      "button in Settings → App.",
     "token-expired": "Claude Code's sign-in needs renewing — the keepalive job does that every few "
                      "hours, or any agent run will.",
     "fetch-failed": "Couldn’t reach Anthropic for usage just now — it’ll retry shortly.",
     "api-error": "Anthropic declined the usage request. If agent runs are failing too, sign in "
-                 "again from the banner at the top of the window.",
+                 "again from Settings → App.",
     "unexpected-shape": "Anthropic returned usage in a shape ARMADA doesn’t recognise — this "
                         "endpoint is undocumented and may have changed.",
     "error": "Usage is temporarily unavailable.",

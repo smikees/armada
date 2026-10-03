@@ -127,8 +127,9 @@ def test_the_prompt_does_not_look_editable(realm):
     m = reader.read(str(realm))
     html = AF._tab_jobs(m, realm, m.agents[0], datetime.date.today())
     assert "<textarea readonly" not in html, "a read-only textarea still looks like a field"
-    pre = html.split('class="mc-prompt"')[1].split(">")[0]
-    assert "resize:vertical" in pre and "overflow:auto" in pre, "lost the drag handle or the scroll"
+    assert 'class="mc-job-prompt mc-md"' in html
+    assert '<textarea' not in html
+    assert 'mc-job-output-pane' in html, "prompt and transcript must share the expanded view"
 
 
 def test_every_row_has_a_toggle(realm):
@@ -203,7 +204,8 @@ def test_the_row_carries_a_seven_day_strip(realm):
     html = AF._tab_jobs(m, realm, m.agents[0], datetime.date.today())
     row = html.split('data-jid="alpha"')[1].split("</summary>")[0]
     # Missed draws a glyph rather than a rounded tile, so count the box the two branches share.
-    assert row.count("width:11px;height:11px") == 7, "not seven day squares"
+    assert row.count("width:11px;height:11px") == 6
+    assert row.count("width:16.5px;height:16.5px") == 1, "today must be 50% larger"
 
 
 def test_the_legend_is_shown(realm):
@@ -280,7 +282,26 @@ def test_the_header_marks_today():
     from armada.webui import realmpages as R
     h = R._health7_header(datetime.date.today())
     assert h.count("<span") == 7
-    assert "today" in h and "border-bottom" in h
+    assert "today" in h and "font-size:12px;font-weight:700" in h
+    assert "border-bottom" not in h
+
+
+def test_overnight_failure_does_not_describe_tonights_scheduled_run():
+    now = datetime.datetime(2026, 10, 1, 13, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    runs = [{"ts": "2026-09-30T22:38:46+02:00", "status": "error"},
+            {"ts": "2026-10-01T00:14:52+02:00", "status": "error"}]
+    week = _week("30 22 * * 1-5", runs, now)
+    assert week[2][2] == "Failed"
+    assert week[3][2] == "Scheduled"
+    assert _week("30 22 * * 1-5", runs, now.replace(hour=23))[3][2] == "Missed"
+    runs.append({"ts": "2026-10-01T22:38:46+02:00", "status": "ok"})
+    assert _week("30 22 * * 1-5", runs, now.replace(hour=23))[3][2] == "Success"
+
+
+def test_earlier_scheduled_run_still_shows_failure_when_another_fire_is_pending():
+    now = datetime.datetime(2026, 10, 1, 13, tzinfo=datetime.timezone.utc)
+    runs = [{"ts": "2026-10-01T09:10:00+00:00", "status": "error"}]
+    assert _week("0 9,16 * * *", runs, now)[3][2] == "Failed"
 
 
 # --------------------------------------------------------------------------- row layout
@@ -435,24 +456,59 @@ def test_delete_has_a_label(realm):
     assert "Delete job</button>" in html
 
 
+def test_job_disclosures_keep_actions_outside_and_sections_in_order(realm):
+    from html.parser import HTMLParser
+    class Disclosures(HTMLParser):
+        def __init__(self):
+            super().__init__(); self.stack=[]; self.sections=[]; self.action_depths=[]
+        def handle_starttag(self, tag, attrs):
+            attrs=dict(attrs)
+            if tag == 'details':
+                self.stack.append(attrs.get('class', ''))
+                if 'mc-job-section' in self.stack[-1]:
+                    assert len(self.stack) == 2
+                    assert 'open' not in attrs
+                    self.sections.append(self.stack[-1])
+            if tag == 'button' and 'mcRun(' in attrs.get('onclick', ''):
+                self.action_depths.append(len(self.stack))
+        def handle_endtag(self, tag):
+            if tag == 'details': self.stack.pop()
+    m=reader.read(str(realm))
+    html=AF._tab_jobs(m, realm, m.agents[0], datetime.date.today())
+    p=Disclosures(); p.feed(html)
+    assert p.action_depths == [1,1,1]
+    assert p.sections == ['mc-job-section mc-job-'+part+'-pane'
+                          for _ in range(3) for part in ('prompt','output','history')]
+    assert html.count('Run history</summary>') == 3
+
+
+def test_history_selection_opens_output_without_confusing_nested_disclosures():
+    import shutil, subprocess
+    node=shutil.which('node')
+    if not node: pytest.skip('Node required')
+    subprocess.run([node,str(Path(__file__).with_name('job_disclosures_harness.js')),
+                    str(WEBUI/'static/js/run.js')],check=True)
+
+
 # --------------------------------------------------------------------------- the job edit page
 
 def _job_page_src():
     return (WEBUI / "pages.py").read_text(encoding="utf-8")
 
 
-def test_run_history_leads_the_execution_column():
+def test_model_and_output_choices_replace_edit_page_history():
     src = _job_page_src()
     body = src[src.index("def render_job"):src.index("def render_new_agent")]
     ex = body[body.index("execution = ("):]
-    assert ex.index("Run history") < ex.index("j-out"), "history is still below the output pane"
+    assert 'Run history' not in ex and 'j-out' not in ex
+    assert all(field in ex for field in ('j-model', 'j-effort', 'j-verbosity'))
 
 
 def test_every_action_sits_on_one_bar_at_the_foot():
     src = _job_page_src()
     body = src[src.index("def render_job"):src.index("def render_new_agent")]
     bar = body[body.index("actions = ("):body.index("crumb = (")]
-    for label in (">Save<", "Run now", "Delete job", "Back to jobs"):
+    for label in (">Save<", "Delete job", "Back to jobs"):
         assert label in bar, f"{label} is not on the action bar"
     # and the bar is rendered after both columns
     assert "{execution}</div></div>{actions}" in body

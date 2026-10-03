@@ -18,6 +18,10 @@ Icon key for a filename, chosen by extension (pdf/doc/sheet/code/image → gener
 
 —
 
+### `_provider_logo(provider: str, size: int=18, connected: bool=False)`
+
+Original provider artwork when connected, monochrome when disconnected.
+
 ### `_realm_icon(realm, size: int=15)`
 
 Realm icon: an uploaded image if present, else a monochrome Lucide icon, else legacy emoji.

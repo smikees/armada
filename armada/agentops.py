@@ -40,6 +40,7 @@ import shutil
 from pathlib import Path
 
 from . import util
+from .agentdates import appointment_date
 from .realmops import _recycle
 import logging
 from .util import swallowed
@@ -92,7 +93,7 @@ def list_retired(realm_root) -> list[dict]:
             "effort": c.get("effort") or "",
             "coordinator": bool(c.get("coordinator")),
             "retired": str(c.get("retired") or ""),
-            "appointed": str(c.get("appointed") or c.get("created") or ""),
+            "appointed": appointment_date(c, d),
             "jobs": len(list((d / "jobs").glob("*.json"))) if (d / "jobs").is_dir() else 0,
             "threads": len(list((d / "threads").glob("*.md"))) if (d / "threads").is_dir() else 0,
         })
@@ -147,13 +148,15 @@ def retire(realm_root, agent_id: str) -> dict:
     if dst.exists():
         return {"ok": False, "error": (
             f"There's already a retired agent in {dst.name}. Reinstate or delete that one first.")}
-    cfg = dict(g["config"])
-    cfg["retired"] = _now()
-    cfg.pop("reinstated", None)
     try:
-        util.write_json_atomic(src / "agent.json", cfg)
+        def stamp(cfg):
+            if cfg.get("coordinator"):
+                raise util.StateError("The agent became coordinator before it could be retired.")
+            cfg["retired"] = _now()
+            cfg.pop("reinstated", None)
+        cfg = util.mutate_json(src / "agent.json", stamp)
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(dst))
+        src.rename(dst)
     except Exception as e:  # noqa
         swallowed(log, 'retire: failed; error returned to the caller')
         return {"ok": False, "error": f"Couldn't retire {agent_id}: {str(e)[:160]}"}
@@ -175,20 +178,17 @@ def reinstate(realm_root, agent_id: str, overrides: dict | None = None) -> dict:
     if dst.exists():
         return {"ok": False, "error": (
             f"An agent called {agent_id} is already in this realm. Rename or remove it first.")}
-    cfg = _read_json(src / "agent.json")
-    for k, v in (overrides or {}).items():
-        v = v.strip() if isinstance(v, str) else v
-        if v not in ("", None):
-            cfg[k] = v
-    cfg.pop("retired", None)
-    # The week strip reads this: a job cannot have missed a fire time that fell while its owner was
-    # out of the realm. Without it, an agent back from a fortnight away arrives wearing a fortnight
-    # of red — two true statements ("the cron says 09:00", "nothing ran") adding up to a false one.
-    cfg["reinstated"] = _now()
     try:
-        util.write_json_atomic(src / "agent.json", cfg)
+        def stamp(cfg):
+            for k, v in (overrides or {}).items():
+                v = v.strip() if isinstance(v, str) else v
+                if v not in ("", None):
+                    cfg[k] = v
+            cfg.pop("retired", None)
+            cfg["reinstated"] = _now()
+        cfg = util.mutate_json(src / "agent.json", stamp)
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(dst))
+        src.rename(dst)
     except Exception as e:  # noqa
         swallowed(log, 'reinstate: failed; error returned to the caller')
         return {"ok": False, "error": f"Couldn't reinstate {agent_id}: {str(e)[:160]}"}

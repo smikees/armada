@@ -3,7 +3,7 @@
 Kept dependency-free (stdlib only) so every module can import it cheaply.
 """
 from __future__ import annotations
-import contextlib, json, logging, os, re, sys, tempfile, threading, time
+import contextlib, errno, json, logging, os, re, sys, tempfile, threading, time
 from pathlib import Path
 log = logging.getLogger(__name__)
 
@@ -62,17 +62,20 @@ def _replace_retrying(src, dst, attempts: int = 12) -> None:
             delay = min(delay * 2, 0.25)
 
 
-def write_text_atomic(path, text: str, encoding: str = "utf-8") -> None:
+def write_text_atomic(path, text: str, encoding: str = "utf-8", *, newline=None) -> None:
     """Write text so a crash/concurrent reader never sees a half-written file.
 
     Writes to a temp file in the same directory, flushes+fsyncs, then os.replace()s it
     over the target (atomic on the same filesystem).
     """
     path = Path(path)
+    if path.name in _SHARED_JSON:
+        assert_realm_writable(path)
+        read_json_state(path, default=dict)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp-", suffix=path.suffix)
     try:
-        with os.fdopen(fd, "w", encoding=encoding) as f:
+        with os.fdopen(fd, "w", encoding=encoding, newline=newline) as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
@@ -152,39 +155,185 @@ def pid_alive(pid) -> bool:
     return True
 
 
-@contextlib.contextmanager
-def file_lock(target, timeout: float = 5.0, poll: float = 0.05):
-    """Best-effort cross-process advisory lock, so the web server and the always-on scheduler
-    daemon don't lose each other's updates on a read-modify-write (e.g. appending to the same
-    thread, or two edits of realm.json). Creates a sibling `<name>.lock` with O_CREAT|O_EXCL and
-    spins up to `timeout`; if it can't acquire (stale/contended) it proceeds anyway rather than
-    ever deadlocking the app — atomic writes still prevent corruption in that rare case.
-    """
-    lock = Path(str(target) + ".lock")
+class StateError(OSError):
+    """Stored state cannot safely be changed; preserve it for recovery."""
+
+
+class UnsupportedSchemaError(StateError):
+    """A newer application owns the format; this build must leave it read-only."""
+
+
+class FileLockTimeout(TimeoutError):
+    """Another writer still owns the lock. The critical section was not entered."""
+
+
+_LOCK_MAGIC = b"ARMADA OS LOCK 1\n"
+_SHARED_JSON = {"realm.json", "agent.json", "meta.json", "system_jobs.json"}
+
+
+def read_json_state(path, *, default=None, max_schema="current") -> dict:
+    """Strict mutation input. Only a missing file may use a supplied default factory."""
+    path = Path(path)
+    if max_schema == "current":
+        from .realmformat import CURRENT
+        max_schema = CURRENT
+    def unique(pairs):
+        data = {}
+        for key, value in pairs:
+            if key in data:
+                raise ValueError("duplicate key")
+            data[key] = value
+        return data
     try:
-        lock.parent.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
-    fd = None
-    deadline = time.time() + timeout
-    while True:
+        raw = path.read_text(encoding="utf-8-sig")
+    except FileNotFoundError:
+        if default is not None:
+            return default()
+        raise StateError(f"Missing state file: {path.name}.") from None
+    except (OSError, UnicodeError) as exc:
+        raise StateError(f"Cannot read {path.name}; preserve the file and repair access or encoding before editing.") from exc
+    try:
+        data = json.loads(raw, object_pairs_hook=unique)
+        if not isinstance(data, dict):
+            raise ValueError("expected object")
+        if "schema_version" in data:
+            v = data["schema_version"]
+            if v == "0.1":
+                version = 0
+            elif type(v) is int and v >= 0:
+                version = v
+            elif isinstance(v, str) and v.isdigit():
+                version = int(v)
+            else:
+                raise ValueError("invalid schema version")
+            if max_schema is not None and version > max_schema:
+                raise UnsupportedSchemaError(f"{path.name} uses schema {version}; this build supports up to {max_schema}. Open it with a newer Armada; the file is read-only here.")
+        if path.name in ("realm.json", "agent.json") and "toolkit" in data and not isinstance(data["toolkit"], dict):
+            raise ValueError("invalid toolkit")
+        if path.name == "meta.json":
+            for key in ("titles", "pinned", "unread", "archived"):
+                if key in data and not isinstance(data[key], dict):
+                    raise ValueError("invalid thread metadata")
+            if "order" in data and not isinstance(data["order"], list):
+                raise ValueError("invalid thread order")
+        return data
+    except (ValueError, UnicodeError) as exc:
+        raise StateError(f"Invalid state in {path.name}; preserve the file and restore a valid backup before editing.") from exc
+
+
+def assert_realm_writable(target, *, allow_invalid_realm=False) -> None:
+    """Any writer inside a known realm must understand its format; no tolerant write fallback."""
+    target = Path(target).absolute()
+    for directory in (target.parent, *target.parent.parents):
+        realm_file = directory / "realm.json"
         try:
-            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            break
-        except FileExistsError:
-            if time.time() >= deadline:
-                break  # give up waiting; proceed without the lock
-            time.sleep(poll)
+            realm_file.stat()
+        except FileNotFoundError:
+            continue
+        from .realmformat import CURRENT
+        try:
+            read_json_state(realm_file, max_schema=CURRENT)
+        except UnsupportedSchemaError:
+            raise
         except OSError:
-            break  # can't create a lock here (permissions etc.) — proceed
+            if not allow_invalid_realm:
+                raise
+        return
+
+
+def _os_lock(fd, *, release=False):
+    os.lseek(fd, 0, os.SEEK_SET)
+    if os.name == "nt":
+        import msvcrt
+        msvcrt.locking(fd, msvcrt.LK_UNLCK if release else msvcrt.LK_NBLCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(fd, fcntl.LOCK_UN if release else fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+@contextlib.contextmanager
+def file_lock(target, timeout: float = 5.0, poll: float = 0.05, *, validate_state=True):
+    """Exclusive process/thread lock. Timeout and I/O errors never enter the critical section.
+
+    The stable sibling file is never unlinked: the kernel releases ownership on close/crash,
+    avoiding PID reuse and stale-owner unlink races. Old O_EXCL lock files are refused, not stolen.
+    Restart all writers together when upgrading the locking protocol.
+    """
+    target = Path(target)
+    if validate_state:
+        assert_realm_writable(target, allow_invalid_realm=True)
+    # Hidden control files do not become agent output artifacts or attachment candidates.
+    lock = target.with_name("." + target.name + ".lock")
+    if Path(str(target) + ".lock").exists():
+        raise StateError(f"Legacy lock for {target.name}; stop all old Armada writers before recovering it.")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_RDWR | getattr(os, "O_BINARY", 0)
     try:
+        fd = os.open(lock, flags | os.O_CREAT | os.O_EXCL, 0o600)
+        created = True
+    except FileExistsError:
+        fd = os.open(lock, flags)
+        created = False
+    acquired = False
+    deadline = time.monotonic() + max(0, timeout)
+    try:
+        while True:
+            try:
+                _os_lock(fd)
+                acquired = True
+            except OSError as exc:
+                if exc.errno not in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                    raise
+                if time.monotonic() >= deadline:
+                    raise FileLockTimeout(f"File busy: {target.name}; retry after the current writer finishes.") from exc
+                time.sleep(max(0.001, min(poll, deadline - time.monotonic())))
+                continue
+            if created:
+                os.write(fd, _LOCK_MAGIC)
+                os.fsync(fd)
+                break
+            marker = os.read(fd, len(_LOCK_MAGIC))
+            if marker == _LOCK_MAGIC:
+                break
+            _os_lock(fd, release=True)
+            acquired = False
+            # A newly-created file may be waiting for its creator to take the OS lock.
+            # Wait for initialization, but never steal an unmarked legacy/crashed lock.
+            if marker or time.monotonic() >= deadline:
+                raise StateError(f"Unrecognized lock for {target.name}. Stop all Armada writers before recovering an old or interrupted lock file.")
+            # Do not reacquire an empty lock: that can starve its creator until both short
+            # scheduler deadlines expire, leaving the file permanently uninitialized. Wait
+            # for publication without owning the byte range, then validate under the lock.
+            while os.fstat(fd).st_size == 0:
+                if time.monotonic() >= deadline:
+                    raise StateError(f"Unrecognized lock for {target.name}. Stop all Armada writers before recovering an old or interrupted lock file.")
+                time.sleep(max(0.001, min(poll, deadline - time.monotonic())))
+        if validate_state:
+            # Error transcripts may still be recorded when realm.json is broken. The broken
+            # source itself is protected below; a future schema is always read-only.
+            assert_realm_writable(target, allow_invalid_realm=True)
+            if target.name in _SHARED_JSON:
+                read_json_state(target, default=dict)
         yield
     finally:
-        if fd is not None:
-            with contextlib.suppress(OSError):
-                os.close(fd)
-            with contextlib.suppress(OSError):
-                lock.unlink()
+        try:
+            if acquired:
+                _os_lock(fd, release=True)
+        finally:
+            os.close(fd)
+
+
+def mutate_json(path, mutate, *, default=None, validate=None, timeout=5.0) -> dict:
+    """Read, validate, mutate and atomically commit under one exclusive lock."""
+    with file_lock(path, timeout=timeout):
+        data = read_json_state(path, default=default)
+        if validate:
+            validate(data)
+        mutate(data)
+        if validate:
+            validate(data)
+        write_json_atomic(path, data)
+        return data
 
 
 # ---- deliberately-swallowed exceptions (Phase 2, 2.5) ---------------------------------------------
@@ -214,6 +363,14 @@ def data_dir() -> Path:
     file held open) — so nothing a user set up is lost. Two processes racing here is harmless: the
     loser finds the new folder already there.
     """
+    # A setup review isolates Armada state without hiding the Windows user's
+    # provider logins. This also propagates to its scheduler subprocess.
+    override = os.environ.get("ARMADA_DATA_DIR", "").strip()
+    if override:
+        path = Path(override)
+        if not path.is_absolute():
+            raise ValueError("ARMADA_DATA_DIR must be an absolute path")
+        return path.resolve()
     new = Path.home() / ".armada"
     if not new.exists():
         old = Path.home() / ".matcap"

@@ -127,10 +127,90 @@ def test_realm_management_is_folded_inside_advanced():
     assert "Manage this realm" in adv
 
 
-def test_archive_endpoint_touches_no_files():
-    import inspect
-    from armada import serve
-    src = inspect.getsource(serve.Handler._realm_archive)
-    for destructive in ("rmtree", "unlink", "remove(", "realmops"):
-        assert destructive not in src, f"archive must not {destructive}"
-    assert "_reg_save" in src        # it only edits the registry
+def test_archive_keeps_resources_and_persistently_holds_dispatch(realm):
+    history = realm / "agents/finance/runs/log.jsonl"
+    before = history.read_bytes()
+    assert realmops.archive(realm)["ok"]
+    assert realmops.archived(realm)
+    assert history.read_bytes() == before
+
+
+def test_archive_active_realm_selects_another_registered_realm(tmp_path, monkeypatch):
+    from armada.routes import realm as routes
+    current, other = tmp_path / "Current", tmp_path / "Other"
+    for path in (current, other):
+        path.mkdir()
+        (path / "realm.json").write_text('{}', encoding="utf-8")
+    records = [{"name": p.name, "path": str(p)} for p in (current, other)]
+    monkeypatch.setattr(routes, "_reg_load", lambda: records)
+    monkeypatch.setattr(routes, "_reg_save", lambda rows: records.__setitem__(slice(None), rows))
+    seen = []
+    monkeypatch.setattr(routes.activerealm, "forget", lambda path: seen.append(("forget", path)))
+    monkeypatch.setattr(routes.activerealm, "remember", lambda path: seen.append(("remember", path)))
+    class Handler(routes.RealmRoutes):
+        realm = str(current)
+    result = Handler()._realm_archive({"path": str(current)})
+    assert result["ok"] and Handler.realm == str(other)
+    assert records == [{"name": "Other", "path": str(other)}]
+    assert current.exists() and (current / "realm.json").exists()
+    assert seen == [("forget", str(current)), ("remember", str(other))]
+
+
+def test_archive_last_realm_opens_welcome_without_touching_files(tmp_path, monkeypatch):
+    from armada.routes import realm as routes
+    current = tmp_path / "Current"
+    current.mkdir()
+    (current / "realm.json").write_text('{}', encoding="utf-8")
+    records = [{"name": "Current", "path": str(current)}]
+    monkeypatch.setattr(routes, "_reg_load", lambda: records)
+    monkeypatch.setattr(routes, "_reg_save", lambda rows: records.__setitem__(slice(None), rows))
+    monkeypatch.setattr(routes.activerealm, "forget", lambda path: None)
+    class Handler(routes.RealmRoutes):
+        realm = str(current)
+    result = Handler()._realm_archive({"path": str(current)})
+    assert result["ok"] and Handler.realm == "" and records == []
+    assert (current / "realm.json").exists()
+
+
+def test_archiving_clears_only_the_archived_realm_preference(tmp_path, monkeypatch):
+    from armada import activerealm
+    selected = tmp_path / "Selected"
+    other = tmp_path / "Other"
+    saved = {activerealm.KEY: str(selected)}
+    monkeypatch.setattr(activerealm.appconfig, "get", lambda key, default=None: saved.get(key, default))
+    monkeypatch.setattr(activerealm.appconfig, "save", lambda changes: saved.update(changes))
+    activerealm.forget(other)
+    assert saved[activerealm.KEY] == str(selected)
+    activerealm.forget(selected)
+    assert saved[activerealm.KEY] == ""
+
+
+def test_delete_active_realm_switches_only_after_confirm_and_restores_on_failure(tmp_path, monkeypatch):
+    from armada.routes import realm as routes
+    current, other = tmp_path / "Current", tmp_path / "Other"
+    for path in (current, other):
+        path.mkdir()
+        (path / "realm.json").write_text('{}', encoding="utf-8")
+    records = [{"name": p.name, "path": str(p)} for p in (current, other)]
+    monkeypatch.setattr(routes, "_reg_load", lambda: records)
+    monkeypatch.setattr(routes, "_reg_save", lambda rows: records.__setitem__(slice(None), rows))
+    monkeypatch.setattr(routes.activerealm, "forget", lambda path: None)
+    monkeypatch.setattr(routes.activerealm, "remember", lambda path: None)
+    class Handler(routes.RealmRoutes):
+        realm = str(current)
+    calls = []
+    def recycle(path, current_realm=None):
+        calls.append((str(path), current_realm))
+        return {"ok": False, "error": "Recycle Bin unavailable"}
+    monkeypatch.setattr(realmops, "delete", recycle)
+    assert not Handler()._realm_delete({"path": str(current), "confirm": "wrong"})["ok"]
+    assert calls == []
+    assert not Handler()._realm_delete({"path": str(current), "confirm": "Current"})["ok"]
+    assert calls == [(str(current), str(other))]
+    assert Handler.realm == str(current) and len(records) == 2
+    monkeypatch.setattr(realmops, "delete", lambda path, current_realm=None:
+                        {"ok": True, "recycled": True} if current_realm == str(other)
+                        else {"ok": False, "error": "still selected"})
+    result = Handler()._realm_delete({"path": str(current), "confirm": "Current"})
+    assert result["ok"] and Handler.realm == str(other)
+    assert records == [{"name": "Other", "path": str(other)}]

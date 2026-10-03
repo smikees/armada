@@ -49,7 +49,7 @@ def _agent_page(realm):
 
 def _row(html, jid):
     i = html.index(f'data-jid="{jid}"')
-    return html[i:].split("</details>", 1)[0]
+    return html[i:].split('<details class="mc-job"', 1)[0]
 
 
 # --------------------------------------------------------------------------- same renderer
@@ -64,7 +64,7 @@ def test_the_realm_page_is_no_longer_a_table_of_jobs(realm):
     html = _realm_page(realm)
     assert 'id="mc-jobstable" class="mc-joblist' in html
     assert "mc-sortable" not in html.split("mc-jobs-cal")[0], "the user pane is still a sorted table"
-    assert html.count('<details class="mc-job') == 3, "not one expandable row per job"
+    assert html.count('<details class="mc-job"') == 3, "not one expandable row per job"
 
 
 def test_every_job_in_the_realm_is_listed(realm):

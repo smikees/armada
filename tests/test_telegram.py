@@ -21,6 +21,8 @@ def isolate(tmp_path, monkeypatch):
     for k in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(tg, "api", lambda *a, **k: pytest.fail("a test hit the network"))
+    from armada import auth
+    monkeypatch.setattr(auth, "status", lambda: {"ok": True, "logged_in": True})
     return store
 
 
@@ -219,7 +221,7 @@ def test_the_fallback_job_stands_down_while_a_listener_runs(realm, isolate, monk
     tg._save_state(r, {"listener": time.time()})
     monkeypatch.setattr(tg, "dispatch", lambda *a, **k: pytest.fail("polled behind the listener"))
     out = sysjobs._BY_ID["telegram-inbox"]["run"](r)
-    assert out["ok"] and "listener" in out["detail"]
+    assert out["status"] == "skipped" and "listener" in out["detail"]
 
 
 def test_a_stale_heartbeat_hands_the_work_back(realm, isolate, monkeypatch):

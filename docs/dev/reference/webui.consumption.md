@@ -21,6 +21,14 @@ so _core (and pages) import these names back without any import cycle.
 
 —
 
+### `_picker_model_mark(size: int=16)`
+
+Both provider marks occupy the same slot; consumption.js selects the active one.
+
+### `_cost_bar(marker_id: str)`
+
+Shared cost scale: provider mark in a pin pointing at the combination's position.
+
 ### `_consumption_js(realm, model_id: str='c-model', effort_id: str='c-effort', marker_id: str='c-consmarker', mark_scope: str='', verbosity_id: str='')`
 
 Client mirror of models.combo_index + the gradient sampler, so a model/effort/verbosity picker moves its marker and recolours its model icon live (no server round-trip). `mark_scope` limits which .mc-modelmark icons get recoloured (a CSS-selector prefix) so two pickers on one page don't clash. `verbosity_id` is optional: a form without a verbosity field falls back to the realm's own default, which is what such an agent would actually inherit.

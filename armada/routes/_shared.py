@@ -48,11 +48,12 @@ def _llm_title(agent_dir, first_msg: str) -> str:
     if not msg:
         return ""
     try:
-        from ..engine.claude import ClaudeEngine
+        from ..engine import get_engine, engine_for
+        provider = engine_for(Path(agent_dir).parent.parent, Path(agent_dir).name)
         system = ("Write a very short title (3-6 words) that summarises the TOPIC of the user's message, "
                   "like a chat title. Be specific but brief. Reply with ONLY the title — no quotes, no "
                   "trailing punctuation, no preamble.")
-        res = ClaudeEngine().run(system=system, prompt=msg[:2000], model="haiku",
+        res = get_engine(provider).run(system=system, prompt=msg[:2000], model="haiku" if provider == "claude" else None,
                                  cwd=str(agent_dir), allow_tools=False, timeout=45)
         if res.ok and res.output:
             t = res.output.strip().splitlines()[0].strip().strip('"\'`').strip().rstrip(".!?,;:")
@@ -141,34 +142,80 @@ def _realm_json(realm) -> dict:
     }
 
 
-def _job_detail(realm_root, agent_id, job_id) -> dict:
-    p = Path(realm_root) / "agents" / safe_seg(agent_id, "agent") / "jobs" / f"{job_id}.json"
+def _job_detail(realm_root, agent_id, job_id, selected_run="") -> dict:
+    from .. import job_history
+    from ..threads import Thread
+    from ..webui.threadsview import _turn, _working_turn, _progress_steps
+    from ..webui._base import E
+    agent_id, job_id = safe_seg(agent_id, "agent"), safe_seg(job_id, "job")
+    ad = Path(realm_root) / "agents" / agent_id
+    p = ad / "jobs" / f"{job_id}.json"
     jc = json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else {}
-    # recent run-reports for this job
-    rf = Path(realm_root) / "agents" / safe_seg(agent_id, "agent") / "runs" / f"{agent_id}.jsonl"
-    runs = []
-    if rf.exists():
-        for ln in rf.read_text(encoding="utf-8-sig").splitlines():
-            ln = ln.strip()
-            if not ln:
-                continue
-            try:
-                ev = json.loads(ln)
-            except json.JSONDecodeError:
-                continue
-            if ev.get("task") == job_id:
-                runs.append({"ts": ev.get("ts"), "status": ev.get("status"),
-                             "summary": ev.get("summary", ""), "tokens": ev.get("tokens")})
+    all_runs = job_history.reports(ad, job_id)
+    runs = all_runs[-8:][::-1]
+    ac = json.loads((ad / "agent.json").read_text(encoding="utf-8-sig"))
+    display = ac.get("display") or ac.get("name") or agent_id
+    avatar = f'<img src="/avatar/{E(agent_id)}" width="28" height="28" style="border-radius:50%;object-fit:cover" alt="">'
+    th = Thread(ad, job_history.thread_name(job_id))
+    pending = th.open_turn()
+    # Use the same validated live markers as the list (stale files aren't a running job).
+    from ..webui.agentbits import _running_jobs
+    running = job_id in _running_jobs(realm_root, agent_id)
+    chosen = next((ev for ev in all_runs if str(ev.get("run_id") or ev.get("ts")) == selected_run), None)
+    html = '<div style="color:var(--text-muted)">No runs yet.</div>'
+    if not selected_run and running:
+        html = _working_turn(avatar, display, th.progress(pending["turn"]) if pending else None)
+    elif chosen or runs:
+        ev = chosen or runs[0]
+        content = job_history.transcript(ad, ev)
+        from ..webui.jobresults import result_html
+        html = _progress_steps(content.get("events")) + _turn(
+            "assistant", content.get("content", ""), ev.get("ts", ""), 0, False,
+            agent_id, ev.get("thread", "main"), display, False,
+            av=avatar, seg=content.get("segments"), actions=False)
+        from .. import status
+        from ..webui.schedfmt import _fmt_ts
+        raw_status = ev.get("status", "")
+        label = {status.SUCCESS: "Succeeded", status.FAILED: "Failed", status.WARN: "Warning"}.get(
+            status.normalize(raw_status), str(raw_status).title())
+        if ev.get("result"):
+            from ..job_results import label as result_label
+            label = result_label(ev["result"])
+        html = (f'<div style="margin-bottom:10px;color:var(--text-dim)">'
+                f'<span style="color:{status.color(raw_status)}">{E(label)}</span>'
+                f' · {E(_fmt_ts(ev.get("ts", "")))}</div>' + result_html(ev, content) + html)
+    entries = [{k: ev.get(k) for k in ("ts", "status", "summary", "tokens", "result")} |
+               {"id": str(ev.get("run_id") or ev.get("ts"))} for ev in runs]
+    from .. import scheduler
+    from ..webui.realmpages import _job_history_rows, _job_week_html
+    from ..webui.agentbits import _job_health7, _job_created_ts, _week_filter_bucket
+    rc = json.loads((Path(realm_root) / "realm.json").read_text(encoding="utf-8-sig"))
+    now = scheduler.now_in(rc)
+    week = _job_health7(all_runs, jc.get("cron") or jc.get("schedule") or "manual", now,
+                       running, since=_job_created_ts(realm_root, agent_id, job_id, jc), latest_today=True)
+    from ..webui.schedfmt import _job_next_dt
+    next_run = _job_next_dt(jc.get("cron") or jc.get("schedule"), now.replace(tzinfo=None))
+    from .. import datefmt
+    next_label = ("off" if jc.get("enabled") is False else "running now" if running else
+                  datefmt.moment(next_run) if next_run else "on demand")
     return {"id": jc.get("id", job_id), "name": jc.get("name", job_id),
             "kind": jc.get("kind") or ("command" if (jc.get("run") or jc.get("command")) else "agent"),
             "cadence": jc.get("schedule") or jc.get("cron") or "manual",
             "allow_tools": bool(jc.get("allow_tools")),
             "run": jc.get("run") or jc.get("command") or "",
             "prompt": jc.get("prompt", ""),
-            "runs": runs[-8:][::-1]}
+            "runs": entries, "html": html, "running": running,
+            "history_html": _job_history_rows(agent_id, all_runs),
+            "week_html": _job_week_html(week), "jstatus": _week_filter_bucket(week),
+            "next_label": next_label}
 
 
 class SharedRoutes:
+    def _send_user_image(self, path: Path) -> None:
+        from ..origins import IMAGE_CSP
+        self._send(200, path.read_bytes(), self._CT.get(path.suffix.lower(), "image/png"),
+                   csp=IMAGE_CSP)
+
     def _refresh_system_ep(self, body: dict) -> dict:
         from .. import memory as _memory
         try:
@@ -216,4 +263,3 @@ class SharedRoutes:
         if len(text) > 200_000:
             return {"ok": False, "error": "too long to render"}
         return {"ok": True, "html": _render(text.strip())}
-

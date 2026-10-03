@@ -15,7 +15,7 @@ switched it off — lives in the realm.
 Two things are deliberate.
 
 **Cost is declared, not implied.** A job is either `free` (deterministic local work) or `quota` (it
-invokes agents and spends your Claude subscription). The UI shows which, because "system job" must
+invokes agents and spends the selected provider’s quota). The UI shows which, because "system job" must
 never quietly become "thing that spends money".
 
 **Silence is the enemy.** Background work that fails invisibly is the failure mode that bit this
@@ -73,6 +73,10 @@ Keep ARMADA itself up to date (5.4). Machine-wide, though it's listed in every r
 
 —
 
+### `_validate_state(st)`
+
+—
+
 ### `set_enabled(realm_root, jid: str, on: bool)`
 
 —
@@ -81,9 +85,9 @@ Keep ARMADA itself up to date (5.4). Machine-wide, though it's listed in every r
 
 —
 
-### `_record_run(entry: dict, ts: str, ok: bool)`
+### `_record_run(entry: dict, ts: str, status: str)`
 
-Append one run to a job's rolling history, oldest trimmed first.
+Bounded history for the week strip: skips must not paint a false success or failure.
 
 ### `_parse(ts: str)`
 
@@ -97,13 +101,29 @@ A job declares either every_hours or every_minutes — inbox delivery needs to r
 
 Interval-based, not cron: these are 'every so often', not 'at 07:00'.
 
+### `_entry_due(job, entry, now)`
+
+—
+
 ### `status(realm_root)`
 
 Everything the System tab needs: definition + live state, newest-relevant first.
 
+### `_outcome(jid, status, reason, detail)`
+
+—
+
+### `_normalize(jid, result)`
+
+—
+
 ### `run_one(realm_root, jid: str, manual: bool=False)`
 
-Run one system job now. Never raises: a broken housekeeping job must not take down the scheduler or the request that triggered it.
+Exclusively claim a due system job; manual=True explicitly permits an operator retry.
+
+### `_run_locked(realm_root, jid, manual)`
+
+—
 
 ### `run_due(realm_root)`
 

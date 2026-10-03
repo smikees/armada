@@ -10,7 +10,13 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `SettingsRoutes._get_providers(self)` — —
+- `SettingsRoutes._provider_action(self, body)` — —
+- `SettingsRoutes._save_alexander_settings(self, body)` — —
 - `SettingsRoutes._get_settings(self)` — —
+- `SettingsRoutes._get_alexander(self)` — —
+- `SettingsRoutes._open_alexander_window(self, body: dict)` — —
+- `SettingsRoutes._alexander_main_action(self, body: dict)` — —
 - `SettingsRoutes._get_approvals(self)` — —
 - `SettingsRoutes._get_docs(self)` — —
 - `SettingsRoutes._get_doc_page(self, path: str)` — —

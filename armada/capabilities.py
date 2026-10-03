@@ -28,6 +28,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import util
@@ -72,7 +73,10 @@ def cap_key(cap) -> str:
 def catalogue(realm_root) -> dict:
     """{kind: [cap, ...]} — everything this realm knows about."""
     tk = _read(Path(realm_root) / "realm.json").get("toolkit") or {}
-    return {k: list(tk.get(k) or []) for k in KINDS}
+    result = {k: list(tk.get(k) or []) for k in KINDS}
+    from .connector_runtime import is_provider_placeholder
+    result["connectors"] = [c for c in result["connectors"] if not is_provider_placeholder(c)]
+    return result
 
 
 def catalogue_flat(realm_root) -> list:
@@ -182,7 +186,7 @@ def grant(realm_root, agent_id: str, cap_id: str, *, via: str = "user", thread: 
     if not ap.exists():
         return {"ok": False, "error": f"No agent '{agent_id}'."}
     with util.file_lock(ap):
-        a = _read(ap)
+        a = util.read_json_state(ap)
         if is_coordinator(a):
             return {"ok": True, "already": True, "coordinator": True,
                     "detail": "The coordinator can already use everything in the realm."}
@@ -205,7 +209,7 @@ def revoke(realm_root, agent_id: str, cap_id: str) -> dict:
         return {"ok": False, "error": f"No agent '{agent_id}'."}
     want = cap_key(cap_id)
     with util.file_lock(ap):
-        a = _read(ap)
+        a = util.read_json_state(ap)
         if is_coordinator(a):
             return {"ok": False,
                     "error": ("The coordinator's access follows the role, not a grant list — "
@@ -250,24 +254,96 @@ def granted_in_thread(realm_root, agent, cap_id, thread: str) -> bool:
 
 # --------------------------------------------------------------------------- enforcement
 
-def denied_tool_patterns(realm_root, agent) -> list:
-    """`mcp__<id>` patterns to withhold from this run: every MCP capability the agent may not use.
+class CapabilityPolicyError(ValueError):
+    """A tool turn cannot safely determine its permissions."""
 
-    Built from the realm catalogue rather than from the agent's list, because the thing being
-    withheld is precisely what the agent does NOT have — you cannot enumerate that from its own
-    toolkit. A realm-level off is included for everyone, coordinator included.
-    """
-    use = {cap_key(c) for k in MCP_KINDS for c in usable(realm_root, agent)[k]}
-    pats = set()
-    cat = catalogue(realm_root)
+
+@dataclass(frozen=True)
+class CapabilityPolicy:
+    """Validated per-turn MCP grants. An empty set grants no MCP servers."""
+    allowed_mcp_ids: frozenset[str]
+    denied_tools: tuple[str, ...]
+    # Recognized local filesystem extensions can use a provider's scoped native
+    # file tools. Identity comes from the catalogue, never from a server-name guess.
+    native_filesystem_ids: frozenset[str] = frozenset()
+
+
+def _policy_json(path: Path) -> dict:
+    try:
+        return util.read_json_state(path)
+    except util.UnsupportedSchemaError:
+        raise
+    except (OSError, ValueError, UnicodeError) as exc:
+        # Do not include policy contents or decoder excerpts in an error/run report.
+        raise CapabilityPolicyError(f"Capability policy: cannot read valid {path.name}; repair the file before running tools.") from exc
+
+
+def _policy_toolkit(data: dict, label: str, *, grants_only=False) -> dict:
+    tk = data.get("toolkit", {})
+    if not isinstance(tk, dict):
+        raise CapabilityPolicyError(f"Capability policy: {label}.toolkit must be an object.")
+    result = {}
+    for kind in KINDS:
+        entries = tk.get(kind, [])
+        if not isinstance(entries, list):
+            raise CapabilityPolicyError(f"Capability policy: {label}.toolkit.{kind} must be a list.")
+        result[kind] = []
+        seen = set()
+        for item in entries:
+            if isinstance(item, str) and grants_only:
+                item = {"id": item}
+            if not isinstance(item, dict):
+                raise CapabilityPolicyError(f"Capability policy: invalid entry in {label}.toolkit.{kind}.")
+            for field in ("id", "name"):
+                value = item.get(field, "")
+                if not isinstance(value, str) or any(ord(c) < 32 for c in value):
+                    raise CapabilityPolicyError(f"Capability policy: invalid {field} in {label}.toolkit.{kind}.")
+            if "enabled" in item and type(item["enabled"]) is not bool:
+                raise CapabilityPolicyError(f"Capability policy: enabled must be true or false in {label}.")
+            key = cap_key(item)
+            if not key or key in seen:
+                raise CapabilityPolicyError(f"Capability policy: missing or duplicate identity in {label}.toolkit.{kind}.")
+            sid = item.get("id", "")
+            if kind in MCP_KINDS and sid and (sid != sid.strip() or any(c in sid for c in "*?()[]{}\\\"")):
+                raise CapabilityPolicyError(f"Capability policy: invalid MCP server identity in {label}.")
+            seen.add(key)
+            result[kind].append(item)
+    return result
+
+
+def execution_policy(realm_root, agent) -> CapabilityPolicy:
+    """Read policy strictly for execution; display/discovery fallbacks never authorize tools."""
+    realm = _policy_json(Path(realm_root) / "realm.json")
+    a = agent if isinstance(agent, dict) else _policy_json(
+        Path(realm_root) / "agents" / util.safe_seg(str(agent), "agent") / "agent.json")
+    if "coordinator" in a and type(a["coordinator"]) is not bool:
+        raise CapabilityPolicyError("Capability policy: coordinator must be true or false.")
+    cat = _policy_toolkit(realm, "realm")
+    from .connector_runtime import is_provider_placeholder
+    cat["connectors"] = [c for c in cat["connectors"] if not is_provider_placeholder(c)]
+    granted = _policy_toolkit(a, "agent", grants_only=True)
+    allowed, denied = set(), set()
     for kind in MCP_KINDS:
+        keys = {cap_key(c) for c in granted[kind] if realm_enabled(c)}
         for cap in cat[kind]:
-            sid = str(cap.get("id") or "").strip()
+            sid = cap.get("id", "")
             if not sid:
-                continue          # nothing to match on; context-level only
-            if cap_key(cap) not in use:
-                pats.add(f"mcp__{sid}")
-    return sorted(pats)
+                continue  # Descriptive entries cannot grant an MCP identity.
+            if realm_enabled(cap) and (a.get("coordinator", False) or cap_key(cap) in keys):
+                allowed.add(sid)
+            else:
+                denied.add(sid)
+    # A disabled or ungranted duplicate in another kind always wins.
+    allowed.difference_update(denied)
+    native_filesystem = frozenset(
+        c["id"] for c in cat["extensions"]
+        if c.get("id") and c.get("extension_id") == "ant.dir.ant.anthropic.filesystem")
+    return CapabilityPolicy(frozenset(allowed), tuple(f"mcp__{sid}" for sid in sorted(denied)),
+                            native_filesystem)
+
+def denied_tool_patterns(realm_root, agent) -> list:
+    """Compatibility facade for validated catalogue denials; adapters also gate their inventory."""
+    return list(execution_policy(realm_root, agent).denied_tools)
 
 
 # --------------------------------------------------------------------------- requests

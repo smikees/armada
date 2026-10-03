@@ -1,4 +1,4 @@
-# Marcus — The Hand
+# Marcus — Prime Minister
 
 ## Mission
 

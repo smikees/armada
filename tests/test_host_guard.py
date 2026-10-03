@@ -13,6 +13,7 @@ import pytest
 
 from golden_support import ServedRealm, build_fixture
 from armada import serve
+from armada.request_context import RealmContext
 
 
 @pytest.fixture(scope="module")
@@ -24,7 +25,7 @@ def srv(tmp_path_factory):
 
 def _req(srv, method, path, host, origin=None, body=None):
     c = http.client.HTTPConnection("127.0.0.1", srv.port, timeout=10)
-    headers = {"Host": host}
+    headers = {"Host": host, "X-Armada-Realm": RealmContext.capture(srv.realm).realm_id}
     if origin:
         headers["Origin"] = origin
     data = None

@@ -4,12 +4,25 @@
 [ADR-012](../adr/ADR-012-alexander-scope.md), which widens [ADR-002](../adr/ADR-002-alexander.md).*
 
 Alexander is ARMADA's guide: the one bundled agent, the same in every install, that the owner
-can't change. He appears in two places:
+can configure for model and effort under App → Advanced. His identity and instructions ship with the app. He appears in two places:
 
 | Where | How he speaks | Cost |
 |---|---|---|
 | **The setup wizard** (first run) | scripted: every line written in advance in `armada/alexander/wizard_script.py` | nothing |
-| **Support** (the support icon beside Settings, on every page; "Ask Alexander" on a failed job or run) | live: a sealed engine turn, **Opus 5.5 at High effort**, fixed for this version | the owner's Claude quota, shown as **System** usage |
+| **Support** (the support icon beside Settings, on every page; "Ask Alexander" on a failed job or run) | live: a no-tool engine turn; Automatic chooses **Opus 5.5 / Medium** with Claude connected, otherwise **GPT-6 Sol / Medium** | the selected provider's quota, shown as **System** usage |
+
+## Desktop companion
+
+The support icon opens Alexander beside the cockpit, preferring its right side and using the left
+when the monitor has less room. His original portrait overlaps the top-left of a compact conversation
+panel, inside a smooth beveled stone bezel. His model and effort appear beside his name using the
+same label as realm agents, resolved from App → Advanced and recorded provider connections.
+Drag the portrait or header to move the companion. The single
+close button (or Escape) closes only Alexander; reopening restores the saved conversation.
+
+The native window is frameless, with a Windows region matching the portrait and rounded panel so
+the space outside them exposes the desktop and does not intercept clicks. Its shape follows native
+resize events and DPI scaling. Text selection and message entry do not initiate window dragging.
 
 ## The prompt
 
@@ -68,5 +81,5 @@ mood, and every line can be reviewed. The wizard ends by pointing at his button.
 - **Credentials:** never in his context (the realm snapshot excludes them, logs are redacted), never
   in a report.
 - **Tests** (`tests/test_alexander*.py`): the prompt ships and has the sections the code fills; the
-  model and effort are fixed; remedies validate their arguments; an add-on block that fails the
+  model and effort follow connected providers and App preferences; remedies validate their arguments; an add-on block that fails the
   contract never renders a card; an unknown remedy renders nothing; context assembly redacts.

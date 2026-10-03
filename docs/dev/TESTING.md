@@ -1,5 +1,13 @@
 # Testing
 
+## Current release verification
+
+v0.99.74 (2026-10-03), Windows: **2,923 passed, 2 skipped** across the full suite.
+All 41 changed JavaScript files passed `node --check`. Page snapshots were reviewed and updated
+for the three-engine UI, job model/status columns, provider controls and other requested changes.
+Use a working Python 3.12+ virtual environment; on this development machine it is `.venv-codex`.
+Older baseline counts below are historical, not an allowance for a new release to have failures.
+
 ## Running
 
 ```powershell

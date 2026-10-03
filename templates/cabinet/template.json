@@ -26,7 +26,7 @@
     {
       "id": "hand",
       "display": "Marcus",
-      "role": "The Hand",
+      "role": "Prime Minister",
       "after": "Marcus Agrippa",
       "coordinator": true,
       "for": "Holds the whole picture and turns it into the fewest decisions the owner has to make.",

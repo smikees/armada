@@ -60,4 +60,6 @@ def test_the_design_fonts_are_not_resized_in_their_own_role():
 
 def test_the_picker_is_in_settings():
     src = (STATIC.parent / "pages.py").read_text(encoding="utf-8")
-    assert "_font_picker()" in src and 'onchange="mcSetFont(this)"' in src
+    assert "_font_picker()" in src and 'data-role="{role}"' in src
+    js = (STATIC / "js/settings.js").read_text(encoding="utf-8")
+    assert "document.querySelectorAll('.mc-fontpick select')" in js

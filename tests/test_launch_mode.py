@@ -1,9 +1,13 @@
 """Update & Restart must relaunch in the same mode it was started in (window stays a window)."""
+import socket
 import sys
+import threading
+import urllib.error
+import urllib.request
 
 import pytest
 
-from armada import serve
+from armada import app, serve
 
 
 def _argv(monkeypatch, argv):
@@ -65,6 +69,35 @@ def test_serve_waits_out_a_restart_handover(monkeypatch):
 def test_port_owner_detects_a_free_port():
     # nothing is listening on this high port, so it must report False (and never raise)
     assert serve.port_owner(59_413) is False
+
+
+def test_instance_probe_identifies_realm_without_rendering_dashboard(tmp_path, monkeypatch):
+    monkeypatch.setattr(serve.Handler, "realm", str(tmp_path))
+    monkeypatch.setattr(serve.Handler, "_route_get", lambda self: (_ for _ in ()).throw(RuntimeError("broken dashboard")))
+    server = serve._Server(("127.0.0.1", 0), serve.Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}/"
+    try:
+        with pytest.raises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(url, timeout=2)
+        assert error.value.code == 500
+        assert app._server_matches(url, str(tmp_path))
+        assert not app._server_matches(url, str(tmp_path / "other"))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_occupied_default_port_selects_another_pair():
+    with socket.socket() as occupied:
+        occupied.bind(("127.0.0.1", 0))
+        port = occupied.getsockname()[1]
+        if port > 65330:
+            pytest.skip("OS assigned a port too close to the end of the range")
+        chosen = app._free_port_pair(port)
+        assert chosen != port and chosen >= port + 2
 
 
 def test_say_survives_broken_stream(monkeypatch):

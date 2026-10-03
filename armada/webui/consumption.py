@@ -19,8 +19,8 @@ _MODEL_FALLBACK = ["#db2777", "#65a30d", "#0891b2", "#ca8a04", "#7c3aed"]
 
 def _model_color(label: str, i: int = 0) -> str:
     # colour a model by its token-consumption index on the shared gradient (light = low, dark = high);
-    # non-Claude labels (Mock/Unknown/other) fall back to the neutral palette.
-    if _model_is_claude(label):
+    # Unknown/non-provider labels fall back to the neutral palette.
+    if _model_is_claude(label) or models.is_codex_model(label) or models.is_gemini_model(label):
         return _consumption_color(models.model_index(label))
     return _MODEL_CLR.get(label) or _MODEL_CLR.get(label.split()[0] if label else "") \
         or _MODEL_FALLBACK[i % len(_MODEL_FALLBACK)]
@@ -53,6 +53,27 @@ def _consumption_gradient_css() -> str:
         f"#{c[0]:02x}{c[1]:02x}{c[2]:02x} {round(p * 100)}%" for p, c in _CONSUMPTION_STOPS) + ")"
 
 
+def _picker_model_mark(size: int = 16) -> str:
+    """Both provider marks occupy the same slot; consumption.js selects the active one."""
+    from ..icons import _icon
+    return (f'<span class="mc-modelmark" style="display:inline-flex;color:var(--text-muted)">'
+            f'<span data-provider="claude">{_icon("claude", size)}</span>'
+            f'<span data-provider="codex" style="display:none">{_icon("codex", size)}</span>'
+            f'<span data-provider="gemini" style="display:none">{_icon("gemini", size)}</span>'
+            f'</span>')
+
+
+def _cost_bar(marker_id: str) -> str:
+    """Shared cost scale: provider mark in a pin pointing at the combination's position."""
+    from html import escape
+    return (f'<div class="mc-cost-bar"><span class="mc-cost-end">Low</span>'
+            f'<div class="mc-cost-track" style="background:{_consumption_gradient_css()}">'
+            f'<span id="{escape(marker_id, quote=True)}" class="mc-cost-marker" role="img" '
+            f'aria-label="Estimated relative cost"><span class="mc-cost-pin">{_picker_model_mark(18)}</span>'
+            f'<span class="mc-cost-badge"></span></span></div>'
+            f'<span class="mc-cost-end">High</span></div>')
+
+
 def _consumption_js(realm, model_id: str = "c-model", effort_id: str = "c-effort",
                     marker_id: str = "c-consmarker", mark_scope: str = "",
                     verbosity_id: str = "") -> str:
@@ -66,6 +87,9 @@ def _consumption_js(realm, model_id: str = "c-model", effort_id: str = "c-effort
     C["stops"] = [[p, list(c)] for p, c in _CONSUMPTION_STOPS]
     C["defaultModel"] = getattr(realm, "default_model", "") or "Claude Opus 4.8"
     C["defaultEffort"] = getattr(realm, "default_effort", "") or "high"
+    from ..engine.gemini import cached_models, model_id as gemini_model_id
+    C['geminiEfforts'] = {m['id']:m.get('efforts', ['low','medium','high']) for m in cached_models()}
+    C['geminiEfforts']['gemini:auto'] = C['geminiEfforts'].get(gemini_model_id('gemini:auto'), ['low','medium','high'])
     try:
         C["defaultVerbosity"] = _verbosity.realm_level(realm.root)
     except Exception:  # noqa — no realm root to read is not a reason to break the widget

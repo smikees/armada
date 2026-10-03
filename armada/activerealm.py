@@ -66,6 +66,17 @@ def remember(path) -> None:
         swallowed(log, 'remember: failed; ignored')
 
 
+def forget(path) -> None:
+    """Clear the last-opened preference only if it still names this realm."""
+    try:
+        target = Path(str(path)).resolve()
+        saved = str(appconfig.get(KEY, "") or "").strip()
+        if saved and Path(saved).resolve() == target:
+            appconfig.save({KEY: ""})
+    except Exception:  # noqa — a stale preference must not break a realm operation
+        swallowed(log, 'forget: failed; ignored')
+
+
 def resolve(explicit: str = "") -> str:
     """The realm to open: what was asked for, else where we were, else the one we know about.
 
@@ -97,7 +108,8 @@ def every() -> list[str]:
     last = remembered()
     if last:
         out = [last] + [p for p in out if Path(p).resolve() != Path(last).resolve()]
-    return out
+    from . import setupflow
+    return [p for p in out if not setupflow.needs_setup(p)]
 
 
 def _registered() -> list[str]:
@@ -114,7 +126,8 @@ def _registered() -> list[str]:
         q = str((i or {}).get("path", "") or "").strip()
         if q and is_realm(q) and q not in out:
             out.append(q)
-    return out
+    from . import setupflow
+    return [p for p in out if not setupflow.needs_setup(p)]
 
 
 def no_realm_message() -> str:

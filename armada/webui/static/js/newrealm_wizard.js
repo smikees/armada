@@ -1,9 +1,9 @@
 // The new-realm wizard on the realm-setup page (was _core._WIZ_JS; UI audit L1). Expects
 // MC_PRESETS (the templates' presets) to be defined inline by the page before this loads.
-let mcTpl='state', mcIcon='';
+let mcTpl='state', mcRealmIcon='';
 function mcPickTpl(el){mcTpl=el.dataset.tpl;document.querySelectorAll('.mc-tplcard').forEach(c=>c.style.outline='');
-  el.style.outline='2px solid var(--color-accent)';mcIcon=MC_PRESETS[mcTpl].icon;mcMarkIcon();}
-function mcPickIcon(el){mcIcon=el.dataset.icon;window.mcIconData='';document.getElementById('r-iconprev').innerHTML='';mcMarkIcon();}
+  el.style.outline='2px solid var(--color-accent)';mcRealmIcon=MC_PRESETS[mcTpl].icon;mcMarkIcon();}
+function mcPickIcon(el){mcRealmIcon=el.dataset.icon;window.mcIconData='';document.getElementById('r-iconprev').innerHTML='';mcMarkIcon();}
 async function mcWizIcon(input){const f=input.files[0];if(!f)return;
   const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(f);});
   const S=128,c=document.createElement('canvas');c.width=S;c.height=S;const x=c.getContext('2d');x.imageSmoothingQuality='high';
@@ -12,7 +12,7 @@ async function mcWizIcon(input){const f=input.files[0];if(!f)return;
   window.mcIconData=c.toDataURL('image/png');
   document.getElementById('r-iconprev').innerHTML='<img src="'+window.mcIconData+'" width=22 height=22 style="border-radius:3px;vertical-align:middle">';
   document.querySelectorAll('.mc-iconpick').forEach(s=>s.style.background='');}
-function mcMarkIcon(){document.querySelectorAll('.mc-iconpick').forEach(s=>s.style.background=s.dataset.icon===mcIcon?'var(--text-12)':'');}
+function mcMarkIcon(){document.querySelectorAll('.mc-iconpick').forEach(s=>s.style.background=s.dataset.icon===mcRealmIcon?'var(--text-12)':'');}
 function mcWizStep(n){document.querySelectorAll('#wiz-steps .wiz-step').forEach(function(el){var on=(+el.dataset.s===n);
   el.style.background=on?'var(--color-accent-100)':'var(--text-6)';
   el.style.color=on?'var(--color-accent-700)':'var(--text-muted)';});}
@@ -44,7 +44,7 @@ function mcAddAgentRow(){const box=document.getElementById('r-agents');const d=d
   box.appendChild(d);}
 async function mcFinish(){const m=document.getElementById('r-msg2')||document.getElementById('r-msg');
   const mode=document.getElementById('r-mode').value;
-  const payload={mode,name:document.getElementById('r-name').value,template:mcTpl,icon:mcIcon,
+  const payload={mode,name:document.getElementById('r-name').value,template:mcTpl,icon:mcRealmIcon,
     iconData:window.mcIconData||'',path:document.getElementById('r-path').value};
   if(mode==='create'){const p=MC_PRESETS[mcTpl];const agents=[];
     document.querySelectorAll('.mc-preset:checked').forEach(c=>agents.push(p.agents[+c.dataset.i]));

@@ -42,7 +42,7 @@ class _H(serve.Handler):
 def test_the_covenant_is_pinned_on_the_memory_page(realm):
     html = MV._realm_memory(reader.read(str(realm)), realm)
     assert "The Covenant" in html
-    assert "binds every minister" in html
+    assert "binds every agent" in html
 
 
 def test_it_is_presented_as_editable_unlike_system_memory(realm):
@@ -102,7 +102,7 @@ def test_an_empty_covenant_is_allowed(realm):
 
 def test_the_ministers_page_links_to_it_without_reprinting_it(realm):
     html = RP._realm_ministers(reader.read(str(realm)), realm, datetime.date.today())
-    assert "bound by the Covenant" in html
+    assert "bound by The Covenant" in html
     assert "Mihai is the only master" not in html, "the roster must not become the document"
 
 
@@ -111,13 +111,13 @@ def test_the_ministers_line_is_absent_when_there_is_no_covenant(tmp_path):
     (r / "agents").mkdir(parents=True)
     (r / "realm.json").write_text(json.dumps({"name": "R"}), encoding="utf-8")
     html = RP._realm_ministers(reader.read(str(r)), r, datetime.date.today())
-    assert "bound by the Covenant" not in html
+    assert "bound by The Covenant" not in html
 
 
 def test_the_configure_page_warns_against_duplicating_it():
     """That textarea is where the honesty/loyalty rules would otherwise be pasted into all eight."""
     src = inspect.getsource(AF)
-    assert "realm Covenant" in src
+    assert "covenant.name(realm_root)" in src
     # apostrophes are backslash-escaped inside the f-string, so match a phrase without one
     assert "it already applies" in src
 

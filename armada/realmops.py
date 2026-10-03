@@ -3,8 +3,8 @@
 A realm is potentially years of an agent team's memory, threads and artefacts, so these three
 operations are deliberately very different in how much they destroy:
 
-* **Archive** touches no files at all. It only drops the realm from ARMADA's list, so the folder
-  stays exactly where it is and can be added back later. This is the one to reach for.
+* **Archive** switches off every job and persistently holds dispatch before the realm leaves the
+  list. Its resources and history stay in place and it can be added back later.
 * **Export** writes a .zip of the whole folder next to it — the thing you want when moving to
   another machine. Read-only with respect to the realm.
 * **Delete** removes the folder. On Windows it goes to the Recycle Bin rather than being shredded,
@@ -21,9 +21,101 @@ import os
 import shutil
 import zipfile
 from pathlib import Path
+import hashlib
+import tempfile
 import logging
 from .util import swallowed
 log = logging.getLogger(__name__)
+
+
+def lifecycle_lock(realm_root):
+    """Serialize lifecycle changes with run admission, including the separate scheduler.
+
+    The lock is outside the realm so Windows can recycle its whole folder while locked.
+    """
+    from . import util
+    key = hashlib.sha256(os.path.normcase(str(Path(realm_root).resolve())).encode()).hexdigest()
+    return util.file_lock(Path(tempfile.gettempdir()) / "armada-realm-lifecycle" / key,
+                          timeout=2, validate_state=False)
+
+
+def archived(realm_root) -> bool:
+    from . import util
+    return bool(util.read_json_state(Path(realm_root) / "realm.json", default=dict).get("archived"))
+
+
+def assert_active(realm_root):
+    from . import util
+    if not (Path(realm_root) / "realm.json").is_file():
+        raise util.StateError("This realm no longer exists.")
+    if archived(realm_root):
+        raise util.StateError("This realm is archived. Add it back before running tasks.")
+
+
+def busy(realm_root) -> bool:
+    """Activity owned by another Armada process also prevents archive/deletion."""
+    from . import util
+    root = Path(realm_root)
+    records = [util.read_json_state(p, default=dict)
+               for p in root.glob("agents/*/runs/.running/*.json")]
+    state = util.read_json_state(root / "system_jobs.json", default=dict)
+    if any(not rec.get("owner_pid") or util.pid_alive(rec["owner_pid"]) for rec in records):
+        return True
+    for jid, entry in state.items():
+        attempt = entry.get("attempt", {}) if isinstance(entry, dict) else {}
+        if attempt.get("state") != "claimed":
+            continue
+        if attempt.get("owner_pid"):
+            if util.pid_alive(attempt["owner_pid"]):
+                return True
+        else:
+            # Legacy claims have no PID and survive crashes. Their OS execution lock,
+            # rather than an old claim alone, establishes whether work is still live.
+            try:
+                with util.file_lock(root / ".scheduler" / "system" / f"{jid}.json",
+                                    timeout=0, validate_state=False):
+                    pass
+            except util.FileLockTimeout:
+                return True
+    return False
+
+
+def archive(realm_root) -> dict:
+    """Disable definitions and all system jobs; never change another realm's machine settings."""
+    from . import util, sysjobs
+    root = Path(realm_root).resolve()
+    try:
+        with lifecycle_lock(root):
+            if not (root / "realm.json").is_file():
+                return {"ok": False, "error": "That realm folder no longer exists."}
+            if busy(root):
+                return {"ok": False, "error": "Wait for this realm's current tasks to finish before archiving it."}
+            # Persist the dispatch guard first. A partial write failure remains safely held.
+            util.mutate_json(root / "realm.json", lambda cfg: cfg.update(archived=True))
+            for path in root.glob("agents/*/jobs/*.json"):
+                util.mutate_json(path, lambda job: job.update(enabled=False))
+            legacy = root / "cabinet" / "schedule.json"
+            if legacy.is_file():
+                def disable_legacy(cfg):
+                    for key in ("jobs", "tasks"):
+                        for job in cfg.get(key, []):
+                            job["enabled"] = False
+                util.mutate_json(legacy, disable_legacy)
+            def disable_system(st):
+                for job in sysjobs.JOBS:
+                    st.setdefault(job["id"], {})["enabled"] = False
+            util.mutate_json(root / "system_jobs.json", disable_system,
+                             default=dict, validate=sysjobs._validate_state)
+        return {"ok": True}
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def restore(realm_root):
+    """Explicit re-adoption releases the archive guard; job switches stay off."""
+    from . import util
+    with lifecycle_lock(realm_root):
+        util.mutate_json(Path(realm_root) / "realm.json", lambda cfg: cfg.pop("archived", None))
 
 # Folders never worth carrying to another machine: caches and transient run markers.
 _SKIP_DIRS = {"__pycache__", ".git", ".venv", "node_modules"}
@@ -133,11 +225,23 @@ def _recycle(path: Path) -> dict:
 
 def delete(realm_root, current_realm=None, permanent: bool = False) -> dict:
     """Delete a realm's folder. Recycle Bin by default; `permanent` only on explicit instruction."""
+    try:
+        with lifecycle_lock(realm_root):
+            return _delete_locked(realm_root, current_realm, permanent)
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def _delete_locked(realm_root, current_realm, permanent):
     src = Path(realm_root).resolve()
     if not src.is_dir():
         return {"ok": False, "error": "That realm folder no longer exists."}
     if current_realm is not None and _same(src, current_realm):
         return {"ok": False, "error": "That's the realm you're using. Switch to another one first."}
+    if src == Path(src.anchor) or not (src / "realm.json").is_file():
+        return {"ok": False, "error": "Refusing to delete a folder without a realm.json."}
+    if busy(src):
+        return {"ok": False, "error": "Wait for this realm's current tasks to finish before deleting it."}
     if not permanent:
         r = _recycle(src)
         if r.get("ok"):

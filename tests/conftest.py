@@ -27,6 +27,13 @@ def _no_outbound(monkeypatch, tmp_path_factory):
     these: monkeypatch inside the test runs after this fixture, and the later patch wins.
     """
     from armada import notify, telegram
+    from armada.engine.gemini import GeminiEngine
+    from armada.engine import claude
+    # Provider UI tests must not consume the developer's Google quota or open OAuth.
+    monkeypatch.setattr(GeminiEngine, '_launcher', lambda self: None)
+    # Fake healthy MCP inventories must never clear the owner's real health cache.
+    # Cache-specific tests explicitly restore this helper under a temporary home.
+    monkeypatch.setattr(claude, '_recover_auth_cache', lambda *a, **kw: frozenset(), raising=False)
 
     # The product-level switch, so anything the suite spawns as a subprocess is muted too.
     monkeypatch.setenv(notify.MUTE_ENV, "1")

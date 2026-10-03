@@ -5,7 +5,6 @@ the plain /api/chat endpoint, so a turn could run, cost real quota, and leave th
 showing nothing for the day — the tokens came back to the caller in the response and were dropped
 on the floor.
 """
-import inspect
 import json
 from pathlib import Path
 
@@ -70,13 +69,16 @@ def test_the_thread_is_carried_into_the_task(tmp_path):
     assert _reports(ad)[0]["task"] == "chat:side"
 
 
-def test_the_two_chat_paths_log_the_same_shape():
+def test_the_two_chat_paths_log_the_same_shape(tmp_path):
     """They drifted once; the fields the Usage widget reads must match on both."""
-    a = inspect.getsource(runner.chat)
-    b = inspect.getsource(runner.chat_stream)
-    for key in ('"task": f"chat:{thread}"', '"kind": "chat"', '"tokens": res.usage.as_dict()'):
-        assert key in a, f"chat() lost {key}"
-        assert key in b, f"chat_stream() lost {key}"
+    realm, ad = _realm(tmp_path)
+    runner.chat(realm, "scribe", "main", "ping", engine=_Eng())
+    runner.chat_stream(realm, "scribe", "main", "ping", lambda ev: None, engine=_Eng())
+    a, b = _reports(ad)
+    assert a.keys() == b.keys()
+    for key in ("task", "kind", "tokens", "status", "model", "summary", "realm_id"):
+        assert a[key] == b[key]
+    assert a["run_id"] != b["run_id"]
 
 
 def test_logging_never_breaks_the_turn(tmp_path, monkeypatch):

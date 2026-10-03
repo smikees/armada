@@ -90,24 +90,23 @@ _AGENT_PALETTE = ["#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99", "#e31a1
                   "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"]
 
 
-def _agent_color_control(current: str, field_id: str) -> str:
+def _agent_color_control(current: str, field_id: str, storage_key: str = "") -> str:
     """Preset swatches (the graph palette) + a custom colour picker, writing to a hidden field."""
     cur = (current or _AGENT_PALETTE[0]).strip()
-    ring = lambda on: f'0 0 0 2px {"var(--color-text)" if on else "transparent"},0 0 0 4px var(--color-bg)'
     sw = "".join(
-        f'<span class="mc-color-sw" data-c="{c}" data-fid="{field_id}" onclick="mcPickColor(this)" title="{c}" '
+        f'<span class="mc-color-sw{" is-selected" if c.lower() == cur.lower() else ""}" data-c="{c}" data-fid="{field_id}" onclick="mcPickColor(this)" title="{c}" '
         f'style="width:22px;height:22px;border-radius:50%;cursor:pointer;flex:none;background:{c};'
-        f'box-shadow:{ring(c.lower() == cur.lower())}"></span>' for c in _AGENT_PALETTE)
+        f'"></span>' for c in _AGENT_PALETTE)
     pick = cur if cur.startswith("#") else _AGENT_PALETTE[0]
     is_custom = cur.lower() not in [c.lower() for c in _AGENT_PALETTE]   # a non-preset (custom) colour
     circ_border = f'2px solid {cur}' if is_custom else '2px dashed var(--color-divider)'
     circ_bg = cur if is_custom else 'transparent'
     # The native colour input is overlaid invisibly ON the button (not display:none) so the browser
     # anchors its picker popup to the button — display:none anchors it at the window's top-left.
-    return (f'<input type="hidden" id="{field_id}" value="{E(cur)}">'
+    return (f'<input type="hidden" id="{field_id}" value="{E(cur)}" data-color-key="{E(storage_key or field_id)}">'
             f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">{sw}'
             f'<span style="display:inline-flex;align-items:center;gap:8px;margin-left:14px">'
-            f'<span id="{field_id}-circle" title="Custom colour" style="width:22px;height:22px;border-radius:50%;'
+            f'<span id="{field_id}-circle" class="mc-color-custom{" is-selected" if is_custom else ""}" title="Select custom colour" role="button" tabindex="0" onclick="mcSelectCustom(\'{field_id}\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){{event.preventDefault();mcSelectCustom(\'{field_id}\')}}" style="width:22px;height:22px;border-radius:50%;cursor:pointer;'
             f'flex:none;box-sizing:border-box;border:{circ_border};background:{circ_bg}"></span>'
             f'<span style="position:relative;display:inline-flex">'
             f'<button type="button" class="btn btn-secondary btn-sm" '
@@ -267,7 +266,7 @@ def _realm_artefacts(realm, realm_root, only_agent: str = None) -> str:
          f'<span class="mc-arr" style="opacity:.4"> ↕</span></th>')
         for i, (t, s) in enumerate(heads))
     body = ""
-    for r in rows:
+    for row_index, r in enumerate(rows):
         rev = f' data-open="{E(r["path"])}"' if r["exists"] else ""   # click the row → open the file
         cur = "cursor:pointer;" if r["exists"] else ""
         search = " ".join((r["name"], r["owner"], r["thread"], r["path"])).lower()
@@ -305,7 +304,7 @@ def _realm_artefacts(realm, realm_root, only_agent: str = None) -> str:
         cells.append(f'<td style="padding:6px 8px;white-space:nowrap;text-align:right">'
                      f'<span style="display:inline-flex;align-items:center;gap:8px">{acts}</span></td>')
         body += (f'<tr class="mc-row" data-owner="{E(r["owner_id"])}" data-type="{r["type"]}" data-ymd="{E(r["ymd"])}" '
-                 f'data-search="{E(search)}"{rev} style="{cur}">' + "".join(cells) + "</tr>")
+                 f'data-search="{E(search)}"{rev} style="{cur}{"display:none;" if row_index >= 100 else ""}">' + "".join(cells) + "</tr>")
     if not rows:
         body = (f'<tr><td colspan="{len(heads)}" style="padding:14px 8px;color:var(--text-muted)">'
                 f'No artefacts yet. Files an agent produces in a thread — and files you attach — show up here.</td></tr>')
@@ -344,9 +343,15 @@ def _realm_artefacts(realm, realm_root, only_agent: str = None) -> str:
                 f'border:0;background:transparent;cursor:pointer;font-size:12px;color:var(--color-accent);padding:6px 4px">{_icon("x",12)}Clear</button>'
                 f'<span id="art-count" style="margin-left:auto;font-size:11.5px;color:{muted}"></span></div>')
     title = "" if not show_owner else _page_title("Artefacts", "input & output files across the realm")
+    def pager(position):
+        return (f'<nav id="art-pager-{position}" class="mc-art-pager" aria-label="Artefact pages ({position})" '
+                f'style="display:none;align-items:center;gap:10px;margin:12px 0;scroll-margin-top:64px">'
+                f'<button type="button" class="btn btn-secondary btn-sm" data-art-prev onclick="mcArtPage(-1)">‹ Previous</button>'
+                f'<span data-art-range role="status" style="font-size:11.5px;color:{muted}"></span>'
+                f'<button type="button" class="btn btn-secondary btn-sm" data-art-next onclick="mcArtPage(1)">Next ›</button></nav>')
     return (f'<div style="padding:{"12px 0 0" if not show_owner else "18px 24px 24px"}">'
             f'{title}'
             f'<div style="{"padding:0 24px" if not show_owner else ""}">'
-            f'{controls}'
+            f'{controls}{pager("top")}'
             f'<div style="overflow:auto"><table class="table" id="art-table" data-today="{today}" style="font-size:12.5px;width:100%">'
-            f'<thead><tr>{thead}</tr></thead><tbody>{body}</tbody></table></div></div></div>{_FDROP_JS}{_ARTEFACTS_JS}')
+            f'<thead><tr>{thead}</tr></thead><tbody>{body}</tbody></table></div>{pager("bottom")}</div></div>{_FDROP_JS}{_ARTEFACTS_JS}')

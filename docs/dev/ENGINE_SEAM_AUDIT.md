@@ -2,6 +2,11 @@
 
 *Phase 2, step 2.6 — ADR-001's homework. Written 2026-09-24 against v0.99.39.*
 
+**Historical audit:** the Claude-only decision was superseded on September 26. Current routing
+and provider restrictions are in [Codex integration](CODEX_INTEGRATION.md); 2.20 introduces the
+shared coordinator and [execution contracts](EXECUTION_CONTRACTS.md). The findings below describe
+the original baseline, not the current implementation.
+
 ADR-001 decided Claude is the only engine for v1 and asked for one thing before launch: a list of
 every place the code assumes Claude rather than "an engine", so that the cost of a second one is a
 priced list instead of a guess. This is that list. **Nothing here has been fixed**; where a finding

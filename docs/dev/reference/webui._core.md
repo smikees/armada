@@ -26,13 +26,13 @@ Version part of a pretty label as a sortable tuple: 'Opus 4.8'→(4,8), 'Opus 5'
 
 ### `_model_color_map(labels)`
 
-label → colour by token-consumption index on the shared gradient (light = low, dark = high). All versions of a family share a price tier, so they share a colour; non-Claude labels fall back.
+label → colour by token-consumption index on the shared gradient (light = low, dark = high). All versions of a family share a tier; non-provider labels fall back.
 
 ### `_htok(n: int)`
 
 —
 
-### `_totals_30d(realm, realm_root, today: datetime.date)`
+### `_totals_30d(realm, realm_root, today: datetime.date, *, details=False)`
 
 Epoch-aware rolling-30-day (today-29 … today) token + api-eq totals from run telemetry. THE single source for both the Overview header KPIs (server-rendered) and the Usage endpoint's total_30d/usd_30d, so the header value doesn't change when usage.js refreshes it on load.
 

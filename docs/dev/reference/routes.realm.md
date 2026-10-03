@@ -21,9 +21,10 @@ stays in serve.py, only the handler bodies moved.
 - `RealmRoutes._get_realm(self)` — —
 - `RealmRoutes._pick_folder(self)` — Open a native folder picker on the user's machine (local app).
 - `RealmRoutes._new_realm(self, body: dict)` — —
+- `RealmRoutes._set_all_agent_defaults(self, body: dict)` — —
 - `RealmRoutes._save_realm_settings(self, body: dict)` — —
 - `RealmRoutes._upload_realm_icon(self, body: dict)` — —
-- `RealmRoutes._realm_archive(self, body: dict)` — Drop a realm from ARMADA's list. Touches no files — the folder stays where it is and can be added back with the realm picker.
+- `RealmRoutes._realm_archive(self, body: dict)` — Stop all scheduled work and remove the realm from the list, retaining its folder.
 - `RealmRoutes._adopt_release(self, body: dict)` — The owner has read what an adopted realm will run and allows it (5.8c).
 - `RealmRoutes._realm_preflight(self, body: dict)` — Can this realm run here? Holds or releases its scheduler as a side effect, so the answer and the consequence can't disagree.
 - `RealmRoutes._save_covenant(self, body: dict)` — Write the realm's Covenant (tenets.md). Loaded into every agent's context, so this is the highest-leverage text in the realm — and the owner's to write, unlike System memory.
@@ -32,6 +33,8 @@ stays in serve.py, only the handler bodies moved.
 - `RealmRoutes._wizard_agents(template: str, body: dict)` — The team the setup wizard asked for, built on the server from the template: the page sends which of the template's agents to keep (by id) and any it added by name — never the agents' instructions themselves. None when the page didn't choose (use the template).
 - `RealmRoutes._get_setup(self)` — —
 - `RealmRoutes._setup_step(self, body: dict)` — —
+- `RealmRoutes._setup_folder(self, body: dict)` — —
+- `RealmRoutes._setup_team(self, body: dict)` — —
 - `RealmRoutes._setup_capability(self, body: dict)` — —
 - `RealmRoutes._setup_finish(self, body: dict)` — —
 - `RealmRoutes._install_claude(self, body: dict)` — The wizard's "Install Claude Code": Anthropic's own installer, in a console the owner can see (Windows only). The command is the one Claude Code's documentation gives (code.claude.com/docs/en/setup, native install, PowerShell). The owner pressed the button; nothing here runs unasked.

@@ -22,7 +22,7 @@
 ; Must match armada/app.py's _APP_ID: the Start-menu shortcut carrying it is what lets Windows show
 ; ARMADA's own name and icon on its notifications and taskbar button.
 #define AppUserModelID "Stamih.ARMADA.App"
-#define PyW "{app}\python\pythonw.exe"
+#define AppExe "{app}\python\ARMADA.exe"
 
 [Setup]
 AppId={{C7FEBEB8-88A6-442A-B1EB-22BD3E9D2BCD}
@@ -69,13 +69,15 @@ CloseApplications=no
 
 [Messages]
 WelcomeLabel1=Welcome to ARMADA
-WelcomeLabel2=ARMADA is your standing team of AI agents: a realm you direct, each agent with its own personality, memory, skills and scheduled jobs, running on your own computer and your own Claude subscription.%n%nThis installs [name/ver] for you alone. It needs no administrator rights and brings everything it runs on, except Claude Code, which you install and sign in to yourself.
+WelcomeLabel2=ARMADA is your standing team of AI agents: a realm you direct, each agent with its own personality, memory, skills and scheduled jobs, running on your own computer with your Claude, ChatGPT or Google account.%n%nThis installs [name/ver] for you alone. It needs no administrator rights. Setup helps you connect Claude Code, Codex CLI or Gemini through Antigravity CLI; you sign in on the provider's website.
 FinishedHeadingLabel=ARMADA is ready
 FinishedLabel=ARMADA is installed. It will guide you through choosing a folder for your realms the first time it opens.
 
 [Tasks]
 Name: "desktopicon"; Description: "Put an ARMADA shortcut on the desktop"
-Name: "scheduler"; Description: "Run scheduled jobs in the background when I sign in to Windows (recommended)"
+Name: "claudecli"; Description: "Install or update Claude Code CLI (optional; downloads from Anthropic)"; Flags: unchecked
+Name: "codexcli"; Description: "Install or update Codex CLI (optional; downloads from OpenAI)"; Flags: unchecked
+Name: "geminicli"; Description: "Install or update Antigravity CLI for Gemini (optional; downloads from Google)"; Flags: unchecked
 
 [InstallDelete]
 ; A clean program folder each time: the updater may have replaced armada\ since the last install,
@@ -93,22 +95,17 @@ Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs crea
 Source: "{#Redist}\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{#PyW}"; Parameters: "-m armada app"; WorkingDir: "{app}"; \
+Name: "{autoprograms}\{#AppName}"; Filename: "{#AppExe}"; Parameters: "-m armada app"; WorkingDir: "{app}"; \
   IconFilename: "{app}\armada.ico"; AppUserModelID: "{#AppUserModelID}"; Comment: "Your standing team of AI agents"
-Name: "{autodesktop}\{#AppName}"; Filename: "{#PyW}"; Parameters: "-m armada app"; WorkingDir: "{app}"; \
+Name: "{autodesktop}\{#AppName}"; Filename: "{#AppExe}"; Parameters: "-m armada app"; WorkingDir: "{app}"; \
   IconFilename: "{app}\armada.ico"; Comment: "Your standing team of AI agents"; Tasks: desktopicon
 
 [Registry]
-; The scheduler at sign-in (moved here from 5.5): jobs keep running after a reboot without the window
-; being opened. With no realm yet it exits straight away; the window starts it once there is one.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
-  ValueName: "ARMADA Scheduler"; ValueData: """{#PyW}"" -m armada schedule --engine claude"; \
-  Flags: uninsdeletevalue; Tasks: scheduler
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; \
-  ValueName: "ARMADA Scheduler"; Flags: deletevalue; Tasks: not scheduler
+  ValueName: "ARMADA Scheduler"; Flags: deletevalue
 
 [Run]
-Filename: "{#PyW}"; Parameters: "-m armada app"; WorkingDir: "{app}"; Description: "Open ARMADA now"; \
+Filename: "{#AppExe}"; Parameters: "-m armada app"; WorkingDir: "{app}"; Description: "Open ARMADA now"; \
   Flags: postinstall nowait skipifsilent
 
 [UninstallDelete]
@@ -148,6 +145,25 @@ begin
     or FileExists(ExpandConstant('{%USERPROFILE}\.local\bin\claude.exe'));
 end;
 
+function GeminiFound(): Boolean;
+var
+  P: String;
+begin
+  P := GetEnv('PATH');
+  Result := (FileSearch('agy.exe', P) <> '')
+    or FileExists(ExpandConstant('{localappdata}\agy\bin\agy.exe'));
+end;
+
+function CodexFound(): Boolean;
+var
+  P: String;
+begin
+  P := GetEnv('PATH');
+  Result := (FileSearch('codex.exe', P) <> '') or (FileSearch('codex.cmd', P) <> '')
+    or FileExists(ExpandConstant('{localappdata}\Programs\OpenAI\Codex\bin\codex.exe'))
+    or FileExists(ExpandConstant('{%APPDATA}\npm\codex.cmd'));
+end;
+
 { Stop ARMADA's own window and scheduler — only processes running this install's Python, never any
   other Python on the machine — so their files can be replaced or removed. }
 procedure StopArmada(Dir: String);
@@ -159,7 +175,7 @@ begin
   Log('Stopping ARMADA processes running from ' + Dir);
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
     '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' +
-    'Get-Process python,pythonw -ErrorAction SilentlyContinue | ' +
+    'Get-Process python,pythonw,ARMADA -ErrorAction SilentlyContinue | ' +
     'Where-Object { $_.Path -and $_.Path.StartsWith(''' + Dir + '\python\'', ''OrdinalIgnoreCase'') } | ' +
     'Stop-Process -Force; Start-Sleep -Milliseconds 500"',
     '', SW_HIDE, ewWaitUntilTerminated, Rc);
@@ -197,10 +213,34 @@ begin
   end;
 end;
 
+procedure InstallProviderCLI(Provider: String; LabelText: String);
+var
+  Rc: Integer;
+begin
+  WizardForm.StatusLabel.Caption := 'Installing ' + LabelText + ' (this may take a few minutes)...';
+  if Exec(ExpandConstant('{app}\python\python.exe'), '-m armada.provider_install ' + Provider,
+      ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Rc) and (Rc = 0) then
+    Log(LabelText + ': installation complete')
+  else begin
+    Log(LabelText + ': installation failed');
+    if not WizardSilent() then
+      MsgBox(LabelText + ' could not be installed. You can retry from ARMADA setup. ' +
+        'Check your internet connection before trying again.', mbInformation, MB_OK);
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
+  begin
     InstallWebView2();
+    if WizardIsTaskSelected('claudecli') then
+      InstallProviderCLI('claude', 'Claude Code CLI');
+    if WizardIsTaskSelected('codexcli') then
+      InstallProviderCLI('codex', 'Codex CLI');
+    if WizardIsTaskSelected('geminicli') then
+      InstallProviderCLI('gemini', 'Antigravity CLI for Gemini');
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -221,10 +261,9 @@ begin
         'and it isn''t installed yet (it needs the internet, and on some computers permission to ' +
         'install for all users). It''s free from Microsoft: ' +
         'https://developer.microsoft.com/microsoft-edge/webview2/';
-    if not ClaudeFound() then
-      Notes := Notes + #13#10#13#10 + 'ARMADA runs your agents through Claude Code, which isn''t installed yet. ' +
-        'Install it (https://code.claude.com/docs/en/setup) and sign in with your own Claude account; ' +
-        'ARMADA picks it up when it next starts, and shows you how to sign in.';
+    if not ClaudeFound() and not CodexFound() and not GeminiFound() then
+      Notes := Notes + #13#10#13#10 + 'Connect Claude Code, Codex CLI or Gemini through Antigravity CLI to run your agents. ' +
+        'ARMADA''s setup can install any of these CLIs and opens provider sign-in. You can connect one or more.';
     if Notes <> '' then
       WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + Notes;
   end;

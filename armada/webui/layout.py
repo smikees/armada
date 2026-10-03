@@ -134,12 +134,9 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
                 f'<div style="font-size:11px;color:var(--text-muted);padding:4px 8px">loading…</div></div></details>')
     return (f'<div style="display:flex;align-items:center;gap:22px;padding:0 24px;'
             f'border-bottom:1px solid var(--color-divider);flex:none">'
-            f'<a href="/" style="text-decoration:none;display:flex;align-items:center;gap:7px">{LOGO}{brand.BETA_PILL}</a>{switcher}'
+            f'<a href="/" style="text-decoration:none;display:flex;align-items:center;gap:7px">{LOGO}</a>{switcher}'
             f'<div style="display:flex;gap:18px;align-items:stretch;align-self:stretch">{tab_html}{usr_sep}</div>'
-            f'<div style="margin-left:auto;display:flex;align-items:center;gap:16px">'
-            f'<span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;'
-            f'color:var(--text-strong)">'
-            f'<i style="width:8px;height:8px;flex:none;border-radius:50%;background:var(--status-ok)"></i>{E(realm.engine)}</span>'
+            f'<div style="margin-left:auto;display:flex;align-items:center;align-self:stretch;gap:16px">'
             # Bell opens the notification centre in place. It used to navigate to /approvals, which
             # meant losing your page to check whether anything had happened.
             f'<span id="mc-bellwrap" style="position:relative;display:flex">'
@@ -153,14 +150,13 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
             f'width:8px;height:8px;border-radius:50%;background:var(--status-bad);'
             f'box-shadow:0 0 0 2px var(--color-surface);pointer-events:none"></span>'
             f'<div id="mc-bellpanel" style="display:none"></div></span>'
-            f'<a href="/docs" title="Documentation" style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)">{_icon("documentation")}</a>'
+            f'<a href="/docs" title="Documentation" class="mc-nav-action" {'aria-current="page"' if active == "Docs" else ""} style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)">{_icon("documentation")}</a>'
             # Alexander (6.2): beside the gear, on every page. He took over the support icon's place;
             # Report an issue (5.6) is inside his drawer, and one of the things he can do for you.
             f'<button type="button" class="mc-alexbtn" title="Ask Alexander" aria-label="Ask Alexander" '
-            f'onclick="mcAlexOpen()"><img src="/static/alexander.png" width="24" height="24" alt=""></button>'
-            f'<a href="/settings" title="Settings" style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)">{_icon("settings")}</a></div></div>'
-            # Sign-in banner: sits under the nav on EVERY page, because a lapsed Claude session
-            # stops every agent run — not just whatever page you happen to be looking at.
+            f'onclick="mcAlexOpen()">{_icon("support-ai", 18)}</button>'
+            f'<a href="/settings" title="Settings" class="mc-nav-action" {'aria-current="page"' if active == "Settings" else ""} style="text-decoration:none;display:flex;align-items:center;color:var(--text-strong)">{_icon("settings")}</a></div></div>'
+            # The sign-in notice floats over the page once per app session; it never shifts the nav.
             f'<div id="mc-authbar"></div>'
             # Scheduler banner (5.5): same reasoning — scheduled jobs stop for every page, not one.
             f'<div id="mc-schedbar"></div>'
@@ -183,22 +179,29 @@ def _htok(n) -> str:
     return str(n)
 
 
-def _kpis(realm, tok30=None, usd30=None) -> str:
+_UNSUPPLIED = object()
+
+
+def _kpis(realm, tok30=_UNSUPPLIED, usd30=_UNSUPPLIED, *, unknown_token_runs=0, unknown_cost_runs=0) -> str:
     # Tokens & API-eq carry ids so usage.js can refresh them on its cadence (see fixHeaderTotals).
     # We render them from the SAME epoch-aware 30-day totals the Usage endpoint uses, formatted the
     # same way, so usage.js overwrites with an identical string — the value no longer changes on load.
     # (Falls back to the reader snapshot only if the epoch-aware totals weren't supplied.)
-    if tok30 is None:
+    if tok30 is _UNSUPPLIED:
         tok_disp = f"{realm.tokens_30d/1000:.0f}k" if realm.tokens_30d else "—"
     else:
-        tok_disp = _htok(tok30) if tok30 else "—"
-    if usd30 is None:
+        tok_disp = _htok(tok30) if tok30 is not None else "—"
+    if usd30 is _UNSUPPLIED:
         usd_disp = f"≈${realm.cost_30d:.0f}" if realm.cost_30d else "—"
     else:
-        usd_disp = f"≈${int(usd30 + 0.5):,}" if usd30 else "—"   # int(x+0.5) = JS Math.round for x>=0
+        usd_disp = f"≈${int(usd30 + 0.5):,}" if usd30 is not None else "—"
+    if unknown_token_runs and tok_disp != '—':
+        tok_disp += '+'
+    if unknown_cost_runs and usd_disp != '—':
+        usd_disp += '+'
     # Active jobs, not all jobs. A switched-off job is not doing anything, and counting it here
     # made the headline number describe how many jobs exist rather than how much is running.
-    t = [("Agents", str(len(realm.members)), "", ""),
+    t = [("Agents", str(len(realm.agents)), "", ""),
          ("Active jobs", str(sum(1 for a in realm.agents for j in a.jobs if j.enabled)), "", ""),
          ("Runs", str(sum(a.runs_30d for a in realm.agents)), "/30d", ""),
          ("Tokens", tok_disp, "/30d", "mc-kpi-tokens"),
@@ -208,7 +211,11 @@ def _kpis(realm, tok30=None, usd30=None) -> str:
         if vid:
             # async KPI (usage.js fills it on load): show a shimmer skeleton, with the correct value
             # kept in data-v as a no-JS / fetch-failure fallback (see mcHeaderFallback in usage.js).
-            valhtml = f'<span id="{vid}" class="mc-kpi-v" data-v="{E(val)}"><span class="mc-skel"></span></span>'
+            missing = unknown_token_runs if vid == 'mc-kpi-tokens' else unknown_cost_runs
+            tip = ('Reported tokens' if vid == 'mc-kpi-tokens' else 'Approximate standard-text API equivalent across all engines; excludes tool fees and long-context surcharges')
+            if missing:
+                tip += f'; partial total: {missing} run(s) have unavailable accounting'
+            valhtml = f'<span id="{vid}" class="mc-kpi-v" data-v="{E(val)}" title="{E(tip)}">{E(val)}</span>'
         elif label == "Active jobs":
             # Tagged so toggling a job on the agent page updates this immediately (mcJobCount)
             # rather than leaving the headline disagreeing with the list underneath it.
@@ -222,7 +229,7 @@ def _kpis(realm, tok30=None, usd30=None) -> str:
                   f'color:var(--text-muted)">{E(label)}</div>'
                   f'<div style="font-family:var(--font-heading);font-weight:600;font-size:22px;line-height:1.05">{valhtml}'
                   f'<span style="font-size:12px;color:var(--text-soft);margin-left:3px">{E(unit)}</span></div></div>')
-    return f'<div style="display:flex;gap:28px;margin-left:8px;flex:none">{cells}</div>'
+    return f'<div style="display:flex;gap:16px;margin-left:4px;flex:none">{cells}</div>'
 
 
 _NEW_REALM_MODAL = (

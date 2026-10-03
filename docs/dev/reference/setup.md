@@ -9,3 +9,7 @@ the read/adopt path (reader.py) handles an existing realm.
 ### `scaffold(folder, template_id: str='scratch', name: str | None=None, icon: str | None=None, agents: list | None=None)`
 
 —
+
+### `write_agent(root: Path, a: dict, theme: dict)`
+
+Write a new agent into a fresh staging or realm folder; never overwrite an agent.

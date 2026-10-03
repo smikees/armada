@@ -45,7 +45,8 @@ def _reg_row(a, realm_root: Path, today: datetime.date, coord: bool = False, rea
     rowbg = "background:var(--color-accent-2-100);cursor:pointer" if coord else "cursor:pointer"
     role = E(a.theme_role.upper())
     _model, _effort = _agent_model_effort(realm, realm_root, a.id)
-    model_cell = _model_chip(_model, _effort, 11)
+    from .. import verbosity
+    model_cell = _model_chip(_model, _effort, 11, verbosity=verbosity.agent_level(realm_root, a.id))
     autonomy = _autonomy_badge(_autonomy_of(realm_root, a.id), 15)
     return (f'<tr class="mc-row" style="{rowbg}" onclick="location.href=\'/agent/{E(a.id)}\'">'
             f'<td style="padding:6px 12px"><div style="display:flex;gap:10px;align-items:center">'
@@ -69,7 +70,7 @@ def _reg_row(a, realm_root: Path, today: datetime.date, coord: bool = False, rea
 
 def _widget_menu(widget_id: str) -> str:
     """The ⋮ options menu on a single-instance widget (Register / Usage / Job calendar), top-right.
-    'Add as section' promotes the widget to its own nav page; 'Remove widget' hides it (client handlers)."""
+    'Promote to section' promotes the widget to its own nav page; 'Remove widget' hides it (client handlers)."""
     _mi = ("display:flex;align-items:center;gap:9px;padding:7px 10px;font-size:12.5px;cursor:pointer;"
            "text-decoration:none;border-radius:var(--r)")
     return (f'<div class="mc-wmwrap" style="position:relative;display:flex;flex:none">'
@@ -79,8 +80,8 @@ def _widget_menu(widget_id: str) -> str:
             f'background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:4px">'
             + ("" if widget_id.startswith("addon:") else     # add-on widgets can't be pages (yet)
                f'<a onclick="mcWidgetAddSection({_J(widget_id)})" style="{_mi};color:inherit">'
-               f'<span style="display:flex;color:var(--text-dim)">{_icon("plus", 16)}</span>'
-               f'<span style="flex:1">Add as section</span></a>') +
+               f'<span style="display:flex;color:var(--text-dim)">{_icon("arrow-bar-to-up-dashed", 16)}</span>'
+               f'<span style="flex:1">Promote to section</span></a>') +
             f'<a onclick="mcWidgetRemove({_J(widget_id)})" style="{_mi};color:var(--status-bad)">'
             f'<span style="display:flex">{_icon("trash", 16)}</span><span style="flex:1">Remove widget</span></a>'
             f'</div></div>')

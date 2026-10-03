@@ -38,8 +38,9 @@ def notes(ver: str) -> str:
             f"**New install:** download `ARMADA-Setup-{ver}.exe` and run it. It installs for you alone "
             "(no administrator rights) and brings its own Python. It isn't code-signed yet, so Windows "
             "SmartScreen says \"unrecognised app\" the first time: choose *More info → Run anyway*. "
-            "ARMADA runs your agents through [Claude Code](https://code.claude.com/docs/en/setup), "
-            "signed in with your own Claude account.\n\n"
+            "ARMADA runs your agents through Claude Code (Anthropic), Codex CLI (OpenAI), or "
+            "Antigravity CLI (Google/Gemini), using your connected accounts. The setup wizard "
+            "checks installation and sign-in for all three engines.\n\n"
             "**Already installed:** ARMADA updates itself; it checks the signature on the update "
             "files below before installing anything.\n\n"
             "What's new:\n\n" + "\n".join(f"- {l}" for l in lines) +

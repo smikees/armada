@@ -33,7 +33,7 @@ def _bust(size: int, coord: bool) -> str:
 
 def _avatar_file(realm_root, agent_id: str):
     d = Path(realm_root) / "agents" / agent_id
-    for ext in ("png", "jpg", "jpeg", "webp", "gif"):
+    for ext in ("png", "jpg", "jpeg", "webp", "gif", "svg"):
         f = d / f"avatar.{ext}"
         if f.exists():
             return f
@@ -85,7 +85,9 @@ def _portrait(realm_root, a, size: int, color: str = "", dot: bool = False, dot_
     f = _avatar_file(realm_root, a.id)
     if f:
         t = int(f.stat().st_mtime)
-        inner = (f'<img src="/avatar/{E(a.id)}?t={t}" width="{size}" height="{size}" '
+        from ..request_context import RealmContext, bound_url
+        src = bound_url(f'/avatar/{a.id}?t={t}', RealmContext.capture(realm_root))
+        inner = (f'<img src="{E(src)}" width="{size}" height="{size}" '
                  f'style="width:100%;height:100%;object-fit:cover;display:block" alt="">')
     else:
         inner = _bust(size, a.is_coordinator)
@@ -112,18 +114,8 @@ def _portrait(realm_root, a, size: int, color: str = "", dot: bool = False, dot_
 
 
 def _runs(realm_root: Path, agent_id: str) -> list[dict]:
-    rf = realm_root / "agents" / agent_id / "runs" / f"{agent_id}.jsonl"
-    out = []
-    if rf.exists():
-        for ln in rf.read_text(encoding="utf-8-sig").splitlines():
-            ln = ln.strip()
-            if not ln:
-                continue
-            try:
-                out.append(json.loads(ln))
-            except json.JSONDecodeError:
-                pass
-    return out
+    from ..job_history import reports
+    return reports(Path(realm_root) / "agents" / agent_id)
 
 
 def _health7(runs: list[dict], today: datetime.date) -> list[str]:
@@ -158,8 +150,16 @@ def _running_markers(realm_root, agent_id: str) -> set:
         for p in d.glob("*.json"):
             try:
                 if p.stat().st_mtime >= cutoff:
+                    if p.stem == "_chat" or p.stem.startswith("_chat-"):
+                        from ..util import pid_alive
+                        marker = json.loads(p.read_text(encoding="utf-8-sig"))
+                        if marker.get("status") == "finished":
+                            continue
+                        owner = marker.get("owner_pid")
+                        if owner and not pid_alive(owner):
+                            continue
                     out.add(p.stem)
-            except OSError:
+            except (OSError, ValueError):
                 pass
     return out
 
@@ -172,22 +172,20 @@ def _agent_busy(realm_root, agent_id: str) -> bool:
 def _chat_running(realm_root, agent_id: str, thread: str) -> bool:
     """Is a live chat turn running in THIS thread right now?
 
-    The marker is one file per agent, because the activity dot only asks whether the agent is
-    busy at all. A transcript asks a narrower question: without the thread name, opening any
-    thread while the agent worked in another would show a spinner under a turn that was finished
-    days ago. Same staleness cut-off as the dot — a crashed run stops claiming to be running.
+    Each run owns its marker; one run finishing cannot clear another thread's activity.
+    Legacy single-chat markers remain readable until old processes have stopped.
     """
-    p = Path(realm_root) / "agents" / agent_id / "runs" / ".running" / "_chat.json"
-    try:
-        if p.stat().st_mtime < time.time() - 30 * 60:
-            return False
-        got = json.loads(p.read_text(encoding="utf-8-sig")).get("thread")
-    except (OSError, ValueError):
-        return False
-    # A marker written before this carried a thread name means "some chat is running". Treating
-    # that as the thread you are looking at is the friendlier miss: a spinner that resolves on the
-    # next poll beats a reply that arrives with no sign anything was happening.
-    return got is None or str(got) == str(thread)
+    directory = Path(realm_root) / "agents" / agent_id / "runs" / ".running"
+    for stem in _running_markers(realm_root, agent_id):
+        if stem != "_chat" and not stem.startswith("_chat-"):
+            continue
+        try:
+            data = json.loads((directory / f"{stem}.json").read_text(encoding="utf-8-sig"))
+            if data.get("thread") is None or str(data["thread"]) == str(thread):
+                return True
+        except (OSError, ValueError):
+            continue
+    return False
 
 
 def _has_pending_proposals(realm_root, agent_id: str) -> bool:
@@ -275,6 +273,17 @@ def _pretty_model(m) -> str:
         return "Unknown"
     if d.startswith("mock"):
         return "Mock (offline)"
+    if models.is_gemini_model(d):
+        from ..engine.gemini import model_id
+        if d in ('gemini:auto','gemini:default'): return 'Gemini Auto (latest Flash)'
+        match = re.fullmatch(r'gemini-([0-9.]+)-(flash|pro)', model_id(d))
+        return f'Gemini {match[1]} {match[2].title()}' if match else str(m)
+    if d == "codex:default":
+        return "Codex default"
+    if d.startswith(("gpt-", "codex:", "openai:")):
+        from ..engine.codex import cached_models, model_id
+        mid = model_id(d)
+        return next((m.get("display_name") or mid for m in cached_models() if m["slug"] == mid), mid)
     fam = next((f for f in ("opus", "sonnet", "haiku", "fable") if f in d), "")
     if not fam:
         return str(m)
@@ -294,7 +303,7 @@ def _model_chip_label(value: str) -> tuple[bool, str]:
     if not m:
         return (False, "—")
     if not _model_is_claude(m):
-        return (False, m)
+        return (False, _pretty_model(m) if models.is_gemini_model(m) else m)
     if " " in m and not m.lower().startswith("claude-"):
         return (True, m)                                  # already a friendly label
     return (True, f"Claude {_pretty_model(m)}")           # concrete id / bare family → prettify
@@ -364,23 +373,22 @@ def _agent_model_effort(realm, realm_root, aid: str):
     return model, effort
 
 
-def _model_mark(model_value: str, size: int = 12, effort: str = "") -> str:
-    """The Claude mark for a model chip, tinted by token-consumption on the shared gradient. With an
-    `effort`, the tint reflects the model+effort combo (agents); without it, the model alone (Usage
-    breakdown). '' for non-Claude models."""
-    if not _model_is_claude(model_value):
+def _model_mark(model_value: str, size: int = 12, effort: str = "", verbosity: str = "") -> str:
+    """Provider mark tinted by the model/effort/verbosity estimate."""
+    if not _model_is_claude(model_value) and not models.is_codex_model(model_value) and not models.is_gemini_model(model_value):
         return ""
-    idx = models.combo_index(model_value, effort) if effort else models.model_index(model_value)
+    icon = "gemini" if models.is_gemini_model(model_value) else "codex" if models.is_codex_model(model_value) else "claude"
+    idx = models.combo_index(model_value, effort, verbosity) if effort else models.model_index(model_value)
     col = _consumption_color(idx)
     return (f'<span class="mc-modelmark" data-model="{E(model_value)}" data-effort="{E(effort or "")}" '
-            f'style="display:inline-flex;color:{col}">{_icon("claude", size)}</span>')
+            f'style="display:inline-flex;color:{col}">{_icon(icon, size)}</span>')
 
 
-def _model_chip(model: str, effort: str, size: int = 12) -> str:
-    # Same pill style as the agent overview header (grey fill, rounded, Claude mark tinted by consumption).
-    is_claude, disp = _model_chip_label(model)
+def _model_chip(model: str, effort: str, size: int = 12, *, verbosity: str = "") -> str:
+    # Same pill style as the agent overview header, with a provider-specific tinted mark.
+    _, disp = _model_chip_label(model)
     label = f"{disp} · {effort}"
-    mark = _model_mark(model, size, effort)
+    mark = _model_mark(model, size, effort, verbosity)
     return (f'<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:var(--r);'
             f'background:var(--text-7);font-size:11px;'
             f'color:var(--text-strong)">{mark}<span>{E(label)}</span></span>')
@@ -557,12 +565,13 @@ _WEEK_BACK, _WEEK_FWD = 3, 3
 
 
 def _job_health7(jruns, cadence, now, running: bool = False, since: str = "",
-                 back: int = _WEEK_BACK, fwd: int = _WEEK_FWD):
+                 back: int = _WEEK_BACK, fwd: int = _WEEK_FWD, latest_today: bool = False):
     """Per-day health for one job across a window, oldest→newest, schedule-aware:
     (weekday_full, 'DD Mon', status_label, is_weekend).
 
     Past days: Success/Warning/Failed if a run recorded one, Missed if it was due and nothing ran,
-    else Not scheduled. Today: Running if a run is in progress, the recorded status if one has run,
+    else Not scheduled. Today: Running if a run is in progress, the recorded status after today's
+    first fire time (overnight catch-up belongs to yesterday),
     Scheduled if a fire time is still ahead, Missed if the time passed with nothing. Future days:
     Scheduled if due, Not scheduled otherwise — a day that has not happened cannot be missed, which
     is the bug you get if you extend the window without touching this branch.
@@ -589,20 +598,40 @@ def _job_health7(jruns, cadence, now, running: bool = False, since: str = "",
         except ValueError:
             since_dt = None
     cron = cadence if (cadence and cadence != "manual" and S.is_cron(cadence)) else ""
-    by_day: dict[str, list[str]] = {}
+    by_day: dict[str, list[dict]] = {}
     for ev in jruns:
         d = str(ev.get("ts", ""))[:10]
         if d:
-            by_day.setdefault(d, []).append(str(ev.get("status", "ok")).lower())
+            by_day.setdefault(d, []).append(ev)
     out = []
     for i in range(-back, fwd + 1):
         d = today + datetime.timedelta(days=i)
         st = by_day.get(d.isoformat())
         times = S.cron_day_times(cron, d) if cron else []
+        fires = [datetime.datetime.combine(d, datetime.time(h, m), tzinfo=now.tzinfo)
+                 for h, m in times]
+        if since_dt:
+            fires = [f for f in fires if f >= since_dt]
+        if st and d == today and fires:
+            # A previous night's catch-up can finish after midnight. It does not
+            # describe today's scheduled occurrence, which may still be hours away.
+            first = min(fires)
+            eligible = []
+            for ev in st:
+                recorded = datefmt.parse(ev.get("ts"))
+                if recorded is not None:
+                    if recorded.tzinfo is None:
+                        recorded = recorded.replace(tzinfo=now.tzinfo)
+                    elif now.tzinfo is None:
+                        recorded = recorded.replace(tzinfo=None)
+                    if recorded >= first:
+                        eligible.append(ev)
+            st = eligible
         if running and d == today:
             label = "Running"
         elif st:
-            norms = [status.normalize(s) for s in st]
+            norms = [status.normalize(ev.get("status", "ok"))
+                     for ev in (st[-1:] if latest_today and d == today else st)]
             if status.FAILED in norms:
                 label = "Failed"
             elif status.WARN in norms:
@@ -610,10 +639,6 @@ def _job_health7(jruns, cadence, now, running: bool = False, since: str = "",
             else:
                 label = "Success"
         elif times:
-            fires = [datetime.datetime.combine(d, datetime.time(h, m), tzinfo=now.tzinfo)
-                     for h, m in times]
-            if since_dt:
-                fires = [f for f in fires if f >= since_dt]   # before the job existed: nothing due
             if not fires:
                 label = "Not scheduled"
             elif d > today or any(f > now for f in fires):
@@ -653,7 +678,8 @@ def _sysjob_health7(runs, now, enabled: bool = True,
         if st:
             norms = [status.normalize(s) for s in st]
             label = ("Failed" if status.FAILED in norms
-                     else "Warning" if status.WARN in norms else "Success")
+                     else "Warning" if status.WARN in norms
+                     else "Success" if status.SUCCESS in norms else "Not scheduled")
             # Today can hold both: a run that already happened AND another one still coming. The
             # recorded outcome wins — it is the thing that has actually been observed.
         elif not enabled:
@@ -713,7 +739,7 @@ def _coord_mark(size: int = 15, tip: bool = False) -> str:
             f'cursor:help">{_icon("laurel", size)}</span>')
 
 
-def _health7_header(today) -> str:
+def _health7_header(today, larger_today: bool = False) -> str:
     """The day-initials over the health squares, today marked so the split between what happened
     and what is coming is visible without counting."""
     cells = ""
@@ -721,10 +747,9 @@ def _health7_header(today) -> str:
         d = today + datetime.timedelta(days=i)
         is_today = i == 0
         dim = "90" if is_today else ("32" if d.weekday() >= 5 else "60")
-        deco = "border-bottom:1.5px solid var(--color-accent-2);" if is_today else ""
         cells += (f'<span title="{d.strftime("%A")}{" · today" if is_today else ""}" '
-                  f'style="display:inline-block;width:11px;margin-right:2px;{deco}'
-                  f'text-align:center;font-size:9.5px;font-weight:{"700" if is_today else "600"};line-height:1;'
+                  f'style="display:inline-block;width:{16.5 if is_today and larger_today else 11}px;margin-right:2px;'
+                  f'text-align:center;font-size:{12 if is_today else 9.5}px;font-weight:{"700" if is_today else "600"};line-height:1;'
                   f'color:color-mix(in srgb,var(--color-text) {dim}%,transparent)">{d.strftime("%a")[0]}</span>')
     return cells
 

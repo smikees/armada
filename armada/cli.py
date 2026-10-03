@@ -17,6 +17,8 @@ def _print_fired(fired: list, now) -> None:
     print(f"ARMADA schedule · {stamp} · {verb} {len(fired)} job(s):")
     for r in fired:
         print(f"  · {r['agent']}/{r['job']} ({r.get('kind','agent')}) [{r.get('schedule')}] → {r.get('status')}")
+        if r.get("detail") or r.get("error"):
+            print(f"    {r.get('detail') or r.get('error')}")
 
 
 def _utf8_console() -> None:
@@ -36,6 +38,11 @@ def _utf8_console() -> None:
 
 
 def main(argv=None):
+    launch_args = list(sys.argv[1:] if argv is None else argv)
+    if launch_args and launch_args[0] == 'app':
+        from .desktop_launch import relaunch_if_needed
+        if relaunch_if_needed(launch_args):
+            return 0
     _utf8_console()
     # Force UTF-8 stdout/stderr: ARMADA prints ─/✓/● etc., which crash under Windows' default
     # cp1252 when output is captured or redirected (not a live console). Never let a glyph kill a run.
@@ -56,7 +63,7 @@ def main(argv=None):
 
     r = sub.add_parser("run", help="run one agent job through an engine (writes a tokenized run-report)")
     r.add_argument("realm"); r.add_argument("agent"); r.add_argument("job")
-    r.add_argument("--engine", default="mock", help="mock (offline, default) | claude")
+    r.add_argument("--engine", default="mock", help="mock (offline, default) | auto (configured model) | claude | codex | gemini")
     r.add_argument("--thread", default="main", help="thread to run in (default: main; sub-threads scope context)")
     r.add_argument("--allow-tools", action="store_true", help="let the agent use tools (autonomy-gated)")
 
@@ -89,9 +96,10 @@ def main(argv=None):
     sc = sub.add_parser("schedule", help="fire jobs on their cadence (daemon, or a single --once pass)")
     sc.add_argument("realm", nargs="?", default="",
                     help="realm folder (default: every realm ARMADA knows about)")
-    sc.add_argument("--engine", default="claude", help="engine for agent jobs (mock | claude)")
+    sc.add_argument("--engine", default="auto", help="auto (configured model, default) | mock | claude | codex | gemini")
     sc.add_argument("--once", action="store_true", help="single pass: fire what's due now, then exit")
     sc.add_argument("--interval", type=int, default=60, help="daemon tick seconds (default 60)")
+    sc.add_argument("--app-owner", type=int, default=0, help=argparse.SUPPRESS)
     sc.add_argument("--grace", type=int, default=None, help="override grace minutes")
     sc.add_argument("--dry-run", action="store_true", help="show what would fire; run nothing")
     sc.add_argument("--at", default=None, help="simulate a wall-clock time (ISO or HH:MM) — testing")
@@ -101,7 +109,7 @@ def main(argv=None):
 
     d = sub.add_parser("doctor", help="preflight: check Python, Git, the engine, and the realm")
     d.add_argument("--realm", default=None)
-    d.add_argument("--engine", default="claude")
+    d.add_argument("--engine", default="auto")
 
     # `realm` is optional on serve/app: with no folder named they reopen the last realm you were
     # in (~/.armada/config.json). Naming one still wins, and becomes the remembered one.
@@ -121,6 +129,14 @@ def main(argv=None):
     rm.add_argument("realm", nargs="?", default=".")
 
     args = ap.parse_args(argv)
+
+    if args.cmd in ("system-refresh", "refresh-models", "run", "skills") and hasattr(args, "realm"):
+        from . import util
+        try:
+            util.assert_realm_writable(Path(args.realm) / "realm.json")
+        except OSError as exc:
+            print(f"ARMADA: {exc}")
+            return 1
 
     if args.cmd == "system-refresh":
         from . import memory
@@ -165,8 +181,9 @@ def main(argv=None):
         print(f"{args.agent} threads:")
         for n in names:
             th = Thread(adir, n)
-            msgs = len(th._messages())
-            has_sum = "summary" if th.summary() else "—"
+            summary, messages = th.snapshot()
+            msgs = len(messages)
+            has_sum = "summary" if summary else "—"
             print(f"  · {n:16s} {msgs} msgs · {len(th.render())} chars · {has_sum}")
         return 0
 
@@ -210,7 +227,7 @@ def main(argv=None):
             return 0
         rc = scheduler.run_daemon(args.realm, also=extra, engine=args.engine, interval=args.interval,
                                   grace_min=args.grace,
-                                  rescan=activerealm.every if every else None)
+                                  rescan=activerealm.every if every else None, app_owner=args.app_owner)
         from . import updater
         if rc == updater.RESTART_RC:          # an update was applied (5.4): come back on the new code
             updater.reexec()

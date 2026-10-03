@@ -61,7 +61,7 @@ def _v1_realm(root: Path) -> Path:
 def test_a_v1_realm_is_brought_to_v2(tmp_path):
     root = _v1_realm(tmp_path / "r")
     res = realmformat.migrate(root)
-    assert res["ok"] and res["from"] == 1 and res["to"] == realmformat.CURRENT == 2
+    assert res["ok"] and res["from"] == 1 and res["to"] == realmformat.CURRENT
     cfg = json.loads((root / "realm.json").read_text(encoding="utf-8"))
     assert cfg["env"]["App"] == "ARMADA, running locally at 127.0.0.1:8756" and cfg["env"]["CPU"] == "x"
     jobs = root / "agents" / "hand" / "jobs"

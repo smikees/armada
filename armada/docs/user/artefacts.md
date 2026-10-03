@@ -14,6 +14,8 @@ it) or an *output* (an agent made it), its type, where it is, and when it was la
 - **Delete** a file you don't need. ARMADA only deletes files inside the realm, its workspace, or
   the ARMADA folder.
 - **Filter** by owner, type or date, or search by name, path or thread.
+- **Browse pages** when more than 100 artefacts match. Each page shows up to 100 files; Previous
+  and Next are above and below the table. Filters and sorting apply across the whole list.
 
 Agents are asked to put what they make for you in the realm's `shared` folder; a file written
 elsewhere is still listed, and the thread says where it went.

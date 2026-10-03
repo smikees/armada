@@ -68,7 +68,7 @@ def test_the_shadow_still_only_appears_on_scroll(realm):
 def test_the_solid_band_below_the_grid_is_gone(realm):
     html = _dash(realm)
     block = html[html.index("flex:1;min-height:0;padding:16px"):][:120]
-    assert "padding:16px 0 0 24px" in block, "the block still pads the bottom"
+    assert "padding:16px 24px 0" in block, "the block still pads the bottom"
 
 
 def test_a_fade_covers_the_last_strip_instead(realm):

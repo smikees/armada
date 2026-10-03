@@ -5,6 +5,7 @@ flow — without ever handling a credential itself.
 """
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -133,6 +134,30 @@ def test_banner_js_only_asks_and_launches():
     code = re.sub(r"//[^\n]*", "", js)          # prose about tokens is fine; code touching them isn't
     for forbidden in ("token", "password", "apiKey", "api_key"):
         assert forbidden not in code, f"the banner must not handle {forbidden}"
+
+
+def test_auth_status_reports_a_stable_app_session(monkeypatch):
+    from armada.routes import settings
+    monkeypatch.setattr(auth, "status", lambda **kw: {"logged_in": False, "version": ""})
+    class Handler(settings.SettingsRoutes):
+        path = "/api/auth-status"
+        def _json(self, status, data): self.response = (status, data)
+    handler = Handler()
+    handler._get_auth_status()
+    first = handler.response[1]["app_session"]
+    handler.path = "/api/auth-status?force=1"
+    handler._get_auth_status()
+    assert first and handler.response[1]["app_session"] == first
+    monkeypatch.setattr(settings, "_APP_SESSION_ID", "next-app-session")
+    handler._get_auth_status()
+    assert handler.response[1]["app_session"] == "next-app-session"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
+def test_sign_out_notification_lifecycle():
+    result = subprocess.run(["node", str(Path(__file__).with_name("authbar_harness.js"))],
+                            capture_output=True, text=True, encoding="utf-8", timeout=15)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_a_native_install_off_path_is_still_found(tmp_path, monkeypatch):

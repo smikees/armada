@@ -1,8 +1,7 @@
 """Model token-consumption index — colours the model icon on a light→dark gradient.
 
-model_index ranks a model on its own (cheapest model = 0, priciest = 99); combo_index ranks a
-model + effort + verbosity against the cheapest/priciest combination reachable. Log-scaled, so the
-~100x cost span reads evenly.
+model_index ranks a model on its own within its provider; combo_index ranks a model + effort +
+verbosity within that provider. Log-scaled so a wide tier spread reads evenly.
 """
 from armada import models as m
 from armada.webui import _consumption_color
@@ -107,3 +106,27 @@ def test_the_js_mirror_applies_all_three_factors():
     assert "baseCost(m)*mult*vm" in static_js, "the JS still ignores verbosity"
     assert "defaultVerbosity" in js, "a blank (inherit) verbosity has nothing to fall back to"
     assert "c-verbosity" in js
+
+
+def test_codex_model_effort_and_verbosity_use_the_same_gradient():
+    assert m.model_index("gpt-6-luna") < m.model_index("gpt-6-sol") < m.model_index("gpt-6-astra")
+    assert m.combo_index("gpt-6-sol", "low", "standard") < m.combo_index("gpt-6-sol", "high", "standard")
+    assert m.combo_index("gpt-6-sol", "high", "terse") < m.combo_index("gpt-6-sol", "high", "full")
+    # Codex's provider-local scale spans its own available range without changing Claude's.
+    assert m.combo_index("gpt-6-luna", "none", "terse") == 0
+    assert m.combo_index("gpt-6-astra", "ultra", "full") == 99
+    assert m.combo_index("Haiku 4.5", "low", "terse") == 0
+
+
+def test_codex_chip_and_picker_use_a_colored_provider_logo():
+    from armada.icons import ICONS
+    from armada.webui.agentbits import _model_mark, _model_chip
+    from armada.webui.consumption import _picker_model_mark
+
+    mark = _model_mark("gpt-6-sol", 12, "high", "full")
+    assert ICONS["codex"][:40] in mark
+    assert "color:#" in mark and "zap" not in mark
+    assert mark != _model_mark("gpt-6-sol", 12, "high", "terse")
+    assert mark in _model_chip("gpt-6-sol", "high", verbosity="full")
+    picker = _picker_model_mark()
+    assert 'data-provider="codex"' in picker and ICONS["codex"][:40] in picker

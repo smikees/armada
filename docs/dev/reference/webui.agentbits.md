@@ -98,11 +98,11 @@ The agent's chosen colour from agent.json ('' if none/unreadable).
 
 —
 
-### `_model_mark(model_value: str, size: int=12, effort: str='')`
+### `_model_mark(model_value: str, size: int=12, effort: str='', verbosity: str='')`
 
-The Claude mark for a model chip, tinted by token-consumption on the shared gradient. With an `effort`, the tint reflects the model+effort combo (agents); without it, the model alone (Usage breakdown). '' for non-Claude models.
+Provider mark tinted by the model/effort/verbosity estimate.
 
-### `_model_chip(model: str, effort: str, size: int=12)`
+### `_model_chip(model: str, effort: str, size: int=12, *, verbosity: str='')`
 
 —
 
@@ -138,7 +138,7 @@ The shared status swatches (Jobs list legend + Job-calendar widget). Each swatch
 
 One day. Missed is a circled ✕ glyph rather than a shade of grey.
 
-### `_job_health7(jruns, cadence, now, running: bool=False, since: str='', back: int=_WEEK_BACK, fwd: int=_WEEK_FWD)`
+### `_job_health7(jruns, cadence, now, running: bool=False, since: str='', back: int=_WEEK_BACK, fwd: int=_WEEK_FWD, latest_today: bool=False)`
 
 Per-day health for one job across a window, oldest→newest, schedule-aware: (weekday_full, 'DD Mon', status_label, is_weekend).
 
@@ -154,7 +154,7 @@ The status bucket the filters should match, read from the week strip the row alr
 
 The coordinator's laurel, for beside an agent's name.
 
-### `_health7_header(today)`
+### `_health7_header(today, larger_today: bool=False)`
 
 The day-initials over the health squares, today marked so the split between what happened and what is coming is visible without counting.
 

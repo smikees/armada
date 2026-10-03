@@ -45,16 +45,13 @@ class DashboardRoutes:
         self._json(200, self._usage_api(q.get("mode", "line"), q.get("window", ""), q.get("by", "agents")))
 
     def _get_usage_limits(self):
-        # Real Claude subscription usage (session 5h + weekly) for the widget's limit bars. Read-only
-        # and best-effort — usage_api.fetch() never raises; on any problem it returns available:False.
-        # The realm is passed so a good reading can be banked there and replayed (with its age)
-        # when the token has lapsed — a stale figure beats a blank header.
-        from .. import usage_api
-        try:
-            self._json(200, usage_api.fetch(self.realm))
-        except Exception as e:  # noqa — must never break page chrome
-            swallowed(log, '_get_usage_limits: failed; reported to the caller')
-            self._json(200, {"available": False, "reason": "error", "detail": str(e)[:120]})
+        from .. import provider_limits
+        query = self._query()
+        provider = query.get("provider", "claude")
+        if provider not in ('claude', 'codex', 'gemini'):
+            self._json(400, {"available": False, "message": "Unknown provider"})
+            return
+        self._json(200, provider_limits.read(provider, self.realm, query.get('force') == '1'))
 
     def _delete_memory(self, body: dict) -> dict:
         base = (Path(self.realm) / "agents" / safe_seg(body.get("agent"), "agent") / "memory") if body.get("scope") == "agent" \
@@ -426,7 +423,9 @@ class DashboardRoutes:
             entry = (base / s["entry"]).resolve()
             if str(entry).startswith(str(base)) and entry.is_file():
                 htmltext = entry.read_text(encoding="utf-8-sig", errors="replace")
-                inject = (f'<base href="/section-asset/{idx}/">' + _ANCHOR_SCROLL_JS)
+                from ..request_context import RealmContext, bound_url
+                base = bound_url(f"/section-asset/{idx}/", RealmContext.capture(self.realm), content=True)
+                inject = (f'<base href="{base}">' + _ANCHOR_SCROLL_JS)
                 low = htmltext.lower()
                 pos = low.find("<head")
                 if pos != -1:
@@ -505,4 +504,3 @@ class DashboardRoutes:
         except Exception as e:  # noqa
             swallowed(log, '_usage_api: failed; error returned to the caller')
             return {"error": str(e), "mode": mode, "window": window}
-

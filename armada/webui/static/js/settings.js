@@ -3,15 +3,88 @@ function mcSetTab(t){['realm','user','app'].forEach(function(x){
     var p=document.getElementById('st-'+x+'-pane');if(p)p.style.display=(x===t)?'block':'none';
     var b=document.getElementById('st-tab-'+x);if(b)b.setAttribute('aria-selected',x===t?'true':'false');});
   try{localStorage.setItem('mc-settab',t);}catch(e){}}
+function mcSettingsCancel(){location.reload();}
+function mcSettingsSaved(kind){const el=document.getElementById(kind+'-saved');
+  if(el)el.style.display='flex';}
+// Form preferences wait for the sticky Save action. Connection, Telegram, update and test
+// buttons are commands and still take effect when clicked.
+function mcAppValues(){
+  const byId=id=>document.getElementById(id);
+  const checked=id=>!!byId(id)?.checked;
+  const fonts={};document.querySelectorAll('.mc-fontpick select').forEach(el=>fonts[el.dataset.role]=el.value);
+  return {channels:{inapp:checked('st-ch-inapp'),desktop:checked('st-ch-desktop'),telegram:checked('st-ch-telegram')},
+    mode:document.querySelector('input[name="mc-mode"]:checked')?.value||'system',
+    theme:document.querySelector('.mc-themecard[data-selected="true"]')?.dataset.themeId||'',
+    fonts:fonts,tray:checked('st-keep-tray'),auto:checked('st-update-auto'),
+    alexander:{model:byId('alexander-model')?.value||'',effort:byId('alexander-effort')?.value||'',verbosity:byId('alexander-verbosity')?.value||'standard'}};
+}
+const mcAppInitial=mcAppValues();
+// Preview on this page; the sticky Save persists it, and Cancel reloads the saved mode.
+function mcPreviewMode(mode){
+  const dark=mode==='dark'||(mode==='system'&&!!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  document.documentElement.classList.toggle('armada-dark',dark);
+  document.body.classList.toggle('armada-dark',dark);
+}
+const mcModeMedia=window.matchMedia?.('(prefers-color-scheme: dark)');
+if(mcModeMedia?.addEventListener)mcModeMedia.addEventListener('change',()=>{
+  const mode=document.querySelector('input[name="mc-mode"]:checked')?.value;
+  if(mode==='system')mcPreviewMode(mode);
+});
+let mcAppAlexanderEdited=false;
+document.addEventListener('change',e=>{
+  if(['alexander-model','alexander-effort','alexander-verbosity'].includes(e.target.id))mcAppAlexanderEdited=true;
+});
+function mcSelectTheme(id){
+  document.querySelectorAll('.mc-themecard').forEach(el=>{
+    const on=el.dataset.themeId===id;
+    el.dataset.selected=on?'true':'false';
+    el.style.borderColor=on?'var(--color-accent)':'var(--color-divider)';
+    el.style.background=on?'var(--color-accent-100)':'';
+    const label=el.querySelector('[data-theme-caption]');
+    if(label)label.textContent=on?'selected':'\u200b';
+  });
+}
+async function mcAppPost(url,body){
+  const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const result=await response.json();
+  if(!result.ok)throw Error(result.error||'Could not save.');
+  return result;
+}
+async function mcSaveAppSettings(){
+  const msg=document.getElementById('app-msg'),button=document.querySelector('#st-app-pane .mc-settings-actions .btn-primary');
+  const next=mcAppValues(),old=mcAppInitial;
+  if(button)button.disabled=true;
+  if(msg){msg.style.color='var(--text-muted)';msg.textContent='Saving…';}
+  try{
+    if(JSON.stringify(next.channels)!==JSON.stringify(old.channels)){
+      const body={};Object.keys(next.channels).forEach(k=>body['notify_'+k]=next.channels[k]);
+      await mcAppPost('/api/save-channels',body);
+    }
+    if(next.mode!==old.mode)await mcAppPost('/api/save-appearance',{mode:next.mode});
+    if(next.theme&&next.theme!==old.theme)await mcAppPost('/api/save-appearance',{theme:next.theme});
+    for(const role of Object.keys(next.fonts)){
+      if(next.fonts[role]!==old.fonts[role])await mcAppPost('/api/save-appearance',{font_role:role,font:next.fonts[role]});
+    }
+    if(next.tray!==old.tray)await mcAppPost('/api/tray-setting',{on:next.tray});
+    if(next.auto!==old.auto)await mcAppPost('/api/update-auto',{on:next.auto});
+    if(mcAppAlexanderEdited){
+      await mcAppPost('/api/alexander-settings',next.alexander);
+    }
+    mcSettingsSaved('app');if(msg)msg.textContent='Saved.';
+    mcKeepScroll();setTimeout(()=>location.reload(),650);
+  }catch(e){if(msg){msg.style.color='var(--status-bad)';msg.textContent='Could not save all changes: '+e.message+' Some earlier changes may have saved.';}
+    if(button)button.disabled=false;}
+}
 // ?tab=realm|user|app (a link from Alexander or Help) wins over the remembered tab
 (function(){try{var q=new URLSearchParams(location.search).get('tab');
-  var t=(q&&['realm','user','app'].indexOf(q)>=0)?q:localStorage.getItem('mc-settab');if(t)mcSetTab(t);}catch(e){}})();
+  var t=(q&&['realm','user','app'].indexOf(q)>=0)?q:localStorage.getItem('mc-settab');if(t)mcSetTab(t);
+  if(location.hash==='#st-telegram')requestAnimationFrame(function(){document.getElementById('st-telegram')?.scrollIntoView({block:'start'});});
+  }catch(e){}})();
 function mcPickSetIcon(el){mcSetIcon=el.dataset.icon;
   document.querySelectorAll('.mc-seticon').forEach(s=>s.style.background=s.dataset.icon===mcSetIcon?'var(--text-12)':'');
   const cur=document.getElementById('st-iconcur');if(cur)cur.innerHTML=el.innerHTML;}
 async function mcSaveRealmSettings(){const m=document.getElementById('st-msg');m.textContent='saving…';
-  const provs=[...document.querySelectorAll('.st-prov:checked')].map(function(c){return c.value;});
-  const p={providers:provs,provider:provs[0]||'claude',
+  const p={
     name:(document.getElementById('st-realmname')||{}).value||'',
     default_model:document.getElementById('st-model').value,
     default_effort:document.getElementById('st-effort').value,
@@ -22,7 +95,29 @@ async function mcSaveRealmSettings(){const m=document.getElementById('st-msg');m
     inbox:mcA2APayload(),
     notifications:mcNotifPayload()};
   try{const r=await(await fetch('/api/save-realm-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})).json();
-    if(r.ok){location.reload();}else{m.textContent='error: '+(r.error||'failed');}}catch(e){m.textContent='error: '+e;}}
+    if(!r.ok)throw Error(r.error||'failed');
+    mcSettingsSaved('realm');m.textContent='Saved.';
+    mcKeepScroll();setTimeout(()=>location.reload(),650);
+  }catch(e){m.textContent='error: '+e.message;}}
+async function mcSetAllAgentDefaults(button){
+  const selected=id=>{const el=document.getElementById(id);return {value:el.value,label:el.selectedOptions[0]?.textContent||el.value};};
+  const model=selected('st-model'),thinking=selected('st-effort'),verbosity=selected('st-verbosity');
+  const realm=button.dataset.realmName;
+  const detail='Do you want to set '+model.label+' · '+thinking.label+' · '+verbosity.label.split(' — ')[0]+
+    ' for all the agents in '+realm+' realm?';
+  button.disabled=true;
+  try{
+    if(!await window.mcConfirm('Set for all agents?',detail,{ok:'Set for all agents',primary:true}))return;
+    const msg=document.getElementById('st-all-agents-msg');
+    msg.style.color='var(--text-muted)';msg.textContent='Setting for all agents…';
+    try{
+      const result=await mcAppPost('/api/set-all-agent-defaults',{
+        model:model.value,effort:thinking.value,verbosity:verbosity.value});
+      msg.style.color='var(--status-ok)';msg.textContent='Set for '+result.agents+' agents.';
+    }catch(e){msg.style.color='var(--status-bad)';msg.textContent=e.message;}
+  }finally{button.disabled=false;}
+}
+
 // --- Telegram -----------------------------------------------------------------
 // Each step reloads on success: the panel is a state machine (no token → token but no chat →
 // connected) and re-rendering it server-side is simpler and less wrong than patching it here.
@@ -116,12 +211,12 @@ async function mcRealmExport(b){
   b.disabled=false;}
 async function mcRealmArchive(b,path){
   if(!await mcConfirmBox('Archive this realm?',
-      'It disappears from ARMADA\'s realm list. No files are touched — the folder stays exactly '+
-      'where it is, and you can add it back later with New realm.','Archive',false))return;
+      'All agent and system jobs will be switched off. The realm disappears from the list, but its '+
+      'folder and history stay in place. You can add it back later with New realm.','Archive',false))return;
   b.disabled=true;
   try{const r=await(await fetch('/api/realm-archive',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({path:path})})).json();
-    if(r.ok){mcRealmSay('archived — removed from the list');setTimeout(function(){location.reload();},700);}
+    if(r.ok){mcRealmSay('archived — removed from the list');setTimeout(function(){location.href='/';},700);}
     else mcRealmSay(r.error||'could not archive',true);}
   catch(e){mcRealmSay('could not archive: '+e,true);}
   b.disabled=false;}
@@ -135,7 +230,7 @@ async function mcRealmDelete(b,path,name){
   try{const r=await(await fetch('/api/realm-delete',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({path:path,confirm:typed})})).json();
     if(r.ok){mcRealmSay(r.recycled?'deleted — it\'s in your Recycle Bin':'deleted');
-      setTimeout(function(){location.reload();},900);}
+      setTimeout(function(){location.href='/';},900);}
     else mcRealmSay(r.error||'could not delete',true);}
   catch(e){mcRealmSay('could not delete: '+e,true);}
   b.disabled=false;}
@@ -252,6 +347,10 @@ async function mcUpdAuto(el){const m=document.getElementById('mc-updauto-msg');
   try{const r=await(await fetch('/api/update-auto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:el.checked})})).json();
     if(m)m.textContent=r.ok?(el.checked?'On — new versions install themselves.':'Off — use Check for updates when you want one.'):(r.error||'failed');}
   catch(e){if(m)m.textContent='error: '+e;el.checked=!el.checked;}}
+async function mcKeepTray(el){const m=document.getElementById('mc-tray-msg');
+  try{const r=await(await fetch('/api/tray-setting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:el.checked})})).json();
+    if(m)m.textContent=r.ok?'Saved.':(r.error||'Could not save.');if(!r.ok)el.checked=!el.checked;}
+  catch(e){if(m)m.textContent='Could not save.';el.checked=!el.checked;}}
 // --- scroll preservation across the reloads that apply a theme / colour mode ----------------
 // Applying a theme re-renders the whole page, which otherwise drops you back at the top — with
 // the theme picker near the bottom of Settings, that means losing your place on every click.

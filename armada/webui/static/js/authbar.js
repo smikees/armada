@@ -1,33 +1,53 @@
-// Claude sign-in banner.
-//
-// A lapsed Claude Code session stops everything — every agent run fails to authenticate and usage
-// goes dark — so this sits under the nav on every page rather than hiding in a corner of Overview.
-// The Sign in button starts Claude Code's OWN login in its own window; the owner completes it in
-// their browser and Claude Code writes its own credentials. ARMADA never sees a token, it only
-// re-asks "are you signed in?" until the answer changes.
+// Claude sign-in notification: show once per Armada session, with an explicit dismiss action.
+// The server's session ID changes on app restart. Remembering it across page loads means polling,
+// navigation and realm switches cannot bring back an already-seen notice. Sign-in remains in Settings.
+// The Sign in button starts Claude Code's own flow; ARMADA only asks about the result.
 (function(){
-  const BAR='mc-authbar';
-  let polling=null, announced=false;
+  const BAR='mc-authbar', SEEN='mc_claude_auth_notice_seen';
+  let polling=null, announced=false, shownSession=null, visibleSession=null;
+
+  function wasShown(d){
+    const session=d.app_session||'browser-session';
+    if(shownSession===session)return true;
+    try{return (d.app_session?localStorage:sessionStorage).getItem(SEEN)===session;}catch(e){return false;}
+  }
+  function remember(d){
+    shownSession=d.app_session||'browser-session';
+    try{(d.app_session?localStorage:sessionStorage).setItem(SEEN,shownSession);}catch(e){}
+  }
+
+  window.mcAuthDismiss=function(){
+    const el=document.getElementById(BAR);if(el)el.innerHTML='';
+    visibleSession=null;
+  };
 
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
   function paint(d){
     const el=document.getElementById(BAR); if(!el) return;
-    if(!d || d.logged_in){ el.innerHTML=""; return; }
+    if(!d)return;
+    if(d.logged_in||d.enabled===false||d.notice_enabled===false){window.mcAuthDismiss();return;}
+    const session=d.app_session||'browser-session';
+    // Keep an open notice (and any login progress) intact while polling. Once closed, stay quiet.
+    if(wasShown(d)){
+      if(visibleSession!==session)window.mcAuthDismiss();
+      return;
+    }
+    remember(d);visibleSession=session;
     const cliMissing = d.reason==='cli-missing';
-    const msg = cliMissing
-      ? "ARMADA can't find the Claude CLI, so agents can't run."
-      : "Claude Code is signed out — agents can't run and usage can't be read.";
+    const title=cliMissing ? 'Claude CLI is unavailable' : 'Claude Code is signed out';
+    const msg=cliMissing ? "ARMADA can't find the Claude CLI, so Claude agents can't run."
+      : "Claude agents can't run and Claude usage can't be read. You can sign in now or later in Settings.";
     const action = cliMissing ? "" :
       '<button class="btn btn-primary" id="mc-authbtn" style="font-size:12.5px;padding:5px 13px;color:#fff" '+
       'onclick="mcAuthLogin(this)">Sign in to Claude</button>';
     el.innerHTML =
-      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 16px;'+
-      'background:color-mix(in srgb,var(--status-bad) 12%,var(--color-bg));'+
-      'border-bottom:1px solid color-mix(in srgb,var(--status-bad) 35%,transparent)">'+
-      '<span style="font-size:12.5px;font-weight:600">'+esc(msg)+'</span>'+
-      '<span id="mc-authmsg" style="font-size:11.5px;color:var(--text-muted)"></span>'+
-      '<span style="margin-left:auto;display:flex;gap:8px;align-items:center">'+action+'</span></div>';
+      '<div class="mc-auth-notice" role="status" aria-live="polite">'+
+      '<div class="mc-auth-notice-head"><span>'+esc(title)+'</span>'+
+      '<button type="button" class="mc-iconbtn" aria-label="Dismiss Claude sign-in notification" '+
+      'title="Dismiss for this app session" onclick="mcAuthDismiss()">×</button></div>'+
+      '<p>'+esc(msg)+'</p><div class="mc-auth-notice-actions">'+action+
+      '<span id="mc-authmsg" class="mc-banner-sub"></span></div></div>';
   }
 
   async function check(force){
@@ -64,7 +84,7 @@
     try{
       const r=await(await fetch('/api/auth-login',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
       if(!r.ok){ if(m) m.textContent=r.error||'Could not start sign-in.'; if(btn) btn.disabled=false; return; }
-      if(m) m.textContent='complete the sign-in in your browser — this banner clears itself';
+      if(m) m.textContent='complete the sign-in in your browser — this notice clears itself';
       startPolling();
     }catch(e){ if(m) m.textContent='Could not start sign-in: '+e; if(btn) btn.disabled=false; }
   };

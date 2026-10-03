@@ -12,6 +12,7 @@ import pytest
 
 from golden_support import ServedRealm, build_fixture
 from armada import origins, serve
+from armada.request_context import RealmContext
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +38,7 @@ def srv(tmp_path_factory):
 
 def _req(port, method, path, headers=None, body=None):
     c = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
-    h = {"Host": f"127.0.0.1:{port}", **(headers or {})}
+    h = {"Host": f"127.0.0.1:{port}", "X-Armada-Realm": RealmContext.capture(serve.Handler.realm).realm_id, **(headers or {})}
     data = json.dumps(body).encode() if body is not None else None
     if data:
         h["Content-Type"] = "application/json"
@@ -52,9 +53,9 @@ def test_a_content_server_runs_beside_the_app(srv):
 
 def test_the_app_sends_untrusted_pages_to_the_content_origin(srv):
     st, h, _ = _req(srv.port, "GET", "/section-raw/1")
-    assert st == 302 and h["Location"] == f"http://127.0.0.1:{origins.content_port()}/section-raw/1"
+    assert st == 302 and h["Location"] == origins.content_url("/section-raw/1", realm_root=srv.realm)
     st, h, _ = _req(srv.port, "GET", f"/thread-file?agent={srv.agent}&thread=main&name=page.html")
-    assert st == 302 and h["Location"].startswith(f"http://127.0.0.1:{origins.content_port()}/thread-file")
+    assert st == 302 and h["Location"].startswith(origins.content_url("/thread-file", realm_root=srv.realm))
 
 
 def test_images_stay_on_the_app_origin(srv):
@@ -64,7 +65,7 @@ def test_images_stay_on_the_app_origin(srv):
 
 def test_the_content_server_serves_the_content(srv):
     st, _, body = _req(origins.content_port(), "GET", "/section-raw/1")
-    assert st == 200 and "hi" in body and '<base href="/section-asset/1/">' in body
+    assert st == 200 and "hi" in body and f'<base href="/r/{RealmContext.capture(srv.realm).realm_id}/section-asset/1/">' in body
     st, _, body = _req(origins.content_port(), "GET", "/section-asset/1/app.js")
     assert st == 200 and "console.log" in body
 
@@ -95,7 +96,7 @@ def test_the_app_window_itself_is_not_refused(srv):
 
 def test_section_frames_point_at_the_content_origin_and_cannot_steer_the_window(srv):
     html = srv.get("/section/1")
-    assert f'src="http://127.0.0.1:{origins.content_port()}/section-raw/1"' in html
+    assert f'src="{origins.content_url("/section-raw/1", realm_root=srv.realm)}"' in html
     assert 'sandbox="' in html and "allow-top-navigation" not in html
 
 

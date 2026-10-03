@@ -12,7 +12,7 @@ SUCCESS, WARN, FAILED, RUNNING, QUIET, MISSED, SCHEDULED, IDLE = (
 _ALIASES = {
     "ok": SUCCESS, "success": SUCCESS, "done": SUCCESS, "ran": SUCCESS,
     "quiet": QUIET,
-    "warn": WARN, "warning": WARN, "issues": WARN,
+    "warn": WARN, "warning": WARN, "issues": WARN, "stopped": WARN,
     "error": FAILED, "fail": FAILED, "failed": FAILED, "bad": FAILED,
     "run": RUNNING, "running": RUNNING,
     "missed": MISSED, "scheduled": SCHEDULED,

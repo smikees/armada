@@ -3,7 +3,7 @@
 Alexander in the app: support conversations (launch plan 6.2, 6.3, 6.6; docs/dev/ALEXANDER.md).
 
 One turn is: assemble what he's allowed to know (the sections PROMPT.md names), run one sealed
-engine turn with no tools (Opus 5.5 at High, fixed), then take his reply apart — the prose is
+engine turn with no tools (model and effort from App → Advanced), then take his reply apart — the prose is
 shown, the fenced proposal blocks become cards only if they validate. Nothing he writes acts on its
 own; a card acts when the owner presses its button, through the app's own endpoint.
 

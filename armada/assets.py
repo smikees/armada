@@ -2,8 +2,8 @@
 
 `CSSV` is a cache-buster derived from the stylesheets' mtimes, so a CSS edit + restart forces
 browsers to refetch. `js()` builds a <script src> tag for an externalized JS module (kept out of
-webui.py for smaller diffs / lintability); the per-module tags are pre-built here. `CSS_LINKS` is
-the stylesheet <link> pair, cache-buster baked in, used in every page's <head>.
+webui.py for smaller diffs / lintability); the per-module tags are pre-built here. `CSS_LINKS`
+loads the shared styles and deferred scrollbar controller in every page's <head>.
 """
 from __future__ import annotations
 from pathlib import Path
@@ -34,7 +34,9 @@ def js(name: str) -> str:
 CSS_LINKS = (f'<link rel="stylesheet" href="/static/industry.css{CSSV}">'
              f'<link rel="stylesheet" href="/static/brand.css{CSSV}">'
              # the selectable font faces (v0.99.62); a face downloads only once something uses it
-             f'<link rel="stylesheet" href="/static/fonts.css{CSSV}">')
+             f'<link rel="stylesheet" href="/static/fonts.css{CSSV}">'
+             # Every first-party surface, including setup, widget frames and Alexander.
+             f'<script src="/static/js/scrollbars.js{CSSV}" defer></script>')
 
 # Per-module <script src> tags for the externalized client JS.
 CHAT_JS = js("chat")

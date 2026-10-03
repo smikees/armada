@@ -20,7 +20,7 @@ long thread stays fast.
 
 **Memory** — what an agent knows before you say anything. *Realm memory* loads for every agent;
 an agent's own memory loads only for them. *System memory* is written by ARMADA itself (who you
-are, your machine, the team). The **Covenant** is the set of principles every agent is bound by.
+are, your machine, the team). Every agent is bound by one shared governing document: **The Constitution** (State), **The Memorandum** (Company), **The Code** (Ship), or **The Covenant** (Blank). Edit it from Realm settings or the Memory page.
 See [Memory](memory.md).
 
 **Goals** — what the realm is working towards, each with owners and a status. Goals load into
@@ -46,8 +46,14 @@ and what it **can touch**, and a risk colour. See [Capabilities](capabilities.md
 **Section** — a page you add to the top menu: a dashboard widget promoted to its own page, a local
 mini-site, or a link.
 
-**Usage** — every agent turn uses your Claude plan. The header shows your session and weekly
-limits; the Usage widget shows who used how much. It always has a **System** line too: ARMADA's
-own use, from the few system jobs that call Claude directly (the sign-in keep-alive) and from your
+**Usage** — agent turns use your connected provider. The header shows available session and weekly
+subscription limits; the Usage widget shows reported tokens by agent or model. Models with usage
+come first; within the used and unused groups, models are ordered by estimated relative quota
+impact. Provider icons use the same cost colours as model badges. This is an estimate, not a
+measurement of subscription charges. **Codex default** lets the CLI choose a model; usage is
+recorded against the model it actually reports. **Model not reported** appears only when recorded
+tokens cannot be attributed to a model. Runs with unavailable token counts remain noted separately.
+The widget always has a **System** line too: ARMADA's
+own use, from the few system jobs that call models directly (the sign-in keep-alive) and from your
 conversations with Alexander. Tasks an agent does for a system job, such as answering its Inbox,
 count under that agent.

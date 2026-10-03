@@ -39,7 +39,10 @@ file splits) at the *start* of Phase 2: every later step that touches `serve.py`
 
 **Decisions already made (2026-09-21)** — these are settled, don't reopen them:
 
-1. Claude is the only engine for v1. OpenAI is deferred, but the seam is audited in Phase 2.
+1. Original decision: Claude only for v1. Superseded by Mihai on 2026-09-26: existing agents
+   must be able to select models across connected Claude and Codex CLIs. See
+   [Codex integration](dev/CODEX_INTEGRATION.md). September 28 extends setup and Alexander to
+   either provider; see [Provider onboarding](dev/PROVIDER_ONBOARDING.md).
 2. Alexander ships as a *guide* in v1. Alexander-the-developer is deferred and, when it comes,
    works through extension points rather than forking the app's code.
 3. The Council ships in v1 as a differentiating feature, plan-only, through the existing
@@ -474,6 +477,246 @@ change guarded by the golden suite — no behaviour changes ride along.
 
 ---
 
+### Follow-up review — 2026-09-26 (required before beta)
+
+Mihai requested a fresh review against the highest engineering standards, including the current
+Codex work. Evidence, source locations, reproduced failure cases and rationale are in
+[`ARCHITECTURE_REVIEW_2026-09-26.md`](dev/ARCHITECTURE_REVIEW_2026-09-26.md).
+The earlier completed steps above remain historical; they do not close these newly demonstrated
+gaps. Retain the local architecture and realm format. Refactor the ownership/transaction boundaries
+incrementally, with focused regression tests. No implementation below is marked complete by this review.
+
+**Order:** start 2.21's deterministic baseline immediately; fix 2.11–2.12 first, then 2.13 before
+2.14–2.16. Do 2.17–2.19 with the minimum common contracts from 2.20. Finish the complete 2.21 gate
+before 8.1. P1 = security/data integrity/execution integrity; P2 = functional/engineering gap.
+All 2.11–2.21 are beta prerequisites; the complete UI namespace cleanup is explicitly deferred to D.8.
+
+#### Execution order and feature sequencing — 2026-09-27
+
+**Recommendation: address the safety and reliability work now, before expanding the wizard or
+other features that create realms, grant capabilities or run agents.** Those features depend on
+the boundaries being repaired; building on the current behavior increases both exposure and rework.
+Wizard copy, template review and interaction design can continue alongside these fixes.
+
+| Order | Ticket | Status | Work | Why here |
+|---|---|---|---|---|
+| 1 | 2.21 — baseline portion | Verified 2026-09-27: two full runs, 1,999 passed / 1 skipped each | Fix the three existing test failures; establish deterministic fixtures and regression checks | Gives the following fixes a trustworthy baseline; do not delay urgent safety fixes for completion of all CI tooling |
+| 2 | 2.11 | Verified 2026-09-27: 2,022 passed / 2 skipped; browser SVG isolation check passed | Confine static files and isolate active content | Close file-serving and app-origin security gaps |
+| 3 | 2.12 | Verified 2026-09-27: 2,153 passed / 2 skipped; installed CLI denial check passed | Fail closed on invalid capability policy | Permissions must remain enforced before adding onboarding/grant flows |
+| 4 | 2.13 | Verified 2026-09-27: 2,178 passed / 2 skipped; independent-process lock checks passed | Make shared file mutations exclusive | Foundation for scheduler, memory and conversation consistency |
+| 5 | 2.14 | Verified 2026-09-27: 2,204 passed / 2 skipped; synchronized startup and crash-recovery checks passed | Atomically claim scheduler ownership and job attempts | Prevent duplicate execution using the corrected ownership primitives |
+| 6 | 2.15 | Verified 2026-09-27: 2,262 passed / 2 skipped; concurrent memory preservation checks passed | Replace destructive memory rollback | Protect legitimate owner and agent updates during concurrent work |
+| 7 | 2.16 | Verified 2026-09-27: 2,298 passed / 2 skipped; concurrent compaction and process-crash recovery checks passed | Make compaction preserve concurrent history | Build recoverable conversation updates on the corrected persistence layer |
+| 8 | 2.17 | Verified 2026-09-27: 2,309 passed / 2 skipped; overlapping realm switches, stale saves and run-ID reuse checks passed | Bind requests and runs to immutable realm identity | Keep every side effect attached to the correct realm through navigation |
+| 9 | 2.18 | Verified 2026-09-27: 2,381 passed / 2 skipped; 70 lifecycle regressions including real process-tree cleanup | Supervise CLI processes and enforce terminal outcomes | Make timeout, cancellation and success/failure reporting reliable |
+| 10 | 2.19 | Verified 2026-09-27: 2,425 passed / 2 skipped; 41 provider-upkeep regressions and a lock-initialization regression | Remove Claude-only gates from provider-neutral work | Make the repaired execution paths work correctly across connected providers |
+| 11 | 2.20 — complete integration | Verified 2026-09-27: 2,494 passed / 2 skipped; 68 shared execution contract cases | Finish shared execution contracts and lifecycle ownership | Consolidate contracts introduced during steps 3 and 8–10 before further agent-execution features |
+| 12 | 6.4 setup CX follow-up → 6.5 | Nine-step wizard review build ready: dedicated Naming step, editable Team and folder while setup is unfinished, custom-agent deletion, refreshed historical portraits/names, expanded Company/Ship profiles, progressive formatted first task, and Telegram as a Done action | User walkthrough, automatic connector setup and real first-artifact acceptance remain open | Latest full suite: 2,569 passed, 2 skipped. A completed test realm had kept a stale wizard route; completed setups now return to the app, and saved setup shows other registered realms on Folder. Package: `build/setup-cx-4gh7oua4/bundle/ARMADA-CX-Setup.exe`; a fresh isolated native review window is open, with earlier test realms preserved in their prior profile. Connector follow-up: `docs/dev/STARTER_CAPABILITIES.md` |
+| 13 | 2.21 — final gate; 5.10; 8.1 | Queued | Run complete CI, clean-machine tests and the release rehearsal | Verify the integrated feature set before beta |
+| After beta | D.8 | Deferred | Complete UI namespace/import cleanup | Structural cleanup can proceed incrementally without delaying the concrete safety fixes |
+
+2.20 is incremental: introduce each small contract when its consumer needs it, rather than
+building a new framework up front or waiting until step 11. 2.21 also spans the work: add each
+regression as its defect is fixed, and re-run the release gate after remaining features land.
+Existing behavior is preserved except where the ticket explicitly corrects it.
+
+**Wizard status clarification:** 6.4 already records an implemented nine-step wizard and its
+routes/scripts exist. The recorded open milestone is 6.5 (prove time-to-first-value with a real
+artifact). The September 28 provider follow-up uses the contracts above for either-provider
+onboarding and Alexander. Installed-app acceptance and the real artifact milestone remain open.
+
+- [~] **2.11 · P1 · Confine files and isolate all active content (R1; extends 5.8a).** Replace
+      `_static` string filtering with resolved containment; reject Windows drive/UNC/absolute
+      escapes. Route or sanitize user-controlled SVG icons/avatars under the same trust policy
+      as HTML attachments. **Accept:** an HTTP request for a scratch file outside the static
+      directory fails; bundled assets still work; adversarial Windows paths are covered; a browser
+      SVG-document test cannot access a harmless test-only API endpoint. Update the threat model.
+      **Implementation verified 2026-09-27:** resolved containment and Windows path rejection
+      protect bundled assets; all three user-image routes apply a script-free sandbox CSP and
+      `nosniff`. HTTP regressions cover traversal, drive/UNC paths, assets and SVG responses.
+      In-browser SVG documents remained visible and made zero calls to a test endpoint; the
+      ordinary control page made one. Full suite: **2,022 passed, 2 skipped** (93.94s); this
+      Windows host does not permit creating the symlink needed by one regression. Source verified;
+      packaging, clean-machine validation and launch signoff remain separate gates.
+- [~] **2.12 · P1 · Fail closed on invalid capability policy (R2).** Remove the fallback that
+      drops per-agent restrictions when grant resolution fails. Validate policy and compare grants
+      against each provider's effective inventory, including newly discovered servers. **Accept:**
+      unreadable/malformed policy cannot launch a tool turn; empty, revoked and unknown grants
+      cannot expose connectors under either adapter; the error reaches the user and run record.
+      **Implementation verified 2026-09-27:** strict policy parsing and immutable grant snapshots;
+      grants refreshed at launch; both adapters gate effective CLI MCP inventories and reject
+      inventory errors. Failed admission is durable for chat, streaming chat, jobs and inbox tasks.
+      The installed Claude CLI honored empty-grant settings: **3 configured servers → 0 available**,
+      without a model call. Full suite: **2,153 passed, 2 skipped** (94.78s); the final compatibility
+      facade and generated references also passed **251 focused checks**. Provider requirements
+      and the invocation-level enforcement boundary are documented in `dev/CODEX_INTEGRATION.md`.
+- [~] **2.13 · P1 · Make file mutations genuinely exclusive (R3).** A lock timeout or filesystem
+      error must return busy/failure, never enter the critical section. Add safe owner-death recovery
+      and a shared read/validate/mutate/atomic-write helper. Audit shared writers, including
+      `system_jobs.json`, agent settings, grants and thread metadata. **Accept:** independent-process
+      increments preserve every update; contention, crash and access-error cases never perform an
+      unlocked write; malformed/future-schema state is preserved and surfaced rather than rewritten
+      as defaults. Establish the read-only/recovery policy for unsupported schemas.
+      **Implementation verified 2026-09-27:** bounded OS locks never yield on contention/error;
+      ownership ends on process death without unlinking the stable lock file. Added strict
+      `read_json_state` / `mutate_json`, repaired system-job result/switch merges and audited
+      agent/grant, thread metadata, job route and migration writers. Unsupported realm schemas
+      refuse edits and execution while inspection remains available. Four independent processes
+      preserved **120/120 updates**; crash, timeout, access-error, corrupt-state and HTTP schema
+      checks pass. Full suite: **2,178 passed, 2 skipped** (100.75s); final agent/read-reference
+      checks: **120 passed**. See `dev/PERSISTENCE.md` for recovery. Deployment requires restarting
+      the UI and scheduler together; the live installation has not been restarted during this work.
+- [~] **2.14 · P1 · Atomically claim scheduler ownership and job attempts (R4; follows 2.13).**
+      Replace read-then-replace ownership with an exclusive lease/OS lock and unique owner token.
+      Prevent overlapping callers in one process as well as separate processes. **Accept:** two
+      synchronized starters produce one owner and one job attempt; stale recovery cannot remove a
+      live owner's lease; write failure blocks dispatch. Document retry/idempotency behavior after
+      a crash without claiming exactly-once external side effects.
+      **Implementation verified 2026-09-27:** OS-held realm leases with unique owner tokens;
+      explicit daemon handles and a non-reentrant pass gate; durable daily agent/command claims
+      before dispatch. System jobs also claim before execution under per-job locks shared by
+      scheduler, app-startup and manual entry points, with cadence rechecked under ownership.
+      Two synchronized processes produce **one owner / one dispatch**; same-process overlap,
+      stale tokens, killed owners before/after an effect, claim/result write failures and explicit
+      recovery pass. Interrupted attempts are held instead of automatically replayed; manual
+      retries and external idempotency limits are documented in `dev/PERSISTENCE.md` and Jobs help.
+      Added **26 regression cases**. Full suite: **2,204 passed, 2 skipped** (106.18s); the Docs
+      golden change contains only the new recovery guidance. Source verified; the live UI and
+      scheduler have not been restarted.
+- [~] **2.15 · P1 · Replace destructive memory rollback (R5).** Remove whole-folder snapshot
+      restoration that cannot attribute writes. Use execution-time restrictions or owned/staged
+      memory writes; explicitly describe any provider limitation. **Accept:** agent A finishing,
+      failing or being cancelled cannot undo B's memory updates, an owner's edit or system-memory
+      refresh; unauthorized writes are blocked where supported or reported without erasing other
+      writers' data. Update the threat model's enforcement claim.
+      **Implementation verified 2026-09-27:** removed the snapshot/restore helpers. Claude receives
+      absolute file-tool denials for protected memory roots; every adapter records bounded,
+      non-destructive observations in run reports, separate audit files and expandable thread
+      cards. Tool attempts remain distinct from changes whose writer is unknown. All four runner
+      paths preserve B's updates, owner edits and system-memory refreshes after A succeeds, fails,
+      stops, raises or is cancelled. Own memory stays writable; incomplete scans and audit-write
+      failures are explicit. Codex's current adapter audits without per-memory isolation;
+      shell/MCP limits are documented in `dev/MEMORY_BOUNDARIES.md` and the threat model.
+      Full suite: **2,262 passed, 2 skipped** (110.00s). Final Windows-path, memory, capture,
+      CLI-argument and documentation checks: **177 passed**. The Docs golden was updated for the
+      new memory and safety guidance. Source verified; live UI and scheduler have not been restarted.
+- [~] **2.16 · P1 · Commit compaction without losing concurrent history (R6; follows 2.13).**
+      Summarize a versioned prefix outside the lock, then validate and preserve the current tail
+      when committing. Make summary/log state recoverable across interruption. **Accept:** a turn
+      appended during the model call survives; pending turns/events survive; concurrent truncate
+      produces an explicit retry/conflict; interruption between writes recovers coherent history.
+      **Implementation verified 2026-09-27:** immutable history snapshots; model calls outside the
+      lock; prefix/summary/revision validation and preservation of the current tail. Pending and
+      interleaved turns remain intact, events survive, and a changed conversation raises an
+      explicit retry conflict. Summary/log/revision updates use a checksummed before/after journal;
+      every reader and writer recovers prepared commits under the messages lock. Truncation uses
+      the same service and advances the revision, including protection against truncate/restore
+      races. Independent writers and competing compactors pass; real process exits after journal
+      preparation, each replacement and cleanup recover a coherent generation. Unknown external
+      edits and corrupt journals are preserved for explicit recovery. Added **36 regression cases**.
+      Full suite: **2,298 passed, 2 skipped** (125.28s); **152 final focused checks** include the
+      final Unicode JSONL correction. Generated references and the Docs golden are updated;
+      recovery and upgrade behavior are documented in `dev/PERSISTENCE.md`. Source verified;
+      live UI and scheduler have not been restarted.
+- [~] **2.17 · P1 · Bind requests and runs to immutable realm identity (R7).** Pass an explicit
+      realm/agent/thread/run context through handlers, title helpers, unread state, content links
+      and cancellation. Include realm identity in mutations and reject stale-page mismatches.
+      **Accept:** switching A → B during a turn leaves every A side effect in A; identical agent
+      and thread IDs in B cannot collide; a stale A form cannot mutate B.
+      **Implementation verified 2026-09-27:** immutable request and run contexts capture the
+      destination before dispatch. Browser requests carry page identity; missing, conflicting
+      and stale mutation identities fail closed. Completion, title generation, unread updates,
+      artifacts and normal run telemetry remain in the original realm. Cancellation keys include
+      realm/run identity, duplicate active IDs are refused, and each run owns its activity marker.
+      Marker removal and ID release are atomic, including reuse while a previous handler finishes.
+      Bound content URLs preserve original images, attachments, embeds and mini-site relative assets;
+      notification links select their source realm. Eight regression tests include real HTTP
+      overlapping A/B turns and the Node browser harness. Full final suite: **2,309 passed,
+      2 skipped** (126.90s), including all 20 reviewed page snapshots; generated references updated.
+      Protocol and upgrade behavior are documented in `dev/REQUEST_CONTEXT.md`. Source verified;
+      live app and scheduler have not been restarted.
+- [~] **2.18 · P1 · Supervise CLI processes and enforce terminal outcomes (R8).** Share the
+      deadline, pipe draining and cleanup machinery across adapters while keeping protocol parsing
+      provider-specific. **Accept:** silent/stderr-flooding children terminate within the deadline;
+      missing terminal events, nonzero exit after text and malformed output cannot be successful
+      turns; cancellation cleans up the process tree; partial output remains with an error/stopped
+      status; callbacks and cleanup failures do not strand active-run markers.
+      **Implementation verified 2026-09-27:** Claude JSON/streaming and Codex turns share a
+      subprocess supervisor with monotonic deadlines, concurrent stdin/stdout/stderr handling,
+      bounded queues/output and bounded cleanup waits. Windows children start suspended and join
+      a kill-on-close Job Object before resuming; POSIX uses process groups. Cancellation owns
+      ordinary descendants, including when the CLI parent exits first. Provider-specific parsers
+      require terminal success plus zero exit and reject malformed JSON/UTF-8, invalid terminal
+      fields and contradictory events. Partial output and captured artifacts survive failures;
+      chat, streaming chat and agent jobs persist explicit error/stopped outcomes. Valid empty
+      successes receive a completion record. Callback failures do not abandon owned processes;
+      marker deletion failure falls back to terminal state, ignored by the UI. Added **70 lifecycle
+      regressions**, including real child/grandchild processes and cleanup/ownership fault injection.
+      Final full suite: **2,381 passed, 2 skipped** (158.29s); all 20 page snapshots pass, and generated
+      references are updated. Contract, probe scope and OS/callback limits are documented in
+      `dev/PROCESS_LIFECYCLE.md`. Source verified; no paid model turn, live-realm edit or app/scheduler
+      restart was performed. Next in order: **2.19**.
+- [~] **2.19 · P2 · Remove Claude-only gates from provider-neutral upkeep (R9).** Resolve auth
+      for the actual task/recipient provider. Keep Claude keepalive explicitly Claude-specific.
+      Normalize every system-job result, including skipped/disabled/error branches. **Accept:**
+      Codex inbox work runs with Claude signed out; Claude-only/both/neither-connected cases behave
+      predictably; every result includes job identity and a truthful status/reason. Cover the
+      Telegram fallback separately from its independent listener.
+      **Implementation verified 2026-09-27:** quota cost no longer imposes Claude sign-in.
+      Inbox delivery and both Telegram paths check the selected recipient provider; Claude
+      keepalive declares its provider explicitly. Signed-out inbox tasks remain pending without
+      advancing recipient cadence, and other providers continue. Telegram gives sign-in/retry
+      guidance without charging its run allowance. Probe failures fail closed. Every returned
+      system-job outcome carries identity, status, reason and distinct skip/error fields; skips
+      retain their status in history and do not increment failures or trigger failure notices.
+      Added **41 provider-upkeep regressions**, covering all four connection combinations,
+      mixed batches, recovery, manual admission, independent listener/fallback and result branches.
+      Verification also exposed and fixed empty-lock initialization starvation, with a regression;
+      process-cleanup test readiness now publishes the PID atomically and checks the original
+      process handle rather than a potentially recycled PID. Final full Windows/Python 3.12 suite:
+      **2,425 passed, 2 skipped** (161.60s), including all 20 page snapshots; generated references
+      updated. Contract and retry semantics: `dev/PROVIDER_UPKEEP.md`. Source verified; no paid
+      model call, live Telegram send, live-realm edit or app/scheduler restart. Next: **2.20**.
+- [~] **2.20 · P2 · Make execution contracts explicit (R10).** Introduce typed run context,
+      request/result/events and provider capabilities; one coordinator owns turn start, progress,
+      terminal persistence and cleanup for HTTP, jobs, inbox and Telegram. Implement in small
+      steps alongside 2.12/2.17–2.19, retaining compatibility facades. **Accept:** both adapters pass
+      the same lifecycle contract suite; unsupported budgets/fallback/tool policies fail explicitly;
+      unknown accounting is represented as unknown; routes do not mutate thread state through
+      private rendering helpers. Refresh architecture/provider docs. Full UI mirror removal is D.8.
+      **Source verified 2026-09-27:** frozen provider requests/policies, normalized events,
+      cancellation handles and declared capabilities now supplement the existing typed context
+      and result. `TurnCoordinator` owns admission, progress, terminal history, artifacts and
+      reports for chat/HTTP, jobs, inbox and Telegram; `RunSession` owns activity and cancellation.
+      Compatibility runner entry points and context/capture helpers remain. Adapters bind grants
+      to invocation-local copies; unsupported budget, fallback and tool requirements fail before
+      compaction/launch. Thread metadata persistence moved out of private rendering helpers.
+      Unknown token counts/cost serialize as null; incomplete totals remain unavailable and charts
+      identify missing runs. Added **68 contract cases**, including both adapters across four
+      entry points, all terminal outcomes, policy isolation, observer/cleanup failures and accounting.
+      Existing concurrency and usage tests now exercise the shared behavior. Full Windows/Python
+      3.12 suite: **2,494 passed, 2 skipped** (175.95s), including all 20 page snapshots unchanged.
+      JavaScript syntax and diff whitespace checks passed; generated references refreshed.
+      Architecture/provider documentation: `dev/EXECUTION_CONTRACTS.md`. No paid model call,
+      live-realm edit or app/scheduler restart. Next: **6.5 and remaining feature tickets**;
+      the complete 2.21/5.10/8.1 release gate remains queued.
+- [~] **2.21 · P2 · Establish a clean, reproducible Windows release gate (R11).** Pin test tools;
+      freeze clock, machine context, provider/auth and home state before fixture construction;
+      isolate default tests from live network/providers. Add a declared Windows/Python 3.12 CI
+      workflow and the boundary/interleaving/process regressions above. **Accept:** all current
+      tests pass with no accepted-failure baseline on repeated isolated runs; the two volatile
+      goldens are fixed at their inputs, not blindly regenerated; skipped system jobs satisfy the
+      result contract; the CI run is required before release. Preserve the separate 5.10 VM gate.
+      **Baseline milestone verified 2026-09-27:** system-memory timestamps use the clock seam;
+      fixture clock/home/environment are fixed before construction; fixture servers close and
+      restore their state; housekeeping tests isolate auth/external jobs; skipped/error results
+      retain job identity. Reviewed updates to only the affected memory/context goldens. Added
+      regressions for construction inputs, fixture teardown and skipped-result identity. Two
+      isolated full runs: **1,999 passed, 1 skipped** (92.78s / 88.91s). Full CI/dependency pinning
+      and the post-feature release gate remain open.
+
+---
+
 ## Phase 3 — Documentation *(runs alongside Phase 2's tail)* — **Sonnet 5**, design-system doc → Opus
 
 Docs-as-context is the product here: Alexander's quality is capped by these, so they come before
@@ -828,6 +1071,43 @@ One guides the other. Alexander's knowledge is the docs (Phase 3); the wizard's 
       skills, all Low risk, none needing an account) · a real first brief from the coordinator,
       streamed · tour · done. Everything Alexander says is `alexander/wizard_script.py`. Two
       halves (welcome mode, then `/setup` in the new realm), resumable from `realm.json`.
+      **Provider follow-up, source implemented 2026-09-28:** shared setup/App connection controls
+      for Claude, Codex or both; official browser sign-in, disconnect/reconnect, and connected-provider
+      model choices. Codex-only setup applies executable defaults and reruns preflight. Alexander's
+      app-wide model/effort controls live under App → Advanced; Automatic prefers Opus 5.5/Medium with
+      Claude, otherwise GPT-6 Sol/Medium. Isolated browser checks verified connection combinations,
+      reconnect/model refresh, and saved overrides after reload. Real OAuth callbacks and the fresh
+      installer remain acceptance work. Final suite: **2,519 passed / 2 skipped** (183.23s), with
+      all 20 rendered-page goldens passing. See [Provider onboarding](dev/PROVIDER_ONBOARDING.md).
+      **September 28 refinement:** Mihai selected Medium for Alexander's Claude default and approved
+      the isolated-profile → fresh-Sandbox testing plan. Both dropdowns mark Automatic as `(default)`;
+      the panel explains Alexander's role instead of listing its model defaults. Installed acceptance
+      remains pending; this approval does not mark the test execution complete.
+      Refinement verification: **156 passed**, covering Alexander, provider preferences, all 20 page
+      goldens and documentation references; provider JavaScript syntax check passed.
+      **Immediate CX walkthrough prepared 2026-09-28:** current-source test installer compiled,
+      bundled-runtime smoke checks passed, and fresh Windows Sandbox launched at the interactive
+      installer. Run: `build/setup-cx-5xfga7nt`; real provider login and user walkthrough pending.
+      This lets Mihai assess the current end-to-end CX before the first-artifact refinement.
+      Sandbox reached the desktop but did not auto-launch the installer. Supplied the manual
+      installer entry point and opened an empty-profile native test copy; welcome page verified
+      on port 57641. Wizard walkthrough is ready; installer acceptance is still unverified.
+      **First walkthrough feedback:** missing test-profile Desktop and CODEX_HOME folders blocked
+      the folder picker and Codex login. Corrected the launcher and app error paths; added optional
+      installer CLI tasks, in-app install/update before sign-in, explicit installed/signed-in states,
+      login cancellation/reopen/failure handling, existing-realm adoption, and the minimal welcome
+      screen. Regression suite: **2,539 passed / 2 skipped**, then **290 focused checks passed**.
+      Installer rebuilt at `build/setup-cx-xd45lydh`; packaged welcome/provider screens verified.
+      Real vendor installation and login acceptance remain pending; see the provider onboarding log.
+      **Second CX feedback:** Claude update failure reproduced (`Get-FileHash` unavailable under
+      inherited PowerShell module paths) and fixed; official installation of 2.1.283 verified in the
+      isolated profile. Removed the cp1252 stdout failure after realm creation. Greeting and unboxed
+      layout refined; names moved to Team and made required; Folder owns existing-realm adoption.
+      Team now offers the approved prepared Cabinet roster, full profile dialogs, drag/Add selection,
+      custom profiles, personalized owner references and Alexander-aligned model/effort defaults.
+      Check lists both CLI versions and bundled/runtime dependencies. Browser creation reached
+      Capabilities; 68 focused checks passed. Updated regression/build evidence follows in the
+      provider onboarding log. First-artifact/time-to-first-value acceptance is still open.
 - [ ] 6.5 Time-to-first-value measured: the wizard is done when a new user has watched one
       real job produce one real artefact. Everything else is Alexander's job later.
 - [x] 6.6 Alexander's answers are grounded: every answer cites the doc page or the log line it
@@ -867,6 +1147,8 @@ comes before any code.
 
 - [ ] 8.1 Release procedure written and rehearsed: version bump, changelog, full suite, regold
       review, clean-machine test (5.10), build, tag, publish, announce.
+      **Prerequisites:** the 2026-09-26 review's 2.11–2.21 acceptance gates and 5.10 pass; no
+      security/data-loss finding is waived by the historic test baseline or earlier phase sign-off.
 - [ ] 8.2 **MIHAI**: the invite list and the message.
 - [ ] 8.3 Beta build shipped to the invited group.
 - [ ] 8.4 Feedback triage loop: reports from 5.6 land somewhere Mihai reads daily; each becomes
@@ -884,8 +1166,10 @@ Listed so we never have to work out what comes next.
       patches the app. Runs as a separate process with its own checkout. Reverting is deleting
       an add-on's folder. Requires: the add-on surface proven by at least one built-in feature
       using it.
-- [ ] D.2 **Second engine (OpenAI)**, priced by 2.6. Only if beta users ask; the audit says
-      what it costs.
+- [~] D.2 **Second engine (OpenAI) — promoted into current work by Mihai, 2026-09-26.**
+      No longer deferred until beta demand: the Codex adapter and cross-provider model selection
+      are implemented in the working tree. Remaining provider hardening is tracked in 2.12 and
+      2.18–2.21; scope/limitations are in [Codex integration](dev/CODEX_INTEGRATION.md).
 - [ ] D.3 **Dark mode** (if not done in 4.4).
 - [ ] D.4 **Second platform** (if 0.6 named one).
 - [ ] D.5 **Council v2**: whatever 7.6's iterations couldn't fit — async councils, standing
@@ -893,23 +1177,201 @@ Listed so we never have to work out what comes next.
 - [ ] D.6 **Capabilities**: automatic re-review when a capability updates (the update check
       exists); a "what changed" diff of a skill between versions.
 - [ ] D.7 **Public launch**, with whatever the beta taught us.
+- [ ] D.8 **Complete explicit UI module boundaries (review R10).** Replace remaining
+      `globals().update` namespace mirrors with explicit imports/exports, preserve the public
+      renderer facade, and enforce import directions in checks. Migrate module by module with
+      deterministic goldens; do not make a frontend rewrite a prerequisite. Execution ownership
+      and moving state mutations out of renderers are already required before beta in 2.20.
 
 ---
 
 ## Where things stand *(update this block as we go)*
 
+October 3 release preparation: v0.99.74 collects the three-engine integration, job result and
+retry behavior, standalone desktop lifecycle, provider discovery, setup and UI changes since
+v0.99.73. README, GitHub metadata and release documentation are being brought up to date.
+Full Windows verification: 2,923 passed, 2 skipped; 41 changed JavaScript files passed syntax
+checks. Golden changes were reviewed against the requested UI updates. Validation also corrected
+ad-hoc task classification and kept newer-schema realm adoption read-only. Installer publication
+is in progress. The armada.stamih.com
+landing page is a separate design review; website publication waits for Mihai's UI approval.
+No launch-plan acceptance checkbox is changed by this release preparation.
+
+October 3 Check spacing: plan guidance follows the disconnect note beneath the engine cards.
+Cards now collapse empty feedback/login regions and size to actual content, keeping the three
+status groups and bottom actions aligned. Real sign-in links/errors can expand the shared row.
+Focused checks passed and native Check view verified. The refreshed Windows status now also
+reports Claude signed in on Claude Pro; all three engines are connected in the review window.
+
+October 3 Check follow-up: signed-in engines show Subscription type below authentication.
+Reported plans are normalized; absent plans explicitly say "Not reported by CLI". Card/button
+alignment is retained. Native Windows metadata confirms Claude's current engine-login record has
+no access or refresh token (expiry zero); why it was cleared is not established. 111 focused
+checks passed, including subscription clearing on sign-out/check failure. User acceptance remains open.
+
+October 3 setup polish: supplied welcome/tagline and subscription guidance are in place.
+Check has three aligned compact engine cards, original provider colors and separate CLI/auth
+status pills. The review launcher now isolates only Armada data and preserves real Windows
+vendor homes: its previous empty credential directories caused the false Claude/Codex sign-outs.
+Probe failures remain distinct from a confirmed sign-out. User walkthrough acceptance remains open.
+Installed changes and native Check layout verified: Codex and Gemini are signed in; Claude's own
+Windows CLI and the live app currently both report signed out. Read-only diagnostics confirmed the
+real Windows home/launchers. Provider/review/docs checks: 112 passed; provider/auth checks: 24 passed.
+
+October 3 setup review: onboarding and the optional Windows installer tasks now name
+Claude, Codex and Gemini through Antigravity consistently. Gemini-only team creation
+now passes the server's provider check. The wizard uses the current support portrait
+with cache busting; its tour explains current job outcomes, retry/model overrides,
+engine limits, Documentation search and tray scheduling. `tools/review_setup.py`
+opens current source under Explorer with a fresh isolated profile and real provider
+connections. Focused checks: **150 passed**; installer compilation passed. A fresh
+native review window is open at Start setup; user walkthrough acceptance remains open.
+
+October 3 startup correction: the loading artwork is now a child panel in the main
+window. Server preparation runs after that window is created, and the panel stays
+until the dashboard paints; the temporary splash process/window has been removed.
+
+October 3 icon polish: model and connected provider icon shadows have been removed;
+further treatment is deferred to a separate design task.
+
+October 3 reliability fixes: Windows app launches detach through Explorer before realm
+selection, avoiding Codex's process lifetime and MSIX filesystem view. Provider discovery
+retains the installed Gemini executable path; the native splash covers early startup.
+Agent-job retries now have a validated 0–3 dropdown, durable backoff and per-attempt
+results, with uncertain delivery held for reconciliation. Focused verification and the
+October 3 Digest recovery are recorded in this work session; release acceptance remains open.
+
+September 29 second wizard review: Welcome says setup takes about ten minutes. The State roster
+names Wedgwood's agent Josiah and uses the supplied portrait. Wikipedia links have no underline; the
+coordinator checkbox has no optional suffix; profile-preview guidance leads the modal. Done offers
+Open realm or Open and connect Telegram now, the latter opening App settings scrolled to Telegram.
+The folder error came from a completed test realm still displaying a stale wizard page. Completed
+setup now redirects to the app and rejects step rewrites; unfinished setup can relocate the realm,
+then resumes at Naming. Its Folder step again lists other registered realms, which were never
+deleted. A fresh isolated Setup CX profile is open for the next walkthrough; the earlier profile
+and its realms remain intact. Full suite: **2,569 passed, 2 skipped**; the Windows process-cleanup
+test now waits for its fixture descendant before measuring cleanup under load. The real first task
+and user acceptance remain open.
+
+September 29 wizard review: Folder and Naming are separate steps; Team opens with its realm types
+and roster visible. The create-profile form labels optional inputs explicitly, and custom profiles
+can be deleted from the team. Prepared State profiles now show Benjamin and David with the supplied
+portraits and Wikipedia links; Company adds a CPO and all Company/Ship starter roles have full
+generic profiles. Signed-in provider status is green with a check; Capabilities has tighter Enable/Add
+labels and the requested secondary action; First task reveals stable Markdown blocks progressively,
+word by word. Done recommends connecting Telegram through App settings. Browser fixtures exercised
+the team, capabilities, streamed reply and Done; the full suite passed **2,568 tests, 2 skipped**.
+The refreshed native Setup CX test window preserves the existing isolated profile. A real
+authenticated first task and user walkthrough remain open.
+
+September 28 latest wizard review: the login adapter drains output without waiting for a newline,
+publishing only validated provider authorization URLs after output settles. The pending card shows
+the full clickable/copyable URL, and says it is preparing the link until one is available; cancellation
+and completion clear it. Recheck buttons have fixed widths and feedback lines reserve their full
+height, including the formerly hidden empty Check-again paragraph. Browser measurements confirm
+identical positions/sizes before and after both refresh actions.
+
+Alexander's wizard subtitle is YOUR GUIDE. Realm types and profiles are hidden together until both
+names are present, then fade in over 320 ms. The avatar picker expands over 280 ms (both respect
+reduced motion); the placeholder is "e.g. Warren". Governing document previews put the note first,
+then the icon beside the title. First task reuses the thread message renderer without action/sidebar
+controls; output is buffered and rendered as sanitized Markdown before becoming visible, with a
+working indicator meanwhile. Capability inclusion and enabled state are separate: all recommendations
+start checked, unchecking disables the toggle, rechecking restores its prior state, and disabled
+choices are still added to Capabilities > User. Add and continue advances after successful additions
+in one action; retries preserve successful additions. Planned connections retain their authentication
+requirement even if enabled. The header support icon is 18 px, uses the standard icon colour and has
+no ring; the drawer's New conversation action is removed.
+
+Full suite: **2,567 passed, 2 skipped**. Browser validation used disposable provider/first-reply
+fixtures, including an 11-capability realm with 7 enabled and 4 disabled. JavaScript syntax and diff
+checks passed. The final CSS reservation correction was verified in a fresh browser after the suite.
+Fresh installer `build/setup-cx-n5c1nf8f/bundle/ARMADA-CX-Setup.exe` passed embedded-runtime smoke;
+the isolated review window is reopened with its existing test profile. Main app reloaded only after
+agents were confirmed idle, to keep its Python markup and updated JavaScript in sync. User acceptance
+and a real authenticated first-task walkthrough remain open.
+
+September 28 provider Settings follow-up: the main app was still serving pre-onboarding Python
+markup alongside the updated JavaScript, leaving obsolete sign-in/recheck handlers disconnected.
+Shared setup/Settings provider cards now include provider icons, CLI versions, explicit Signed-in
+or Not signed in status, Sign in with an external-link icon, and Recheck with progress/completion
+feedback. Status requests have a deadline and an actionable failure state. Removed the static
+provider/subscription badge from the header; retained the wizard support icon and reduced/lowered
+the beta pill. The main app was reloaded through its own Restart control after checking agents idle.
+Browser checks confirmed real Codex sign-in/status refresh and the isolated sign-in action; the
+main profile currently has no Claude CLI, correctly presented as Install Claude CLI. Full suite:
+**2,565 passed, 2 skipped**; the focused suite passed 86 tests. Fresh package:
+`build/setup-cx-4_nv3dnl/bundle/ARMADA-CX-Setup.exe` (embedded-runtime smoke passed).
+Telegram recommendation: offer an optional connection after the first task, with Skip for now,
+reusing App Settings controls; do not make it a prerequisite. This recommendation is recorded for
+the next setup decision, not implemented as an extra step in this pass.
+
+September 28 fifth setup CX pass: Welcome, Check and Capabilities use the requested copy with
+wider introductory text. Check again waits for any current refresh, then runs a fresh check with
+an animated icon and completion feedback. Team profiles stay hidden until both names are given;
+profile notes appear at the top, capability fields are omitted, and custom agents can become the
+coordinator. State/Company/Ship/Blank show The Constitution/The Memorandum/The Code/The Covenant,
+with adapted read-only previews; the same names are used in Memory, agent pages and Realm settings,
+where the document can now also be read and edited. Enabled capabilities sort first within each
+type; secondary actions sit beside the primary action. Added the requested info/Telegram icons,
+smaller lower beta pill and provider icons beside Week/Session rows.
+
+Returning to Folder can move the unfinished realm to a new or empty location, preserving the team
+and work. Moves verify copied contents, update registration/preferences and roll back failures;
+active turns/scheduler leases block relocation. With other registered realms, the destination must
+remain inside the existing Armada root; a sole new realm can move to a different root. Unfinished
+setup realms are excluded from scheduler startup/enumeration until setup completes. Browser checks
+confirmed folder relocation, preserved team, coordinator selection, document previews, capability
+ordering, footer placement and the Overview/Settings changes. Full suite: **2,565 passed, 2 skipped**;
+JavaScript syntax and diff checks passed. The earlier scheduler contention test passed in this full
+run; its intermittent failure remains a test-stability observation, not a scheduler fix in this pass.
+Isolated installer `build/setup-cx-1nty4fcm/bundle/ARMADA-CX-Setup.exe` passed runtime smoke checks;
+the refreshed **ARMADA — Setup CX test** window preserves the existing test login profile.
+User walkthrough/acceptance remains pending.
+
+Previous fourth-pass record (folder relocation above supersedes its fixed-location behavior):
+
+September 28 fourth setup CX pass: every numbered step has Back; realm-mode setup includes the
+opening steps and an editable, prefilled Team builder. Saving updates the current realm label,
+owner and roster; removed agents are retired, restored profiles keep their history, and existing
+capabilities/model settings remain. Folder shows the committed location after creation (renaming
+a realm changes its label, not its on-disk path). Active turns block team mutation; failed writes
+roll back, including exact Windows line endings. Added regression coverage for persistence,
+custom-agent identities, retirement/restoration, and rollback. "First task" replaces the visible
+"First job" label (internal progress ID retained); capability cards are tighter; Tour and the app
+header share the ix/support-ai icon and requested copy. Browser walkthrough verified edits,
+restoration, Back through all steps, reload/resume, and the main header. Full suite: 2,560 passed,
+2 skipped, one scheduler concurrency test failed; all 26 tests in that module passed on rerun.
+Isolated installer `build/setup-cx-n3ens0rv/bundle/ARMADA-CX-Setup.exe` passed embedded-runtime
+smoke checks; test app reopened with its existing test login profile. User CX acceptance pending.
+
+
+September 28 setup CX: source changes restore Alexander’s numbered Welcome after the unlisted
+splash, show runtime health/version/repair links, refine the roster and read-only/create dialogs,
+and share capability cards and persistence with Capabilities > User. Browser/backend validation
+passed (2,558 tests, 2 skipped); isolated packaged app refreshed with its test sign-ins preserved. Community Google connector shortlist is documented in
+`docs/dev/STARTER_CAPABILITIES.md`; automated connector installation/OAuth remains open.
+
+
 | Phase | State | Model | Notes |
 |---|---|---|---|
+| Codex provider (2026-09-26) | `[~]` | Codex | Requested by Mihai: combined per-agent model picker, Codex CLI adapter and automatic provider routing. Subscription limits shows Codex left and Claude right, each with an icon beside Week/Session bars; unavailable readings stay gray without percentage/reset text. Claude sign-out is a dismissible notice once per app session. See `docs/dev/CODEX_INTEGRATION.md` for behavior, verification and remaining Claude-specific features. |
 | 0 Decisions | `[x]` | Opus 5.5 (ADRs written on Fable 5.1) | ADR-001…007 **accepted** 2026-09-21. ADR-008 (the name: ARMADA) accepted 2026-09-24. |
 | 1 Catalogue reframe | `[x]` | Sonnet 5 | Shipped as v0.99.25, then four polish rounds (v0.99.26–v0.99.29) from Mihai's real use of Bring a link against the live Claude CLI — spinner/timer split, results-area spinner, risk-bucketed assessment (now floored to the mechanical worst-case, one pill instead of two), full-review paragraph breaks (incl. a compound-label fix), inline Runs/Can-touch icons, animated full-review caret, matched icon sizes. Full suite clean each time (regolds reviewed). Bring a link has now run for real, not just against the test fake. Closed: Mihai read 1.5's copy and signed off 2026-09-21. |
-| 2 Architecture | `[ ]` | Sonnet 5 (2.6, 2.7, 2.10 → Opus) | Sept-7 review: 11/13 done; the rest is itemised above. 2.3 shipped as v0.99.30. A bugfix Mihai hit using Bring a link (v0.99.31) landed first. 2.4's render half shipped as v0.99.32; its data half (catalogue.py → armada/catalogue/) and all of 2.9 (realm.json write locking + the scheduler double-fire lock) shipped together as v0.99.33. 2.1 shipped as v0.99.36. 2.2 shipped as v0.99.37, 2.8 as v0.99.38, 2.5 as v0.99.39, 2.6 (doc), 2.7 as v0.99.40, 2.10 (doc). All Phase 2 items done — awaiting Mihai's sign-off; tickets from ARCHITECTURE.md §4 go to 4.3. |
+| 2 Architecture | `[~]` | Prior phase: Sonnet/Opus; Sept-26 review: Codex | Earlier 2.1–2.10 deliveries remain recorded above. The current working-tree review found 8 P1 and 3 P2 findings: content/policy boundaries, write and scheduler races, destructive memory rollback, compaction loss, realm identity, CLI lifecycle, provider gating, contracts and test reproducibility. Source implementations for 2.11–2.20 and the 2.21 baseline are verified; final suite: 2,494 passed / 2 skipped. Next: 6.5 and remaining feature tickets, then the complete release gate. These are beta prerequisites; broader UI namespace cleanup is D.8. Evidence: `docs/dev/ARCHITECTURE_REVIEW_2026-09-26.md`. No new implementation is marked complete. |
 | 3 Docs | `[~]` — 3.7 (Mihai's review) left | Sonnet 5 (3.2 → Opus, 3.5 → Haiku) | 3.2 done (`DESIGN_SYSTEM.md`). Seeds: `SPEC.md`, `SCHEMA.md`, `DESIGN_TOKENS.md`, plus Phase 2's `ARCHITECTURE.md`, `ENGINE_SEAM_AUDIT.md`, `EXTENSION_POINTS.md`. |
 | 4 Polish (Haiku) | `[~]` | Haiku 4.5 (4.1, 4.2 → Opus) | 3.2, 4.1, 4.2 done 2026-09-24. Backlog: `docs/dev/UI_AUDIT.md` (38 tickets; F1 first). Dark mode fixed (v0.99.41–42). C4 needs Mihai. |
 | 5 Distribution | `[ ]` | Sonnet 5 (5.8 → Opus) | Name settled (ADR-008) — unblocked. 5.6 now includes the support button + Alexander thread shell. Needs Mihai's Resend setup. |
-| 6 Alexander + wizard | `[ ]` | Sonnet 5 (6.1 → Opus) | Blocked on Phase 3. |
+| 6 Alexander + wizard | `[~]` | Prior: Sonnet/Opus; provider follow-up: Codex | Setup now supports Claude, Codex or both; App settings manage connections and Advanced controls Alexander's model/effort. CX feedback fixes and rebuilt package verified: optional CLI installation, explicit install/login states, minimal welcome screen and folder-picker fixes. Second feedback: full prepared Cabinet roster, mandatory owner/realm names, drag/Add selection, profile dialogs and custom agents; Claude installer and cp1252 creation failures fixed. Claude 2.1.283 installation and browser progression to Capabilities verified; 2,551 tests passed / 2 skipped. Refreshed test window preserves Codex login. Full first-artifact/time-to-first-value acceptance remains open. See `docs/dev/PROVIDER_ONBOARDING.md`. |
 | 7 Council | `[ ]` | Opus 5.5 design, Sonnet 5 build | Blocked on the design session (7.1). |
 | 8 Beta | `[ ]` | Sonnet 5 | |
 
 **Baseline at the time of writing (2026-09-21):** v0.99.24 · ~23,900 lines Python · ~2,600
 lines JS · 104 test files, 1,488 tests, all green · 292 changelog entries · golden suite of 20
 pages pinned to a frozen clock.
+
+**Review baseline (2026-09-26):** working tree based on `4e834fd`, v0.99.73, including Codex work;
+Windows/Python 3.12 full suite: **1,991 passed, 3 failed, 1 skipped**. Failures are the `memory`
+and `agent_threads` goldens and `test_one_broken_job_does_not_stop_the_others`. Isolated probes
+confirmed the review's concrete race, boundary and lifecycle failures. This is evidence to fix,
+not an accepted release-failure allowance; see 2.21.

@@ -4,8 +4,9 @@
 
 **An agent with tools acts as you.** When an agent works with its tools, it runs on your computer
 with your permissions: it can read and write your files, run commands, and use the services you've
-connected. ARMADA limits *which tools* each agent gets and keeps agents out of each other's memory,
-but it doesn't put the agent in a box. Treat giving an agent a tool the way you'd treat running
+connected. ARMADA limits *which tools* each agent gets and requests Claude file-tool restrictions
+on other agents' and realm memory. Codex currently audits memory changes without that restriction;
+neither memory boundary contains arbitrary shell or MCP writes. Treat giving an agent a tool the way you'd treat running
 that tool yourself.
 
 ## Five habits

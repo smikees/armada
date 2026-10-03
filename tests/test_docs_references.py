@@ -8,7 +8,10 @@ generated module reference is current. A doc that names something that no longer
 agent — Alexander included — gets told to do something impossible, and nothing else catches it.
 """
 import ast
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -156,4 +159,26 @@ def test_help_pages_are_served_and_a_bad_slug_is_not(tmp_path):
     assert "No such help page" in pages.render_docs(realm, realm_path, slug="../../etc/passwd")
     assert "No such help page" in pages.render_docs(realm, realm_path, slug="nope")
     idx = pages.render_docs(realm, realm_path)
-    assert idx.count('class="mc-docitem"') == len(pages._doc_toc())
+    for rendered in (idx, ok):
+        assert 'class="mc-doc-nav"' in rendered and 'class="mc-doc-main mc-md"' in rendered
+        assert 'id="doc-search"' in rendered and 'id="doc-search-results"' in rendered
+        data = re.search(r'<script type="application/json" id="doc-search-index">(.*?)</script>', rendered, re.S).group(1)
+        index = json.loads(data)
+        assert len(index) == len(pages._doc_toc()) + 1
+        assert 'ARMADA_JOB_RESULT' in next(page['body'] for page in index if page['href'] == '/docs/jobs')
+        assert '</script>' not in data
+    assert '<h3 id="armada-help">ARMADA help</h3>' in idx
+
+
+@pytest.mark.skipif(shutil.which('node') is None, reason='Node is needed for browser search checks')
+def test_help_search_finds_body_text_and_survives_navigation(tmp_path):
+    from armada.webui import pages
+    from golden_support import build_fixture
+    from armada import reader
+    realm_path = build_fixture(tmp_path / 'realm')
+    rendered = pages.render_docs(reader.read(realm_path), realm_path, slug='settings')
+    data = re.search(r'<script type="application/json" id="doc-search-index">(.*?)</script>', rendered, re.S).group(1)
+    result = subprocess.run(['node', str(Path(__file__).with_name('docsearch_harness.js')),
+                             str(ROOT / 'armada/webui/static/js/docsearch.js')],
+                            input=data, capture_output=True, text=True, encoding='utf-8', timeout=15)
+    assert result.returncode == 0, result.stderr

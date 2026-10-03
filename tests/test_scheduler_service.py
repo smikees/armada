@@ -88,7 +88,8 @@ def test_start_launches_armada_schedule_detached_from_the_repo(popen):
     r = schedsvc.start()
     assert r["ok"] and r["pid"] == 4242
     cmd, kw = popen.calls[0]
-    assert cmd[1:] == ["-m", "armada", "schedule", "--engine", "claude"]
+    assert cmd[1:] == ["-m", "armada", "schedule", "--engine", "auto",
+                       "--app-owner", str(os.getpid())]
     assert Path(kw["cwd"]) == schedsvc._REPO
     if os.name == "nt":
         assert kw["creationflags"] & 0x08000000         # CREATE_NO_WINDOW — no console flashes up
@@ -131,7 +132,7 @@ def test_ensure_running_starts_one_when_none_is_running(tmp_path, popen, monkeyp
 
 def test_daemon_rescan_takes_on_a_new_realm(tmp_path):
     a, b = _realm(tmp_path / "a"), _realm(tmp_path / "b")
-    owned, others = [a], []
+    owned, others = {a: None}, []
     try:
         scheduler._adopt_new_realms(lambda: [str(a), str(b)], owned, others)
         assert others == [b] and b in owned
@@ -139,22 +140,22 @@ def test_daemon_rescan_takes_on_a_new_realm(tmp_path):
         scheduler._adopt_new_realms(lambda: [str(a), str(b)], owned, others)
         assert others == [b]                            # not added twice
     finally:
-        scheduler._lock_release(b)
+        scheduler._lock_release(owned[b])
 
 
 def test_daemon_rescan_skips_missing_folders_and_realms_another_process_owns(tmp_path, monkeypatch):
     a, c = _realm(tmp_path / "a"), _realm(tmp_path / "c")
     _hold_lock(c, 999999)
     monkeypatch.setattr(scheduler._util, "pid_alive", lambda pid: pid in (999999, os.getpid()))
-    owned, others = [a], []
+    owned, others = {a: None}, []
     scheduler._adopt_new_realms(lambda: [str(tmp_path / "gone"), str(c)], owned, others)
-    assert others == [] and owned == [a]
+    assert others == [] and owned == {a: None}
 
 
 def test_daemon_rescan_survives_a_broken_registry(tmp_path):
     def broken():
         raise ValueError("bad registry")
-    owned, others = [tmp_path], []
+    owned, others = {tmp_path: None}, []
     scheduler._adopt_new_realms(broken, owned, others)   # must not raise
     assert others == []
 

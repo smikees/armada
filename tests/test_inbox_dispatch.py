@@ -6,6 +6,12 @@ import pytest
 from armada import inbox, runner
 
 
+@pytest.fixture(autouse=True)
+def signed_in(monkeypatch):
+    from armada import auth
+    monkeypatch.setattr(auth, "status", lambda: {"ok": True, "logged_in": True})
+
+
 @pytest.fixture
 def realm(tmp_path):
     (tmp_path / "realm.json").write_text(json.dumps({"name": "t", "inbox": {"cadence": "minute"}}),

@@ -60,9 +60,9 @@ def test_the_expanded_view_is_a_run_log_not_the_strip_again(realm):
     view answers a different question — what happened on the runs themselves — so it is a plain
     log of the last few, and says plainly when there haven't been any."""
     row = _rows(realm)["due"]
-    assert "Last 7 runs" in row
+    assert "Run history" in row
     assert "no runs yet" in row
-    body = row[row.index("Last 7 runs"):]
+    body = row[row.index("Run history"):]
     assert "Missed" not in body, "the expanded log should not repeat the week strip"
 
 

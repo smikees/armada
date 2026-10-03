@@ -3,6 +3,7 @@
 // He proposes; the owner presses a card's button; the app does the work through its own endpoints.
 (function(){
   const KEY='mc-alex-conv';
+  const WINDOW=location.pathname==='/alexander';
   const I={
     x:'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 6l12 12M18 6L6 18"/></svg>',
     fresh:'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 20H6l-3 3V6a2 2 0 0 1 2-2h7m5-1v6m-3-3h6"/></svg>',
@@ -11,7 +12,7 @@
     addon:'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8" d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm12.5 0v7M13 16.5h7"/></svg>',
     report:'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16v12H4zm0 0l8 7l8-7"/></svg>',
     ok:'<svg width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 12.5l4.5 4.5L19 7.5"/></svg>'};
-  let el=null, busy=false, pending=null;
+  let el=null, busy=false, pending=null, sourcePage='';
   const $=s=>el&&el.querySelector(s);
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function conv(){try{return localStorage.getItem(KEY)||'';}catch(e){return '';}}
@@ -24,29 +25,36 @@
                .replace(/\[(realm|log):\s*([^\]]{1,80})\]/gi,(m,k,v)=>'<span class="mc-ax-cite is-quiet" title="'+(k==='log'?'From ARMADA’s log':'From this realm')+'">'+v+'</span>');}
 
   function build(){
-    el=document.createElement('div');el.className='mc-ax';el.innerHTML=
+    const model=document.getElementById('mc-ax-model-chip'),usage=document.getElementById('mc-ax-usage');
+    el=document.createElement('div');el.className='mc-ax'+(WINDOW?' is-window':'');el.innerHTML=
       '<div class="mc-ax-scrim" data-close></div>'
       +'<aside class="mc-ax-panel" role="dialog" aria-label="Alexander" aria-modal="false">'
-      +'<header class="mc-ax-head"><img src="/static/alexander.png" alt="" width="40" height="40">'
-      +'<div class="mc-ax-who"><div class="mc-ax-name">Alexander</div><div class="mc-eyebrow">ARMADA’s guide</div></div>'
-      +'<button type="button" class="mc-iconbtn" title="New conversation" data-new>'+I.fresh+'</button>'
-      +'<button type="button" class="mc-iconbtn" title="Close" data-close>'+I.x+'</button></header>'
+      +'<header class="mc-ax-head'+(WINDOW?' pywebview-drag-region':'')+'">'
+      +'<div class="mc-ax-portrait"><img src="/static/alexander.png" alt="" width="40" height="40" draggable="false"></div>'
+      +'<div class="mc-ax-who"><div class="mc-ax-heading"><div class="mc-ax-name">Alexander</div>'
+      +(WINDOW&&model?'<span class="mc-ax-model">'+model.innerHTML+'</span>':'')
+      +'</div><div class="mc-ax-subtitle">ARMADA’s guide</div></div>'
+      +'<button type="button" class="mc-iconbtn" title="Close Alexander" aria-label="Close Alexander" data-close>'+I.x+'</button></header>'
       +'<div class="mc-ax-body" aria-live="polite"></div>'
       +'<form class="mc-ax-compose"><textarea rows="1" maxlength="6000" placeholder="Ask about ARMADA, or tell me what’s wrong…"></textarea>'
       +'<button type="submit" class="mc-ax-send" title="Send">'+I.send+'</button></form>'
-      +'<footer class="mc-ax-foot"><span>Opus 5.5 · uses your Claude plan, counted as System</span>'
+      +'<footer class="mc-ax-foot"><span>'+esc(usage?usage.content.textContent:'Counted as System usage')+'</span>'
       +'<button type="button" class="btn-link" data-report>Report an issue yourself</button></footer></aside>';
     document.body.appendChild(el);
-    el.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);
-    $('[data-new]').onclick=()=>{setConv('');paintEmpty();$('textarea').focus();};
-    $('[data-report]').onclick=()=>{close();if(window.mcSupportOpen)mcSupportOpen();};
+    if(WINDOW)el.addEventListener('click',e=>{const a=e.target.closest('a.mc-ax-cite[href^="/docs/"]');
+      if(a){e.preventDefault();post('/api/alexander-main-action',{href:a.getAttribute('href')});}});
+    el.querySelectorAll('[data-close]').forEach(b=>{b.onclick=close;
+      b.addEventListener('mousedown',e=>e.stopPropagation());});
+    $('[data-report]').onclick=()=>{if(WINDOW){post('/api/alexander-main-action',{report:' '});return;}close();if(window.mcSupportOpen)mcSupportOpen();};
     const ta=$('textarea');
     ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(160,ta.scrollHeight)+'px';});
     ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
     $('form').onsubmit=e=>{e.preventDefault();send();};
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&el&&el.classList.contains('is-open'))close();});
   }
-  function close(){if(el)el.classList.remove('is-open');}
+  function close(){if(WINDOW){
+    if(window.pywebview&&window.pywebview.api&&window.pywebview.api.close_window)window.pywebview.api.close_window();
+    else window.close();return;}if(el)el.classList.remove('is-open');}
   function scroll(){const b=$('.mc-ax-body');if(b)b.scrollTop=b.scrollHeight;}
 
   function paintEmpty(){
@@ -64,6 +72,8 @@
     const d=document.createElement('div');d.className='mc-ax-msg is-'+role;
     d.innerHTML=role==='alexander'?'<img src="/static/alexander.png" alt="" width="26" height="26"><div class="mc-ax-text mc-md">'+cites(html)+'</div>'
       :'<div class="mc-ax-text">'+html+'</div>';
+    if(role==='owner'&&WINDOW){const avatar=document.getElementById('mc-ax-owner-avatar');
+      if(avatar)d.insertAdjacentHTML('beforeend','<span class="mc-ax-owner-avatar" aria-hidden="true">'+avatar.innerHTML+'</span>');}
     b.appendChild(d);(cards||[]).forEach(c=>d.querySelector('.mc-ax-text').appendChild(card(c)));scroll();return d;}
 
   function card(c){
@@ -76,8 +86,9 @@
       +'<span class="mc-ax-cardmsg"></span></div>';
     const btn=d.querySelector('button'),msg=d.querySelector('.mc-ax-cardmsg');
     btn.onclick=async()=>{
-      if(c.type==='report'){close();if(window.mcSupportOpen)mcSupportOpen({message:c.message});return;}
-      if(c.href){location.href=c.href;return;}
+      if(c.type==='report'){if(WINDOW)await post('/api/alexander-main-action',{report:c.message||' '});
+        else{close();if(window.mcSupportOpen)mcSupportOpen({message:c.message});}return;}
+      if(c.href){if(WINDOW)await post('/api/alexander-main-action',{href:c.href});else location.href=c.href;return;}
       btn.disabled=true;msg.textContent='Working…';msg.className='mc-ax-cardmsg';
       try{let r;
         if(c.type==='addon'){r=await post('/api/alexander-addon',{manifest:c.manifest,scope:d.querySelector('.mc-ax-scope input').checked?'app':'realm'});}
@@ -110,7 +121,7 @@
     const tick=setInterval(()=>{st.textContent=phase+' · '+Math.round((Date.now()-t0)/1000)+'s';},1000);
     let done=null,streamed='';
     try{const resp=await fetch('/api/alexander-ask',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id:conv(),message:text,page:location.pathname+location.search,item:item||pending||null})});
+        body:JSON.stringify({id:conv(),message:text,page:sourcePage||location.pathname+location.search,item:item||pending||null})});
       pending=null;
       const rd=resp.body.getReader(),dec=new TextDecoder();let buf='';
       while(!done){const r=await rd.read();if(r.done)break;buf+=dec.decode(r.value,{stream:true});let i;
@@ -127,9 +138,20 @@
       +'. If it keeps happening, use “Report an issue yourself” below.</p>');
     busy=false;$('textarea').focus();}
 
-  window.mcAlexOpen=function(){if(!el)build();el.classList.add('is-open');load();setTimeout(()=>$('textarea').focus(),120);};
+  function openHere(){if(!el)build();el.classList.add('is-open');load();setTimeout(()=>$('textarea').focus(),120);}
+  window.mcAlexOpen=async function(request){
+    if(WINDOW){openHere();return;}
+    try{const r=await post('/api/open-alexander',request||{});if(r.ok)return;}catch(e){}
+    const popup=window.open('/alexander','armada-alexander','width=520,height=720');
+    if(popup&&request)popup.addEventListener('load',()=>popup.mcAlexReceive(request),{once:true});
+  };
   // From a failed run: open about it, with the run attached to the first question.
-  window.mcAlexAsk=function(item){setConv('');window.mcAlexOpen();pending=item||null;
-    const ta=$('textarea');ta.value='This run failed ('+(item&&item.job||'a job')+', '+(item&&item.ts||'')+'). What went wrong, and can you fix it?';
-    send(item);};
+  window.mcAlexAsk=function(item){
+    const message='This run failed ('+(item&&item.job||'a job')+', '+(item&&item.ts||'')+'). What went wrong, and can you fix it?';
+    if(WINDOW){setConv('');openHere();pending=item||null;$('textarea').value=message;send(item);return;}
+    window.mcAlexOpen({item:item||null,message,page:location.pathname+location.search});};
+  window.mcAlexReceive=function(request){if(!WINDOW||!request||!request.message)return;
+    setConv('');sourcePage=request.page||'';openHere();pending=request.item||null;
+    $('textarea').value=request.message;send(request.item);};
+  if(WINDOW)openHere();
 })();

@@ -66,13 +66,17 @@ Render an assistant turn's full activity trail: text notes (Markdown), tool-acti
 
 Thumbnails for image attachments + name chips for file attachments, in a user turn.
 
-### `_turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str='', userav: str='', seg=None, att=None)`
+### `_turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str='', userav: str='', seg=None, att=None, actions=True)`
 
 —
 
 ### `_agent_model_label(realm_root, aid: str)`
 
 The agent's model label (its own, else the realm default) for context-window sizing.
+
+### `thread_metrics(realm_root, aid: str, selected: str, *, thread=None, snapshot=None)`
+
+The same persisted message count and compaction estimate for page load and live refresh.
 
 ### `_thread_caps_used(msgs: list, realm_root=None, agent_id: str='', thread: str='')`
 
@@ -102,11 +106,15 @@ The right rail for a thread: loaded-context breakdown + capabilities used + arti
 
 Render just the transcript turns for a thread (server-canonical Markdown, icons, segments). Shared by _chat_center and the /api/thread-turns refresh endpoint, so the live view after a reply becomes identical to a reloaded page (no client/server rendering drift).
 
-### `_working_turn(av: str, disp: str)`
+### `_progress_steps(events)`
+
+Render the same compact activity chips shown on the original streaming tab.
+
+### `_working_turn(av: str, disp: str, progress: dict | None=None)`
 
 The agent is working on the message above, right now.
 
-### `_unanswered_turn(av: str, disp: str)`
+### `_unanswered_turn(av: str, disp: str, partial: bool=False)`
 
 The message above never got a reply and nothing is working on it.
 

@@ -1,8 +1,29 @@
 # ARMADA — architecture
 
+**Current release: v0.99.74 (2026-10-03).** The engine seam now supports Claude Code, Codex CLI
+and Gemini through Antigravity CLI. Provider discovery and authentication use Windows-installed
+CLIs; the desktop launcher starts independently of provider desktop apps. Jobs persist execution,
+audit outcome and delivery against individual runs, with bounded retries and run-specific evidence.
+See [Gemini](../../armada/docs/user/gemini.md), [jobs](../../armada/docs/user/jobs.md), and the
+generated [module reference](reference/index.md) for the current implementation. Dated sections
+below retain their original context; the single-engine description is historical.
+
 *Phase 2, step 2.10 — the doc that comes out of the architecture phase. Written 2026-09-24 against
 v0.99.40. Feeds Phase 3 (`docs/dev/`). Keep it short; when it and the code disagree, the code wins
 and this gets fixed.*
+
+**2026-09-26 follow-up:** the working-tree review found gaps in the locking, memory protection,
+run lifecycle and content-boundary guarantees described here. See
+[`ARCHITECTURE_REVIEW_2026-09-26.md`](ARCHITECTURE_REVIEW_2026-09-26.md) for verified findings and
+launch-plan 2.11–2.21 for the required work. Provider behavior now also includes
+[`CODEX_INTEGRATION.md`](CODEX_INTEGRATION.md); the Claude-only passages below are historical.
+
+**2026-09-27:** content boundaries (2.11), capability admission (2.12), exclusive shared-file
+mutations (2.13), scheduler claims (2.14), destructive memory rollback (2.15) and compaction (2.16) are repaired in
+source. See [Shared state and recovery](PERSISTENCE.md) for locks and durable claims and
+[Memory boundaries](MEMORY_BOUNDARIES.md) for provider restrictions and non-destructive audits.
+Thread compaction now validates its snapshot, retains concurrent appends and uses a recoverable
+summary/log transaction; the model call runs outside the lock.
 
 Read with: [`SCHEMA.md`](SCHEMA.md) (the realm on disk), [`ENGINE_SEAM_AUDIT.md`](ENGINE_SEAM_AUDIT.md)
 (what assumes Claude), [`EXTENSION_POINTS.md`](EXTENSION_POINTS.md) (add-ons),
@@ -21,7 +42,7 @@ ARMADA.vbs ─► armada app ─► app.py (pywebview window)
                                    Handler = route tables (serve.py) + mixins (routes/*)
                                    GET  → reader.read(realm) → webui.render_*() → HTML
                                    POST → routes/* → realm files (locked, atomic)
-                                   chat → routes/agents._chat_stream → runner.chat_stream → engine (SSE)
+                                   chat → routes/agents._chat_stream → runner.chat_stream → TurnCoordinator → engine (SSE)
 
 SCHEDULER.vbs ─┐
 app.py launch ─┴► armada schedule ─► scheduler.run_daemon()   (windowless pythonw, detached)
@@ -31,16 +52,23 @@ app.py launch ─┴► armada schedule ─► scheduler.run_daemon()   (windowl
                                      thread: telegram.listen (active realm only)
 ```
 
-- **The server** serves one realm at a time (`Handler.realm`; `/switch` moves it and
-  `activerealm` remembers it on the machine). Update & Restart (`serve._restart`) is a `git pull`
+- **The server** selects a default realm (`Handler.realm`; `/switch` moves it and
+  `activerealm` remembers it on the machine). Each request captures an immutable destination;
+  in-flight turns and explicitly bound content retain their original realm. Stale-page mutations
+  are rejected. See [request and run identity](REQUEST_CONTEXT.md). Update & Restart (`serve._restart`) is a `git pull`
   plus a re-exec of the same process.
 - **The scheduler** is separate on purpose: a realm's jobs don't pause because you're looking at
-  another one, or because the window is closed. It holds a per-realm `scheduler.lock.json` so two
-  schedulers can't double-fire (2.9). That lock is also how the app knows it's running
+  another one, or because the window is closed. It holds an exclusive per-realm OS lease, with
+  PID/token metadata in `scheduler.lock.json`. Durable daily claims prevent automatic replay
+  after a crash (2.14). That lease is also how the app knows it's running
   (`schedsvc.status`): the window starts it on launch if not, and `schedbar.js` shows a bar on
   every page when it's down and the realm has scheduled jobs (5.5).
-- **The engine** is a subprocess per turn: `claude -p …` via `engine/claude.py`. ARMADA assembles
+- **The engine** is a subprocess per turn: Claude Code via `engine/claude.py` or Codex CLI via
+  `engine/codex.py`. ARMADA assembles
   the whole system prompt itself; the CLI supplies tools, MCP servers, skills and plugins.
+  All agent model turns share the [turn coordinator](EXECUTION_CONTRACTS.md).
+  Claude and Codex model turns share `engine/process.py` for deadlines, bounded pipe handling and
+  process-tree ownership; each adapter retains its protocol parser. See [CLI turn lifecycle](PROCESS_LIFECYCLE.md).
 - **Logs** go to `~/.armada/logs/` — `armada.log` (server), `scheduler.log` (scheduler).
 
 ## 2. Module map
@@ -62,13 +90,17 @@ render       webui/   pages (render_* entrypoints) → _core (composition) →
              webui/static/  brand.css · industry.css · js/*.js (63 files, via assets.js())
              render.py — the legacy static cockpit.html (`armada open`)
 ────────────────────────────────────────────────────────────────────────────────────────
-execution    runner.py (a job or a chat turn: context → engine → capture → report)
-             engine/ (base · claude · mock — the provider seam)
+execution    runner.py (compatibility entry points and context/capture helpers)
+             execution.py (TurnCoordinator · RunSession: admission → progress → terminal persistence)
+             thread_metadata.py (read/unread/last-thread persistence)
+             memory_boundary.py (provider file-tool rules · bounded observation, never rollback)
+             engine/ (contracts · base · claude · codex · mock — typed provider seam)
              sysjobs.py · sysskills.py + system_skills/ · inbox.py (agent → agent)
              capscan.py · catalogue/ (_shared · sources · realm) · models.py · usage_api.py · auth.py
 ────────────────────────────────────────────────────────────────────────────────────────
 domain       reader.py → model.py (Realm/Agent/Job dataclasses — the in-memory view)
              memory · goals · jobs (proposals) · threads · capabilities (the grant rule)
+             thread_store (coherent history reads · append · journaled compaction/truncation)
              skills · agentops · realmops · workspace · approot · realmformat · addons
              notify · status · clock · verbosity · vtheme · templates · setup
              validate · preflight · doctor
@@ -117,20 +149,25 @@ app root), `realms.json` (the registry), `logs/`, `addons/` (app scope), `catalo
 sources), the Telegram credential store. Claude Code's own `~/.claude*` files are read, never
 written (see 4.8).
 **Machine-local, inside the realm** (runtime state that happens to live beside the data):
-`scheduler.lock.json`, `usage-last.json`, `.armada/models.json`, the sysjobs state and the
-notification feed. They're safe to lose: caches, locks, and short-lived history (the feed keeps a
-week) — nothing the owner made exists only there.
+`scheduler.lock.json`, `usage-last.json`, `.armada/models.json` and the notification feed.
+Caches can be rebuilt; ownership metadata may be recovered only while writers are stopped.
+**Durable execution state:** `.scheduler/attempts/` and `system_jobs.json` contain admissions and
+outcomes. Preserve them with the realm; deleting or restoring stale copies can admit duplicate
+work. Never unlink a valid hidden OS lock file to resolve contention.
 **Enforced by:** convention, `SCHEMA.md`, and `realmops.export` (which zips the folder, and
 reports rather than silently skips a file it can't read).
 
 ### 4.2 No read-modify-write without a lock; no write that isn't atomic
 **Rule.** Two processes write realm files (the server and the scheduler), so a read-modify-write of
-a shared file goes through `util.file_lock(path)`, and every write goes through
-`util.write_json_atomic` / `write_text_atomic` (temp file + `os.replace`) so a reader never sees a
-half-written file. The lock is advisory and gives up after 5 s rather than deadlock; atomic
-replace is what still prevents corruption then.
+a shared file uses `util.mutate_json` or holds `util.file_lock(path)` across the complete operation.
+Atomic writers use a flushed temporary file plus `os.replace`. Lock timeout or I/O failure raises
+without entering the critical section. Kernel ownership ends on close/crash; the hidden sibling
+lock file is never unlinked. Mutation reads preserve malformed and future-schema state instead
+of replacing it with defaults. See [PERSISTENCE.md](PERSISTENCE.md) for upgrade/recovery rules.
 **Enforced by:** `tests/test_realm_write_locking.py` (every `realm.json` write path, 2.9),
-`test_realm_format.py` (migrations lock), the thread and run-ledger appenders.
+`test_realm_format.py` (migrations lock), and `test_exclusive_state.py` (independent processes,
+owner death, timeout/access failures and unsupported state), plus `test_scheduler_claims.py`
+(scheduler/process races and interrupted dispatch). Compaction transactions remain tracked in 2.16.
 **Also locked since v0.99.45:** `agent.json` saves from the Configure tab, thread `meta.json`
 (routes, run replies, and the render-path writes — which take no lock when nothing changes), and
 `dashboard.json` (the render-time span migration re-checks the file under the lock so it never
@@ -202,9 +239,14 @@ through `runner._TurnCapture` (artefacts, publish boundary, capabilities used) �
 `messages.jsonl` under lock → usage row → notification.
 
 **A scheduled job.** `scheduler.run_daemon` → every realm → `tick`: `realmformat.ensure`,
-preflight hold check, `sysjobs.run_due`, then each `due_now` job not already `ran_today` →
-`runner.run_job` (agent job: same context + engine path as chat; command job: a subprocess) →
-run report in `agents/<id>/runs/<id>.jsonl` → notification / Telegram.
+exclusive lease and per-pass gate, preflight hold check, `sysjobs.run_due`, then each `due_now`
+job not already `ran_today` → durable daily claim → `runner.run_job` (agent job: same context +
+engine path as chat; command job: a subprocess) → run report / notification → complete the claim.
+An uncertain claim is not retried automatically. System jobs claim their interval under a
+separate per-job execution lock, shared with app-startup nudges and manual requests.
+System-job cost does not gate authentication. Inbox and Telegram check the selected recipient's
+provider; Claude keepalive declares its fixed provider. The [upkeep contract](PROVIDER_UPKEEP.md)
+defines signed-out skips, pending-message preservation and normalized job outcomes.
 
 ## 6. Testing
 

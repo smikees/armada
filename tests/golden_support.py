@@ -10,6 +10,7 @@ memories), so it can't be a byte-stable oracle. The fixture is fixed by construc
 volatile output is the static cache-buster and real-time clock strings, which normalize() erases.
 """
 from __future__ import annotations
+import contextlib
 import json
 import socket
 import threading
@@ -17,14 +18,40 @@ import time
 import urllib.request
 import re
 from pathlib import Path
+from unittest.mock import patch
 
 
 # ---- fixture realm -----------------------------------------------------------------------------
 
 _PIN_DATE = "2026-01-01"
+GOLDEN_NOW = "2026-09-19T20:12:00"
+GOLDEN_ENV = {
+    "Operating system": "Windows 11", "Machine": "fixture-machine",
+    "CPU": "Fixture CPU (8 cores)", "Memory": "16 GB RAM",
+    "App": "ARMADA (local, http://127.0.0.1:8756)",
+}
+
+
+@contextlib.contextmanager
+def fixture_inputs():
+    """Pin sources before constructing data, including derived context/token counts."""
+    from armada import clock, memory
+    with clock.frozen(GOLDEN_NOW), \
+            patch.object(memory, "default_env", side_effect=lambda: dict(GOLDEN_ENV)), \
+            patch.object(memory, "probe_environment", side_effect=lambda: dict(GOLDEN_ENV)):
+        yield
 
 
 def build_fixture(dest: Path) -> str:
+    import tempfile
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="fixture-home-", dir=dest.parent) as home, \
+            patch.object(Path, "home", return_value=Path(home)), fixture_inputs():
+        return _build_fixture(dest)
+
+
+def _build_fixture(dest: Path) -> str:
     """Create a deterministic 'crew' realm at dest and return its path (str).
 
     Seeds: user settings, one realm memory, one agent memory, one goal, one custom section,
@@ -77,7 +104,7 @@ def build_fixture(dest: Path) -> str:
     # mid-run — making model dropdowns/chips (overview, ministers, settings, new_agent) nondeterministic.
     # A fresh updated_at makes the cache look current, so no refresh fires; the seed matches the goldens.
     from armada import models as _models
-    _cat = {"updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    _cat = {"updated_at": GOLDEN_NOW,
             "models": [{**m, "created_at": "", "active": True} for m in _models._SEED]}
     _cp = dest / ".armada"
     _cp.mkdir(parents=True, exist_ok=True)
@@ -98,11 +125,6 @@ def _free_port() -> int:
     return port
 
 
-# The instant every golden page is rendered at. Changing it means regolding the whole set, which
-# is the point: the goldens are a snapshot, and a snapshot has a time.
-GOLDEN_NOW = "2026-09-19T20:12:00"
-
-
 class ServedRealm:
     """Start armada.serve in a daemon thread against `realm`; expose GET helpers.
 
@@ -120,10 +142,18 @@ class ServedRealm:
         self._home = tempfile.mkdtemp(prefix="mchome-")
         self._saved_env = {k: os.environ.get(k) for k in ("USERPROFILE", "HOME", "ARMADA_NO_MODEL_SYNC")}
         self._t = None
+        self._httpd = None
+        self._stack = contextlib.ExitStack()
 
     def __enter__(self):
         import os
-        from armada import clock, serve
+        from armada import serve, origins
+        self._previous_realm = serve.Handler.realm
+        self._previous_note = serve.Handler.welcome_note
+        self._previous_content = serve._content_httpd
+        self._previous_port = origins.content_port()
+        self._stack.enter_context(fixture_inputs())
+        self._stack.enter_context(patch.object(serve, "_serve_until_done", self._serve_owned))
         # Freeze the clock for the whole snapshot run. Without this the goldens carry TODAY in
         # them — weekday letters, dates, and (the part no amount of string-scrubbing can
         # normalise) which squares in a job's week strip read Scheduled versus Missed. The suite
@@ -132,7 +162,6 @@ class ServedRealm:
         #
         # A Saturday evening, mid-month, mid-week-window: the strip then spans a weekend in one
         # direction and weekdays in the other, so the fixture's crons exercise both.
-        clock.freeze(GOLDEN_NOW)
         # Files carry a date too ("Modified 19 Sep", "updated 19 Sep" on Memory and Goals): the
         # fixture is built now, so without this their mtime is today and those pages drifted
         # every day (seen 2026-09-25). Stamp every fixture file at the frozen instant.
@@ -159,13 +188,30 @@ class ServedRealm:
                 return self
             except Exception:
                 time.sleep(0.1)
+        self.__exit__(None, None, None)
         raise RuntimeError("fixture server did not come up")
+
+    def _serve_owned(self, httpd):
+        self._httpd = httpd
+        httpd.serve_forever(poll_interval=0.05)
 
     def __exit__(self, *exc):
         import os
         import shutil
-        from armada import clock
-        clock.freeze(None)          # the rest of the suite runs on the real clock
+        from armada import serve, origins
+        # Stop both owned servers before restoring globals/home. A daemon thread alone does not
+        # isolate a fixture: it otherwise keeps accepting requests against subsequent test state.
+        for httpd in (self._httpd, serve._content_httpd):
+            if httpd is not None and httpd is not self._previous_content:
+                httpd.shutdown()
+                httpd.server_close()
+        if self._t:
+            self._t.join(timeout=5)
+        serve.Handler.realm = self._previous_realm
+        serve.Handler.welcome_note = self._previous_note
+        serve._content_httpd = self._previous_content
+        origins.set_content_port(self._previous_port)
+        self._stack.close()
         for k, v in self._saved_env.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -175,13 +221,19 @@ class ServedRealm:
         return False
 
     def get(self, path: str) -> str:
+        from armada.request_context import RealmContext, bound_url, content_path
+        from urllib.parse import urlsplit
+        if content_path(urlsplit(path).path):
+            path = bound_url(path, RealmContext.capture(self.realm))
         with urllib.request.urlopen(self.base + path, timeout=10) as r:
             return r.read().decode("utf-8")
 
     def post(self, path: str, obj: dict) -> dict:
+        from armada.request_context import RealmContext
         data = json.dumps(obj).encode("utf-8")
         req = urllib.request.Request(self.base + path, data=data,
-                                     headers={"Content-Type": "application/json"}, method="POST")
+                                     headers={"Content-Type": "application/json",
+                                              "X-Armada-Realm": RealmContext.capture(self.realm).realm_id}, method="POST")
         with urllib.request.urlopen(req, timeout=10) as r:
             body = r.read().decode("utf-8")
         return json.loads(body) if body.strip() else {}
@@ -210,6 +262,8 @@ def normalize(html: str, realm: str = "") -> str:
     # The fixture realm lives in a random temp dir, so any absolute realm path embedded in the
     # page (e.g. Settings' data-flow note) is volatile — blank it in every slash/escaping form.
     if realm:
+        from armada.request_context import RealmContext
+        html = html.replace(RealmContext.capture(realm).realm_id, "REALM_ID")
         for form in (realm, realm.replace("\\", "/"), realm.replace("\\", "\\\\")):
             html = html.replace(form, "REALM")
     for pat, repl in _SUBS:

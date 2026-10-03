@@ -1,8 +1,8 @@
 """Local scheduler (SPEC §8/§12) — the missing heart: fire jobs on their cadence.
 
 ARMADA owns scheduling itself (no OS cron required), so a realm is self-contained and portable.
-A job declares a `schedule` string; the scheduler decides when it's due, checks it hasn't already
-run today (idempotent — via the run-reports the runner writes), and fires it through the runner
+A job declares a `schedule` string; the scheduler decides when it's due, checks today's reports,
+durably claims today's attempt before dispatch, and fires it through the runner
 (command or agent). Timezone + grace window come from realm.json (matching the reference cabinet's
 `timezone` + `grace_minutes`), so a job missed by a reboot still fires if we're inside the grace.
 
@@ -18,10 +18,11 @@ Schedule grammar (deliberately small + human):
     "mon,wed,fri 08:00"      a day list
     "sat 09:00"              a single day
     "mon-sun 00:00"          explicit all-week
+    "0 8 * * sat#1"         first Saturday of each month (Armada cron extension)
 Days: mon tue wed thu fri sat sun · ranges (mon-fri) · lists (mon,wed) · daily/everyday = all 7.
 """
 from __future__ import annotations
-import contextlib, json, os, time, datetime, traceback
+import json, time, datetime, traceback
 from pathlib import Path
 from typing import Optional
 
@@ -67,6 +68,27 @@ def is_cron(s: str) -> bool:
     return len(s.strip().split()) == 5
 
 
+def _nth_weekday(field: str) -> tuple[int, int] | None:
+    """Armada's ``weekday#occurrence`` extension, e.g. ``sat#1`` for first Saturday."""
+    if "#" not in field:
+        return None
+    weekday, separator, ordinal = field.lower().partition("#")
+    if not separator or not ordinal.isdigit() or not 1 <= int(ordinal) <= 5:
+        raise ValueError(f"Invalid nth-weekday cron field: {field}")
+    days = _cron_field(weekday, 0, 7, _CRON_DOW)
+    if len(days) != 1:
+        raise ValueError(f"Invalid nth-weekday cron field: {field}")
+    return (next(iter(days)) % 7, int(ordinal))
+
+
+def _weekday_matches(field: str, day: "datetime.date") -> bool:
+    nth = _nth_weekday(field)
+    weekday = day.isoweekday() % 7
+    if nth is not None:
+        return weekday == nth[0] and (day.day - 1) // 7 + 1 == nth[1]
+    return weekday in {d % 7 for d in _cron_field(field, 0, 7, _CRON_DOW)}
+
+
 def cron_match(expr: str, dt: datetime.datetime) -> bool:
     """Standard 5-field cron match (min hour dom month dow), Vixie DOM/DOW OR-semantics."""
     f = expr.strip().split()
@@ -76,13 +98,12 @@ def cron_match(expr: str, dt: datetime.datetime) -> bool:
     hours = _cron_field(f[1], 0, 23)
     doms = _cron_field(f[2], 1, 31)
     months = _cron_field(f[3], 1, 12, _CRON_MON)
-    dows = {d % 7 for d in _cron_field(f[4], 0, 7, _CRON_DOW)}   # 7 -> 0 (Sunday)
     if dt.minute not in mins or dt.hour not in hours or dt.month not in months:
         return False
     dom_star = f[2].strip() == "*"
     dow_star = f[4].strip() == "*"
     dom_ok = dt.day in doms
-    dow_ok = (dt.isoweekday() % 7) in dows          # cron dow: Sun=0..Sat=6
+    dow_ok = _weekday_matches(f[4], dt.date())
     if not dom_star and not dow_star:
         return dom_ok or dow_ok                      # Vixie: OR when both restricted
     return (dom_star or dom_ok) and (dow_star or dow_ok)
@@ -93,6 +114,9 @@ def cron_dow_days(field: str) -> set[int]:
     can't be read. Exposed so callers can reason about how often a schedule fires rather than
     comparing its spelling: '1-5', '1,2,3,4,5' and 'mon-fri' are one schedule written three ways."""
     try:
+        nth = _nth_weekday(field)
+        if nth is not None:
+            return {nth[0]}
         return {d % 7 for d in _cron_field(field, 0, 7, _CRON_DOW)}
     except (ValueError, AttributeError, TypeError):
         return set()
@@ -102,7 +126,7 @@ _CRON_CACHE: dict = {}
 
 
 def _cron_parse(expr: str):
-    """Parse a 5-field cron once (cached): -> (mins, hours, doms, months, dows, dom_star, dow_star)."""
+    """Parse a 5-field cron once (cached): -> (mins, hours, doms, months, dow_field, dom_star, dow_star)."""
     if expr in _CRON_CACHE:
         return _CRON_CACHE[expr]
     f = expr.strip().split()
@@ -111,7 +135,7 @@ def _cron_parse(expr: str):
         return None
     parsed = (
         _cron_field(f[0], 0, 59), _cron_field(f[1], 0, 23), _cron_field(f[2], 1, 31),
-        _cron_field(f[3], 1, 12, _CRON_MON), {d % 7 for d in _cron_field(f[4], 0, 7, _CRON_DOW)},
+        _cron_field(f[3], 1, 12, _CRON_MON), f[4],
         f[2].strip() == "*", f[4].strip() == "*",
     )
     _CRON_CACHE[expr] = parsed
@@ -128,7 +152,7 @@ def cron_day_times(expr: str, day: "datetime.date") -> list[tuple[int, int]]:
     if day.month not in months:
         return []
     dom_ok = day.day in doms
-    dow_ok = (day.isoweekday() % 7) in dows
+    dow_ok = _weekday_matches(dows, day)
     if not dom_star and not dow_star:
         day_ok = dom_ok or dow_ok
     else:
@@ -149,59 +173,9 @@ def _load_json(p: Path) -> dict:
         return {}
 
 
-# --- the scheduler lock ------------------------------------------------------------------------
-#
-# The double-fire case: two schedulers ticking the same realm — a daemon left running in a
-# forgotten terminal plus a second one started later, or a persistent daemon plus a Task
-# Scheduler `--once` run landing in the same minute. `ran_today()` only closes the race after a
-# job's run-report is written; a job that takes any real time to run is visible as "not yet run
-# today" to a second ticker the whole time it's in flight, and both fire it. One lock file per
-# realm, naming the pid that currently owns ticking it, closes that window regardless of which
-# entry point (daemon loop or a one-shot CLI call) got there first.
-
-def _lock_path(realm_root) -> Path:
-    return Path(realm_root) / "scheduler.lock.json"
-
-
-def lock_holder(realm_root) -> Optional[dict]:
-    """{"pid": n, "started": iso} for whoever currently owns ticking this realm, or None if
-    unowned. A recorded pid that is no longer running is a stale lock from a crash, not a live
-    holder, and reads as unowned."""
-    try:
-        info = json.loads(_lock_path(realm_root).read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError):
-        return None
-    if not _util.pid_alive(info.get("pid")):
-        return None
-    return info
-
-
-def _lock_acquire(realm_root) -> bool:
-    """Claim the lock for this process. True if claimed — including if this process already held
-    it, or the prior holder is dead — False if a different live process holds it."""
-    holder = lock_holder(realm_root)
-    if holder is not None and holder.get("pid") != os.getpid():
-        return False
-    try:
-        _util.write_json_atomic(_lock_path(realm_root), {
-            "pid": os.getpid(),
-            "started": datetime.datetime.now().isoformat(timespec="seconds"),
-        })
-    except OSError:
-        pass  # can't write a lock file here (permissions etc.) — proceed unlocked rather than
-              # ever stopping a realm from scheduling entirely over a filesystem quirk
-    return True
-
-
-def _lock_release(realm_root) -> None:
-    p = _lock_path(realm_root)
-    try:
-        info = json.loads(p.read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError):
-        return
-    if info.get("pid") == os.getpid():
-        with contextlib.suppress(OSError):
-            p.unlink()
+# Keep the historical helper names for callers; ownership itself lives in a small state module.
+from . import scheduler_state as _state
+from .scheduler_state import acquire as _lock_acquire, release as _lock_release, holder as lock_holder
 
 
 def parse_days(spec: str) -> set[int]:
@@ -279,7 +253,8 @@ def iter_jobs(realm_root: Path):
                 yield ad.name, jc.get("id", jf.stem), jc
 
 
-def ran_today(realm_root: Path, agent_id: str, job_id: str, day_iso: str) -> bool:
+def ran_today(realm_root: Path, agent_id: str, job_id: str, day_iso: str,
+              not_before: datetime.datetime | None = None) -> bool:
     rf = realm_root / "agents" / agent_id / "runs" / f"{agent_id}.jsonl"
     if not rf.exists():
         return False
@@ -292,13 +267,29 @@ def ran_today(realm_root: Path, agent_id: str, job_id: str, day_iso: str) -> boo
         except json.JSONDecodeError:
             continue
         if ev.get("task") == job_id and str(ev.get("ts", ""))[:10] == day_iso:
+            if not_before is not None:
+                try:
+                    recorded = datetime.datetime.fromisoformat(ev["ts"])
+                    if recorded.tzinfo is None:
+                        recorded = recorded.replace(tzinfo=not_before.tzinfo)
+                    elif not_before.tzinfo is None:
+                        recorded = recorded.replace(tzinfo=None)
+                    if recorded < not_before:
+                        continue  # Overnight catch-up is not today's later scheduled run.
+                except (ValueError, TypeError):
+                    continue
             return True
     return False
 
 
 def due_now(job: dict, now: datetime.datetime, grace_min: int) -> bool:
+    return _due_time(job, now, grace_min) is not None
+
+
+def _due_time(job: dict, now: datetime.datetime, grace_min: int):
+    """Most recent due fire time. Catch-up claims belong to its day, even after midnight."""
     if job.get("enabled") is False:
-        return False
+        return None
     # Cron path: an explicit `cron` field, or a `schedule` that's a 5-field cron expression.
     cron = job.get("cron")
     sched = job.get("schedule", "manual")
@@ -309,35 +300,56 @@ def due_now(job: dict, now: datetime.datetime, grace_min: int) -> bool:
         base = now.replace(second=0, microsecond=0)
         for back in range(0, grace_min + 1):
             if cron_match(cron, base - datetime.timedelta(minutes=back)):
-                return True
-        return False
+                return base - datetime.timedelta(minutes=back)
+        return None
     # Simple grammar path: "<days> HH:MM".
     parsed = parse_schedule(sched)
     if not parsed:
-        return False
+        return None
     days, hh, mm = parsed
-    if now.weekday() not in days:
-        return False
-    sched_today = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-    delta = (now - sched_today).total_seconds()
-    return 0 <= delta <= grace_min * 60      # due at/after the time, within the grace window
+    for back in range(grace_min // 1440 + 2):
+        day = now - datetime.timedelta(days=back)
+        if day.weekday() not in days:
+            continue
+        fire = day.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if 0 <= (now - fire).total_seconds() <= grace_min * 60:
+            return fire
+    return None
 
 
-def tick(realm_root, engine: str = "claude", grace_min: Optional[int] = None,
+def _first_fire(job, fire):
+    """Keep the once-per-scheduled-day contract for cadences with multiple daily fires."""
+    cron = job.get("cron") or job.get("schedule", "")
+    times = cron_day_times(cron, fire.date()) if is_cron(cron) else []
+    return fire.replace(hour=times[0][0], minute=times[0][1]) if times else fire
+
+
+def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
          at: Optional[datetime.datetime] = None, dry_run: bool = False,
-         *, _daemon_owned: bool = False) -> list[dict]:
-    """One scheduling pass. Fire every due job not already run today. Returns fired-job records.
+         *, _lease: _state.Lease | None = None) -> list[dict]:
+    """One pass, with at most one automatic attempt per job and realm-local day.
 
-    `ran_today()` alone only closes the double-fire window AFTER a job's run-report lands; a job
-    that takes any real time to run reads as "not yet run today" to a second ticker for the whole
-    time it's in flight. `_daemon_owned` is set by run_daemon(), which holds the realm's scheduler
-    lock for its whole lifetime; a standalone call (the CLI's `--once`/`--at`, or a route) takes
-    the lock itself for just this pass, and backs off — firing nothing — if a live process already
-    holds it, rather than risk running the same job twice.
+    A daemon passes its actual lease, never a boolean bypass. Every caller also takes that
+    lease's non-reentrant gate, so overlapping calls within the daemon cannot dispatch twice.
+    An uncompleted durable claim is held for inspection, not retried after a crash.
     """
     from .runner import run_job
     realm_root = Path(realm_root)
+    from . import realmops
+    if not ((realm_root / "realm.json").is_file() or (realm_root / "cabinet" / "schedule.json").is_file()):
+        return [{"agent": "system", "job": "realm-missing", "kind": "system", "status": "held",
+                 "detail": "This realm no longer exists."}]
+    try:
+        if realmops.archived(realm_root):
+            return [{"agent": "system", "job": "realm-archived", "kind": "system", "status": "held",
+                     "detail": "This realm is archived. All jobs are switched off."}]
+    except (OSError, ValueError) as exc:
+        return [{"agent": "system", "job": "schema-hold", "kind": "system", "status": "held", "detail": str(exc)}]
     if not dry_run:
+        try:
+            _util.assert_realm_writable(realm_root / "realm.json")
+        except OSError as exc:
+            return [{"agent": "system", "job": "schema-hold", "kind": "system", "status": "held", "detail": str(exc)}]
         # The scheduler opens every registered realm, not just the one on screen — so a realm
         # nobody has looked at since an upgrade still gets its format brought up to date (2.8).
         # Once per change to realm.json; a stat() on every other pass.
@@ -348,15 +360,27 @@ def tick(realm_root, engine: str = "claude", grace_min: Optional[int] = None,
     now = at or now_in(cfg)
     day_iso = now.date().isoformat()
     fired = []
+    lease = _lease
     locked_here = False
-    if not dry_run and not _daemon_owned:
-        if not _lock_acquire(realm_root):
-            holder = lock_holder(realm_root)
-            return [{"agent": "system", "job": "scheduler-lock", "kind": "system", "status": "skipped",
-                     "detail": f"another scheduler (pid {holder.get('pid') if holder else '?'}) "
-                               "is already ticking this realm"}]
-        locked_here = True
+    if not dry_run:
+        try:
+            if lease is None:
+                lease = _lock_acquire(realm_root)
+                locked_here = lease is not None
+            if lease is None or not lease._gate.acquire(blocking=False):
+                info = lock_holder(realm_root) or {}
+                return [{"agent": "system", "job": "scheduler-lock", "kind": "system",
+                         "status": "skipped", "detail": f"Another scheduler pass (pid {info.get('pid', '?')}) owns this realm."}]
+        except OSError as exc:
+            return [{"agent": "system", "job": "scheduler-lock", "kind": "system",
+                     "status": "held", "detail": str(exc)}]
     try:
+        if not dry_run:
+            try:
+                lease.verify(realm_root)
+            except OSError as exc:
+                return [{"agent": "system", "job": "scheduler-lock", "kind": "system",
+                         "status": "held", "detail": str(exc)}]
         # A realm that can't work here — no engine, or a workspace folder that doesn't exist on
         # this machine — is held rather than left to fail every job every night. Every run would
         # fail identically, and a week of identical failures is indistinguishable from broken.
@@ -378,24 +402,71 @@ def tick(realm_root, engine: str = "claude", grace_min: Optional[int] = None,
                 from . import sysjobs
                 for r in sysjobs.run_due(realm_root):
                     fired.append({"agent": "system", "job": r.get("id"), "kind": "system",
-                                  "status": "ok" if r.get("ok") else "error"})
+                                  "status": r.get("status", "ok" if r.get("ok") else "error"),
+                                  "detail": r.get("detail") or r.get("error") or ""})
             except Exception:  # noqa — upkeep must never break scheduling
                 swallowed(log, 'tick: failed; ignored')
         for agent_id, job_id, job in iter_jobs(realm_root):
+            if realmops.archived(realm_root):
+                break
             # Switched off in the UI. Checked here rather than in due_now() so a manual "Run now"
             # still works on a disabled job — off means "does not fire on its own", not "cannot run".
             if job.get("enabled") is False:
                 continue
-            if not due_now(job, now, grace):
+            from . import job_retries
+            try:
+                waiting = job_retries.pending(realm_root, agent_id, job_id)
+            except OSError as exc:
+                fired.append({"agent": agent_id, "job": job_id, "kind": job.get("kind", "agent"),
+                              "status": "held", "detail": str(exc)})
                 continue
-            if ran_today(realm_root, agent_id, job_id, day_iso):
+            fire = _due_time(job, now, grace)
+            if waiting:
+                # Resume only a recorded backoff, including outside catch-up grace.
+                fire = datetime.datetime.fromtimestamp(waiting['started_at'], now.tzinfo)
+            if fire is None:
+                continue
+            day_iso = fire.date().isoformat()
+            if not waiting and ran_today(realm_root, agent_id, job_id, day_iso, not_before=_first_fire(job, fire)):
                 continue
             rec = {"agent": agent_id, "job": job_id, "kind": job.get("kind", "agent"),
                    "schedule": job.get("schedule") or job.get("cron")}
             if dry_run:
+                try:
+                    attempt = _state.inspect_attempt(realm_root, agent_id, job_id, day_iso)
+                except OSError as exc:
+                    rec.update(status="held", detail=str(exc))
+                    fired.append(rec)
+                    continue
+                if attempt:
+                    if attempt["state"] == "claimed":
+                        rec.update(status="held", detail="Previous attempt has no recorded outcome; inspect before using Run now.")
+                        fired.append(rec)
+                    continue
                 rec["status"] = "would-fire"
                 fired.append(rec)
                 continue
+            try:
+                attempt, fresh = _state.claim(lease, agent_id, job_id, day_iso)
+            except OSError as exc:
+                rec.update(status="held", detail=f"Could not claim job attempt: {exc}")
+                fired.append(rec)
+                continue
+            if not fresh and waiting:
+                try:
+                    attempt = _state.resume_waiting(lease, agent_id, job_id, day_iso)
+                except OSError as exc:
+                    rec.update(status="held", detail=str(exc))
+                    fired.append(rec)
+                    continue
+                fresh = True
+            if not fresh:
+                if attempt["state"] == "claimed":
+                    rec.update(status="held", detail="Previous attempt has no recorded outcome; inspect before using Run now.",
+                               attempt_id=attempt["attempt_id"])
+                    fired.append(rec)
+                continue
+            rec["attempt_id"] = attempt["attempt_id"]
             try:
                 report = run_job(realm_root, agent_id, job_id, engine=engine,
                                  allow_tools=bool(job.get("allow_tools")))
@@ -406,14 +477,20 @@ def tick(realm_root, engine: str = "claude", grace_min: Optional[int] = None,
                 rec["error"] = f"{type(e).__name__}: {e}"
                 print(f"ARMADA scheduler: {agent_id}/{job_id} raised: {e}")
                 traceback.print_exc()
+            try:
+                _state.finish(lease, attempt, rec["status"])
+            except OSError as exc:
+                rec.update(status="error", detail=f"Job ran but its outcome could not be recorded; automatic retry is held: {exc}")
             fired.append(rec)
         return fired
     finally:
+        if not dry_run:
+            lease._gate.release()
         if locked_here:
-            _lock_release(realm_root)
+            _lock_release(lease)
 
 
-def _adopt_new_realms(rescan, owned: list, others: list) -> None:
+def _adopt_new_realms(rescan, owned: dict, others: list) -> None:
     """Take on realms registered since the daemon started (created or added in the app while it
     was running). Without this, a new realm's jobs never fired until the scheduler was restarted —
     and the scheduler is the thing nobody restarts. A realm another live process already owns is
@@ -430,16 +507,21 @@ def _adopt_new_realms(rescan, owned: list, others: list) -> None:
                 continue
         except OSError:
             continue
-        if _lock_acquire(p):
-            owned.append(p)
+        try:
+            lease = _lock_acquire(p)
+        except OSError:
+            swallowed(log, "run_daemon: cannot acquire new realm")
+            continue
+        if lease is not None:
+            owned[p] = lease
             others.append(p)
             have.add(p.resolve())
             print(f"  also firing ▶ {p} (new since start)", flush=True)
 
 
-def run_daemon(realm_root, engine: str = "claude", interval: int = 60,
+def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                grace_min: Optional[int] = None, also: Optional[list] = None,
-               rescan=None) -> int:
+               rescan=None, app_owner: int = 0) -> int:
     """Fire due jobs until stopped. `also` names further realms to tick in the same pass.
 
     A realm's jobs are its own commitment; they do not stop mattering because you are looking at a
@@ -460,62 +542,66 @@ def run_daemon(realm_root, engine: str = "claude", interval: int = 60,
     others = [Path(p) for p in (also or []) if Path(p).resolve() != realm_root.resolve()]
     cfg = _load_json(realm_root / "realm.json")
     tzname = cfg.get("timezone", "local")
-    # Claim the scheduler lock for every realm this process is about to tick, for the whole
-    # lifetime of the daemon (released in the `finally` below) — not re-acquired each tick, which
-    # is what makes tick() skip firing for _daemon_owned=True calls: this process already holds it.
-    # The primary realm is why you ran this command; if it's already owned, refuse to start a
-    # second daemon over it rather than silently doing nothing useful. An `also` realm already
-    # owned by someone else is dropped from this run instead — the primary realm still gets its
-    # scheduler.
-    if not _lock_acquire(realm_root):
-        holder = lock_holder(realm_root)
-        print(f"ARMADA scheduler ▶ {realm_root} is already being scheduled by another process "
-              f"(pid {holder.get('pid') if holder else '?'}, started {holder.get('started', '?') if holder else '?'}). "
-              "Not starting a second one.", flush=True)
+    # Hold each lease for the daemon's lifetime. Every successful acquisition is registered
+    # for cleanup immediately, including failures during startup and newly discovered realms.
+    try:
+        primary = _lock_acquire(realm_root)
+    except OSError as exc:
+        print(f"ARMADA scheduler: cannot claim {realm_root}: {exc}", flush=True)
         return 1
-    owned = [realm_root]
-    for p in others:
-        if _lock_acquire(p):
-            owned.append(p)
-        else:
-            holder = lock_holder(p)
-            print(f"  ⚠ {p} is already being scheduled by another process "
-                  f"(pid {holder.get('pid') if holder else '?'}) — skipping it here", flush=True)
-    others = [p for p in others if p in owned]
-    # Collect temp files an earlier run left behind when it was killed mid-write. This process is
-    # the usual culprit — the Telegram listener rewrites its cursor constantly — and nothing else
-    # ever cleans them up.
-    try:
-        from . import util as _util
-        _n = _util.sweep_temp_files(realm_root)
-        if _n:
-            print(f"  swept {_n} stale temp file(s) from an interrupted write", flush=True)
-    except Exception:  # noqa — housekeeping must never stop the scheduler starting
-        swallowed(log, 'run_daemon: failed; ignored')
-    # Line-buffer stdout so a long-running daemon's output appears live (not stuck in a pipe buffer).
-    try:
-        import sys as _sys
-        _sys.stdout.reconfigure(line_buffering=True)
-    except Exception:  # noqa
-        log.debug('run_daemon: failed; ignored', exc_info=True)
-    # Telegram gets its own long-poll thread rather than riding the tick: an acknowledgement is only
-    # as fast as the pass that sends it, and a minute-late "message received" is worse than none.
-    # This is the always-on process, so it's where the listener belongs.
-    try:
-        from . import telegram as _tg
-        if _tg.start_listener(realm_root, engine):
-            print("  Telegram listener ▶ answering messages as they arrive", flush=True)
-    except Exception:  # noqa — Telegram must never stop jobs from running
-        swallowed(log, 'run_daemon: failed; ignored')
-    print(f"ARMADA scheduler ▶ {realm_root}  ·  engine={engine}  ·  tz={tzname}  ·  "
-          f"tick={interval}s  ·  grace={grace_min if grace_min is not None else cfg.get('grace_minutes', 120)}m", flush=True)
-    for p in others:
-        print(f"  also firing ▶ {p}", flush=True)
-    print("  (Ctrl-C to stop. Jobs fire once per day when due; missed jobs catch up within grace.)", flush=True)
+    if primary is None:
+        print(f"ARMADA scheduler: {realm_root} is already being scheduled. Not starting a second one.", flush=True)
+        return 1
+    owned = {realm_root: primary}
     restart = False
-    _note_running(True)
     try:
+        for p in others:
+            if p.resolve() in {r.resolve() for r in owned}:
+                continue
+            try:
+                lease = _lock_acquire(p)
+            except OSError:
+                swallowed(log, "run_daemon: cannot acquire additional realm")
+                continue
+            if lease is not None:
+                owned[p] = lease
+        others = [p for p in owned if p != realm_root]
+        # Collect temp files an earlier run left behind when it was killed mid-write. This process is
+        # the usual culprit — the Telegram listener rewrites its cursor constantly — and nothing else
+        # ever cleans them up.
+        try:
+            from . import util as _util
+            _n = _util.sweep_temp_files(realm_root)
+            if _n:
+                print(f"  swept {_n} stale temp file(s) from an interrupted write", flush=True)
+        except Exception:  # noqa — housekeeping must never stop the scheduler starting
+            swallowed(log, 'run_daemon: failed; ignored')
+        # Line-buffer stdout so a long-running daemon's output appears live (not stuck in a pipe buffer).
+        try:
+            import sys as _sys
+            _sys.stdout.reconfigure(line_buffering=True)
+        except Exception:  # noqa
+            log.debug('run_daemon: failed; ignored', exc_info=True)
+        # Telegram gets its own long-poll thread rather than riding the tick: an acknowledgement is only
+        # as fast as the pass that sends it, and a minute-late "message received" is worse than none.
+        # This is the always-on process, so it's where the listener belongs.
+        try:
+            from . import telegram as _tg
+            if _tg.start_listener(realm_root, engine):
+                print("  Telegram listener ▶ answering messages as they arrive", flush=True)
+        except Exception:  # noqa — Telegram must never stop jobs from running
+            swallowed(log, 'run_daemon: failed; ignored')
+        print(f"ARMADA scheduler ▶ {realm_root}  ·  engine={engine}  ·  tz={tzname}  ·  "
+              f"tick={interval}s  ·  grace={grace_min if grace_min is not None else cfg.get('grace_minutes', 120)}m", flush=True)
+        for p in others:
+            print(f"  also firing ▶ {p}", flush=True)
+        print("  (Ctrl-C to stop. Jobs fire once per day when due; missed jobs catch up within grace.)", flush=True)
+        _note_running(True)
         while True:
+            if app_owner and (not _util.pid_alive(app_owner) or
+                              ( _util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
+                print("  ARMADA window exited — stopping scheduled jobs", flush=True)
+                break
             now = now_in(cfg)
             if rescan is not None:
                 _adopt_new_realms(rescan, owned, others)
@@ -523,10 +609,7 @@ def run_daemon(realm_root, engine: str = "claude", interval: int = 60,
                 # One realm's problem is its own. A folder that has been moved or deleted since
                 # startup must not take the other realms' jobs down with it.
                 try:
-                    # _daemon_owned=True: this process already holds p's scheduler lock for the
-                    # whole run (acquired above), so tick() fires straight away rather than trying
-                    # to re-acquire a lock it's already holding.
-                    fired = tick(p, engine=engine, grace_min=grace_min, _daemon_owned=True)
+                    fired = tick(p, engine=engine, grace_min=grace_min, _lease=owned[p])
                 except Exception as e:  # noqa
                     swallowed(log, 'run_daemon: failed; reported to the caller')
                     print(f"  [{now.strftime('%H:%M')}] {p.name}: tick failed — {e}", flush=True)
@@ -535,21 +618,27 @@ def run_daemon(realm_root, engine: str = "claude", interval: int = 60,
                 for r in fired:
                     print(f"  [{now.strftime('%H:%M')}] {where}fired {r['agent']}/{r['job']} "
                           f"({r['kind']}) → {r['status']}", flush=True)
+                    if r.get("detail") or r.get("error"):
+                        print(f"    {r.get('detail') or r.get('error')}", flush=True)
             if _update_wanted():
                 print("  an ARMADA update is in place — restarting on the new version", flush=True)
                 restart = True
                 break
-            time.sleep(max(5, interval))
+            for _ in range(max(5, interval)):
+                if app_owner and (not _util.pid_alive(app_owner) or
+                                  (_util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
+                    break
+                time.sleep(1)
     except KeyboardInterrupt:
         print("\nARMADA scheduler stopped.")
     finally:
         # Released before the restart too: on Windows the restarted scheduler is a new process, and
         # it must find the realms free rather than held by a pid that's about to exit.
-        for p in owned:
-            _lock_release(p)
+        for lease in owned.values():
+            _lock_release(lease)
         _note_running(False)
         from . import updater as _upd
-        return _upd.RESTART_RC if restart else 0
+    return _upd.RESTART_RC if restart else 0
 
 
 def _note_running(on: bool) -> None:

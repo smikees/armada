@@ -3,14 +3,16 @@ from __future__ import annotations
 import html, json, datetime, time, re
 from .. import datefmt
 from pathlib import Path
+from .. import covenant
 from .. import memory, model, models, brand, status
-from .. import clock
+from ..verbosity import agent_level as _agent_verbosity
+from .. import clock, job_results
 from .. import goals as goalsmod
 from ..icons import (ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR,
                      ICON_MISSED, _ICON_REFRESH)
 from ._base import (E, _J, _ask_alexander, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
-    _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
+    _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js, _picker_model_mark, _cost_bar,
     _model_is_claude)
 from .schedfmt import (_DOW_NAME, _humanize, _cadence_bucket, _sysjob_cadence_bucket, _status_bucket,
     _STATUS_FILTERS, _CADENCE_FILTERS, _next_run_dt, _job_next_dt, _ordinal, _next_hint, _fmt_ts)
@@ -62,7 +64,7 @@ def _new_agent_form(realm, cancel_html: str) -> str:
     defcolor = _AGENT_PALETTE[_next % len(_AGENT_PALETTE)]     # next palette colour as the default
     return (f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
             f'<div><label class="mc-label">Name {_STAR}</label><input id="n-name" placeholder="E.g. Warren" class="mc-field"></div>'
-            f'<div><label class="mc-label">Role</label><input id="n-role" placeholder="E.g. {E(realm.theme_agent)} of Finance" class="mc-field"></div>'
+            f'<div><label class="mc-label">Role (optional)</label><input id="n-role" placeholder="E.g. {E(realm.theme_agent)} of Finance" class="mc-field"></div>'
             f'<div style="grid-column:1 / 3"><label class="mc-label">Profile (optional)</label><input id="n-leader" placeholder="E.g. after Warren Buffett — value discipline, margin of safety…" class="mc-field"></div>'
             # Same order as the Configure page: cosmetics together, then behaviour.
             f'<div style="grid-column:1 / 3"><label class="mc-label">Agent colour — shows up in token usage breakdowns, etc.</label>'
@@ -70,14 +72,9 @@ def _new_agent_form(realm, cancel_html: str) -> str:
             f'<div style="grid-column:1 / 3"><label class="mc-label">Autonomy</label>{_autonomy_control("manual", "n-autonomy")}</div>'
             f'<div><label class="mc-label">Model</label><select id="n-model" class="mc-field">{model_opts}</select></div>'
             f'<div><label class="mc-label">Effort</label><select id="n-effort" class="mc-field">{effort_opts}</select></div>'
-            f'<div id="n-cons" style="grid-column:1 / 3"><label class="mc-label">Relative token consumption '
+            f'<div id="n-cons" style="grid-column:1 / 3"><label class="mc-label">Relative cost '
             f'<span style="text-transform:none;letter-spacing:0;color:var(--text-muted)">· this model &amp; effort</span></label>'
-            f'<div style="display:flex;align-items:center;gap:10px">'
-            f'<span class="mc-modelmark" style="display:inline-flex;color:var(--text-muted)">{_icon("claude", 16)}</span>'
-            f'<div style="position:relative;flex:1;height:12px;border-radius:6px;background:{_consumption_gradient_css()}">'
-            f'<div id="n-consmarker" style="position:absolute;top:-3px;left:0%;transform:translateX(-50%);width:4px;height:18px;'
-            f'border-radius:3px;background:var(--color-text);box-shadow:0 0 0 2px var(--color-bg)"></div></div>'
-            f'<span style="font-size:10px;color:var(--text-muted);white-space:nowrap">low → high</span></div>'
+            f'{_cost_bar("n-consmarker")}'
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:5px">Where this model + effort sits between the '
             f'cheapest and most token-hungry combination. The icon colour tracks the marker.</div></div>'
             f'</div>'
@@ -97,7 +94,10 @@ def _new_agent_form(realm, cancel_html: str) -> str:
             f'{cancel_html}'
             f'<span id="n-msg" style="font-size:12px;color:var(--text-muted)"></span></div>'
             f'<div style="margin-top:10px;font-size:11.5px;color:var(--text-muted)">'
-            f'These and other settings can be added/edited later in the agent Configure section.</div>')
+            f'These and other settings can be added/edited later in the agent Configure section.</div>'
+            + _FDROP_JS + f'<template id="mc-appoint-chevron">{CHEVR}</template>'
+            + '<script>["n-model","n-effort"].forEach(id=>{const select=document.getElementById(id);'
+              'if(select)mcFDFromSelect(select,document.getElementById("mc-appoint-chevron").content.firstElementChild);});</script>')
 
 
 def _reinstate_pane(realm, retired: list) -> str:
@@ -296,7 +296,7 @@ def _realm_ministers(realm, realm_root, today) -> str:
                   f'font-family:var(--font-heading);font-weight:600;font-size:16px">{E(a.display)}{coordtag}</span>'
                   f'{_autonomy_badge(_autonomy_of(realm_root, a.id), 14)}</div>'
                   f'<div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-accent-700);margin-top:2px">{E(a.theme_role)}</div>'
-                  f'<div style="margin-top:6px">{_model_chip(*_agent_model_effort(realm, realm_root, a.id))}</div>'
+                  f'<div style="margin-top:6px">{_model_chip(*_agent_model_effort(realm, realm_root, a.id), verbosity=_agent_verbosity(realm_root, a.id))}</div>'
                   f'{profile}</div></div>'
                   f'{_cap_count_row(realm_root, a.id, is_coord=a.is_coordinator, active_jobs=sum(1 for j in a.jobs if j.enabled))}</a>')
     grid = f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px">{cards}</div>'
@@ -318,7 +318,7 @@ def _realm_ministers(realm, realm_root, today) -> str:
                f'text-decoration:none;font-size:11.5px;margin:0 0 12px;'
                f'color:var(--text-muted)">'
                f'<span style="display:flex;color:var(--color-accent-2)">{_icon("agreement",14)}</span>'
-               f'Every {E(realm.theme_agent.lower())} is bound by the Covenant '
+               f'Every {E(realm.theme_agent.lower())} is bound by {E(covenant.name(realm_root))} '
                f'<span style="color:var(--color-accent-2)">›</span></a>')
     return (f'<div style="padding:18px 24px 24px"><div style="display:flex;align-items:center;margin-bottom:8px">'
             f'{_page_title(realm.theme_agent + "s", f"{len(realm.members)} + 1 {realm.theme_coordinator}")}'
@@ -509,7 +509,7 @@ def _system_jobs_header(today) -> str:
 # in by, and only one of the two let you do anything to it. They are one renderer now. The realm
 # page adds Kind and Owner — the two facts an agent's own page answers by being that agent's page —
 # and everything else, including the column widths, is shared.
-_JOB_TAIL = "108px 96px 132px 100px 56px"        # cadence · cost · next run · week strip · on
+_JOB_TAIL = "190px 108px 96px 132px 106px 56px"        # cadence · cost · next run · week strip · on
 _JOB_GRID = f"grid-template-columns:1fr {_JOB_TAIL}"
 _JOB_GRID_OWNED = f"grid-template-columns:1fr 62px 108px {_JOB_TAIL}"
 # System jobs: the same columns minus Owner/Kind, plus one for Run now — a system job has no
@@ -546,7 +546,7 @@ def _job_cost_pill(kind: str, tokens: int, n: int) -> str:
     dial = f'<span style="display:flex;flex:none">{_icon("quota", 11)}</span>'
     if not n:
         return _pill(f"{dial}uses quota", "warn",
-                     title="Spends your Claude subscription. No runs yet, so there is nothing to estimate from.")
+                     title="Uses your model provider subscription. No runs yet, so there is nothing to estimate from.")
     t = f"{tokens / 1000:.0f}k" if tokens >= 1000 else str(tokens)
     plural = "" if n == 1 else "s"
     return _pill(f"{dial}≈{t} / run", "warn", title=f"Median of {n} recorded run{plural} — typical, not a cap")
@@ -564,8 +564,8 @@ def _job_list_header(today, show_owner: bool, list_id: str) -> str:
     return (f'<div style="display:grid;{grid};gap:8px;padding:6px 10px 6px 28px;font-size:11px;'
             f'font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);'
             f'border-bottom:1px solid var(--color-divider)">{hcol("Job","name")}{extra}'
-            f'{hcol("Cadence","cadence")}{hcol("Cost","cost")}{hcol("Next run","next")}'
-            f'<span style="text-transform:none;letter-spacing:0;font-weight:600">{_health7_header(today)}</span>'
+            f'{hcol("Model","model")}{hcol("Cadence","cadence")}{hcol("Cost","cost")}{hcol("Next run","next")}'
+            f'<span style="text-transform:none;letter-spacing:0;font-weight:600">{_health7_header(today, larger_today=True)}</span>'
             # The switch column had no name at all, so the one control in the row that changes
             # whether a job runs was the only thing on the page you had to guess at.
             f'<span style="justify-self:end">On/Off</span></div>')
@@ -577,6 +577,25 @@ def _job_list_header(today, show_owner: bool, list_id: str) -> str:
 _RUN_LOG_ROWS = 7
 
 
+def _job_history_rows(aid, runs):
+    return "".join(
+        f'<tr><td class="mono" style="font-size:11px"><button class="mc-job-runlink" '
+        f'onclick="mcSelectJobRun(this,{_J(str(ev.get("run_id") or ev.get("ts")))})">'
+        f'{E(_fmt_ts(ev.get("ts", "")))}</button></td>'
+        f'<td style="color:{status.color(ev.get("status", ""))};font-size:11.5px">'
+        f'{E(job_results.label(ev["result"]) if ev.get("result") else str(ev.get("status", "")))}</td>'
+        f'<td style="font-size:11.5px">{E(str(ev.get("summary", ""))[:200])}'
+        f'{_ask_alexander(aid, str(ev.get("task", "")), ev)}</td></tr>'
+        for ev in list(runs)[-_RUN_LOG_ROWS:][::-1]) or (
+        '<tr><td colspan="3" style="font-size:11.5px;color:var(--text-muted)">no runs yet</td></tr>')
+
+
+def _job_week_html(week):
+    return "".join(_health_square(label, ("Today · latest status · " if i == 3 else "") +
+                                 _health_tip(day, dt, label, wknd), size=16.5 if i == 3 else 11)
+                   for i, (day, dt, label, wknd) in enumerate(week))
+
+
 def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_job: str = "") -> str:
     """One job, expandable, identical on both pages bar the Kind and Owner cells."""
     grid = _JOB_GRID_OWNED if show_owner else _JOB_GRID
@@ -584,7 +603,6 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     _run = jc.get("run")
     if isinstance(_run, list):                        # command jobs may store an argv list
         _run = " ".join(str(x) for x in _run)
-    prompt = E(jc.get("prompt") or _run or "(no prompt)")
     created = _job_created(realm_root, a.id, j.id, jc)
     on = j.enabled
     jcad = _cadence_bucket(j.cadence)
@@ -610,9 +628,15 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
         else:
             nxt_txt, nxt_style = "on demand", "color:var(--text-muted)"
     week7 = _job_health7(jruns, j.cadence, now, j.id in running,
-                         since=_job_created_ts(realm_root, a.id, j.id, jc))
-    week = "".join(_health_square(label, _health_tip(day, dt, label, wknd))
-                   for day, dt, label, wknd in week7)
+                         since=_job_created_ts(realm_root, a.id, j.id, jc), latest_today=True)
+    week = _job_week_html(week7)
+    from .. import verbosity as V
+    ac = json.loads((Path(realm_root) / "agents" / a.id / "agent.json").read_text(encoding="utf-8-sig"))
+    rc = json.loads((Path(realm_root) / "realm.json").read_text(encoding="utf-8-sig"))
+    job_model = jc.get("model") or ac.get("model") or rc.get("default_model") or ""
+    job_effort = jc.get("effort") or ac.get("effort") or rc.get("default_effort") or "high"
+    job_verbosity = V.normalise(jc.get("verbosity")) or V.agent_level(realm_root, a.id)
+    badge = _model_chip(job_model, job_effort, verbosity=job_verbosity) if j.kind != "command" else "—"
     # The filter reads the same strip the row draws, rather than last_status — see
     # _week_filter_bucket for what that mismatch did.
     jstatus = _week_filter_bucket(week7)
@@ -644,35 +668,18 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
         + (f'<span style="display:block;margin-left:18px;font-size:11.5px;line-height:1.4;'
            f'color:var(--text-muted)">{E(j.summary)}</span>'
            if j.summary else "")
-        + f'</span>{owner_cells}'
+        + f'</span>{owner_cells}<span>{badge}</span>'
         f'<span class="mono" style="font-size:11.5px;color:var(--text-dim)">'
         f'{_humanize(j.cadence)}</span>'
         f'<span>{cost_pill}</span>'
-        f'<span style="font-size:12px;white-space:nowrap;{nxt_style}">{E(nxt_txt)}</span>'
-        f'<span style="white-space:nowrap">{week}</span>'
+        f'<span class="mc-job-next" style="font-size:12px;white-space:nowrap;{nxt_style}">{E(nxt_txt)}</span>'
+        f'<span class="mc-job-week" style="display:flex;align-items:center;white-space:nowrap">{week}</span>'
         f'<span style="display:flex;gap:6px;align-items:center;justify-self:end">{toggle}</span></summary>')
     # The last seven runs, newest first — a plain log, not the week strip again. The strip in the
     # collapsed row answers "how has the schedule been going" and already has a Missed square for a
     # day nothing ran; repeating it here said the same thing twice and said nothing about the runs
     # themselves. Fewer than seven rows means the job has run fewer than seven times.
-    hist_rows = [ev for ev in jruns][-_RUN_LOG_ROWS:][::-1]
-    hist = "".join(f'<tr><td class="mono" style="font-size:11px">{E(_fmt_ts(ev.get("ts","")))}</td>'
-                   f'<td style="color:{status.color(ev.get("status",""))};font-size:11.5px">'
-                   f'{E(str(ev.get("status","")))}</td>'
-                   f'<td style="font-size:11.5px">{E(str(ev.get("summary",""))[:90])}'
-                   f'{_ask_alexander(a.id, j.id, ev)}</td></tr>'
-                   for ev in hist_rows) \
-           or '<tr><td colspan=3 style="font-size:11.5px;color:var(--text-muted)">no runs yet</td></tr>'
-    # The prompt is shown, not offered for editing. A read-only <textarea> still looks exactly like
-    # a field you can type in — people tried, and nothing happened. A <pre> reads as content;
-    # resize:vertical + overflow:auto keep the drag handle and the scroll.
     body = (f'<div style="padding:4px 10px 16px 28px">'
-            f'<pre class="mc-prompt" style="width:100%;min-height:120px;max-height:420px;resize:vertical;'
-            f'overflow:auto;margin:0;background:color-mix(in srgb,var(--color-text) 3%,transparent);'
-            f'border:1px solid var(--color-divider);border-left:3px solid var(--color-sand-500);'
-            f'border-radius:var(--r);padding:10px 12px;white-space:pre-wrap;word-break:break-word;'
-            f'font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.55;'
-            f'color:color-mix(in srgb,var(--color-text) 85%,transparent)">{prompt}</pre>'
             # Run now is dead while the job is off. The switch says "this job does not run"; a live
             # button beside it that runs the job says otherwise, and one of the two has to be wrong.
             # Switching it back on is one click away, which is what the tooltip says.
@@ -682,7 +689,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
             f'{"" if on else ";opacity:.45;cursor:not-allowed"}" '
             f'{"" if on else "disabled "}'
             f'title="{"Run this job now" if on else "This job is switched off — switch it on to run it"}" '
-            f'onclick="mcRun({_J(a.id)},{_J(j.id)},\'claude\',this)">{_icon("play",12)}Run now</button>'
+            f'onclick="mcRun({_J(a.id)},{_J(j.id)},\'auto\',this)">{_icon("play",12)}Run now</button>'
             f'<a href="/job/{E(a.id)}/{E(j.id)}" class="btn btn-secondary btn-sm" style="'
             f'text-decoration:none">{_icon("edit",12)}Edit job</a>'
             # Delete sits beside Edit, inside the expanded view: it belongs with the other things
@@ -692,16 +699,18 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
             f'style="font-size:12px;padding:5px 11px;color:var(--status-bad);'
             f'display:inline-flex;align-items:center;gap:5px">{_icon("trash",12)}Delete job</button>'
             f'<span class="mc-runmsg" style="font-size:12px;color:var(--text-muted)"></span></div>'
-            f'<pre class="mc-out" style="display:none;background:var(--color-sand-100);'
-            f'border:1px solid var(--color-sand-300);color:var(--color-text);border-radius:var(--r);'
-            f'padding:10px;white-space:pre-wrap;max-height:320px;overflow:auto;resize:vertical;'
-            f'font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px"></pre>'
-            + f'<div style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;'
-            f'color:var(--text-faint);margin:12px 0 4px">'
-            f'Last {_RUN_LOG_ROWS} runs</div>'
+            f'<details class="mc-job-section mc-job-prompt-pane"><summary>{_icon("chevron-right",14)}Prompt</summary>'
+            f'<div class="mc-job-section-body"><div class="mc-job-prompt mc-md">{_md(jc.get("prompt") or str(_run or "(no prompt)"))}</div></div></details>'
+            f'<details class="mc-job-section mc-job-output-pane"><summary>{_icon("chevron-right",14)}Output</summary>'
+            f'<div class="mc-job-section-body"><div class="mc-job-output-heading">'
+            f'<select class="mc-job-run-select" aria-label="Run output" onchange="mcSelectJobRun(this,this.value)">'
+            f'<option value="">Latest run</option></select></div>'
+            f'<div class="mc-out">Expand to load run output.</div></div></details>'
+            f'<details class="mc-job-section mc-job-history-pane"><summary>{_icon("chevron-right",14)}Run history</summary>'
+            f'<div class="mc-job-section-body">'
             f'<table class="table">'
             f'<thead><tr><th>When</th><th>Status</th><th>Summary</th></tr></thead>'
-            f'<tbody>{hist}</tbody></table></div>')
+            f'<tbody class="mc-job-history">{_job_history_rows(a.id, jruns)}</tbody></table></div></details></div>')
     is_open = " open" if (open_job and j.id == open_job) else ""
     off_cls = "" if on else " mc-job-off"
     # Two sets of attributes: sort keys (what the column shows) and filter buckets (what the
@@ -709,7 +718,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     # number compare — because "≈14k / run" and "Mon 9/21, 20:00" do not sort as themselves.
     return (f'<details class="mc-job{off_cls}" id="job-{E(j.id)}" data-jid="{E(j.id)}" '
             f'data-name="{E(j.name.lower())}" data-cadence="{E(_humanize(j.cadence))}" '
-            f'data-created="{E(created)}" data-status="{E((j.last_status or "zzz").lower())}" '
+            f'data-model="{E((job_model + " " + job_effort).lower())}" data-created="{E(created)}" data-status="{E((j.last_status or "zzz").lower())}" '
             f'data-cost="{tok:012d}" data-next="{E(_nd.isoformat() if _nd else "zzzz")}" '
             f'data-kind="{"cmd" if j.kind == "command" else "agent"}" '
             f'data-owner="{E(a.id)}" data-ownername="{E(a.display.lower())}" '

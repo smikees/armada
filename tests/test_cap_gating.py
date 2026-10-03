@@ -81,6 +81,14 @@ def test_record_used_skips_known(tmp_path):
     assert len(conns) == 1   # not duplicated
 
 
+def test_record_used_does_not_discover_model_provider_as_connector(tmp_path):
+    r = _realm(tmp_path, {"connectors": []})
+    runner._record_used_capabilities(r, ["mcp__codex__search", "mcp__claude__lookup",
+                                         "mcp__github__search_issues"])
+    conns = json.loads((r / "realm.json").read_text(encoding="utf-8"))["toolkit"]["connectors"]
+    assert [c["id"] for c in conns] == ["github"]
+
+
 def test_discovery_lands_at_realm_level_and_grants_nobody(tmp_path):
     """Otherwise 'first use wins' becomes a way around the grant model, discovered by the owner
     only if they happen to notice a new row."""

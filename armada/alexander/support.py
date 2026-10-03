@@ -1,7 +1,7 @@
 """Alexander in the app: support conversations (launch plan 6.2, 6.3, 6.6; docs/dev/ALEXANDER.md).
 
 One turn is: assemble what he's allowed to know (the sections PROMPT.md names), run one sealed
-engine turn with no tools (Opus 5.5 at High, fixed), then take his reply apart — the prose is
+engine turn with no tools (model and effort from App → Advanced), then take his reply apart — the prose is
 shown, the fenced proposal blocks become cards only if they validate. Nothing he writes acts on its
 own; a card acts when the owner presses its button, through the app's own endpoint.
 
@@ -307,18 +307,24 @@ def ask(realm_root, cid: str, message: str, page: str = "", item: dict | None = 
     user = build(realm_root, cid, message, page, item)
     _append(cid, {"role": "owner", "text": message, "ts": _now(), "page": page,
                   **({"item": item} if item else {})})
+    model, effort = MODEL, EFFORT  # compatibility for explicitly injected test/extension engines
     if engine is None:
-        from ..engine.claude import ClaudeEngine
-        engine = ClaudeEngine()
-    kw = dict(system=system_prompt(), prompt=user, model=MODEL, effort=EFFORT,
-              cwd=str(_dir()), allow_tools=False, timeout=600)
-    if on_event and hasattr(engine, "run_stream"):
-        res = engine.run_stream(on_event=on_event, **kw)
-    else:
-        res = engine.run(**kw)
+        from .config import resolve
+        from ..engine import get_engine
+        try:
+            provider, model, effort = resolve(realm_root)
+        except ValueError as exc:
+            return {"ok": False, "id": cid, "error": str(exc)}
+        engine = get_engine(provider)
+    from ..engine.contracts import RunRequest, execute_request
+    from .. import verbosity
+    from .config import load
+    level = verbosity.normalise(load()["verbosity"]) or verbosity.DEFAULT
+    res = execute_request(engine, RunRequest(system=system_prompt() + "\n\n" + verbosity.prompt_block(level), prompt=user,
+        model=model, effort=effort, verbosity=level, cwd=str(_dir()), allow_tools=False, timeout=600), on_event=on_event)
     try:
         from .. import sysusage
-        sysusage.record(realm_root, "alexander", res.model or MODEL, res.usage.as_dict(), res.ok)
+        sysusage.record(realm_root, "alexander", res.model or model, res.usage.as_dict(), res.ok)
     except Exception:  # noqa — accounting never fails the answer
         swallowed(log, 'ask: usage not recorded')
     if not res.ok or not (res.output or "").strip():

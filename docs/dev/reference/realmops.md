@@ -5,8 +5,8 @@ Realm lifecycle — archive, export, delete.
 A realm is potentially years of an agent team's memory, threads and artefacts, so these three
 operations are deliberately very different in how much they destroy:
 
-* **Archive** touches no files at all. It only drops the realm from ARMADA's list, so the folder
-  stays exactly where it is and can be added back later. This is the one to reach for.
+* **Archive** switches off every job and persistently holds dispatch before the realm leaves the
+  list. Its resources and history stay in place and it can be added back later.
 * **Export** writes a .zip of the whole folder next to it — the thing you want when moving to
   another machine. Read-only with respect to the realm.
 * **Delete** removes the folder. On Windows it goes to the Recycle Bin rather than being shredded,
@@ -16,6 +16,30 @@ operations are deliberately very different in how much they destroy:
 
 Deletion also refuses to touch the realm ARMADA is currently serving: switch away first. That
 avoids the app pulling the floor out from under itself mid-request.
+
+### `lifecycle_lock(realm_root)`
+
+Serialize lifecycle changes with run admission, including the separate scheduler.
+
+### `archived(realm_root)`
+
+—
+
+### `assert_active(realm_root)`
+
+—
+
+### `busy(realm_root)`
+
+Activity owned by another Armada process also prevents archive/deletion.
+
+### `archive(realm_root)`
+
+Disable definitions and all system jobs; never change another realm's machine settings.
+
+### `restore(realm_root)`
+
+Explicit re-adoption releases the archive guard; job switches stay off.
 
 ### `_is_secret(name: str)`
 
@@ -36,3 +60,7 @@ Send a folder to the Recycle Bin via the Windows shell. Recoverable by design.
 ### `delete(realm_root, current_realm=None, permanent: bool=False)`
 
 Delete a realm's folder. Recycle Bin by default; `permanent` only on explicit instruction.
+
+### `_delete_locked(realm_root, current_realm, permanent)`
+
+—

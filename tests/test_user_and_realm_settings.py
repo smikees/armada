@@ -32,6 +32,19 @@ def test_about_you_is_offered_in_user_settings():
     assert "About you" in src
 
 
+def test_settings_tabs_share_sticky_save_cancel_actions(tmp_path):
+    from armada import reader
+    root = _realm(tmp_path)
+    html = pages.render_settings(reader.read(root), root, False, "", [])
+    assert html.count('class="mc-settings-actions"') == 3
+    assert html.count('onclick="mcSettingsCancel()"') == 3
+    for action in ("mcSaveRealmSettings()", "mcSaveUser()", "mcSaveAppSettings()"):
+        assert f'onclick="{action}"' in html
+    assert "Save realm settings</button>" not in html
+    assert "Save user settings</button>" not in html
+    assert "Save Alexander settings</button>" not in html
+
+
 def test_saving_user_settings_no_longer_sends_a_timezone():
     js = open(pages.__file__.replace("pages.py", "static/js/user.js"), encoding="utf-8").read()
     assert "timezone:" not in js.split("function mcTzUpdate")[0]

@@ -45,7 +45,7 @@ def test_the_header_has_a_fixed_height(realm):
 
 
 def test_the_limits_box_cannot_grow(realm):
-    """It is empty at load, two bars a moment later, and a wrapped sentence when unavailable."""
+    """Four provider rows must fit the same space, whether loaded or unavailable."""
     html = P.render_dashboard(reader.read(str(realm)), realm)
     box = html[html.index('id="mc-hdr-limits"'):]
     box = box[:box.index(">")]
@@ -57,10 +57,11 @@ def test_a_kpi_cell_cannot_grow_or_wrap(realm):
     assert 'class="mc-kpi" style="height:62px;white-space:nowrap"' in html
 
 
-def test_the_kpi_value_still_arrives_late(realm):
-    """The fix is a reserved space, not a removed skeleton."""
+def test_recorded_kpi_values_are_visible_before_async_refresh(realm):
+    """Existing telemetry is available at render time and must not wait for provider checks."""
     html = P.render_dashboard(reader.read(str(realm)), realm)
-    assert "mc-skel" in html and "data-v=" in html
+    assert 'id="mc-kpi-tokens"' in html and 'data-v="0"' in html
+    assert 'mc-skel' not in html
 
 
 # --------------------------------------------------------------------------- the edit toggle

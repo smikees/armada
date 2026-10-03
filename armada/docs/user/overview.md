@@ -2,7 +2,16 @@
 
 The realm's dashboard. Across the top: how many agents, active jobs, runs in the last 30 days,
 tokens used, and what those tokens would have cost on the API (you pay your subscription, not
-this — it's there to compare).
+this — it's there to compare). The agent count includes the coordinator (Prime Minister).
+The token total includes all reported usage across Claude, Codex and Gemini. A **+** and tooltip
+identify partial totals when some runs did not report tokens or could not be priced.
+
+API-equivalent estimates use standard text rates and reported cache counts. They exclude
+long-context surcharges, cache-storage and tool fees. Historical run files remain unchanged;
+ARMADA can estimate older unpriced runs when their model and token breakdown are known.
+Rates: [OpenAI](https://developers.openai.com/api/docs/pricing),
+[Claude](https://platform.claude.com/docs/en/about-claude/pricing),
+[Gemini](https://ai.google.dev/gemini-api/docs/pricing).
 
 ## The widgets
 
@@ -20,7 +29,7 @@ this — it's there to compare).
   to resize.
 - **Add or remove widgets:** **Manage widgets** lists what's on the dashboard and what you can add,
   including any agent's thread.
-- **Give a widget its own page:** a widget's ⋮ menu → **Add as section** puts it in the top menu.
+- **Give a widget its own page:** a widget's ⋮ menu → **Promote to section** puts it in the top menu.
 - **Appoint someone new:** **+ Appoint** on the Register.
 
 ## What the colours mean

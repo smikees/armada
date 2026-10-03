@@ -126,11 +126,11 @@ Publish only /help and /agents.
 
 New messages from the linked chat since last time. Free: no engine, no quota.
 
-### `handle(realm_root, m: dict, engine='claude')`
+### `handle(realm_root, m: dict, engine='auto')`
 
-One message, start to finish. Returns 'answered', 'failed', or '' (nothing was run).
+One message: 'answered', 'failed', 'skipped' (signed out), or '' (no agent turn).
 
-### `dispatch(realm_root, engine='claude')`
+### `dispatch(realm_root, engine='auto')`
 
 One non-blocking pass. The fallback path: used by the telegram-inbox system job when no listener is running, so Telegram still works (slowly) without the scheduler.
 
@@ -142,10 +142,10 @@ Is a long-poll listener running somewhere? The fallback job checks this before p
 
 Is the listener in the middle of answering? The updater (5.4) doesn't restart the scheduler then — the reply would be lost with the process.
 
-### `listen(realm_root, engine='claude', stop=None)`
+### `listen(realm_root, engine='auto', stop=None)`
 
 Hold a long poll open and answer messages as they land. Runs on a daemon thread.
 
-### `start_listener(realm_root, engine='claude')`
+### `start_listener(realm_root, engine='auto')`
 
 Start the listener on a daemon thread if Telegram is set up. Returns the thread or None.

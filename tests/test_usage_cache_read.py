@@ -11,8 +11,6 @@ an actual CLI `result` event (rather than trusting the field names) showed two o
 
 `modelUsage` carries all four counters per model, so it is the run.
 """
-import inspect
-
 from armada.engine.base import Usage
 from armada.engine.claude import ClaudeEngine, _usage_from_event
 
@@ -75,19 +73,39 @@ def test_it_falls_back_to_the_usage_block():
 
 def test_an_empty_event_is_not_an_error():
     u = _usage_from_event({})
-    assert u.total == 0 and u.cost_usd == 0.0
+    assert u.total is None and u.cost_usd is None
 
 
-def test_malformed_modelusage_entries_are_skipped():
+def test_malformed_modelusage_makes_aggregate_unknown():
     u = _usage_from_event({"modelUsage": {"a": None, "b": "nope",
                                           "c": {"inputTokens": 5}}, "total_cost_usd": 0.0})
-    assert u.input == 5
+    assert u.input is None and u.output is None and u.total is None
+    assert u.cost_usd == 0.0  # The explicitly reported cost remains known.
 
 
-def test_both_engine_paths_use_one_accounting():
+def test_both_engine_paths_use_one_accounting(monkeypatch):
     """run() and run_stream() drifted apart once before; a single helper is the point."""
-    for fn in (ClaudeEngine.run, ClaudeEngine.run_stream):
-        assert "_usage_from_event" in inspect.getsource(fn), fn.__name__
+    import json
+    from armada.engine import claude
+    from armada.engine.process import ProcessResult
+    event = {"type": "result", "subtype": "success", "result": "reply", "usage": {}}
+    calls = []
+    usage = Usage(input=11, output=12, cache_read=13, cache_write=14)
+    def account(data):
+        calls.append(data)
+        return usage
+    def transport(*args, on_line, **kwargs):
+        on_line(json.dumps(event))
+        return ProcessResult(returncode=0)
+    monkeypatch.setattr(claude, "_usage_from_event", account)
+    monkeypatch.setattr(claude, "supervise", transport)
+    engine = ClaudeEngine()
+    monkeypatch.setattr(engine, "_launcher", lambda: ["claude"])
+    monkeypatch.setattr(engine, "_direct", lambda: True)
+    for fn in (engine.run, engine.run_stream):
+        result = fn("system", "prompt")
+        assert result.ok and result.usage is usage
+    assert calls == [event, event]
 
 
 def test_total_includes_every_term():

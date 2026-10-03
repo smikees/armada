@@ -34,6 +34,9 @@ body:JSON.stringify({agent:agent,capability:cap})})).json();
 if(!r.ok){await window.mcConfirm("Could not give access",r.error||"Unknown error",{ok:"OK"});return;}
 if(r.coordinator){await window.mcConfirm("Already available",
 (r.detail||"The coordinator can already use everything."),{ok:"OK"});return;}
+if(r.provider_connection&&r.provider_connection!=="ready"){
+await window.mcConfirm("Codex connection needed",
+"Access is saved for this agent. Open this connector’s card and complete its separate Codex sign-in before the agent can use it.",{ok:"OK"});}
 location.reload();}
 catch(err){await window.mcConfirm("Could not give access",String(err),{ok:"OK"});}}
 async function mcCapRemoveAgent(e,cap,agent){e.stopPropagation();e.preventDefault();

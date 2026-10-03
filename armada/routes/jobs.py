@@ -37,7 +37,12 @@ class JobRoutes:
 
     def _get_job_detail(self):
         q = self._query()
-        self._json(200, _job_detail(self.realm, q.get("agent", ""), q.get("job", "")))
+        result = _job_detail(self.realm, q.get("agent", ""), q.get("job", ""), q.get("run", ""))
+        context = getattr(self, "request_context", None)
+        if context:
+            from ..request_context import bind_content_html
+            result["html"] = bind_content_html(result["html"], context)
+        self._json(200, result)
 
     def _new_job(self, body: dict) -> dict:
         agent, name = body.get("agent"), (body.get("name") or "").strip()
@@ -62,7 +67,10 @@ class JobRoutes:
             job["schedule"] = "manual"; job.pop("cron", None)
         try:
             (adir / "jobs").mkdir(exist_ok=True)
-            util.write_json_atomic(jf, job)
+            with util.file_lock(jf):
+                if jf.exists():
+                    return {"ok": False, "error": f"job '{jid}' already exists"}
+                util.write_json_atomic(jf, job)
             return {"ok": True, "id": jid}
         except Exception as e:  # noqa
             swallowed(log, '_new_job: failed; error returned to the caller')
@@ -98,13 +106,13 @@ class JobRoutes:
         if not p.exists():
             return {"ok": False, "error": f"no job {job}"}
         try:
-            jc = json.loads(p.read_text(encoding="utf-8-sig"))
             on = bool(body.get("enabled"))
-            if on:
-                jc.pop("enabled", None)      # absent means on; don't litter every file with true
-            else:
-                jc["enabled"] = False
-            util.write_json_atomic(p, jc)
+            def change(jc):
+                if on:
+                    jc.pop("enabled", None)
+                else:
+                    jc["enabled"] = False
+            util.mutate_json(p, change)
             return {"ok": True, "enabled": on}
         except Exception as e:  # noqa
             swallowed(log, '_job_enable: failed; error returned to the caller')
@@ -118,7 +126,9 @@ class JobRoutes:
         if not p.exists():
             return {"ok": False, "error": f"no job {job}"}
         try:
-            p.unlink()
+            with util.file_lock(p):
+                util.read_json_state(p)
+                p.unlink()
             return {"ok": True, "deleted": f"agents/{agent}/jobs/{job}.json"}
         except Exception as e:  # noqa
             swallowed(log, '_delete_job: failed; error returned to the caller')
@@ -129,30 +139,34 @@ class JobRoutes:
         p = Path(self.realm) / "agents" / safe_seg(agent, "agent") / "jobs" / f"{safe_seg(job, 'job')}.json"
         if not p.exists():
             return {"ok": False, "error": f"no job {job}"}
-        try:
-            jc = json.loads(p.read_text(encoding="utf-8-sig"))
-        except Exception as e:  # noqa
-            swallowed(log, '_save_job: failed; error returned to the caller')
-            return {"ok": False, "error": f"read: {e}"}
-        for k in ("prompt", "summary", "kind", "thread", "on_failure", "budget"):
-            if k in body:
-                jc[k] = body[k]
-        for k in ("model", "effort"):
-            if body.get(k):
-                jc[k] = body[k]
+        def change(jc):
+            if "retries" in body:
+                from ..job_retries import validate
+                jc["retries"] = validate(body["retries"])
+                jc.pop("on_failure", None)
+            for k in ("prompt", "summary", "kind", "thread", "budget"):
+                if k in body:
+                    jc[k] = body[k]
+            if "name" in body:
+                jc["name"] = str(body["name"]).strip() or jc.get("name", job)
+            for k in ("model", "effort", "verbosity"):
+                if k not in body:
+                    continue
+                if body.get(k):
+                    jc[k] = body[k]
+                else:
+                    jc.pop(k, None)
+            if body.get("allowed_skills") is not None:
+                jc["allowed_skills"] = body["allowed_skills"]
+            cron = (body.get("cron") or "").strip()
+            if cron:
+                jc["cron"] = cron
+                jc.pop("schedule", None)
             else:
-                jc.pop(k, None)
-        if body.get("allowed_skills") is not None:
-            jc["allowed_skills"] = body["allowed_skills"]
-        cron = (body.get("cron") or "").strip()
-        if cron:
-            jc["cron"] = cron
-            jc.pop("schedule", None)
-        else:
-            jc["schedule"] = "manual"
-            jc.pop("cron", None)
+                jc["schedule"] = "manual"
+                jc.pop("cron", None)
         try:
-            util.write_json_atomic(p, jc)
+            util.mutate_json(p, change)
             return {"ok": True, "path": f"agents/{agent}/jobs/{job}.json"}
         except Exception as e:  # noqa
             swallowed(log, '_save_job: failed; error returned to the caller')
@@ -161,7 +175,7 @@ class JobRoutes:
     def _run(self, body: dict) -> dict:
         from ..runner import run_job
         agent, job = body.get("agent"), body.get("job")
-        engine = body.get("engine", "mock")
+        engine = body.get("engine", "auto")
         if not agent or not job:
             return {"ok": False, "output": "missing agent/job"}
         # A switched-off job does not run, by hand or otherwise. The button is disabled in the UI,
@@ -177,11 +191,12 @@ class JobRoutes:
         try:
             with contextlib.redirect_stdout(buf):
                 report = run_job(self.realm, agent, job, engine=engine)
+            from ..job_history import transcript
+            output = transcript(Path(self.realm) / "agents" / agent, report).get("content")
             return {"ok": report.get("status") == "ok", "status": report.get("status"),
-                    "report": report, "output": buf.getvalue()}
+                    "report": report, "output": output or buf.getvalue()}
         except SystemExit as e:
             return {"ok": False, "output": buf.getvalue() + f"\n[stopped] {e}"}
         except Exception as e:  # noqa
             swallowed(log, '_run: failed; error returned to the caller')
             return {"ok": False, "output": buf.getvalue() + f"\n[error] {type(e).__name__}: {e}"}
-

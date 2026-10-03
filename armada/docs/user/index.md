@@ -1,6 +1,6 @@
 # ARMADA help
 
-ARMADA runs a standing team of AI agents on your own computer, on your own Claude subscription.
+ARMADA runs a standing team of AI agents on your own computer, through your Claude, Codex, or Gemini login.
 Your team lives in a **realm** — a folder you own — and ARMADA is the app that runs it.
 
 **New here?** Read [Getting started](getting-started.md), then [How ARMADA thinks](concepts.md).
@@ -12,6 +12,8 @@ Everything else is one page per part of the app — open the one you're looking 
 | [How ARMADA thinks](concepts.md) | Realms, agents, memory, goals, jobs, capabilities — the words the app uses |
 | [Overview](overview.md) | The dashboard: your team, usage, the job calendar |
 | [Your agents](agents.md) | The team page and each agent's own page: threads, jobs, memory, settings |
+| [OpenAI models](codex.md) | Connect Codex and choose models across providers for each agent |
+| [Gemini models](gemini.md) | Connect Google, select models, and understand file tools, connectors and limits |
 | [Goals](goals.md) | What the realm is working towards, and who owns each goal |
 | [Jobs](jobs.md) | Work that runs on a schedule — and why a job didn't run |
 | [Inbox](inbox.md) | Tasks your agents hand each other |

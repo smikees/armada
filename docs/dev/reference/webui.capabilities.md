@@ -37,6 +37,10 @@ Labelled Runs + Can-touch sections (small caption over its icons, per-ability ri
 
 Connection state shown as a plain icon + text (not a pill) next to the name — only for things that actually connect, or when a state needs attention.
 
+### `_provider_badges(it: dict)`
+
+—
+
 ### `_cap_made(it: dict)`
 
 (made-key, is-you) — who made it, where that is recorded.
@@ -109,7 +113,7 @@ The expanded 'Available to' row — the same chip language as goal owners, delib
 
 The expandable provenance panel: where from (+ link), persistence, installs, declared-vs-observed, a skill-contents link, and an Advanced sub-section.
 
-### `_cap_card(it: dict, inherited: bool=False, manage=None, kind: str='', realm=None, realm_root=None)`
+### `_cap_card(it: dict, inherited: bool=False, manage=None, kind: str='', realm=None, realm_root=None, selection: str='')`
 
 —
 

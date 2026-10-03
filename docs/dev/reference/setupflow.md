@@ -4,7 +4,8 @@ The setup wizard's server side (launch plan 6.4; the page is webui/setup_wizard.
 
 The wizard runs in two halves because a realm doesn't exist until halfway through:
 
-* **Before the realm** (the server's welcome mode, no realm open): welcome, checks, folder, team.
+* **Before the realm** (the server's welcome mode, no realm open): welcome, checks, folder,
+  naming, team.
   "Appoint the team" creates the realm and switches the server into it.
 * **In the realm** (`/setup`): capabilities, first job, tour, done.
 
@@ -38,7 +39,7 @@ True while a wizard-made realm hasn't finished its setup.
 
 —
 
-### `begin(realm_root, owner: str='')`
+### `begin(realm_root, owner: str='', connected_providers=None)`
 
 Mark a freshly made realm as mid-setup, and record the owner's name where the app keeps it (realm.json `user.name`, which Settings → User edits and every agent reads).
 
@@ -54,11 +55,11 @@ Setup is over: record it, and make sure the scheduler is running (the wizard pro
 
 A catalogue entry for a recommendation, for when the catalogue hasn't been fetched yet (a brand-new install: the daily refresh hasn't run). Same shape the catalogue writes.
 
-### `add_recommended(realm_root, key: str)`
+### `add_recommended(realm_root, key: str, enabled=None)`
 
-Add one recommended capability and switch it on for the realm. Only keys on the curated list are accepted: this endpoint exists for the wizard, not as a second way into the catalogue.
+Add one recommended capability with the owner's chosen initial enabled state. Only keys on the curated list are accepted: this endpoint exists for the wizard, not as a second way into the catalogue.
 
-### `_enable(realm_root, cid: str)`
+### `_enable(realm_root, cid: str, enabled=True, kind='skills')`
 
 —
 

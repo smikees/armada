@@ -69,7 +69,7 @@ The owner has seen it: drop the review and re-run the checks (which may still ho
 
 —
 
-### `run(realm_root, engine: str='claude')`
+### `run(realm_root, engine: str='auto')`
 
 Everything that decides whether this realm can work on this machine.
 
@@ -89,6 +89,6 @@ Why scheduled jobs are being held, or '' if they aren't.
 
 Hold (reason) or release (empty) the realm's scheduled jobs.
 
-### `apply_hold(realm_root, engine: str='claude')`
+### `apply_hold(realm_root, engine: str='auto')`
 
 Check the realm and hold or release its scheduler accordingly.

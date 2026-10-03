@@ -3,8 +3,11 @@ from __future__ import annotations
 from .base import EngineAdapter, RunResult, Usage
 from .mock import MockEngine
 from .claude import ClaudeEngine
+from .codex import CodexEngine
+from .gemini import GeminiEngine
+from .selection import engine_for, enabled_providers, model_provider
 
-_REGISTRY = {"mock": MockEngine, "claude": ClaudeEngine}
+_REGISTRY = {"mock": MockEngine, "claude": ClaudeEngine, "codex": CodexEngine, "gemini": GeminiEngine}
 
 
 def get_engine(name: str = "mock") -> EngineAdapter:

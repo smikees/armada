@@ -71,7 +71,9 @@ def _status_live() -> dict:
         return {"ok": False, "logged_in": False, "method": "", "reason": "unreadable-status"}
     # `plan` (Claude Code's subscriptionType: pro, max, team, enterprise…) lets the setup wizard say
     # whether agents can run on this account; the free plan has no Claude Code access.
-    return {"ok": True, "logged_in": bool(d.get("loggedIn")),
+    if not isinstance(d.get("loggedIn"), bool):
+        return {"ok": False, "logged_in": False, "method": "", "reason": "unreadable-status"}
+    return {"ok": True, "logged_in": d.get("loggedIn") is True,
             "method": str(d.get("authMethod") or ""), "reason": "",
             "plan": str(d.get("subscriptionType") or ""), "version": _version(lp)}
 

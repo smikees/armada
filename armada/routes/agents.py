@@ -19,6 +19,7 @@ log = logging.getLogger("armada.serve")
 
 
 class AgentRoutes:
+    _streams_lock = threading.RLock()
     def _get_chat_stop(self):
         self._json(200, self._chat_stop(self._query()))
 
@@ -85,6 +86,13 @@ class AgentRoutes:
                                                   safe_seg(q.get("agent", ""), "agent"),
                                                   safe_seg(q.get("thread", "main"), "thread")))
 
+    def _get_thread_metrics(self):
+        from ..webui.threadsview import thread_metrics
+        q = self._query()
+        self._json(200, thread_metrics(self.realm,
+                                       safe_seg(q.get("agent", ""), "agent"),
+                                       safe_seg(q.get("thread", "main"), "thread")))
+
     def _get_thread_rail(self):
         from .. import webui
         q = self._query()
@@ -97,7 +105,7 @@ class AgentRoutes:
         from .. import webui
         f = webui._avatar_file(self.realm, aid)
         if f and f.is_file():
-            self._send(200, f.read_bytes(), self._CT.get(f.suffix.lower(), "image/png"))
+            self._send_user_image(f)
         else:
             self._send(404, "no avatar", "text/plain")
 
@@ -208,88 +216,52 @@ class AgentRoutes:
         return agentops.delete(self.realm, aid)
 
     def _chat_stream(self, q: dict):
-        """Server-Sent Events: stream the agent's intermediate steps for one chat turn."""
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "keep-alive")
-        self.send_header("X-Accel-Buffering", "no")
-        self.end_headers()
-
+        """SSE transport for a coordinator-owned turn; routing never writes turn state."""
+        from ..request_context import RunContext
+        from ..execution import RunSession
+        context = RunContext.capture(self.realm, q.get("agent", ""), q.get("thread", "main"), q.get("tid"))
         def emit(obj):
             try:
                 self.wfile.write(("data: " + json.dumps(obj, ensure_ascii=False) + "\n\n").encode("utf-8"))
                 self.wfile.flush()
-            except Exception:  # noqa - client disconnected; keep the run going, just stop emitting
-                log.debug('emit: failed; ignored', exc_info=True)
-        tid = q.get("tid", "")
-
-        def on_proc(p):
-            if tid:
-                self._streams[tid] = p
-        # Live "working" marker so the activity dot pulses while an interactive chat runs (the runner
-        # only writes .running markers for scheduled jobs; a chat turn otherwise looks idle).
-        mark = None
-        try:
-            mark = (Path(self.realm) / "agents" / safe_seg(q.get("agent", ""), "agent")
-                    / "runs" / ".running" / "_chat.json")
-            mark.parent.mkdir(parents=True, exist_ok=True)
-            # Which thread, not just "a chat". The dot only needs to know the agent is busy, but
-            # the transcript needs to know whether the turn it is looking at is the live one —
-            # otherwise every thread shows a spinner whenever the agent is working anywhere.
-            mark.write_text(json.dumps({"kind": "chat",
-                                        "thread": safe_seg(q.get("thread", "main"), "thread")}),
-                            encoding="utf-8")
-        except Exception:  # noqa
-            swallowed(log, '_chat_stream: failed; using a default')
-            mark = None
-        try:
-            from ..runner import chat_stream
-            r = chat_stream(self.realm, q.get("agent", ""), q.get("thread", "main"),
-                            q.get("message", ""), on_event=emit, engine="claude", on_proc=on_proc,
-                            images=q.get("images") or [], files=q.get("files") or [],
-                            allow_tools=True)   # thread chats are agentic: the agent can read, write
-            #   (e.g. propose a job) and search while you talk to it. Job proposals still need approval.
-            emit({"kind": "done", **r})
-            if r.get("ok"):
-                try:                              # flag the thread's new output as unseen (teal dot)
-                    from .. import webui
-                    webui._mark_thread_unread(
-                        Path(self.realm) / "agents" / safe_seg(q.get("agent", ""), "agent"),
-                        safe_seg(q.get("thread", "main"), "thread"))
-                except Exception:  # noqa
-                    log.exception("mark-thread-unread failed")
-                # name a still-default 'New Chat' from the topic of the first prompt. Done AFTER the
-                # 'done' event (the reply is already shown), then pushed as a 'rename' event, so the
-                # short title-model call doesn't delay the visible reply.
-                try:
-                    nt = self._autoname_thread(q.get("agent", ""), q.get("thread", "main"), q.get("message", ""))
-                    if nt:
-                        emit({"kind": "rename", "thread_title": nt})
-                except Exception:  # noqa
-                    log.exception("auto-name thread failed")
-        except Exception as e:  # noqa
-            swallowed(log, '_chat_stream: failed; reported to the caller')
-            emit({"kind": "error", "error": str(e)})
-        finally:
-            self._streams.pop(tid, None)
-            if mark is not None:
-                try:
-                    mark.unlink()
-                except OSError:
-                    pass
-        time.sleep(0.3)  # let the browser process 'done' and close, so EventSource won't auto-reconnect
+            except Exception:
+                log.debug('emit: client disconnected', exc_info=True)
+        with RunSession(context, self._streams, self._streams_lock) as session:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            try:
+                from ..runner import chat_stream
+                result = chat_stream(context.realm.root, context.agent, context.thread,
+                    q.get("message", ""), on_event=emit, engine="auto", on_proc=session.bind,
+                    images=q.get("images") or [], files=q.get("files") or [],
+                    allow_tools=True, context=context, session=session)
+                session.close()  # title helper is not part of the agent turn
+                emit({"kind": "done", **result})
+                if result.get("ok"):
+                    try:
+                        title = self._autoname_thread(context.agent, context.thread, q.get("message", ""), context)
+                        if title:
+                            emit({"kind": "rename", "thread_title": title})
+                    except Exception:
+                        log.exception("auto-name thread failed")
+            except Exception as exc:
+                log.exception("chat stream failed")
+                emit({"kind": "error", "error": str(exc)})
+        time.sleep(0.3)
 
     def _chat_stop(self, q: dict) -> dict:
-        p = self._streams.get(q.get("tid", ""))
-        if not p:
-            return {"ok": True, "note": "no active turn"}
+        from ..execution import RunSession
+        from ..request_context import RealmContext
+        key = (RealmContext.capture(self.realm).realm_id, q.get("tid", ""))
         try:
-            p.kill()
-            return {"ok": True}
-        except Exception as e:  # noqa
-            swallowed(log, '_chat_stop: failed; error returned to the caller')
-            return {"ok": False, "error": str(e)}
+            return RunSession.cancel(key, self._streams, self._streams_lock)
+        except Exception as exc:
+            log.exception("Could not cancel turn")
+            return {"ok": False, "error": str(exc)}
 
     def _thread_truncate(self, body: dict) -> dict:
         """Keep only the first `keep` messages of a thread (drops the rest) — powers
@@ -300,13 +272,11 @@ class AgentRoutes:
             keep = int(body.get("keep", 0))
         except (TypeError, ValueError):
             return {"ok": False, "error": "bad keep"}
-        mf = Path(self.realm) / "agents" / safe_seg(agent, "agent") / "threads" / safe_seg(thread, "thread") / "messages.jsonl"
-        if not mf.exists():
-            return {"ok": True, "kept": 0}
         try:
-            lines = [ln for ln in mf.read_text(encoding="utf-8-sig").splitlines() if ln.strip()]
-            util.write_text_atomic(mf, "\n".join(lines[:max(0, keep)]) + ("\n" if keep > 0 and lines[:keep] else ""))
-            return {"ok": True, "kept": min(keep, len(lines))}
+            from ..threads import Thread
+            adir = Path(self.realm) / "agents" / safe_seg(agent, "agent")
+            kept = Thread(adir, safe_seg(thread, "thread")).truncate(keep)
+            return {"ok": True, "kept": kept}
         except Exception as e:  # noqa
             swallowed(log, '_thread_truncate: failed; error returned to the caller')
             return {"ok": False, "error": str(e)}
@@ -329,11 +299,7 @@ class AgentRoutes:
         mf = adir / "meta.json"
         with util.file_lock(mf):     # read-modify-write of the thread index (4.3 L5)
             meta = {"titles": {}, "pinned": {}, "unread": {}, "order": [], "archived": {}}
-            if mf.exists():
-                try:
-                    meta.update(json.loads(mf.read_text(encoding="utf-8-sig")))
-                except Exception:  # noqa
-                    log.debug('_thread_action: failed; ignored', exc_info=True)
+            meta.update(util.read_json_state(mf, default=dict))
             slug = str(body.get("thread", ""))
             if action == "reorder":
                 order = [str(s) for s in (body.get("order") or []) if str(s) != "main"]
@@ -429,28 +395,21 @@ class AgentRoutes:
             while (tbase / slug).exists():
                 slug = f"new-chat-{n}"; n += 1
         try:
-            (tbase / slug).mkdir(parents=True)
             # place the new thread at the TOP of the secondary (non-main) list, not the bottom
             mf = tbase / "meta.json"
             with util.file_lock(mf):
                 meta = {"titles": {}, "pinned": {}, "unread": {}, "order": [], "archived": {}}
-                if mf.exists():
-                    try:
-                        meta.update(json.loads(mf.read_text(encoding="utf-8-sig")))
-                    except Exception:  # noqa
-                        log.debug('_new_thread: failed; ignored', exc_info=True)
+                meta.update(util.read_json_state(mf, default=dict))
+                (tbase / slug).mkdir(parents=True)
                 order = [s for s in (meta.get("order") or []) if s not in (slug, "main")]
                 meta["order"] = [slug] + order
-                try:
-                    util.write_json_atomic(mf, meta)
-                except OSError:
-                    pass
+                util.write_json_atomic(mf, meta)
             return {"ok": True, "thread": slug}
         except Exception as e:  # noqa
             swallowed(log, '_new_thread: failed; error returned to the caller')
             return {"ok": False, "error": str(e)}
 
-    def _autoname_thread(self, agent: str, thread: str, first_msg: str):
+    def _autoname_thread(self, agent: str, thread: str, first_msg: str, context=None):
         """After the first exchange, give a still-default 'New Chat' thread a title derived from the
         prompt (like the Claude app). Only touches auto-named 'new-chat*' threads that the owner
         hasn't renamed; returns the new title or None. The owner can still rename afterwards."""
@@ -458,7 +417,8 @@ class AgentRoutes:
         if thread == "main" or not thread.startswith("new-chat"):
             return None
         try:
-            adir = Path(self.realm) / "agents" / safe_seg(agent, "agent") / "threads"
+            root = context.realm.root if context is not None else self.realm
+            adir = Path(root) / "agents" / safe_seg(agent, "agent") / "threads"
         except util.UnsafeSegment:
             return None
         # a short topic summary from a cheap model (like the Claude app); fall back to a heuristic
@@ -468,11 +428,7 @@ class AgentRoutes:
         mf = adir / "meta.json"
         with util.file_lock(mf):     # the model call above runs unlocked; only the RMW is held
             meta = {"titles": {}, "pinned": {}, "unread": {}, "order": [], "archived": {}}
-            if mf.exists():
-                try:
-                    meta.update(json.loads(mf.read_text(encoding="utf-8-sig")))
-                except Exception:  # noqa
-                    log.debug('_autoname_thread: failed; ignored', exc_info=True)
+            meta.update(util.read_json_state(mf, default=dict))
             if (meta.get("titles", {}) or {}).get(thread):
                 return None                         # already named (owner renamed, or we already did)
             meta.setdefault("titles", {})[thread] = title
@@ -505,7 +461,7 @@ class AgentRoutes:
             aj = adir / "agent.json"
             # Locked: capabilities.py writes grants into this same file under the same lock (4.3 L4).
             with util.file_lock(aj):
-                ac = json.loads(aj.read_text(encoding="utf-8-sig")) if aj.exists() else {"id": agent}
+                ac = util.read_json_state(aj)
                 if body.get("display"):
                     ac["display"] = body["display"]
                 for k in ("autonomy", "role", "leader", "inbox_frequency"):
@@ -596,7 +552,7 @@ class AgentRoutes:
     def _chat(self, body: dict) -> dict:
         from ..runner import chat
         agent, thread, msg = body.get("agent"), body.get("thread", "main"), body.get("message", "")
-        engine = body.get("engine", "claude")
+        engine = body.get("engine", "auto")
         if not agent or not msg.strip():
             return {"ok": False, "output": "missing agent/message"}
         try:
@@ -606,4 +562,3 @@ class AgentRoutes:
         except Exception as e:  # noqa
             swallowed(log, '_chat: failed; error returned to the caller')
             return {"ok": False, "output": f"{type(e).__name__}: {e}"}
-

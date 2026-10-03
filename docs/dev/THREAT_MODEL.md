@@ -4,6 +4,20 @@
 the app is meant to work. Two problems found while writing it were fixed the same day (T1, T2);
 the rest are tickets below. Update this page whenever something here changes.*
 
+**2026-09-27 remediation update:** R1 / launch 2.11 is fixed in source: static requests must resolve
+inside the bundled asset directory; realm icons and agent/user avatars use a sandbox CSP without
+scripts or same-origin access, with `nosniff`. Browser probes confirmed that script-bearing SVG
+documents cannot call the app endpoint. R2 / launch 2.12 now validates policy before execution
+and gates each provider's current MCP inventory; failures become failed turns/run records.
+R5 / launch 2.15 removes destructive memory rollback: completion never restores or deletes
+guarded memories. Claude receives absolute file-tool denials; all adapters use a bounded,
+non-destructive audit which labels changed files with an unknown writer. Codex's current adapter
+has no per-memory write isolation. See [Memory boundaries](MEMORY_BOUNDARIES.md),
+[`ARCHITECTURE_REVIEW_2026-09-26.md`](ARCHITECTURE_REVIEW_2026-09-26.md) and launch items 2.12 and
+2.15. These were not covered by the earlier fixed labels. The broad process
+permissions below describe the Claude adapter; Codex uses a different execution policy documented
+in [`CODEX_INTEGRATION.md`](CODEX_INTEGRATION.md).
+
 ## The one sentence that matters
 
 **An ARMADA agent with tools is you.** A tool turn runs Claude Code with
@@ -40,8 +54,8 @@ app's page?** Either is equivalent to running code as you.
 
 | Control | Where | Strength |
 |---|---|---|
-| Capability grants: ungranted MCP-backed capabilities are denied at the engine (`--disallowedTools mcp__<id>`) | `runner._disallowed_tools` | **Real** for connectors, extensions, plugins; advisory for skills |
-| Other agents' and realm memory: writes are reverted after the turn | `runner._guard_snapshot` / `_guard_restore` | Real but after the fact (a turn can read, and act on, anything first) |
+| Capability grants: validated realm/agent policy, refreshed at launch, denies ungranted MCP servers in the provider inventory | `capabilities.execution_policy`, `runner._tool_grants`, both engine adapters | Invalid policy/inventory blocks the turn. Claude denies servers and their tools; Codex disables servers. Skills remain advisory; this does not sandbox shell access. |
+| Other agents' and realm memory: Claude file-tool denials plus non-destructive observations for all adapters | `memory_boundary`, `runner._tool_grants` / `_TurnCapture` | **R5 repaired in source (2.15):** never rolls back other writers. Claude built-in file editors receive absolute `Edit` denials for launch-time protected roots. Codex currently audits only. Shell/MCP access, aliases and directories introduced during execution are not isolated. Fingerprints cannot identify a writer or prove that no transient write occurred. |
 | Publish boundary: writes outside `shared/` are detected and reported | `runner._publish_boundary`, `_TurnCapture` | Detection only |
 | Realms live inside one app root | `approot.check` | Placement rule, not containment |
 | Server binds 127.0.0.1 only | `serve.serve` | Real |
@@ -73,6 +87,12 @@ Severity is for a beta of ~5 invited users on their own Windows machines.
 | T12 | **The reports key ships in the build.** Report an issue (5.6) sends through Resend with a key in the installed app (`armada/support_key.txt`, git-ignored). Anyone with the build can extract it. It's a *sending-only* key restricted to armada.stamih.com, so the worst case is someone sending mail as reports@armada.stamih.com to armada@stamih.com until it's revoked; Resend's free-tier cap (100/day) bounds it. Accepted for the invited beta (ADR-005); a small relay that holds the key replaces it before a public release. | Low (beta) | Accepted — relay before public |
 | T11 | **The update channel.** Whoever controls the code ARMADA runs acts as the owner. | High | **Mitigated in v0.99.64 (5.4, [ADR-011](../adr/ADR-011-updater.md))**: installed copies take only releases whose manifest verifies against an Ed25519 key compiled into the app (private half offline, never in the repo), whose zip matches the signed hash, whose entries stay inside `armada/`, and whose version is newer than the running one (no replayed rollbacks). A development checkout never self-updates; its Update & Restart is still `git pull` from the owner's own remote. Residual: the signing key itself — lost means no automatic updates, leaked means code on every copy. |
 | T13 | **Prompt injection through Alexander's context.** A realm file, memory or job output addressed to Alexander ("run X", "install this add-on", "send a report") could steer him (ADR-012). | Medium | **Designed out in 6.1 ([ALEXANDER.md](ALEXANDER.md)):** he has no tools; his prompt treats context as information, never instructions; every change he can cause is a card the owner presses, showing exactly what it does — a named remedy from a fixed list, a validated data-only add-on, or a report the owner reads before sending. |
+
+Realm selection is not authorization: the app runs as its owner. To prevent accidental cross-realm
+writes, requests and runs capture immutable destinations, stale-page mutations are rejected, and
+content/cancellation URLs carry realm identity. Read-only content can target a known or registered
+realm after selection changes. See [Request and run identity](REQUEST_CONTEXT.md) for this
+consistency boundary and its regression coverage (launch ticket 2.17).
 
 ## Out of scope
 

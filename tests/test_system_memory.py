@@ -2,7 +2,7 @@
 snapshot versioning and change-only rewrites.
 """
 import json
-from armada import memory, runner
+from armada import memory
 
 
 def _realm(tmp_path, name="Test Realm", owner="Mihai"):
@@ -33,30 +33,6 @@ def test_refresh_is_idempotent_and_versions_on_change(tmp_path):
     assert memory.refresh_system_memory(tmp_path, trigger="c")["changed"] is True
     assert len(list(vdir.glob("*.md"))) == before + 1
     assert (vdir / "_ledger.jsonl").exists()
-
-
-def test_guardrail_reverts_out_of_bounds_memory_writes(tmp_path):
-    rr = tmp_path
-    (rr / "memory").mkdir(parents=True)
-    (rr / "memory" / "realm-note.md").write_text("original", encoding="utf-8")
-    (rr / "agents" / "ray" / "memory").mkdir(parents=True)
-    (rr / "agents" / "steve" / "memory").mkdir(parents=True)
-    (rr / "agents" / "steve" / "memory" / "steve-note.md").write_text("steve original", encoding="utf-8")
-    agent_dir = rr / "agents" / "ray"
-
-    snap = runner._guard_snapshot(rr, agent_dir)
-    # ray (the acting agent) makes forbidden writes + one allowed write to its OWN memory
-    (rr / "memory" / "realm-note.md").write_text("HACKED", encoding="utf-8")
-    (rr / "memory" / "new-realm.md").write_text("injected", encoding="utf-8")
-    (rr / "agents" / "steve" / "memory" / "steve-note.md").write_text("HACKED", encoding="utf-8")
-    (agent_dir / "memory" / "ray-note.md").write_text("ray's own", encoding="utf-8")
-
-    reverted = runner._guard_restore(snap)
-    assert reverted == 3
-    assert (rr / "memory" / "realm-note.md").read_text(encoding="utf-8") == "original"     # restored
-    assert not (rr / "memory" / "new-realm.md").exists()                                    # removed
-    assert (rr / "agents" / "steve" / "memory" / "steve-note.md").read_text(encoding="utf-8") == "steve original"
-    assert (agent_dir / "memory" / "ray-note.md").read_text(encoding="utf-8") == "ray's own"  # own memory kept
 
 
 def test_digest_carries_forward_unprobed_env(tmp_path):

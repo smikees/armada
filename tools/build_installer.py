@@ -208,6 +208,7 @@ def stage(ver: str) -> Path:
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copy2(ROOT / name, STAGE / name)
     shutil.copy2(ROOT / "armada" / "webui" / "static" / "armada.ico", STAGE / "armada.ico")
+    _build_branded_launcher(py)
 
     from armada import updater
     runtime = updater.runtime_tag((ROOT / "requirements.txt").read_text(encoding="utf-8"), "3.12")
@@ -216,6 +217,24 @@ def stage(ver: str) -> Path:
         encoding="utf-8")
     say(f"staged {STAGE}  (runtime {runtime})")
     return STAGE
+
+
+def _build_branded_launcher(py: Path) -> None:
+    """Host the bundled CPython DLL inside ARMADA.exe, so Windows names the app ARMADA.
+
+    A shortcut icon/AppUserModelID changes taskbar branding, but Task Manager uses the
+    executable's own version resource. The small C# host preserves pythonw.exe's signed
+    original and forwards every argument to the private runtime in the same process.
+    """
+    windows = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    csc = next((p for p in (windows / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe",
+                            windows / "Microsoft.NET" / "Framework" / "v4.0.30319" / "csc.exe")
+                if p.is_file()), None)
+    if csc is None:
+        sys.exit("The Windows .NET Framework C# compiler is required to build ARMADA.exe")
+    subprocess.run([str(csc), "/nologo", "/target:winexe", "/platform:x64", "/optimize+",
+                    f"/win32icon:{STAGE / 'armada.ico'}", f"/out:{py / 'ARMADA.exe'}",
+                    str(ROOT / "installer" / "ArmadaLauncher.cs")], check=True)
 
 
 def _webview2_bootstrapper() -> Path:
@@ -263,6 +282,14 @@ def smoke(stage_dir: Path, ver: str) -> None:
         v, inst, _ = r.stdout.strip().split("|")
         if v != ver or inst != "True":
             sys.exit(f"smoke: got version {v}, installed={inst}")
+        branded = py.with_name("ARMADA.exe")
+        marker = Path(home) / "branded-host.txt"
+        host_probe = ("import sys; from pathlib import Path; "
+                      f"Path({str(marker)!r}).write_text(sys.executable, encoding='utf-8')")
+        r = subprocess.run([str(branded), "-c", host_probe], cwd=home, env=env, timeout=30)
+        if (r.returncode != 0 or not marker.exists() or
+                os.path.normcase(marker.read_text(encoding="utf-8")) != os.path.normcase(str(branded))):
+            sys.exit("smoke: branded ARMADA.exe could not host the private Python runtime")
         say("smoke: the server answers with the welcome page (no realm yet)")
         port = _free_port()
         p = subprocess.Popen([str(py), "-m", "armada", "serve", "--port", str(port)], cwd=home, env=env,

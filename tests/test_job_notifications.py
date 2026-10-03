@@ -12,6 +12,11 @@ from pathlib import Path
 
 import pytest
 
+@pytest.fixture(autouse=True)
+def existing_realm(tmp_path):
+    (tmp_path / "realm.json").write_text('{"name":"Test"}', encoding="utf-8")
+
+
 from armada import runner
 
 
@@ -128,7 +133,7 @@ def test_a_successful_command_still_reports_its_output(tmp_path):
     (agent_dir / "jobs").mkdir(parents=True)
     job = {"kind": "command", "run": [sys.executable, "-c", "print('all good')"]}
     rep = runner._run_command(tmp_path, "a", "probe", job, agent_dir)
-    assert rep["status"] == "ok" and rep["summary"] == "all good"
+    assert rep["status"] == "ok" and rep["summary"] == "Completed: all good"
 
 
 # ---- approvals ---------------------------------------------------------------------------------

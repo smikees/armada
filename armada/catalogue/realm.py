@@ -263,6 +263,9 @@ def inspect(e: dict) -> dict:
             return {"runs": "service", "touch": ["network"], "inspected": True,
                     "detail": "remote MCP server"}
         if inst.get("packages"):
+            if e.get("key") == "cursortouch/extensions/windows-mcp":
+                return {"runs": "code", "touch": ["files", "network", "shell"], "inspected": True,
+                        "detail": "local MCP server; upstream documents desktop control and terminal commands"}
             return {"runs": "code", "touch": ["files", "network"], "inspected": True,
                     "detail": "local MCP server"}
         return {"runs": "", "touch": [], "inspected": False,
@@ -584,6 +587,9 @@ def add_to_realm(realm_root, key: str, entry: dict | None = None) -> dict:
                 # no agent can reach it anyway; this makes the realm-level switch agree.
                 "enabled": False,
                 "added": _now(),
+                **({"setup_guide": e["setup_guide"], "setup_required": e.get("setup_required", ""),
+                    "status": "planned"}
+                   if e.get("setup_guide") else {}),
             })
             util.write_json_atomic(rp, js)
     except (OSError, ValueError) as err:

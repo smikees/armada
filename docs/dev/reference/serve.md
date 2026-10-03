@@ -12,7 +12,8 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 
 —
 
-- `Handler._send(self, code, body, ctype='text/html; charset=utf-8', cache: str='')` — —
+- `Handler._bind_request(self, *, mutation=False)` — Capture once per HTTP request, including reused connections, before dispatching work.
+- `Handler._send(self, code, body, ctype='text/html; charset=utf-8', cache: str='', csp: str='')` — —
 - `Handler._json(self, code, obj)` — —
 - `Handler._query(self)` — —
 - `Handler._body(self)` — —
@@ -35,6 +36,7 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 - `Handler._update_now(self)` — Update & Restart / Restart to update. An installed copy puts the checked, staged release in place (5.4) — or asks the scheduler to, when it's running — and the page restarts after; a development checkout pulls from git as it always has.
 - `Handler._get_update_status(self)` — —
 - `Handler._update_auto(self, body: dict)` — —
+- `Handler._tray_setting(self, body: dict)` — —
 - `Handler._git_pull(self)` — —
 - `Handler._restart(self)` — —
 - `Handler.log_message(self, *a)` — —

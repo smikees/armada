@@ -32,15 +32,49 @@ log = logging.getLogger(__name__)
 _PRICES = {"haiku": (1.0, 5.0), "sonnet": (3.0, 15.0), "opus": (5.0, 25.0), "fable": (10.0, 50.0)}
 _PRICE_DEFAULT = (3.0, 15.0)                 # unknown model → treat as Sonnet-tier
 
+# Relative Codex usage weights. Current Astra/Sol/Luna ratios follow OpenAI's published
+# standard API input/output prices (Sep 2026); the older Terra and 5.5 tiers are estimates.
+# These are NOT subscription charges or a prediction of tokens for a particular task.
+# Keeping the two providers on separate 0..99 scales also preserves existing Claude colours.
+_CODEX_WEIGHTS = {"luna": 0.4, "terra": 4.0, "sol": 8.0,
+                  "sol-5.6": 16.0, "astra": 40.0, "legacy": 8.0}
+_CODEX_DEFAULT = _CODEX_WEIGHTS["sol"]
+
 # Effort → token-consumption multiplier. Effort scales ALL output (text, tool calls, thinking); per
 # Anthropic's docs max effort can burn ~10× the tokens of low for the same prompt. Estimates, tunable.
 _EFFORT_MULT = {"low": 1.0, "medium": 2.0, "high": 4.0, "xhigh": 7.0, "max": 10.0}
 _EFFORT_DEFAULT = "high"
+_CODEX_EFFORT_MULT = {"none": 0.7, "minimal": 0.85, **_EFFORT_MULT, "ultra": 12.0}
 
 
 def model_family(model_id: str) -> str:
     d = (model_id or "").lower()
     return next((f for f in ("opus", "sonnet", "haiku", "fable") if f in d), "")
+
+
+def is_codex_model(model_id: str) -> bool:
+    from .engine.selection import model_provider
+    return model_provider(model_id) == "codex"
+
+
+def is_gemini_model(model_id: str) -> bool:
+    from .engine.selection import model_provider
+    return model_provider(model_id) == "gemini"
+
+
+def codex_family(model_id: str) -> str:
+    d = (model_id or "").lower()
+    if "astra" in d:
+        return "astra"
+    if "luna" in d:
+        return "luna"
+    if "terra" in d:
+        return "terra"
+    if "5.6-sol" in d:
+        return "sol-5.6"
+    if "sol" in d:
+        return "sol"
+    return "legacy"
 
 
 def prices_for(model_id: str) -> tuple[float, float]:
@@ -49,13 +83,25 @@ def prices_for(model_id: str) -> tuple[float, float]:
 
 
 def base_cost(model_id: str) -> float:
-    """Output-weighted blended $/Mtok — the model's intrinsic consumption cost (output dominates)."""
+    """Output-weighted list-price proxy for a model tier; never an actual subscription charge."""
+    if is_gemini_model(model_id):
+        # Relative tier estimate; never a claim about a Google subscription's billing.
+        return 4.0 if "pro" in model_id.lower() else 1.0
+    if is_codex_model(model_id):
+        return _CODEX_WEIGHTS.get(codex_family(model_id), _CODEX_DEFAULT)
     pin, pout = prices_for(model_id)
     return 0.25 * pin + 0.75 * pout
 
 
-def effort_mult(effort: str) -> float:
-    return _EFFORT_MULT.get((effort or _EFFORT_DEFAULT).lower(), _EFFORT_MULT[_EFFORT_DEFAULT])
+def effort_mult(effort: str, model_id: str = "") -> float:
+    if is_gemini_model(model_id):
+        level = (effort or 'high').lower()
+        if level in ('xhigh', 'max', 'ultra') or ('pro' in model_id.lower() and level == 'medium'):
+            level = 'high'
+        if level == 'auto': level = 'medium'
+        return _EFFORT_MULT.get(level, _EFFORT_MULT['high'])
+    table = _CODEX_EFFORT_MULT if is_codex_model(model_id) else _EFFORT_MULT
+    return table.get((effort or _EFFORT_DEFAULT).lower(), table[_EFFORT_DEFAULT])
 
 
 # Verbosity moves the same dial as model and effort, but far less, and it is worth being clear why
@@ -88,33 +134,33 @@ def _log_norm(value: float, lo: float, hi: float) -> int:
     return int(round(99 * (math.log(value) - math.log(lo)) / (math.log(hi) - math.log(lo))))
 
 
-def _model_costs() -> list[float]:
-    return [0.25 * pi + 0.75 * po for pi, po in _PRICES.values()]
+def _model_costs(codex: bool = False) -> list[float]:
+    return list(_CODEX_WEIGHTS.values()) if codex else [0.25 * pi + 0.75 * po for pi, po in _PRICES.values()]
 
 
-def _combo_costs() -> list[float]:
+def _combo_costs(codex: bool = False) -> list[float]:
     """Every model × effort × verbosity. The scale has to span what is actually reachable, or the
     marker can never touch either end."""
-    return [(0.25 * pi + 0.75 * po) * m * v
-            for pi, po in _PRICES.values()
-            for m in _EFFORT_MULT.values()
+    return [cost * m * v
+            for cost in _model_costs(codex)
+            for m in (_CODEX_EFFORT_MULT if codex else _EFFORT_MULT).values()
             for v in _VERBOSITY_MULT.values()]
 
 
 def model_index(model_id: str) -> int:
-    """0..99 consumption index for a model on its own (relative to the cheapest/priciest model)."""
-    costs = _model_costs()
+    """0..99 model-tier index within its provider; a heuristic, not observed token usage."""
+    costs = [1.0, 4.0] if is_gemini_model(model_id) else _model_costs(is_codex_model(model_id))
     return _log_norm(base_cost(model_id), min(costs), max(costs))
 
 
 def combo_index(model_id: str, effort: str, verbosity: str = "") -> int:
-    """0..99 consumption index for a model + effort + verbosity combo, relative to the cheapest and
-    priciest combination reachable. This is what the agent icon + config marker use.
+    """0..99 usage-intensity index for a model + effort + verbosity within its provider.
+    This is what the agent icon and config marker use; it is a relative estimate.
 
     `verbosity` is optional and blank means the default, so a caller that only knows the model and
     the effort — the Usage breakdown, a model chip — still gets a sensible answer."""
-    combos = _combo_costs()
-    v = base_cost(model_id) * effort_mult(effort) * verbosity_mult(verbosity)
+    combos = [c*m*v for c in (1.0,4.0) for m in (1.0,2.0,4.0) for v in _VERBOSITY_MULT.values()] if is_gemini_model(model_id) else _combo_costs(is_codex_model(model_id))
+    v = base_cost(model_id) * effort_mult(effort, model_id) * verbosity_mult(verbosity)
     return _log_norm(v, min(combos), max(combos))
 
 
@@ -125,7 +171,11 @@ def js_tables() -> dict:
     return {"prices": _PRICES, "priceDefault": list(_PRICE_DEFAULT),
             "effort": _EFFORT_MULT, "effortDefault": _EFFORT_DEFAULT,
             "verbosity": _VERBOSITY_MULT, "verbosityDefault": _VERBOSITY_DEFAULT,
-            "comboMin": min(combos), "comboMax": max(combos)}
+            "comboMin": min(combos), "comboMax": max(combos),
+            "codexWeights": _CODEX_WEIGHTS, "codexDefault": _CODEX_DEFAULT,
+            "codexEffort": _CODEX_EFFORT_MULT,
+            "codexComboMin": min(_combo_costs(True)), "codexComboMax": max(_combo_costs(True)),
+            "geminiComboMin": 0.8, "geminiComboMax": 20.8}
 
 _ENDPOINT = "https://api.anthropic.com/v1/models?limit=100"
 _UA = "claude-code/2.0.32 (ARMADA)"
@@ -134,6 +184,7 @@ _UA = "claude-code/2.0.32 (ARMADA)"
 # a live sync overwrites labels/order with the real display names + created dates). Newest first.
 _SEED = [
     {"id": "claude-fable-5-1", "label": "Claude Fable 5.1"},
+    {"id": "claude-opus-5-5", "label": "Claude Opus 5.5"},
     {"id": "claude-opus-5", "label": "Claude Opus 5"},
     {"id": "claude-sonnet-5", "label": "Claude Sonnet 5"},
     {"id": "claude-haiku-4-5", "label": "Claude Haiku 4.5"},
@@ -266,6 +317,22 @@ def _maybe_refresh_async(realm_root) -> None:
 def options(realm_root) -> list[tuple[str, str]]:
     """(id, label) for active models, newest-first — for the config dropdowns. Triggers a lazy
     background refresh when the cache is stale; returns the current cache immediately (non-blocking)."""
-    _maybe_refresh_async(realm_root)
-    models = _ordered([m for m in load(realm_root).get("models", []) if m.get("active", True)])
-    return [(m["id"], m.get("label") or m["id"]) for m in models]
+    from .engine import enabled_providers
+    from .engine.codex import cached_models
+    providers = enabled_providers(realm_root)
+    from . import providers as connections
+    if connections.observed():
+        providers = connections.connected()
+    result = []
+    if "claude" in providers:
+        _maybe_refresh_async(realm_root)
+        models = _ordered([m for m in load(realm_root).get("models", []) if m.get("active", True)])
+        result.extend((m["id"], m.get("label") or m["id"]) for m in models)
+    if "codex" in providers:
+        result.extend((m["slug"], "OpenAI · " + (m.get("display_name") or m["slug"]))
+                      for m in cached_models())
+        result.append(("codex:default", "OpenAI · Codex default model"))
+    if "gemini" in providers:
+        from .engine.gemini import model_options
+        result.extend(model_options())
+    return result

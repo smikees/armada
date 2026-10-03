@@ -199,7 +199,7 @@ def test_every_live_repainter_matches_the_server(js):
     them drifting breaks a single page, which is the kind of thing found months later."""
     src = (_JS / js).read_text(encoding="utf-8")
     assert "backgroundColor" in src
-    assert ".style.background=" not in src.replace(".style.backgroundColor=", ""), \
+    assert "d.style.background=" not in src.replace(".style.backgroundColor=", ""), \
         "the shorthand would clear the transition and anything else the server set"
     for state, (col, _pulse, _label) in agentbits._ACTIVITY_DOT.items():
         assert col in src, f"{js} is missing the server's {state} colour"

@@ -47,7 +47,9 @@ def engine_check(engine: str = "claude") -> dict:
         swallowed(log, 'engine_check: failed; recorded as an error')
         ok, detail = False, f"{type(e).__name__}: {e}"
     return _check("engine", f"Engine ({engine})", ok, detail, BLOCK,
-                  fix="Install Claude Code and run `claude login`.")
+                  fix=("Install Codex CLI and run `codex login`." if engine == "codex"
+                       else "Install Antigravity CLI for Gemini and sign in in Settings → App." if engine == "gemini"
+                       else "Install Claude Code and run `claude login`."))
 
 
 def approot_check(realm_root) -> dict:
@@ -225,12 +227,21 @@ def adopt_review_check(realm_root) -> dict:
                   BLOCK, fix="Jobs page → Review and allow.", action="adopt-review")
 
 
-def run(realm_root, engine: str = "claude") -> dict:
+def run(realm_root, engine: str = "auto") -> dict:
     """Everything that decides whether this realm can work on this machine."""
     checks = realm_check(realm_root)
     checks.append(adopt_review_check(realm_root))
     checks.append(approot_check(realm_root))
-    checks.append(engine_check(engine))
+    from .engine import engine_for, enabled_providers
+    providers = ([engine_for(realm_root, override=engine)] if engine not in (None, "auto")
+                 else enabled_providers(realm_root))
+    engine_checks = [engine_check(provider) for provider in providers]
+    if any(check["ok"] for check in engine_checks):
+        # One disconnected provider must not hold scheduled work on the other provider.
+        for check in engine_checks:
+            if not check["ok"]:
+                check["severity"] = WARN
+    checks.extend(engine_checks)
     checks.append(workspace_check(realm_root))
     checks.append(telegram_check())
     blocking = [c for c in checks if not c["ok"] and c["severity"] == BLOCK]
@@ -289,7 +300,7 @@ def set_hold(realm_root, reason: str) -> None:
         util.write_json_atomic(p, cfg)
 
 
-def apply_hold(realm_root, engine: str = "claude") -> dict:
+def apply_hold(realm_root, engine: str = "auto") -> dict:
     """Check the realm and hold or release its scheduler accordingly.
 
     Releasing matters as much as holding: fix the workspace and the realm must start working again

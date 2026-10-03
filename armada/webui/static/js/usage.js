@@ -14,75 +14,128 @@ function htok(n){n=+n||0;if(n>=1e6)return (n/1e6).toFixed(1)+"M";if(n>=1e3)retur
 // page load (JS state is lost), so we persist to sessionStorage keyed by request; entries expire
 // after CACHE_TTL, after which the next load refetches. Manual refresh + the 30-min tick force a miss.
 const CACHE_TTL=30000;   // ms — "a matter of seconds" window where content stays put
-function cacheGet(k){try{const o=JSON.parse(sessionStorage.getItem(k));if(o&&(Date.now()-o.t)<CACHE_TTL)return o.d;}catch(e){}return null;}
+const LIMITS_TTL=300000;
+function cacheGet(k,ttl=CACHE_TTL){try{const o=JSON.parse(sessionStorage.getItem(k));if(o&&(Date.now()-o.t)<ttl)return o.d;}catch(e){}return null;}
 function cacheSet(k,d){try{sessionStorage.setItem(k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
-function uKey(mode,win,by){return "mc_uc_u_"+mode+"_"+win+"_"+(by||"agents");}
+function uKey(mode,win,by){return "mc_uc_u_v2_"+mode+"_"+win+"_"+(by||"agents");}
 async function fetchUsage(mode,win,by,force){const k=uKey(mode,win,by);
   if(!force){const c=cacheGet(k);if(c)return c;}
   try{const r=await(await fetch("/api/usage?mode="+mode+"&window="+win+"&by="+(by||"agents"))).json();if(r&&!r.error)cacheSet(k,r);return r;}catch(e){return {error:String(e)};}}
-// Real Claude subscription usage (session 5h + weekly, % of limit) — the same numbers as the Claude
-// app's Usage view. Read-only/best-effort; hidden when the local token is expired or unavailable.
-async function fetchLimits(force){if(!force){const c=cacheGet("mc_uc_lim");if(c)return c;}
-  try{const r=await(await fetch("/api/usage-limits")).json();if(r)cacheSet("mc_uc_lim",r);return r;}
-  catch(e){return {available:false,reason:"error",message:"Usage is temporarily unavailable."};}}
+// Real account-wide subscription usage. Missing readings stay visible as gray placeholders.
+const limitsRequests={};
+function fetchProviderLimits(provider,key,force){
+  const cached=!force&&cacheGet(key,LIMITS_TTL);if(cached)return Promise.resolve(cached);
+  if(limitsRequests[provider])return limitsRequests[provider];
+  const request=(async()=>{let timer,controller=new AbortController();
+    const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('Usage check timed out.'));},60000);});
+    try{
+      const poll=async()=>{let first=true;
+        for(;;){
+          const response=await fetch('/api/usage-limits?provider='+provider+(first&&force?'&force=1':''),{signal:controller.signal});first=false;
+          if(!response.ok)throw Error('Usage check failed');
+          const data=await response.json();if(!data||typeof data.available!=='boolean')throw Error('Invalid usage response');
+          if(!data.pending)return data;
+          await new Promise(resolve=>setTimeout(resolve,1000));
+          if(controller.signal.aborted)throw Error('Usage check timed out.');
+        }};
+      const data=await Promise.race([poll(),deadline]);cacheSet(key,data);return data;
+    }catch(e){const previous=cacheGet(key,Infinity);
+      const data={...(previous&&previous.available?previous:{}),available:!!(previous&&previous.available),stale:!!(previous&&previous.available),
+        connected:previous&&previous.connected,reason:'error',message:e.message||'Usage is temporarily unavailable.'};
+      cacheSet(key,data);return data;
+    }finally{clearTimeout(timer);controller.abort();}})();
+  limitsRequests[provider]=request;request.finally(()=>{delete limitsRequests[provider];});return request;
+}
+function fetchLimits(force){return fetchProviderLimits('claude','mc_uc_lim_v3',force);}
 function limClr(p){return p>=90?"var(--status-bad)":p>=70?"var(--status-warn)":"var(--color-accent-2)";}
-function limRow(lb,w){
-  if(!w)return "";
-  const p=Math.max(0,Math.min(100,w.pct||0));
-  const rin=w.resets_in?(" · resets in "+esc(w.resets_in)):"";
-  return '<div style="display:flex;align-items:center;gap:8px;margin:6px 0">'
-    +'<span style="flex:0 0 128px;font-size:12px;font-weight:600;font-family:var(--font-heading);white-space:nowrap">'+esc(lb)+'</span>'
-    +'<div style="flex:1;height:8px;border-radius:5px;background:var(--color-neutral-200);overflow:hidden"><div style="width:'+p+'%;height:100%;background:'+limClr(p)+'"></div></div>'
-    +'<span style="flex:0 0 auto;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text-muted)">'+p+'%'+rin+'</span></div>';}
-// Compact limit row for the Overview header.
-function limRowH(lb,w){
-  if(!w)return "";
-  const p=Math.max(0,Math.min(100,w.pct||0));
-  const rin=w.resets_in?(" · resets in "+esc(w.resets_in)):"";
-  // Both columns are FIXED, not flexible. A label that shrinks to fit means the two rows start
-  // their bars at different x, which reads as a wonky layout rather than as two different-length
-  // words. The trailing text keeps flex:none too: "resets in 5d 17" is not a duration.
-  return '<div style="display:flex;align-items:center;gap:8px;line-height:1.4">'
-    +'<span style="flex:0 0 128px;font-size:12px;font-weight:600;font-family:var(--font-heading);white-space:nowrap">'+esc(lb)+'</span>'
-    +'<div style="flex:0 0 70px;height:6px;border-radius:4px;background:var(--color-neutral-200);overflow:hidden"><div style="width:'+p+'%;height:100%;background:'+limClr(p)+'"></div></div>'
-    +'<span style="flex:0 0 auto;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--text-muted);white-space:nowrap"><span style="display:inline-block;min-width:30px">'+p+'%</span>'+rin+'</span></div>';}
 // How old a reading is, in the fewest words that stay honest.
 function limAge(s){const m=Math.floor((s||0)/60);if(m<60)return Math.max(m,1)+" min ago";
   const h=Math.floor(m/60);return h<48?h+"h ago":Math.floor(h/24)+"d ago";}
-function headerLimitsHTML(d){
-  // Always say something. Rendering "" here is what made the header go silently blank — no bars and
-  // no reason — when the stored token was emptied. The server supplies the wording per reason.
-  if(!d||!d.available){
-    const msg=(d&&d.message)||"Claude usage is unavailable right now.";
-    return '<div style="font-size:10.5px;color:var(--text-muted);line-height:1.45;max-width:330px">'+esc(msg)+'</div>';}
-  // A remembered reading still shows its numbers — they were real — but says how old they are and
-  // fades, so nobody plans a long run against a figure from this morning. Past six hours the label
-  // stops implying currency at all.
-  const st=!!d.stale, age=d.age_sec||0, old=st&&age>6*3600;
-  const head=st?("Claude limits · "+limAge(age)+(old?" · may have moved":""))
-                :"Claude subscription limits";
-  const dim=st?(old?"opacity:.55":"opacity:.75"):"";
-  return '<div style="'+dim+'"><div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px">'+esc(head)+'</div>'
-    +limRowH("Current session · 5h",d.session)+limRowH("Current week",d.weekly)+'</div>';}
-async function renderHeaderLimits(){
-  const el=document.getElementById("mc-hdr-limits");if(!el)return;
-  el.innerHTML=headerLimitsHTML(await fetchLimits());}
+function fetchCodexLimits(force){return fetchProviderLimits('codex','mc_uc_openai_lim_v3',force);}
+function limitRowHTML(provider,period,w,d){
+  if(d&&d.loading)return '<div class="mc-limit-row is-loading" aria-busy="true">'
+    +'<span class="mc-limit-loading" role="status" aria-label="Loading '+provider+' '+period.toLowerCase()+' limit">'
+    +'<i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></span></div>';
+  const known=w&&typeof w.pct==='number'&&Number.isFinite(w.pct);
+  const available=!!(d&&d.available&&!d.stale&&known);
+  const p=known?Math.max(0,Math.min(100,w.pct)):null;
+  const reset=available&&w.resets_in?w.resets_in:'';
+  let reason=(d&&d.message)||provider+' usage is unavailable right now.';
+  if(d&&d.stale&&known)reason='Last reading: '+p+'%, '+limAge(d.age_sec)+'. '+reason;
+  else if(d&&d.available&&!w)reason=provider+' does not report a '+period.toLowerCase()+' limit for this account.';
+  const description=provider+' · '+period+' · '+(available?p+'% used'+(reset?' · resets in '+reset:''):reason);
+  return '<div class="mc-limit-row'+(available?'':' is-unavailable')+'" title="'+esc(description)+'"'+(available?'':' tabindex="0"')+'>'
+    +'<span class="mc-limit-bar" role="'+(available?'meter':'img')+'" aria-label="'+esc(description)+'"'
+    +(available?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p+'"':'')+'>'
+    +(available?'<i style="width:'+p+'%;background:'+limClr(p)+'"></i>':'')+'</span>'
+    +(available?'<span class="mc-limit-text"><span class="mc-limit-pct">'+p+'%</span>'
+      +(reset?'<span class="mc-limit-reset">resets in '+esc(reset)+'</span>':'')+'</span>':
+      '<span class="mc-limit-unavailable">'+(d&&d.stale&&known?p+'% · last reading':d&&d.reason==='disconnected'?'Disconnected':d&&d.available&&!known?'Not reported':'Unavailable')+'</span>')+'</div>';
+}
+function headerLimitsHTML(claude,codex,bucket,gemini){
+  const groups=codex&&codex.available&&Array.isArray(codex.groups)?codex.groups:[];
+  const g=groups.find(g=>g.id===bucket)||groups[0];
+  const windows=g&&Array.isArray(g.windows)?g.windows:[];
+  // Primary can be weekly (and secondary null). Classify by duration, never array position.
+  const weekly=windows.find(w=>w.window_minutes===10080||w.label==='Weekly');
+  const session=windows.find(w=>w.window_minutes>0&&w.window_minutes<1440||w.label==='5h window');
+  let select='';
+  if(groups.length>1)select='<select aria-label="Codex usage bucket">'
+    +groups.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===g.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>';
+  return '<div class="mc-limits-title">Subscription limits</div><div class="mc-limit-groups">'
+    +'<div class="mc-limit-periods" aria-hidden="true"><span class="mc-limit-label">Week</span><span class="mc-limit-label">Session</span></div>'
+    +[['Codex',weekly,session,codex],['Claude',claude&&claude.weekly,claude&&claude.session,claude],
+      ['Gemini',gemini&&gemini.weekly,null,gemini||{available:false,message:'Checking Gemini connection…'}]].map(([provider,week,session,d])=>
+      '<div class="mc-limit-group'+(d&&d.loading?' is-loading':!d||!(d.connected??d.available)?' is-inactive':'')+(d&&d.placeholder?' is-placeholder':'')+'" role="group" aria-label="'+provider+' subscription limits"'+(d&&d.loading?' aria-busy="true"':'')+(d&&d.placeholder?' title="Gemini support is planned; not available yet."':'')+'>'
+      +'<div class="mc-limit-group-head"><span class="mc-limit-provider" role="img" aria-label="'+provider+'" title="'+provider+'">'
+      +(window.mcProviderLogo?window.mcProviderLogo(provider.toLowerCase(),16,!!(d&&(d.connected??d.available))):window.mcIcon(provider.toLowerCase(),16))+'</span></div>'
+      +limitRowHTML(provider,'Week',week,d)+limitRowHTML(provider,'Session',session,d)+(provider==='Codex'?select:'')+'</div>').join('')+'</div>';
+}
+let limitsData={},limitsGeneration=0;
+async function renderHeaderLimits(force){
+  const el=document.getElementById('mc-hdr-limits');if(!el)return;
+  const generation=++limitsGeneration,codexEnabled=el.dataset.codexEnabled==='true';
+  // Only fresh cached data is ready to display. Pending requests get dots, not
+  // unavailable bars or old readings that look current during a forced refresh.
+  for(const [provider,key] of [['claude','mc_uc_lim_v3'],['codex','mc_uc_openai_lim_v3'],['gemini','mc_uc_gemini_lim_v3']]){
+    // Keep the last reading during a background refresh; dots are only for the first load.
+    const landmark=el.querySelector('.mc-engine-logo[data-provider="'+provider+'"]');
+    limitsData[provider]=cacheGet(key,Infinity)||{loading:true,connected:!!(landmark&&landmark.classList.contains('is-connected'))};
+  }
+  if(!codexEnabled)limitsData.codex={available:false,message:'Codex is not enabled for this realm.'};
+  function paint(){
+    if(generation!==limitsGeneration)return;
+    el.innerHTML=headerLimitsHTML(limitsData.claude,limitsData.codex,cacheGet('mc_openai_bucket'),limitsData.gemini);
+    const sel=el.querySelector('select');if(sel)sel.onchange=()=>{cacheSet('mc_openai_bucket',sel.value);paint();};
+  }
+  paint();
+  // Paint each result as it arrives: a slow provider must not hide the other's reading.
+  const geminiRequest=fetchProviderLimits('gemini','mc_uc_gemini_lim_v3',force);
+  await Promise.all([['claude',fetchLimits(force)],['gemini',geminiRequest],...(codexEnabled?[['codex',fetchCodexLimits(force)]]:[])].map(async ([provider,request])=>{
+    const d=await request;if(generation!==limitsGeneration)return;limitsData[provider]=d||{available:false};paint();
+  }));
+}
 // Keep the Overview header's Tokens/30d + API-eq KPIs in sync with live usage (they're static at page
 // load otherwise). Called from render(), which runs on init, the 30-min tick, manual refresh and refreshAll.
 function fixHeaderTotals(d){
-  if(!d||typeof d.total_30d!=="number")return;
-  cacheSet("mc_uc_h30",{total_30d:d.total_30d,usd_30d:d.usd_30d});   // let a warm nav fill KPIs instantly
-  const tk=document.getElementById("mc-kpi-tokens");if(tk)tk.textContent=d.total_30d?htok(d.total_30d):"—";
-  const ap=document.getElementById("mc-kpi-apieq");if(ap)ap.textContent=d.usd_30d?("≈$"+Math.round(d.usd_30d).toLocaleString()):"—";}
+  if(!d||!("total_30d" in d))return;
+  cacheSet("mc_uc_h30",{total_30d:d.total_30d,usd_30d:d.usd_30d,
+    unknown_token_runs_30d:d.unknown_token_runs_30d,unknown_cost_runs_30d:d.unknown_cost_runs_30d});
+  const tk=document.getElementById("mc-kpi-tokens"),ap=document.getElementById("mc-kpi-apieq");
+  if(tk){tk.textContent=d.total_30d!=null?htok(d.total_30d)+(d.unknown_token_runs_30d?'+':''):"—";
+    tk.title='Reported tokens'+(d.unknown_token_runs_30d?'; partial total: '+d.unknown_token_runs_30d+' run(s) did not report tokens':'');}
+  if(ap){ap.textContent=d.usd_30d!=null?"≈$"+Math.round(d.usd_30d).toLocaleString()+(d.unknown_cost_runs_30d?'+':''):"—";
+    ap.title='Approximate standard-text API equivalent across all engines; excludes tool fees and long-context surcharges'+
+      (d.unknown_cost_runs_30d?'; partial total: '+d.unknown_cost_runs_30d+' run(s) have unavailable accounting':'');}}
 // Fallback: replace any header KPI still showing its loading skeleton with the value the server
 // embedded in data-v. Covers a slow/failed usage fetch or a dashboard with the Usage widget removed,
 // so the skeleton never gets stuck. A successful fetch fills the value first, making this a no-op.
 function mcHeaderFallback(){["mc-kpi-tokens","mc-kpi-apieq"].forEach(function(id){
   const el=document.getElementById(id);if(el&&el.querySelector(".mc-skel"))el.textContent=el.getAttribute("data-v")||"—";});}
 function drawLine(body,d,by){
-  if(!d.total){body.innerHTML='<div style="padding:22px 14px;font-size:12.5px;color:var(--text-muted)">No usage in this window yet.</div>';return;}
   by=(by==="models")?"models":"agents";
   const items=((by==="models")?d.models:d.agents)||[];
+  if(!d.total&&(by!=="models"||!items.length)){body.innerHTML='<div style="padding:22px 14px;font-size:12.5px;color:var(--text-muted)">'+(d.unknown_runs?'Token usage is unavailable for '+d.unknown_runs+' run(s).':'No usage in this window yet.')+'</div>';return;}
   // overall bar = segments of the SELECTED dimension (agents or models), each in its colour and
   // proportional to its usage, with a 2px bg-coloured divider so adjacent similar colours read apart
   const _segs=items.filter(x=>x.tok);
@@ -91,21 +144,22 @@ function drawLine(body,d,by){
   const usd=d.usd?(" · api-equiv $"+d.usd.toLocaleString()):"";
   let h='<div style="padding:12px 14px 10px"><div style="display:flex;align-items:baseline;gap:8px">'
    +'<span style="font-family:var(--font-heading);font-weight:700;font-size:26px;line-height:1">'+htok(d.total)+'</span>'
-   +'<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">tokens · all agents, System &amp; models'+usd+'</span></div>'
+   +'<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">'+(d.unknown_runs?'reported tokens · '+d.unknown_runs+' run(s) unavailable':'tokens · all agents, System &amp; models')+usd+'</span></div>'
    +'<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;margin-top:8px;background:var(--color-neutral-200)">'+seg+'</div></div>';
   function rows(title,items,colorFn){
     const mx=Math.max(1,...items.map(x=>x.tok));let r="";
     items.forEach((x,i)=>{const w=x.tok/mx*100;const c=colorFn(x,i);
       // System (ARMADA's own use) closes the agent list, set apart by a hairline
-      const sys=!!x.system,tt=sys?"System · ARMADA's own use: system jobs and Alexander":(x.name||x.label);
+      const sys=!!x.system,tt=sys?"System · ARMADA's own use: system jobs and Alexander":(x.description||x.name||x.label);
+      const provider=x.provider||(x.claude?"claude":"");
       r+='<div'+(sys?' data-usage-system="1"':'')+' style="display:flex;align-items:center;gap:8px;margin:5px 0'+(sys?';padding-top:6px;border-top:1px dashed var(--color-divider)':'')+'">'
         +'<span style="flex:0 0 108px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;font-family:var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc(tt)+'">'
-        +(x.claude&&window.mcIcon?'<span style="color:'+esc(x.color)+';display:flex;flex:none">'+window.mcIcon("claude",13)+'</span>'
+        +(provider&&window.mcIcon?'<span class="mc-model-icon" style="color:'+esc(x.color)+';display:flex;flex:none">'+window.mcIcon(provider,13)+'</span>'
            :(x.color?'<i style="width:9px;height:9px;border-radius:2px;flex:none;background:'+esc(x.color)+'"></i>':""))
         +'<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.name||x.label)+'</span></span>'
         +'<div style="flex:1;height:8px;border-radius:5px;background:var(--color-neutral-200);overflow:hidden"><div style="width:'+w.toFixed(1)+'%;height:100%;background:'+esc(c)+'"></div></div>'
         +'<span style="flex:0 0 auto;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--text-65)">'+htok(x.tok)+'</span></div>';});
-    return '<div style="padding:2px 14px 12px"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft);margin:6px 0 6px">'+title+'</div>'+r+'</div>';}
+    return '<div style="padding:2px 14px 12px"><div'+(by==="models"?' title="Used models first; within each group, highest estimated quota impact first. Colours indicate relative model cost, not measured subscription charges."':'')+' style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-soft);margin:6px 0 6px">'+title+'</div>'+r+'</div>';}
   h+=rows(by==="models"?"By model":"By agent",items,(x)=>x.color||'var(--color-accent)');
   body.innerHTML=h;}
 function drawGraph(body,d){
@@ -124,10 +178,10 @@ function drawGraph(body,d){
     svg+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">'+esc(b.label)+'</text>';});
   let h='<div style="padding:12px 14px 6px"><div style="display:flex;align-items:baseline;gap:8px">'
    +'<span style="font-family:var(--font-heading);font-weight:700;font-size:22px;line-height:1">'+htok(d.total)+'</span>'
-   +'<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">tokens · '+sub+' · by '+(d.by==="models"?"model":"agent")+'</span></div></div>';
+   +'<span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)">'+(d.unknown_runs?'reported tokens · '+d.unknown_runs+' run(s) unavailable · ':'tokens · ')+sub+' · by '+(d.by==="models"?"model":"agent")+'</span></div></div>';
   h+='<div style="padding:0 8px 14px"><svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="display:block;height:'+H+'px">'
    +'<line x1="'+pad+'" y1="'+base+'" x2="'+(W-pad)+'" y2="'+base+'" stroke="var(--color-divider)" stroke-width="1"/>'+svg+'</svg></div>';
-  if(!d.total)h+='<div style="padding:0 14px 14px;font-size:12px;color:var(--text-soft)">No usage in this period yet.</div>';
+  if(!d.total)h+='<div style="padding:0 14px 14px;font-size:12px;color:var(--text-soft)">'+(d.unknown_runs?'Token usage is unavailable for '+d.unknown_runs+' run(s).':'No usage in this period yet.')+'</div>';
   body.innerHTML=h;
   // custom follow-cursor tooltip (native SVG <title> is unreliable in the embedded webview)
   const svgEl=body.querySelector("svg");if(!svgEl)return;
@@ -196,12 +250,12 @@ function init(){
   const usageWidgets=document.querySelectorAll(".mc-usage");
   // Warm nav: fill the header KPIs synchronously from the cached 30-day totals BEFORE anything async,
   // so a quick return to Overview shows the numbers instantly (no skeleton flash).
-  const h=cacheGet("mc_uc_h30");if(h)fixHeaderTotals(h);
+  // Server-rendered totals are current and already visible; avoid replacing them with stale cache.
   usageWidgets.forEach(setup);
   // Header KPI skeletons: if a Usage widget is present it fills them via render()->fixHeaderTotals;
   // otherwise (or if that fetch stalls) drop back to the server-embedded value so nothing stays loading.
   if(!usageWidgets.length)mcHeaderFallback();else setTimeout(mcHeaderFallback,4000);
-  renderHeaderLimits();                                 // Claude session/week limits in the Overview header
+  renderHeaderLimits();                                 // Both providers share the same week/session layout.
   if(_wired)return; _wired=true;
   // refresh when the dashboard becomes visible again (e.g. back from Configure) or is restored from cache.
   // These are non-forcing, so within the cache window they repaint from cache (content stays put).
@@ -209,6 +263,7 @@ function init(){
   window.addEventListener("pageshow",e=>{if(e.persisted)refreshAll();});
   window.addEventListener("focus",()=>refreshAll());
   setInterval(()=>{if(!document.hidden)refreshAll(true);},1800000);   // auto-refresh every 30 min (forces a fresh fetch)
+  setInterval(()=>{if(!document.hidden)renderHeaderLimits();},LIMITS_TTL);
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();

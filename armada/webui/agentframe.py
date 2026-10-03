@@ -2,6 +2,7 @@
 from __future__ import annotations
 import html, json, datetime, time, re
 from pathlib import Path
+from .. import covenant
 from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
@@ -12,7 +13,7 @@ from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _pill, _t
 from ..assets import (MDFIELD_JS as _MDFIELD_JS_ASSET, A2A_TOGGLE_JS as _A2A_TOGGLE_JS,
                       JOBOPEN_JS as _JOBOPEN_JS)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
-    _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
+    _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js, _picker_model_mark, _cost_bar,
     _model_is_claude)
 from .schedfmt import (_DOW_NAME, _humanize, _cadence_bucket, _status_bucket, _STATUS_FILTERS,
     _CADENCE_FILTERS, _next_run_dt, _job_next_dt, _ordinal, _next_hint, _fmt_ts)
@@ -70,21 +71,21 @@ def _agent_header(realm, realm_root, a) -> str:
     deffort = getattr(realm, "default_effort", "") or "high"
     model = ac.get("model") or dmodel
     effort = ac.get("effort") or deffort
-    is_claude, disp = _model_chip_label(model)
+    _, disp = _model_chip_label(model)
     label = f"{disp} · {effort}"
     pill = ("display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r);"
             "background:var(--text-7);font-size:11.5px")
+    from .. import verbosity as _verbosity
     model_pill = (f'<a href="/agent/{E(a.id)}/configure" title="Model &amp; effort — configure" style="{pill};text-decoration:none;color:inherit">'
-                  f'{_model_mark(model, 12, effort)}<span>{E(label)}</span></a>') if is_claude else \
-                 (f'<span style="{pill}">{E(label)}</span>')
+                  f'{_model_mark(model, 12, effort, _verbosity.agent_level(realm_root, a.id))}<span>{E(label)}</span></a>')
     gear = (f'<a href="/agent/{E(a.id)}/configure" title="Configure {E(a.display)}" style="display:inline-flex;'
             f'align-items:center;padding:5px;border-radius:var(--r);text-decoration:none;'
             f'color:var(--text-dim);background:var(--text-7)">{_icon("settings",16)}</a>')
     role = (f'<span style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--color-accent-700)">{E(a.theme_role)}</span>') if a.theme_role else ""
     profile = (f'<span style="font-size:12.5px;color:var(--text-muted);font-style:italic">{E(a.leader)}</span>') if a.leader else ""
     sep = ' <span style="color:var(--text-30)">·</span> ' if role and profile else ""
-    return (f'<div style="display:flex;gap:14px;align-items:center;padding:12px 24px 8px;flex:none">'
-            f'<div style="flex:none">{_portrait(realm_root, a, 56, dot=True)}</div>'
+    return (f'<div id="mc-agent-header" style="display:flex;gap:14px;align-items:center;padding:12px 24px 8px;flex:none">'
+            f'<div style="flex:none">{_portrait(realm_root, a, 56, dot=True, color=ac.get("color") or getattr(a, "color", "") or _agent_default_color(realm, a.id))}</div>'
             f'<div style="flex:1;min-width:0">'
             f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
             f'<span class="mc-h-page is-agent">{E(a.display)}</span>'
@@ -297,7 +298,7 @@ def _agent_advanced_box(fallback_opts: str, maxbudget: str, field: str, lbl: str
             f'<span class="mc-adv-caret" style="display:inline-flex;color:var(--text-muted)">{_icon("chevron-right",14)}</span>'
             f'Advanced</summary>'
             f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;align-items:start;margin-top:10px">'
-            f'<div><label style="{lbl};margin-top:0">Fallback model</label><select id="c-fallback" style="{field}">{fallback_opts}</select>'
+            f'<div><label style="{lbl};margin-top:0">Fallback model</label><select id="c-fallback" data-provider-models style="{field}">{fallback_opts}</select>'
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Switches to this model if the primary is overloaded or unavailable. Inherit = the realm default (or none).</div></div>'
             f'<div><label style="{lbl};margin-top:0">Max budget — USD per run</label><input id="c-maxbudget" type="number" min="0" step="0.01" value="{E(maxbudget)}" placeholder="inherit" style="{field}">'
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Hard spend ceiling for a single run. Blank = inherit the realm default; 0 = no cap.</div></div>'
@@ -344,6 +345,7 @@ _MD_FIELD_JS = _MDFIELD_JS_ASSET
 
 
 def _tab_configure(realm, realm_root, a) -> str:
+    from ..assets import js
     agent_dir = realm_root / "agents" / a.id
     ac = json.loads((agent_dir / "agent.json").read_text(encoding="utf-8-sig")) if (agent_dir / "agent.json").exists() else {}
     # Raw, NOT escaped here. _md_field escapes for each destination itself — _md() for the reading
@@ -402,30 +404,25 @@ def _tab_configure(realm, realm_root, a) -> str:
             + _avatar_modal(a.id) +
             f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">'
             f'<div><label style="{lbl}">Name {_STAR}</label><input id="c-name" value="{E(a.display)}" style="{field}"></div>'
-            f'<div><label style="{lbl}">Role</label><input id="c-role" value="{E(a.theme_role)}" placeholder="E.g. Finance Minister" style="{field}"></div>'
+            f'<div><label style="{lbl}">Role (optional)</label><input id="c-role" value="{E(a.theme_role)}" placeholder="E.g. Finance Minister" style="{field}"></div>'
             f'<div style="grid-column:1 / 3"><label style="{lbl}">Profile (optional)</label><input id="c-profile" value="{E(a.leader)}" placeholder="E.g. after Warren Buffett — value discipline, margin of safety…" style="{field}"></div>'
             # Colour sits with the other cosmetic fields (name, role, profile) rather than after
             # the behavioural ones — it belongs to how the agent looks, not how it acts.
-            f'<div style="grid-column:1 / 3"><label style="{lbl}">Agent colour — shows up in token usage breakdowns, etc.</label>{_agent_color_control(cur_color, "c-color")}</div>'
+            f'<div style="grid-column:1 / 3"><label style="{lbl}">Agent colour — shows up in token usage breakdowns, etc.</label>{_agent_color_control(cur_color, "c-color", str(realm_root.resolve()) + ":" + a.id)}</div>'
             f'<div style="grid-column:1 / 3"><label style="{lbl}">Autonomy</label>{_autonomy_control(autonomy, "c-autonomy")}</div>'
-            f'<div><label style="{lbl}">Model</label><select id="c-model" style="{field}">{model_opts}</select></div>'
+            f'<div><label style="{lbl}">Model</label><select id="c-model" data-provider-models style="{field}">{model_opts}</select></div>'
             f'<div><label style="{lbl}">Effort</label><select id="c-effort" style="{field}">{effort_opts}</select></div>'
             f'<div style="grid-column:1 / 3"><label style="{lbl}">Verbosity</label>'
             f'<select id="c-verbosity" style="{field};max-width:340px">{verb_opts}</select>'
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">How much this agent '
             f'writes back. It never changes how much work it does, and failures, warnings and '
             f'anything needing your approval are always spelled out in full.</div></div>'
-            f'<div style="grid-column:1 / 3"><label style="{lbl}">Relative token consumption '
+            f'<div style="grid-column:1 / 3"><label style="{lbl}">Relative cost '
             f'<span style="text-transform:none;letter-spacing:0;color:var(--text-muted)">· this model, effort &amp; verbosity</span></label>'
-            f'<div style="display:flex;align-items:center;gap:10px">'
-            f'<span id="c-modelmark" class="mc-modelmark" style="display:inline-flex;color:var(--text-muted)">{_icon("claude", 16)}</span>'
-            f'<div style="position:relative;flex:1;height:12px;border-radius:6px;background:{_consumption_gradient_css()}">'
-            f'<div id="c-consmarker" style="position:absolute;top:-3px;left:0%;transform:translateX(-50%);width:4px;height:18px;'
-            f'border-radius:3px;background:var(--color-text);box-shadow:0 0 0 2px var(--color-bg)"></div></div>'
-            f'<span style="font-size:10px;color:var(--text-muted);white-space:nowrap">low → high</span></div>'
-            f'<div style="font-size:11px;color:var(--text-muted);margin-top:5px">Where this '
-            f'model-effort-verbosity combination sits between the cheapest and most token-hungry '
-            f'combination. The icon colour tracks the marker.</div></div>'
+            f'{_cost_bar("c-consmarker")}'
+            f'<div style="font-size:11px;color:var(--text-muted);margin-top:5px">Estimated '
+            f'usage intensity within this provider. Actual tokens vary by task; the icon colour '
+            f'tracks the marker.</div></div>'
             f'</div>'
             + _md_field("c-soul", "Soul (character, voice &amp; traits)", soul, lbl, ta, 80)
             + _md_field("c-mandate", "Role and Mission", mandate, lbl, ta, 130)
@@ -436,8 +433,8 @@ def _tab_configure(realm, realm_root, a) -> str:
             + f'<div style="display:flex;align-items:flex-start;gap:6px;margin-top:6px;font-size:11px;'
             f'color:var(--text-soft);line-height:1.5">'
             f'<span style="display:flex;flex:none;color:var(--color-accent-2);margin-top:1px">{_icon("agreement",13)}</span>'
-            f'<span>{E(a.display)} is also bound by the '
-            f'<a href="/memory" style="color:var(--color-accent-2);text-decoration:none">realm Covenant</a>'
+            f'<span>{E(a.display)} is also bound by '
+            f'<a href="/memory" style="color:var(--color-accent-2);text-decoration:none">{E(covenant.name(realm_root))}</a>'
             f' — honesty, loyalty, confidentiality and the limits on acting. Don\'t repeat any of it '
             f'here; it already applies. These are the rules that are {E(a.display)}\'s alone.</span></div>'
             f'{_a2a_box(a2a_on, freq_opts, accepts_opts, field, lbl)}'
@@ -446,7 +443,12 @@ def _tab_configure(realm, realm_root, a) -> str:
             + _configure_actions(a)
             + f'</div>'
             + _AUTONOMY_JS + _AGENT_COLOR_JS + _MD_FIELD_JS
-            + _consumption_js(realm, verbosity_id="c-verbosity"))
+            + _consumption_js(realm, verbosity_id="c-verbosity") + js("providers")
+            + f'<template id="mc-agent-chevron">{CHEVR}</template>' + _FDROP_JS
+            + '<script>["c-model","c-effort","c-verbosity","c-freq","c-accepts","c-fallback"].forEach(id=>{'
+              'const select=document.getElementById(id);if(!select)return;'
+              'mcFDFromSelect(select,document.getElementById("mc-agent-chevron").content.firstElementChild);'
+              'document.getElementById(select.dataset.dropdown).style.maxWidth=select.style.maxWidth||"340px";});</script>')
 
 
 def _configure_actions(a) -> str:

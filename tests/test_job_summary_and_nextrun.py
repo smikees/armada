@@ -123,4 +123,4 @@ def test_the_job_editor_has_no_mock_buttons_either():
     src = (WEBUI / "pages.py").read_text(encoding="utf-8")
     body = src[src.index("def render_job"):]
     assert "Run (mock)" not in body and "Test run" not in body
-    assert "Run now" in body
+    assert "Back to jobs" in body

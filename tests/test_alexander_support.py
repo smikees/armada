@@ -50,12 +50,12 @@ def test_he_is_given_every_section_and_no_secrets(realm):
     assert "sk-ant" not in text
 
 
-def test_a_turn_runs_sealed_on_opus_high_and_counts_as_system(realm):
+def test_a_turn_runs_sealed_on_opus_medium_and_counts_as_system(realm):
     eng = _Engine("Your scheduler is off [help: jobs].\n\n```remedy\n"
                   '{"name": "start_scheduler", "args": {}, "why": "Nothing runs without it."}\n```')
     r = support.ask(realm, "", "why didn't my job run", page="/jobs", engine=eng)
     kw = eng.calls[0]
-    assert kw["model"] == "claude-opus-5-5" and kw["effort"] == "high" and kw["allow_tools"] is False
+    assert kw["model"] == "claude-opus-5-5" and kw["effort"] == "medium" and kw["allow_tools"] is False
     assert r["ok"] and "```" not in r["text"] and r["cards"][0]["endpoint"] == "/api/scheduler-start"
     assert sysusage.runs(realm)[-1]["task"] == "alexander"
     roles = [m["role"] for m in support.history(r["id"])]
@@ -63,6 +63,45 @@ def test_a_turn_runs_sealed_on_opus_high_and_counts_as_system(realm):
     eng2 = _Engine("Still here.")
     support.ask(realm, r["id"], "thanks", engine=eng2)
     assert "<conversation>" in eng2.calls[0]["prompt"] and "why didn't my job run" in eng2.calls[0]["prompt"]
+
+
+def test_alexander_uses_saved_verbosity_in_prompt_and_engine(realm):
+    from armada.alexander import config
+    from armada import appconfig
+    appconfig.save({'alexander': {'verbosity': 'brief'}})
+    eng = _Engine('Your answer.')
+    assert support.ask(realm, '', 'How does Armada work?', engine=eng)['ok']
+    assert eng.calls[0]['verbosity'] == config.load()['verbosity'] == 'brief'
+    assert '# How much to write (Brief)' in eng.calls[0]['system']
+    assert 'warnings and risks' in eng.calls[0]['system']
+
+
+def test_alexander_runs_through_the_real_claude_adapter_with_saved_verbosity(realm, monkeypatch):
+    from armada import appconfig, verbosity
+    from armada.engine import claude
+    from armada.engine.process import ProcessResult
+    appconfig.save({'alexander': {'verbosity': 'brief'}})
+    eng = claude.ClaudeEngine()
+    monkeypatch.setattr(eng, '_launcher', lambda: ['claude'])
+    monkeypatch.setattr(eng, '_direct', lambda: True)
+    sent = {}
+    def system_args(system):
+        sent['system'] = system
+        return ['--system-prompt', 'captured'], ''
+    monkeypatch.setattr(claude, '_system_args', system_args)
+    def transport(argv, *, on_line, **kwargs):
+        assert '--safe-mode' in argv
+        assert argv[argv.index('--tools') + 1] == ''
+        on_line(json.dumps({'type': 'result', 'subtype': 'success', 'result': 'Pong.',
+                            'model': 'claude-opus-5-5',
+                            'usage': {'input_tokens': 1, 'output_tokens': 1}}))
+        return ProcessResult(returncode=0)
+    monkeypatch.setattr(claude, 'supervise', transport)
+    result = support.ask(realm, '', 'Test ping', engine=eng)
+    assert result['ok'] and result['text'] == 'Pong.'
+    assert sent['system'].count(verbosity.prompt_block('brief')) == 1
+    assert [m['role'] for m in support.history(result['id'])] == ['owner', 'alexander']
+    assert sysusage.runs(realm)[-1]['model'] == 'claude-opus-5-5'
 
 
 def test_only_valid_proposals_become_cards_one_of_each(realm):

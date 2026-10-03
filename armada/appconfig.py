@@ -35,6 +35,7 @@ def save(updates: dict) -> None:
     from . import util
     p = _path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    cfg = load()
-    cfg.update(updates)
-    util.write_json_atomic(p, cfg)
+    with util.file_lock(p):
+        cfg = load()
+        cfg.update(updates)
+        util.write_json_atomic(p, cfg)

@@ -89,12 +89,32 @@ async function mcRefreshRail(agent,thread){
     if(html&&html.trim()){const st=rail.scrollTop;rail.outerHTML=html;const r2=document.getElementById('mc-rail');if(r2)r2.scrollTop=st;}
   }catch(e){}
 }
+async function mcRefreshMetrics(agent,thread){
+  const count=document.getElementById('mc-message-count');if(!count)return;
+  try{
+    const r=await fetch('/api/thread-metrics?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread),{cache:'no-store'});
+    if(!r.ok)return;const m=await r.json();
+    count.textContent=mcGen?Math.max(Number(count.textContent)||0,Number(m.messages)||0):m.messages;
+    const note=document.getElementById('mc-compacted-note');if(note)note.textContent=m.compacted?' · compacted':'';
+    const pct=document.getElementById('mc-comp-pct');if(pct)pct.textContent=m.pct;
+    const bar=document.getElementById('mc-comp-bar');if(bar){bar.style.width=m.pct+'%';
+      bar.style.background=m.pct>=90?'var(--status-bad)':m.pct>=70?'var(--status-warn)':'var(--color-accent-2)';}
+    const wrap=document.getElementById('mc-comp-wrap');if(wrap)wrap.title='History uses ~'+Math.floor(m.chars/4).toLocaleString()+' of the model\'s '+Math.floor(m.context_window/1000)+'K-token context window. At 100% the oldest turns are summarised to keep the thread lean.';
+  }catch(e){}
+}
 async function mcRefreshTurns(agent,thread){
   const box=document.getElementById('mc-turns'); if(!box)return;
   try{
-    const r=await fetch('/api/thread-turns?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread));
+    const r=await fetch('/api/thread-turns?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread),{cache:'no-store'});
     if(!r.ok)return; const html=await r.text();
-    if(html&&html.trim()){box.innerHTML=html;mcMarkDone();mcScrollBottom();mcPendingWatch();}
+    if(html&&html.trim()){
+      const bottom=box.scrollHeight-box.scrollTop-box.clientHeight<90,top=box.scrollTop;
+      const open=[...box.querySelectorAll('.mc-step-d')].map((el,i)=>el.style.display==='block'?i:-1).filter(i=>i>=0);
+      box.innerHTML=html;
+      const details=box.querySelectorAll('.mc-step-d');open.forEach(i=>{if(details[i]){details[i].style.display='block';const arrow=details[i].parentNode.querySelector('.mc-step-c');if(arrow)arrow.textContent='▾';}});
+      mcMarkDone();if(bottom)mcScrollBottom();else box.scrollTop=top;
+      mcPendingWatch();mcRefreshMetrics(agent,thread);
+    }
   }catch(e){}
 }
 // A turn that was already running when this page loaded belongs to a different tab's event
@@ -118,7 +138,7 @@ function mcPendingWatch(){
       if(!b||!b.querySelector('.mc-pending'))return;
       await mcRefreshTurns(agent,thread);
       mcPendingWatch();
-    },2500);
+    },1200);
   };
   tick();
 }
@@ -185,6 +205,7 @@ mcCtxInit();
 // prompt is sent (mcChat clears it). Only one exists at a time.
 function mcMarkDone(){
   document.querySelectorAll('#mc-turns .mc-done').forEach(e=>e.remove());
+  if(document.querySelector('#mc-turns [data-role="pending"]'))return;
   const ts=[...document.querySelectorAll('#mc-turns .mc-turn[data-role="assistant"]')];
   const t=ts[ts.length-1]; if(!t)return;
   const body=t.querySelector('.mc-body'); const col=body?body.parentNode:t;
@@ -200,13 +221,17 @@ function mcToolLabel(n,i){i=i||{};if(n==='Bash')return 'Running a command';if(n=
 function mcToolDetail(n,i){if(n==='Bash')return (i&&i.command)||'';try{return JSON.stringify(i||{},null,2);}catch(e){return '';}}
 function mcAddChip(steps,icon,label,detail){
   const chip=document.createElement('div');
+  chip.className='mc-step';
   chip.innerHTML='<div class="mc-step-h" style="display:flex;align-items:center;gap:6px;font-size:11.5px;'
    +'color:var(--text-dim);'+(detail?'cursor:pointer':'')+'">'
    +'<span style="display:flex">'+icon+'</span><span class="mc-step-l">'+mcEsc(label)+'</span>'
    +(detail?'<span class="mc-step-c" style="margin-left:6px;opacity:.5">▸</span>':'')+'</div>'
    +(detail?'<pre class="mc-step-d" style="display:none;margin:4px 0 2px 20px;background:var(--color-sand-100);border:1px solid var(--color-sand-300);border-radius:var(--r);padding:6px 8px;font-size:11px;line-height:1.45;white-space:pre-wrap;max-height:220px;overflow:auto">'+mcEsc(detail)+'</pre>':'');
-  if(detail){const h=chip.querySelector('.mc-step-h');h.onclick=()=>{const d=chip.querySelector('.mc-step-d');const o=d.style.display==='block';d.style.display=o?'none':'block';chip.querySelector('.mc-step-c').textContent=o?'▸':'▾';};}
   steps.appendChild(chip);return chip;}
+document.addEventListener('click',e=>{const h=e.target.closest&&e.target.closest('.mc-step-h');
+  if(!h||!h.closest('#mc-turns'))return;const chip=h.closest('.mc-step'),d=chip&&chip.querySelector('.mc-step-d');
+  if(!d)return;const open=d.style.display==='block';d.style.display=open?'none':'block';
+  const arrow=chip.querySelector('.mc-step-c');if(arrow)arrow.textContent=open?'▸':'▾';});
 const MC_ACT={copy:window.mcIcon('copy',14), check:window.mcIcon('check',14),
  restart:window.mcIcon('refresh-cw',14), edit:window.mcIcon('edit',14)};
 // --- attachments + composer + menu ---
@@ -235,11 +260,22 @@ document.addEventListener('click',e=>{
 // Artifact chips in the right rail: output chips carry data-reveal (open the folder), input image
 // chips carry data-lightbox (open the picture). Delegated so it survives rail refreshes.
 document.addEventListener('click',e=>{
+  const local=e.target.closest&&e.target.closest('a[data-local-file]');
+  if(local){e.preventDefault();mcOpenThreadFile(local.dataset.localFile);return;}
   const rv=e.target.closest&&e.target.closest('[data-reveal]');
   if(rv){e.preventDefault();mcRevealFile(rv.getAttribute('data-reveal'));return;}
   const lb=e.target.closest&&e.target.closest('[data-lightbox]');
   if(lb){e.preventDefault();mcLightbox(lb.getAttribute('data-lightbox'));return;}
 },true);
+// Use the same realm-bound opener as Artefacts; executable files are revealed, never run.
+async function mcOpenThreadFile(path){
+  const report=message=>{const note=document.getElementById('mc-chatmsg');
+    if(note)note.textContent=message;else if(typeof mcAlert==='function')mcAlert(message);};
+  try{const r=await(await fetch('/api/open-file',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path})})).json();
+    if(!r.ok||r.error)report(r.error||'Could not open the file.');
+  }catch(e){report('Could not open the file: '+e);}
+}
 // Reveal an OUTPUT artifact in the OS file explorer (the app is local; the file lives on this machine).
 async function mcRevealFile(path){
   try{
@@ -333,17 +369,21 @@ function mcChat(agent,thread,forceText){
   a.innerHTML='<div style="display:flex;gap:10px"><div style="display:flex;flex:none">'+av+'</div>'
    +'<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">'+mcEsc(disp)+'</div>'
    +'<div class="mc-steps" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px"></div>'
-   +'<div class="mc-answer mc-body" style="font-size:13px;line-height:1.55;white-space:pre-wrap"></div>'
+   +'<div class="mc-answer mc-body mc-md"></div>'
    +'<div class="mc-work" style="display:flex;flex-direction:column;gap:4px;margin-top:6px"></div></div></div>';
   box.appendChild(a);
   const steps=a.querySelector('.mc-steps'), answer=a.querySelector('.mc-answer'), work=a.querySelector('.mc-work');
   // the "working…" gif trails the output — it sits BELOW the streamed reply as the agent thinks
-  const working=mcAddChip(work,'<img src="/static/working.gif" width="34" height="34" style="display:block" alt="">',disp+' is working…','');
+  const working=mcAddChip(work,'<img src="/static/working.gif" width="34" height="34" style="display:block" alt="">','working on it…','');
   working.querySelector('.mc-step-l').style.animation='mc-pulse 1.4s ease-in-out infinite';
   ta.value=''; mcAutosize(); mcClearAttach(); mcSyncSend(); box.scrollTop=box.scrollHeight;
+  const count=document.getElementById('mc-message-count');if(count)count.textContent=String((Number(count.textContent)||0)+1);
+  // The user turn is written before the engine starts; refresh the compaction meter as soon as
+  // that persisted state exists instead of waiting for the final answer.
+  setTimeout(()=>mcRefreshMetrics(agent,thread),300);
   mcSetAgentDot('working');                              // this agent's header dot pulses while it replies
   const tools={}; mcTid='t'+Date.now()+Math.random().toString(36).slice(2,7); mcCtrl=new AbortController(); mcSetGen(true);
-  let done=false;
+  let done=false,rawAnswer='';
   function finish(ok){if(done)return;done=true;ok=(ok!==false);
     // the animated "working…" gif shows for the whole turn; then it's removed and (on success) the
     // canonical render swap adds a green 'Done' marker at the BOTTOM of the reply (see mcMarkDone).
@@ -355,26 +395,30 @@ function mcChat(agent,thread,forceText){
     if(ok){mcRefreshTurns(agent,thread);   // swap streamed turns for the canonical server render
       mcRefreshRail(agent,thread);         // new output artifacts / caps appear without a reload
       if(window.mcPendingRefresh)window.mcPendingRefresh();}   // reply may have proposed a job → bump the nav badge
+    mcRefreshMetrics(agent,thread);
     mcRefreshAgentDot();                    // reply done → dot returns to its real state…
     setTimeout(mcRefreshAgentDot, 900);     // …and again once the server has settled unread + cleared the run marker
     if(ok)setTimeout(()=>mcSeenNow(true),1100);   // your own reply is seen; let the server settle first
   }
   function handle(ev){
+    if(ev.activity){const label=working.querySelector('.mc-step-l');if(label)label.textContent=ev.activity;}
     if(ev.kind==='thinking'){mcAddChip(steps,MC_STEP_ICONS.think,'Thought for a moment',ev.text);}
     else if(ev.kind==='tool'){const c=mcAddChip(steps,MC_STEP_ICONS.tool,mcToolLabel(ev.name,ev.input),mcToolDetail(ev.name,ev.input));if(ev.id)tools[ev.id]=c;}
     else if(ev.kind==='tool_result'){const c=tools[ev.id];if(c){const pre=c.querySelector('.mc-step-d');if(pre)pre.textContent=pre.textContent+'\n— result —\n'+ev.content;c.querySelector('.mc-step-l').textContent+=(ev.is_error?' · failed':' · done');}}
-    else if(ev.kind==='text'){answer.textContent+=ev.text;}
-    else if(ev.kind==='result'){if(ev.output&&!answer.textContent.trim())answer.textContent=ev.output;}
+    else if(ev.kind==='text'){rawAnswer+=ev.text||'';}
+    else if(ev.kind==='render'){answer.innerHTML=ev.html||'';}
+    else if(ev.kind==='result'){if(ev.output&&!rawAnswer.trim())answer.textContent=ev.output;}
     else if(ev.kind==='rename'){if(ev.thread_title)mcSetThreadTitle(thread,ev.thread_title);}
-    else if(ev.kind==='done'){if(ev.output&&!answer.textContent.trim())answer.textContent=ev.output;
-      if(ev.thread_title)mcSetThreadTitle(thread,ev.thread_title);finish();}
-    else if(ev.kind==='error'){answer.textContent=(answer.textContent||'')+'\n[error: '+(ev.error||'failed')+']';finish(false);}
+    else if(ev.kind==='done'){if(ev.output&&!rawAnswer.trim())answer.textContent=ev.output;
+      if(ev.thread_title)mcSetThreadTitle(thread,ev.thread_title);finish(ev.ok!==false);}
+    else if(ev.kind==='error'){answer.textContent=(rawAnswer||'')+'\n[error: '+(ev.error||'failed')+']';finish(false);}
     box.scrollTop=box.scrollHeight;}
   (async()=>{try{
     const resp=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,thread,message:msg,images:imgs,files:files,tid:mcTid}),signal:mcCtrl.signal});
     const reader=resp.body.getReader();const dec=new TextDecoder();let buf='';
     while(true){const r=await reader.read();if(r.done)break;buf+=dec.decode(r.value,{stream:true});
       let i;while((i=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,i);buf=buf.slice(i+2);const line=chunk.replace(/^data:\s?/,'');if(!line.trim())continue;let ev;try{ev=JSON.parse(line);}catch(x){continue;}handle(ev);}}
-    finish();
-  }catch(e){if(e.name==='AbortError'){answer.textContent=(answer.textContent||'').trim()+' — stopped';}else{answer.textContent=(answer.textContent||'')+'\n[error: '+e+']';}finish(false);}})();
+    if(!done)finish(false);
+    mcRefreshTurns(agent,thread);
+  }catch(e){if(e.name==='AbortError'){answer.textContent=rawAnswer.trim()+' — stopped';}else{answer.textContent=rawAnswer+'\n[error: '+e+']';}finish(false);}})();
 }

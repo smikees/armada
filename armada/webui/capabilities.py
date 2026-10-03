@@ -12,7 +12,7 @@ import html, json, datetime, time, re
 from pathlib import Path
 from .. import memory, model, models, brand, status, sysskills
 from .. import goals as goalsmod
-from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
+from ..icons import ICONS, _provider_logo, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
 from ._base import (E, _J, _STAR, _md_inline, _md, _page_title, _chip, _pill, _tone, _poss)
 from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMILY_BASE,
     _CONSUMPTION_STOPS, _grad_rgb, _consumption_color, _consumption_gradient_css, _consumption_js,
@@ -47,10 +47,12 @@ _CAP_HELP = (
     '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcCapHelp(false)">Close</button></div>'
     '<div style="font-size:12.5px;line-height:1.6;background:var(--color-sand-100);border:1px solid var(--color-sand-300);'
     'border-radius:var(--r);padding:10px 12px;margin-bottom:14px">'
-    'ARMADA runs on <b>your own Claude</b>. A connector, skill, or plugin has to be added and authorised in '
-    'Claude first — then it becomes available to your agents here. ARMADA shows what’s wired up and lets you '
-    'scope it per agent; it doesn’t install or hold credentials itself.<br><br>'
-    'The type (below) is how Claude names things. What actually decides trust is shown on every item as three '
+    'ARMADA uses your connected Claude or Codex subscription. Giving an agent access to a connector takes '
+    'effect on its next run, provided that connector is also connected in the agent’s model provider. '
+    'Claude and Codex require separate connector sign-ins. Expand a connector to check Codex and start its '
+    'sign-in. Codex saves that connection in your Codex CLI, which other Codex sessions on this computer can '
+    'also use; ARMADA limits which of its agents can use it.<br><br>'
+    'What actually decides trust is shown on every item as three '
     'signals: <b>who made it</b>, whether it <b>runs code on your machine</b>, and <b>what it can touch</b> '
     '(files · network · shell · connectors). Expand any item to see where it came from and what a content scan '
     'found. Treat a third-party item that runs code like installing an app from the internet.</div>'
@@ -110,9 +112,10 @@ _CONNECTOR_MODAL = (
     '<div style="display:flex;align-items:center;margin-bottom:10px"><div style="font-family:var(--font-heading);'
     'font-weight:600;font-size:17px">Add a connector</div>'
     '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcConnClose()">Close</button></div>'
-    '<div style="font-size:12.5px;line-height:1.6">Connectors are enabled in <b>Claude</b>, not here — that is where the sign-in '
-    'and credentials live. Add or authorise the connector in your Claude connector settings (or via <span class="mono">claude mcp</span>), '
-    'then come back and hit the <b>refresh</b> icon next to Connectors to pull it in.</div>'
+    '<div style="font-size:12.5px;line-height:1.6">Add or authorise a connector in Claude, then use the '
+    '<b>refresh</b> icon next to Connectors to pull it in. For a Codex agent, expand the connector card and '
+    'connect it to Codex separately. Giving an agent access in ARMADA takes effect on its next run once its '
+    'model provider is connected.</div>'
     '<div style="margin-top:14px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
     '<button class="btn btn-primary" onclick="mcConnClose();mcConnectorRefresh(this)">Refresh from Claude</button>'
     '</div></div></div>'
@@ -186,7 +189,10 @@ def _toolkit_from(js: dict) -> dict:
 
 def _realm_toolkit(realm_root) -> dict:
     p = Path(realm_root) / "realm.json"
-    return _toolkit_from(json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else {})
+    tk = _toolkit_from(json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else {})
+    from ..connector_runtime import is_provider_placeholder
+    tk["connectors"] = [c for c in tk["connectors"] if not is_provider_placeholder(c)]
+    return tk
 
 
 def _agent_toolkit(realm_root, aid: str) -> dict:
@@ -210,7 +216,7 @@ _SCOPE_CLR = {"files": "var(--color-accent)", "network": "var(--status-warn)",
               "hooks": "var(--status-bad)"}
 _RUNS_ICON = {"reads": "cap-reads", "code": "cap-code", "service": "cap-service"}
 _SCOPE_ICON = {"files": "cap-files", "network": "cap-network", "shell": "terminal",
-               "connectors": "cap-connector", "hooks": "zap"}
+               "connectors": "cap-connector", "hooks": "hook"}
 _RUNS_DESC = {"reads": "Reads only — uses instructions and data only; runs no code",
               "code": "Runs code here — runs code on your computer, with your permissions",
               "service": "Outside service — exchanges data with a remote service (sign-in)"}
@@ -277,6 +283,15 @@ def _cap_conn_info(it: dict, kind: str, ok: bool) -> str:
     lab = (it.get("status") or "planned").title()
     return (f'<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--status-bad);flex:none">'
             f'<span style="display:flex">{_icon("circle-x", 13)}</span>{E(lab)}</span>')
+
+
+def _provider_badges(it: dict) -> str:
+    sid = E(str(it.get("id") or it.get("name") or ""))
+    return ''.join(
+        f'<span class="mc-conn-badge" data-cap="{sid}" data-provider="{provider}" '
+        f'data-state="checking" title="Checking {label} connector status">'
+        f'{_icon(provider, 11)}<span>{label}</span><span class="mc-conn-mark" aria-label="Checking">{_icon("loader",13)}</span></span>'
+        for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")))
 _KIND_SINGULAR = {"connectors": "Connector", "extensions": "Extension",
                   "skills": "Skill", "plugins": "Plugin"}
 
@@ -569,7 +584,7 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
     if custom:
         origin += " — defined in this realm"
     elif origin == _FROM_CLAUDE:
-        origin += " — added and authorised there, not from a source you can browse"
+        origin += " — originally added there; current connections are shown below"
     link = (f' · <a href="{E(url)}" target="_blank" rel="noopener" style="color:var(--color-accent-2);text-decoration:none">View source ↗</a>'
             if url else "")
     frozen, pnote = _cap_persist(it, kind)
@@ -589,6 +604,18 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
         rows += (f'<div class="k">Available to</div>'
                  f'<div class="mc-cap-availto" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
                  f'{_cap_availto_chips(realm, realm_root, it, kind)}</div>')
+    if kind == "connectors" and realm is not None:
+        sid = E(str(it.get("id") or it.get("name") or ""))
+        for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")):
+            action = (f' <button type="button" class="btn btn-secondary btn-sm mc-conn-action" '
+                      f'data-provider="codex" data-cap="{sid}" style="display:none" '
+                      f'onclick="mcCodexConnect(this,{_J(it.get("id") or "")})">Connect to Codex</button>'
+                      if provider == "codex" else "")
+            if provider == 'gemini':
+                action = ' <a href="https://antigravity.google/docs/mcp" target="_blank" rel="noopener">Configure in Antigravity CLI ↗</a>'
+            rows += (f'<div class="k">{label}</div><div class="mc-conn-detail" '
+                     f'data-cap="{sid}" data-provider="{provider}">'
+                     f'<span class="mc-conn-state">Checking connection…</span>{action}</div>')
     ver = str(it.get("version") or "").strip()
     upd = _cap_has_update(it)
     if ver or upd:
@@ -600,7 +627,7 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
                f'{_icon("download",13)}Update to {E(str(it.get("latest")))}</button>')
         rows += (f'<div class="k">Update</div><div>{_md_inline(E(info)) if info else ""}'
                  f'<div>{btn}</div></div>')
-    if kind == "skills":
+    if kind == "skills" and not it.get("preview"):
         sid = E(it.get("id", ""))
         rows += (f'<div class="k">Contents</div>'
                  f'<div style="display:flex;align-items:center;gap:14px">'
@@ -609,6 +636,9 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
                  f'{_icon("file-view",15)}View contents</a>'
                  f'<a class="mc-cap-ico" onclick="mcSkillReveal(event,\'{sid}\',\'\')">'
                  f'{_icon("go-to-file",14)}Go to file</a></div>')
+    if it.get("setup_guide"):
+        rows += (f'<div class="k">Connection setup</div><div>{E(it.get("setup_required", ""))} '
+                 f'<a href="{E(it["setup_guide"])}" target="_blank" rel="noopener">Setup guide ↗</a></div>')
     if it.get("installs"):
         rows += f'<div class="k">Installs</div><div>{E(it.get("installs"))}</div>'
     declared = it.get("declared") or it.get("description") or ""
@@ -633,7 +663,7 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
 
 
 def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
-              realm=None, realm_root=None) -> str:
+              realm=None, realm_root=None, selection: str = "") -> str:
     ok = (it.get("status") or "connected").lower() == "connected"
     # always the type icon (skill/plugin/connector/extension) — no per-item custom icons
     ic = {"connectors": "cap-connector", "extensions": "puzzle",
@@ -658,6 +688,10 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
     # installed or signed in to. "Planned", in red, read as something having gone wrong.
     is_new = _cap_is_new(it, realm, realm_root, kind)
     conn_info = _cap_new_badge() if is_new else _cap_conn_info(it, kind, ok)
+    if kind == "connectors" and realm is not None:
+        conn_info = ""  # provider status is checked after render, never inferred from saved metadata
+    if it.get("preview"):
+        conn_info = ""  # A recommendation has no installed/connected state yet.
     enabled = it.get("enabled", True)
     off_cls = "" if enabled else " mc-cap-off"
     ed = dl = toggle = ""
@@ -689,8 +723,10 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
             f'<span style="display:flex;align-items:center;gap:7px;min-width:0">'
             f'<span title="{tlab}" style="display:flex;flex:none;color:var(--text-62)">{_icon(ic,15)}</span>'
             f'<span style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{name}</span>{conn_info}{upd_badge}</span>'
-            f'<span style="display:flex;align-items:center;gap:6px;margin-left:22px">{_cap_source_pill(it)}{inh}</span></span>')
-    col5 = (f'<span style="display:flex;gap:7px;align-items:center;justify-self:end">{toggle}{ed}{dl}</span>')
+            f'<span style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-left:22px">{_cap_source_pill(it)}'
+            f'{_provider_badges(it) if kind == "connectors" and realm is not None and not it.get("preview") else ""}'
+            f'{inh}</span></span>')
+    col5 = (f'<span style="display:flex;gap:7px;align-items:center;justify-self:end">{selection}{toggle}{ed}{dl}</span>')
     droppable = ""
     availto = ""
     if realm is not None and realm_root is not None:
@@ -702,7 +738,7 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
     # same object as its swatch in the Risk legend. It's a background-IMAGE, not the `background`
     # shorthand: the shorthand would drop the card's own background-color and the row would go
     # transparent over the page.
-    grad = (f'border-left-color:{tcol};'
+    grad = (f'--mc-cap-edge:{tcol};'
             f'background-image:linear-gradient(to right,'
             f'color-mix(in srgb,{tcol} 14%,transparent) 0,'
             f'color-mix(in srgb,{tcol} 11%,transparent) 11px,transparent 28px)')
@@ -839,8 +875,10 @@ def _cap_legend() -> str:
     touch = "".join(iconline(_SCOPE_ICON[k], k, _SCOPE_DESC[k])
                     for k in _ABILITY_RANK if k in _SCOPE_ICON)
     inner = grp("Risk", risk) + grp("Runs", runs) + grp("Can touch", touch)
-    return (f'<div style="font-family:var(--font-heading);font-weight:600;font-size:12px;text-transform:uppercase;'
-            f'letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px">Legend</div>{inner}')
+    return (f'<details class="mc-cap-legend" open><summary>{_icon("chevron-right",12)}Legend</summary>{inner}</details>'
+            '<script>(function(){const legend=document.currentScript.previousElementSibling;'
+            'const key="armada:cap-legend-open";try{legend.open=localStorage.getItem(key)!=="false";}catch(e){}'
+            'legend.addEventListener("toggle",()=>{try{localStorage.setItem(key,String(legend.open));}catch(e){}});})();</script>')
 
 
 def _cap_roster(realm, realm_root) -> str:
@@ -922,7 +960,7 @@ def _sys_card(it: dict) -> str:
     kind = (it.get("kind") or "skills").lower()
     ic = {"connectors": "cap-connector", "extensions": "puzzle",
           "skills": "cap-skill", "plugins": "cap-plugin"}.get(kind, "cap-skill")
-    return (f'<div class="mc-cap mc-cap-sys" data-kind="system" style="border-left-color:var(--status-ok)">'
+    return (f'<div class="mc-cap mc-cap-sys" data-kind="system" style="--mc-cap-edge:var(--status-ok)">'
             f'<div style="display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:start;padding:10px 12px">'
             f'<span title="{E(_KIND_SINGULAR.get(kind, "Skill"))}" style="color:var(--status-ok);'
             f'display:flex;padding-top:1px">{_icon(ic,16)}</span>'
@@ -936,16 +974,23 @@ def _sys_card(it: dict) -> str:
 def _system_panel() -> str:
     """The System tab: what ARMADA runs on your behalf, and why you can't switch it off."""
     items = sysskills.list_system_skills()
-    if not items:
-        return ('<div style="font-size:13px;color:var(--text-muted)">No system skills are bundled '
-                'with this build.</div>')
+    providers = ''.join(
+        f'<div class="mc-cap mc-cap-sys mc-system-provider" data-engine="{key}" style="--mc-cap-edge:var(--color-accent)">'
+        f'<div style="display:flex;align-items:center;gap:10px;padding:10px 12px">'
+        f'{_provider_logo(key, 20, connected=True)}'
+        f'<span><strong>{label}</strong><span class="mc-hint" style="display:block">Model provider</span></span>'
+        f'<span class="mc-system-provider-version">Checking CLI version…</span>'
+        f'<span class="mc-system-provider-status" data-provider="{key}" '
+        f'style="margin-left:auto;font-size:12px;color:var(--text-muted)">Checking connection…</span>'
+        f'</div></div>' for key, label in (("codex", "Codex CLI"), ("claude", "Claude Code"), ("gemini", "Gemini · Antigravity CLI")))
     cards = "".join(_sys_card(it) for it in items)
     note = ('<div style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:1100px;margin:0 0 14px">'
             '<div>ARMADA uses these to do its own work — like checking the capabilities on the User '
             'tab are filed correctly and can only touch what they claim.</div>'
-            '<div>System capabilities can\'t be edited or removed: they ship inside the app and '
-            'update with it.</div></div>')
-    return note + cards
+            '<div>Model providers are app-wide connections managed in Settings → App. '
+            'System skills ship with ARMADA and update with it.</div></div>')
+    from ..assets import js
+    return note + providers + cards + js('providers')
 
 
 

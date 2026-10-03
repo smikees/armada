@@ -3,8 +3,8 @@
 Local scheduler (SPEC §8/§12) — the missing heart: fire jobs on their cadence.
 
 ARMADA owns scheduling itself (no OS cron required), so a realm is self-contained and portable.
-A job declares a `schedule` string; the scheduler decides when it's due, checks it hasn't already
-run today (idempotent — via the run-reports the runner writes), and fires it through the runner
+A job declares a `schedule` string; the scheduler decides when it's due, checks today's reports,
+durably claims today's attempt before dispatch, and fires it through the runner
 (command or agent). Timezone + grace window come from realm.json (matching the reference cabinet's
 `timezone` + `grace_minutes`), so a job missed by a reboot still fires if we're inside the grace.
 
@@ -20,6 +20,7 @@ Schedule grammar (deliberately small + human):
     "mon,wed,fri 08:00"      a day list
     "sat 09:00"              a single day
     "mon-sun 00:00"          explicit all-week
+    "0 8 * * sat#1"         first Saturday of each month (Armada cron extension)
 Days: mon tue wed thu fri sat sun · ranges (mon-fri) · lists (mon,wed) · daily/everyday = all 7.
 
 ### `_cron_field(field: str, lo: int, hi: int, names: dict | None=None)`
@@ -27,6 +28,14 @@ Days: mon tue wed thu fri sat sun · ranges (mon-fri) · lists (mon,wed) · dail
 Expand one cron field (*, a, a-b, a-b/n, */n, lists) into the set of values it matches.
 
 ### `is_cron(s: str)`
+
+—
+
+### `_nth_weekday(field: str)`
+
+Armada's ``weekday#occurrence`` extension, e.g. ``sat#1`` for first Saturday.
+
+### `_weekday_matches(field: str, day: 'datetime.date')`
 
 —
 
@@ -40,7 +49,7 @@ The set of weekdays a cron day-of-week field covers (Sun=0 … Sat=6), or an emp
 
 ### `_cron_parse(expr: str)`
 
-Parse a 5-field cron once (cached): -> (mins, hours, doms, months, dows, dom_star, dow_star).
+Parse a 5-field cron once (cached): -> (mins, hours, doms, months, dow_field, dom_star, dow_star).
 
 ### `cron_day_times(expr: str, day: 'datetime.date')`
 
@@ -51,22 +60,6 @@ The (hour, minute) fire times of `expr` on `day` — O(hours×minutes), not a 14
 —
 
 ### `_load_json(p: Path)`
-
-—
-
-### `_lock_path(realm_root)`
-
-—
-
-### `lock_holder(realm_root)`
-
-{"pid": n, "started": iso} for whoever currently owns ticking this realm, or None if unowned. A recorded pid that is no longer running is a stale lock from a crash, not a live holder, and reads as unowned.
-
-### `_lock_acquire(realm_root)`
-
-Claim the lock for this process. True if claimed — including if this process already held it, or the prior holder is dead — False if a different live process holds it.
-
-### `_lock_release(realm_root)`
 
 —
 
@@ -90,7 +83,7 @@ The current time in the realm's own timezone.
 
 Yield (agent_id, job_id, job_dict) for every job in a native realm.
 
-### `ran_today(realm_root: Path, agent_id: str, job_id: str, day_iso: str)`
+### `ran_today(realm_root: Path, agent_id: str, job_id: str, day_iso: str, not_before: datetime.datetime | None=None)`
 
 —
 
@@ -98,15 +91,23 @@ Yield (agent_id, job_id, job_dict) for every job in a native realm.
 
 —
 
-### `tick(realm_root, engine: str='claude', grace_min: Optional[int]=None, at: Optional[datetime.datetime]=None, dry_run: bool=False, *, _daemon_owned: bool=False)`
+### `_due_time(job: dict, now: datetime.datetime, grace_min: int)`
 
-One scheduling pass. Fire every due job not already run today. Returns fired-job records.
+Most recent due fire time. Catch-up claims belong to its day, even after midnight.
 
-### `_adopt_new_realms(rescan, owned: list, others: list)`
+### `_first_fire(job, fire)`
+
+Keep the once-per-scheduled-day contract for cadences with multiple daily fires.
+
+### `tick(realm_root, engine: str='auto', grace_min: Optional[int]=None, at: Optional[datetime.datetime]=None, dry_run: bool=False, *, _lease: _state.Lease | None=None)`
+
+One pass, with at most one automatic attempt per job and realm-local day.
+
+### `_adopt_new_realms(rescan, owned: dict, others: list)`
 
 Take on realms registered since the daemon started (created or added in the app while it was running). Without this, a new realm's jobs never fired until the scheduler was restarted — and the scheduler is the thing nobody restarts. A realm another live process already owns is left to it.
 
-### `run_daemon(realm_root, engine: str='claude', interval: int=60, grace_min: Optional[int]=None, also: Optional[list]=None, rescan=None)`
+### `run_daemon(realm_root, engine: str='auto', interval: int=60, grace_min: Optional[int]=None, also: Optional[list]=None, rescan=None, app_owner: int=0)`
 
 Fire due jobs until stopped. `also` names further realms to tick in the same pass.
 

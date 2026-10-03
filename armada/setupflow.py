@@ -2,7 +2,8 @@
 
 The wizard runs in two halves because a realm doesn't exist until halfway through:
 
-* **Before the realm** (the server's welcome mode, no realm open): welcome, checks, folder, team.
+* **Before the realm** (the server's welcome mode, no realm open): welcome, checks, folder,
+  naming, team.
   "Appoint the team" creates the realm and switches the server into it.
 * **In the realm** (`/setup`): capabilities, first job, tour, done.
 
@@ -27,6 +28,7 @@ log = logging.getLogger(__name__)
 KEY = "setup"
 # The half of the wizard that runs inside a realm, in order.
 REALM_STEPS = ("capabilities", "first-job", "tour", "done")
+ALL_STEPS = ("intro",) + tuple(sid for sid, _ in wizard_script.STEPS)
 BRIEF_THREAD = "first-brief"
 BRIEF_TITLE = "First brief"
 
@@ -55,7 +57,7 @@ def needs_setup(realm_root) -> bool:
 
 def current_step(realm_root) -> str:
     step = str(state(realm_root).get("step") or "")
-    return step if step in REALM_STEPS else REALM_STEPS[0]
+    return step if step in ALL_STEPS else REALM_STEPS[0]
 
 
 def _update(realm_root, fn) -> dict:
@@ -73,12 +75,19 @@ def _update(realm_root, fn) -> dict:
         return {"ok": False, "error": str(e)[:160]}
 
 
-def begin(realm_root, owner: str = "") -> dict:
+def begin(realm_root, owner: str = "", connected_providers=None) -> dict:
     """Mark a freshly made realm as mid-setup, and record the owner's name where the app keeps it
     (realm.json `user.name`, which Settings → User edits and every agent reads)."""
     def fn(cfg, st):
         st.clear()
         st.update({"step": REALM_STEPS[0], "started": _now()})
+        if connected_providers:
+            from .alexander.config import resolve
+            provider, model, effort = resolve('', states={p: {'connected': p in connected_providers} for p in ('claude', 'codex', 'gemini')})
+            cfg["providers"] = list(connected_providers)
+            cfg["provider"] = provider
+            cfg["default_model"] = model
+            cfg["default_effort"] = effort
         if owner:
             user = dict(cfg.get("user") or {})
             user["name"] = owner
@@ -95,9 +104,13 @@ def begin(realm_root, owner: str = "") -> dict:
 
 
 def set_step(realm_root, step: str) -> dict:
-    if step not in REALM_STEPS:
+    if step not in ALL_STEPS:
         return {"ok": False, "error": "unknown step"}
-    return _update(realm_root, lambda cfg, st: st.update({"step": step}))
+    def update(_cfg, st):
+        if not st or st.get("done"):
+            raise ValueError("Setup is complete.")
+        st["step"] = step
+    return _update(realm_root, update)
 
 
 def finish(realm_root) -> dict:
@@ -118,35 +131,48 @@ def _entry_for(r: dict) -> dict:
     """A catalogue entry for a recommendation, for when the catalogue hasn't been fetched yet (a
     brand-new install: the daily refresh hasn't run). Same shape the catalogue writes."""
     from .catalogue import SKILLS
-    return {"key": r["key"], "id": r["id"], "name": r["name"], "description": r["does"],
+    if r.get("kind"):
+        return {"key": r["key"], "id": r["id"], "name": r["name"],
+                "description": r["does"] + " " + r["note"], "kind": r["kind"],
+                "source": r["source"], "author": r["author"], "homepage": r["homepage"],
+                "curated": "", "install": r["install"], "setup_guide": r["guide"],
+                "setup_required": r["note"]}
+    return {"key": r["key"], "id": r["id"], "name": r["name"], "description": r["does"] + (" " + r["note"] if r.get("note") else ""),
             "kind": "skills", "source": SKILLS, "author": "Anthropic", "category": "",
             "homepage": f"https://github.com/anthropics/skills/tree/main/skills/{r['id']}",
             "curated": "official", "version": "",
             "install": {"repo": "anthropics/skills", "path": r["id"]}}
 
 
-def add_recommended(realm_root, key: str) -> dict:
-    """Add one recommended capability and switch it on for the realm. Only keys on the curated list
+def add_recommended(realm_root, key: str, enabled=None) -> dict:
+    """Add one recommended capability with the owner's chosen initial enabled state. Only keys on the curated list
     are accepted: this endpoint exists for the wizard, not as a second way into the catalogue."""
     r = recommended.by_key(key)
     if not r:
         return {"ok": False, "error": "That isn't one of the recommended capabilities."}
+    if enabled is not None and not isinstance(enabled, bool):
+        return {"ok": False, "error": "Enabled must be true or false."}
+    enabled = not bool(r.get("kind")) if enabled is None else enabled
     from . import catalogue
     res = catalogue.add_to_realm(realm_root, key, entry=_entry_for(r))
     if not res.get("ok") and "already in this realm" not in str(res.get("error") or ""):
         return res
-    on = _enable(realm_root, r["id"])
-    return {"ok": on, "id": r["id"], "name": r["name"],
-            **({} if on else {"error": "Added, but couldn't switch it on. Do it on Capabilities."})}
+    on = _enable(realm_root, r["id"], enabled, r.get("kind") or "skills")
+    if not on:
+        return {"ok": False, "id": r["id"], "name": r["name"], "error": "Added, but couldn't save its enabled state. Try again."}
+    if r.get("kind"):
+        return {"ok": True, "id": r["id"], "name": r["name"], "pending_setup": True, "enabled": enabled,
+                "guide": r["guide"], "message": "Added to Capabilities > User. Complete the connection setup there."}
+    return {"ok": True, "id": r["id"], "name": r["name"], "enabled": enabled}
 
 
-def _enable(realm_root, cid: str) -> bool:
+def _enable(realm_root, cid: str, enabled=True, kind="skills") -> bool:
     ok = {"v": False}
 
     def fn(cfg, _st):
-        for it in ((cfg.get("toolkit") or {}).get("skills") or []):
+        for it in ((cfg.get("toolkit") or {}).get(kind) or []):
             if it.get("id") == cid:
-                it["enabled"] = True
+                it["enabled"] = enabled
                 ok["v"] = True
     rj = _rj(realm_root)
     try:
