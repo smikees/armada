@@ -1187,13 +1187,15 @@ Listed so we never have to work out what comes next.
 
 ## Where things stand *(update this block as we go)*
 
-October 3 release preparation: v0.99.74 collects the three-engine integration, job result and
+October 3 release: v0.99.74 collects the three-engine integration, job result and
 retry behavior, standalone desktop lifecycle, provider discovery, setup and UI changes since
-v0.99.73. README, GitHub metadata and release documentation are being brought up to date.
+v0.99.73. README, GitHub metadata and release documentation are up to date.
 Full Windows verification: 2,923 passed, 2 skipped; 41 changed JavaScript files passed syntax
 checks. Golden changes were reviewed against the requested UI updates. Validation also corrected
-ad-hoc task classification and kept newer-schema realm adoption read-only. Installer publication
-is in progress. The armada.stamih.com
+ad-hoc task classification and kept newer-schema realm adoption read-only. The Windows installer
+and signed update artifacts are published in GitHub release v0.99.74; the installer download
+returns HTTP 200. Installer smoke checks and 18 packaging tests passed, including the correction
+for Windows PowerShell security-module discovery. The armada.stamih.com
 landing page is a separate design review; website publication waits for Mihai's UI approval.
 No launch-plan acceptance checkbox is changed by this release preparation.
 
