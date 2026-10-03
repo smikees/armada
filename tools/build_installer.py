@@ -246,9 +246,18 @@ def _webview2_bootstrapper() -> Path:
         say("downloading Microsoft's WebView2 bootstrapper")
         with urllib.request.urlopen(WEBVIEW2_URL, timeout=120) as r, open(exe, "wb") as f:
             shutil.copyfileobj(r, f)
-    ps = (f"$s = Get-AuthenticodeSignature -LiteralPath '{exe}'; "
+    # PowerShell 7 can pass its PSModulePath to Windows PowerShell 5.1, hiding
+    # the latter's built-in security module. Load the matching module explicitly.
+    literal = str(exe).replace("'", "''")
+    ps = ("$ErrorActionPreference = 'Stop'; "
+          "Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'); "
+          f"$s = Get-AuthenticodeSignature -LiteralPath '{literal}'; "
           "Write-Output ([string]$s.Status + '|' + $s.SignerCertificate.Subject)")
-    got = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True).stdout.strip()
+    result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                            capture_output=True, text=True, timeout=120)
+    if result.returncode:
+        sys.exit(f"WebView2 signature verification could not run: {result.stderr.strip()}")
+    got = result.stdout.strip()
     status, _, subject = got.partition("|")
     if status != "Valid" or "O=Microsoft Corporation" not in subject:
         exe.unlink()

@@ -12,6 +12,8 @@ import importlib.util
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 ISS = (ROOT / "installer" / "armada.iss").read_text(encoding="utf-8")
 
@@ -83,6 +85,47 @@ def test_webview2_is_installed_when_missing():
     wv = ISS[ISS.index("procedure InstallWebView2"):ISS.index("procedure CurStepChanged")]
     # quietly for this user first, then (asking first) for all users with Windows' admin prompt
     assert wv.index("Exec(Exe") < wv.index("ShellExec('runas'") and "WizardSilent()" in wv
+
+
+@pytest.mark.parametrize("status,subject,accepted", [
+    ("Valid", "CN=Microsoft Corporation, O=Microsoft Corporation", True),
+    ("NotSigned", "", False),
+    ("Valid", "CN=Other Publisher, O=Other Publisher", False),
+])
+def test_webview2_requires_a_valid_microsoft_signature(tmp_path, monkeypatch, status, subject, accepted):
+    from subprocess import CompletedProcess
+    b = _build()
+    monkeypatch.setattr(b, "CACHE", tmp_path / "cache")
+    monkeypatch.setattr(b, "REDIST", tmp_path / "redist")
+    b.CACHE.mkdir()
+    exe = b.CACHE / b.WEBVIEW2_EXE
+    exe.write_bytes(b"test bootstrapper")
+
+    def verify(command, **kwargs):
+        assert "Import-Module (Join-Path $PSHOME" in command[-1]
+        assert "Microsoft.PowerShell.Security.psd1" in command[-1]
+        return CompletedProcess(command, 0, f"{status}|{subject}\n", "")
+
+    monkeypatch.setattr(b.subprocess, "run", verify)
+    if accepted:
+        assert (b._webview2_bootstrapper() / b.WEBVIEW2_EXE).read_bytes() == exe.read_bytes()
+    else:
+        with pytest.raises(SystemExit, match="refusing it"):
+            b._webview2_bootstrapper()
+        assert not exe.exists() and not b.REDIST.exists()
+
+
+def test_webview2_verifier_failure_preserves_cache_and_reports_exact_error(tmp_path, monkeypatch):
+    from subprocess import CompletedProcess
+    b = _build()
+    monkeypatch.setattr(b, "CACHE", tmp_path)
+    monkeypatch.setattr(b, "REDIST", tmp_path / "redist")
+    exe = tmp_path / b.WEBVIEW2_EXE
+    exe.write_bytes(b"test bootstrapper")
+    monkeypatch.setattr(b.subprocess, "run", lambda *a, **k: CompletedProcess(a, 1, "", "security module unavailable"))
+    with pytest.raises(SystemExit, match="security module unavailable"):
+        b._webview2_bootstrapper()
+    assert exe.exists() and not b.REDIST.exists()
 
 
 def test_gemini_install_is_optional_and_detected_alongside_other_engines():
