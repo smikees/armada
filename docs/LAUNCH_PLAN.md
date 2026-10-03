@@ -1196,7 +1196,7 @@ ad-hoc task classification and kept newer-schema realm adoption read-only. The W
 and signed update artifacts are published in GitHub release v0.99.74; the installer download
 returns HTTP 200. Installer smoke checks and 18 packaging tests passed, including the correction
 for Windows PowerShell security-module discovery. The armada.stamih.com
-landing page is a separate design review; website publication waits for Mihai's UI approval.
+landing page was approved by Mihai and published on October 3; HTTPS assets and the installer link are verified.
 No launch-plan acceptance checkbox is changed by this release preparation.
 
 October 3 Check spacing: plan guidance follows the disconnect note beneath the engine cards.

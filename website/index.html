@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ARMADA is a standalone Windows app for running a team of AI agents with their own memory, goals and scheduled jobs, using your connected Claude, Codex or Gemini account.">
+  <meta name="theme-color" content="#004081">
+  <title>ARMADA — Your army of agents</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- THESIS: A plain, useful home for the Windows app; the product is explained in words, without invented UI.
+OWN-WORLD: Exact supplied Armada SVG artwork, Barlow typography, white surfaces, charcoal, navy and teal.
+STORY: Understand the standing team, check the requirements, download the installer or inspect the repository.
+FIRST VIEWPORT: Compact logo/navigation; left-aligned tagline and explanation; a concise download panel on the right.
+FORM: Restrained software introduction, revised following Mihai's rejection of all generated comps. No product imagery.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md -->
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="page">
+    <header class="header">
+      <a class="brand" href="./" aria-label="ARMADA home">
+        <svg class="wordmark" viewBox="1682 5125 5136 750" role="img" aria-label="ARMADA">
+          <image href="assets/armada-logo.svg" width="8500" height="11000"/>
+        </svg>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="https://github.com/smikees/armada/blob/main/armada/docs/user/index.md">Documentation</a>
+        <a href="https://github.com/smikees/armada">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="intro" aria-labelledby="title">
+        <div class="intro-copy">
+          <h1 id="title">Create, empower and control your army of agents.</h1>
+          <p class="lead">A standing team of AI agents, on your computer.</p>
+          <p class="description">Give your agents roles, memory and goals. Set work on a schedule,
+            follow its progress, and keep what they create in a folder you own.</p>
+        </div>
+        <aside class="download" aria-labelledby="download-title">
+          <h2 id="download-title">ARMADA for Windows</h2>
+          <p class="release">Version 0.99.74 <span class="beta">Beta</span></p>
+          <a class="button" href="https://github.com/smikees/armada/releases/download/v0.99.74/ARMADA-Setup-0.99.74.exe">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>
+            Download installer
+          </a>
+          <p class="requirements">Windows 10 or 11 · Installed for your user</p>
+          <a class="release-link" href="https://github.com/smikees/armada/releases/tag/v0.99.74">Read the release notes <span aria-hidden="true">→</span></a>
+        </aside>
+      </section>
+
+      <section class="engines" aria-labelledby="engine-title">
+        <div>
+          <h2 id="engine-title">Your accounts. Your choice of engine.</h2>
+          <p>Connect one or more providers through their CLIs. Choose the model for each agent or job.</p>
+        </div>
+        <ul class="engine-list" aria-label="Supported engines">
+          <li><strong>Claude</strong><span>Claude Code</span></li>
+          <li><strong>Codex</strong><span>Codex CLI</span></li>
+          <li><strong>Gemini</strong><span>Antigravity CLI</span></li>
+        </ul>
+      </section>
+
+      <section class="details" aria-label="How Armada works">
+        <div class="detail">
+          <h2>A team with context</h2>
+          <p>Each agent has a role and its own memory. Conversations happen in threads, with shared
+            context and the capabilities you choose to grant.</p>
+        </div>
+        <div class="detail">
+          <h2>Work you can follow</h2>
+          <p>Schedule recurring jobs, review their output and run history, and see specific failures
+            or unresolved findings. ARMADA runs while open or in the tray.</p>
+        </div>
+        <div class="detail">
+          <h2>A folder you own</h2>
+          <p>Your agents, memories and artifacts live in a local realm folder. Back it up or move it.
+            Model requests go to your selected provider.</p>
+        </div>
+      </section>
+
+      <section class="getting-started" aria-labelledby="start-title">
+        <h2 id="start-title">Getting started</h2>
+        <p>Install ARMADA and follow Alexander through setup. He helps check your CLI connections,
+          choose a folder and appoint your first agents. ARMADA runs independently of the provider
+          desktop apps.</p>
+        <a href="https://github.com/smikees/armada/blob/main/armada/docs/user/getting-started.md">Read the setup guide <span aria-hidden="true">→</span></a>
+      </section>
+
+      <div class="beta-note">
+        <p><strong>About this beta.</strong> The Windows installer is not yet code-signed, so Windows
+          may show a SmartScreen warning. Download only from this project’s GitHub releases.
+          Provider access, quotas and connector support depend on your account and chosen engine.</p>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <svg class="symbol" viewBox="3575 5125 1360 750" role="img" aria-label="ARMADA symbol">
+        <image href="assets/armada-symbol.svg" width="8500" height="11000"/>
+      </svg>
+      <p>Source-available under the <a href="https://github.com/smikees/armada/blob/main/LICENSE">PolyForm Noncommercial License</a>.</p>
+      <a href="https://github.com/smikees/armada/issues">Report an issue <span aria-hidden="true">↗</span></a>
+    </footer>
+    <p class="independent">ARMADA is independent and is not affiliated with Anthropic, OpenAI or Google.</p>
+  </div>
+</body>
+</html>
