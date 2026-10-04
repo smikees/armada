@@ -11,6 +11,16 @@ import subprocess
 import sys
 
 
+def replace_process(executable, argv):
+    """Replace this process, preserving argument boundaries on Windows too."""
+    args = [str(arg) for arg in argv]
+    if os.name == 'nt':
+        # CRT _wexecv joins argv with spaces without quoting. Unlike Popen,
+        # callers must quote each argument, including the bootstrap/realm paths.
+        args = [subprocess.list2cmdline([arg]) for arg in args]
+    os.execv(str(executable), args)
+
+
 def _windows():
     import ctypes as c
     from ctypes import wintypes as w

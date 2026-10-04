@@ -5,6 +5,10 @@ Start the desktop app with Explorer's lifetime and unvirtualized user context.
 Detaching a console alone does not escape an MSIX caller's job/device map. Use the
 Windows parent-process attribute and the desktop user's environment instead.
 
+### `replace_process(executable, argv)`
+
+Replace this process, preserving argument boundaries on Windows too.
+
 ### `_windows()`
 
 —

@@ -479,7 +479,8 @@ def reexec() -> None:
     argv = [sys.executable, *launch_arguments(*sys.argv[1:])]
     log.info("update: restarting %s", argv)
     os.chdir(ROOT)
-    os.execv(sys.executable, argv)
+    from .desktop_launch import replace_process
+    replace_process(sys.executable, argv)
 
 
 def status() -> dict:

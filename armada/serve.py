@@ -595,7 +595,8 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         # start-up failures are logged by cli.
         log.info("restart: re-executing %s", argv)
         try:
-            os.execv(sys.executable, argv)
+            from .desktop_launch import replace_process
+            replace_process(sys.executable, argv)
         except OSError:
             log.exception("restart: re-exec failed; this process is exiting without a server")
             RESTARTING.clear()
