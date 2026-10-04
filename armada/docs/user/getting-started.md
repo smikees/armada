@@ -34,7 +34,9 @@ off. After that, add more realms from the realm switcher (top left) → **+ New 
   restored from a backup. Its scheduled jobs start **paused** until you've looked at them (see
   [Jobs](jobs.md#paused-jobs)).
 
-New realms start with the same model and effort as Alexander. Agents inherit realm model defaults unless
+New realms choose their model from the engines connected after setup, using the release's
+model preferences or the provider's default when its catalogue is unfamiliar. Alexander's
+model settings are independent. Agents inherit realm model defaults unless
 you change their settings. **Settings → Realm → Model defaults** includes model, thinking and output verbosity,
 plus **Set for all agents** to apply them across the team.
 

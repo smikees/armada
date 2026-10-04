@@ -1,6 +1,6 @@
 # Alexander — design
 
-*Phase 6, step 6.1. Written 2026-09-25 (Opus 5.5) from Mihai's brief; scope in
+*Phase 6, step 6.1. Written 2026-09-25 (Opus 5.5) from the maintainer's brief; scope in
 [ADR-012](../adr/ADR-012-alexander-scope.md), which widens [ADR-002](../adr/ADR-002-alexander.md).*
 
 Alexander is ARMADA's guide: the one bundled agent, the same in every install, that the owner

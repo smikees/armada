@@ -7,12 +7,12 @@ web
 
 ## Stack
 Implemented local static HTML/CSS preview, intended for the user's existing explicit-FTPS hosting.
-Mihai approved the UI and publication on 2026-10-03; the page is live at https://armada.stamih.com.
+the maintainer approved the UI and publication on 2026-10-03; the page is live at https://armada.stamih.com.
 
 ## Users and purpose
 People evaluating or downloading ARMADA, a Windows desktop application for a standing team
 of AI agents. The site must explain the app plainly, provide the installer and link to the
-GitHub repository. Mihai requested a professional presentation that does not feel like sales.
+GitHub repository. the maintainer requested a professional presentation that does not feel like sales.
 
 ## Capabilities and constraints
 ARMADA supports Claude Code, Codex CLI and Gemini through Antigravity CLI, with saved provider
@@ -35,5 +35,5 @@ imagery must use real screenshots with permission to expose the content. Do not 
 realm content. ASSETS.md records the supplied originals and their byte-identical website copies.
 
 ## Publication boundary
-Target armada.stamih.com. Mihai reviews the UI before website publication. FTP credentials
+Target armada.stamih.com. the maintainer reviews the UI before website publication. FTP credentials
 must never appear in chat, source control, browser scripts or downloadable files.

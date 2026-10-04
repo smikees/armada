@@ -130,7 +130,7 @@ Every touch point the six commits created:
 ## If this comes back, in order
 
 1. **Fix the listening experience first, with a throwaway script.** Number
-   normalisation and sentence streaming, measured on a real Warren reply. If it
+   normalisation and sentence streaming, measured on a representative agent reply. If it
    still sounds bad, the provider is wrong and no UI work will save it.
 2. **Re-evaluate providers.** A paid API (ElevenLabs et al.) solves prosody and
    normalisation outright but is a recurring per-character cost and puts a key in
@@ -138,8 +138,7 @@ Every touch point the six commits created:
    local has closed the gap since.
 3. **Only then** cherry-pick the UI back. It was the part that worked.
 
-## Left on this machine (harmless, delete if you like)
+## Legacy local configuration
 
-- `D:\Work\Work2\piper-env\` — the Piper install (its own venv).
-- `~\.armada\voices\` — three voice models, ~235 MB.
-- `~\.armada\config.json` — a `tts.piper_bin` key, now ignored.
+Older experiments may leave voice models under the application data folder and an
+unused `tts.piper_bin` setting. These are not required by the current app.

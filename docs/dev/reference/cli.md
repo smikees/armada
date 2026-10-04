@@ -1,7 +1,6 @@
 # `armada/cli.py`
 
-ARMADA CLI. Verbs: open (P1 cockpit) · run (P2) · doctor (P2) · serve (P2 dogfood).
-Later: new, provision.
+ARMADA command-line entry points for desktop launch, realm management, execution and diagnostics.
 
 ### `_print_fired(fired: list, now)`
 

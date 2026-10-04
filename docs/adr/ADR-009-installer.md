@@ -20,13 +20,13 @@ scheduler is owned by that process and stops on a full quit. The installer no lo
 the scheduler's Windows sign-in entry; upgrades remove the old entry. References below to the
 independent logon scheduler describe the superseded design.
 
-**Status:** Accepted · 2026-09-24 · written by Opus 5.5, accepted by Mihai: option B, unsigned for
+**Status:** Accepted · 2026-09-24 · written by Opus 5.5, accepted by the maintainer: option B, unsigned for
 the beta, Inno Setup (launch plan 5.2)
 
 ## Context
 
 Today ARMADA runs from a git checkout: `.venv` + `MATCAP.vbs` + `SCHEDULER.vbs`, with hard-coded
-`D:\Work\...` paths, and Update & Restart is a `git pull`. That works on one machine. The beta
+machine-specific development paths, and Update & Restart is a `git pull`. That works on one machine. The beta
 goes to about five invited Windows users (ADR-005, ADR-006) who don't have Python, git, or any
 reason to learn either.
 
@@ -98,7 +98,7 @@ what's on the machine. Good for developers, not for five invited non-developers.
   which is better anyway (the real Windows picker, parented to the app window). It needs a small
   bridge, because the picker is asked for over HTTP. This is a Sonnet task, done before the first
   build.
-- `SCHEDULER.vbs`, `MATCAP.vbs` and `cabinet-up.ps1` become dev-only conveniences, and so does
+- Legacy development launcher scripts become dev-only conveniences, and so does
   Update & Restart's `git pull`: the installed app updates through 5.4 instead.
 - The installed layout gives `schedsvc._REPO` a new meaning (the install folder), but the same
   code, because it's computed from the package location.
@@ -124,7 +124,7 @@ The uninstaller removes `armada\`, `armada.staged\`, `armada.previous\` and `pyt
 since the updater changes files the install log doesn't know about. Python 3.12.10 is the last 3.12
 release with Windows binaries; moving to a current Python is a task before the public release.
 
-## Decided by Mihai (2026-09-24)
+## Decided by the maintainer (2026-09-24)
 
 B; unsigned for the beta; Inno Setup. The folder-picker prerequisite shipped in v0.99.53. The
 internal names became `armada` before the first build ([ADR-010](ADR-010-internal-rename.md)):

@@ -1,12 +1,13 @@
 # ARMADA realm — on-disk schema
 
-Provider selection (2026-09-26): `realm.json.providers` is an optional list of `claude` and
-`codex`, controlling the combined model picker. Existing realms default to Claude. The job's
+Provider selection: `realm.json.providers` is an optional list containing any combination
+of `claude`, `codex` and `gemini`, controlling the combined model picker. The job's
 `model` overrides the agent's `model`, which overrides `default_model`; the model determines
 which CLI runs. Existing Claude IDs/labels remain valid. OpenAI IDs (for example an ID from the
 local Codex catalogue) select Codex; `codex:default` follows the Codex CLI default. The legacy
 `provider`/`default_engine` fields are fallback selectors. This is additive; no migration of
-existing realm or agent files is required. See [Codex integration](CODEX_INTEGRATION.md).
+existing realm or agent files is required. New-team defaults depend on connected engines.
+See [Provider onboarding](PROVIDER_ONBOARDING.md).
 
 The contract behind "a realm is a portable, Git-versioned folder." Everything ARMADA reads or
 writes lives here; the setup wizard and any importer must produce this layout. Paths are relative
@@ -59,18 +60,18 @@ the hidden journal when backing up or restoring an interrupted thread; see
 ## realm.json
 ```jsonc
 {
-  "name": "The Cabinet",              // display name
+  "name": "Example team",             // display name
   "schema_version": 2,                // on-disk format version — see "Format versioning" below
-  "owner": "Mihai",                   // kept in sync with user.name; used by reader theme gate
+  "owner": "Morgan",                  // kept in sync with user.name
   "template": "state",                // state | company | crew | scratch (drives default labels)
   "default_engine": "claude",
   "provider": "claude",
-  "default_model": "Claude Opus 4.8", // agents/threads inherit unless overridden
+  "default_model": "claude:default", // example only; codex:default and gemini:default are also supported
   "default_effort": "high",
   "timezone": "Europe/Madrid",        // IANA name, or "" = the host OS timezone (scheduler local)
   "grace_minutes": 120,               // a job missed by a reboot still fires within this window
   "user": {                           // owner settings — SOURCE OF TRUTH (Settings → User settings)
-    "name": "Mihai", "timezone": "Europe/Madrid", "gender": "", "birthdate": "YYYY-MM-DD"
+    "name": "Morgan", "timezone": "Europe/London", "gender": "", "birthdate": "YYYY-MM-DD"
   },
   "env": {                            // machine facts, captured at setup; merged into core memory
     "Operating system": "...", "Machine": "...", "CPU": "...", "Memory": "...", "GPU": "...", "App": "..."
@@ -105,12 +106,12 @@ reruns from the start).
   "icon": "landmark", "template": "state", "voice": "..." }
 ```
 Labels default from `template` when omitted (`reader._TYPE_LABELS`): state→Prime Minister/Minister,
-company→CEO/Executive, crew→Captain/Mate, else Coordinator/Agent. The label **"Hand"** is private to
-the owner's Cabinet (gated in `reader._resolve_theme` on realm name + owner) and never shown to others.
+company→CEO/Executive, crew→Captain/Mate, else Coordinator/Agent. Existing legacy
+labels remain supported by the reader's compatibility handling.
 
 ## agents/<id>/agent.json
 ```jsonc
-{ "id": "finance", "display": "Warren", "role": "Minister of Finance",
+{ "id": "research", "display": "Research", "role": "Research specialist",
   "coordinator": false, "autonomy": "manual|auto|skip", "model": null, "effort": null,
   "mandate": "mandate.md", "soul": "soul.md", "appointed": "YYYY-MM-DD", "membership": "cabinet",
   "inbox_frequency": "every run|hourly|daily|manual", "toolkit": { ... } }
@@ -165,7 +166,7 @@ These admission records are durable realm data, not disposable caches. See
 title: Become proficient in Spanish
 status: Not started | On track | At risk | Blocked | Done
 target: YYYY-MM-DD            # ETA; a past ETA is shown as "At risk"
-agents: warren,ray            # non-coordinator owners; coordinator is always an owner
+agents: research,planning    # non-coordinator owners; coordinator is always an owner
 ---
 Free-text description.
 ```

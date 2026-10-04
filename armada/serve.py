@@ -8,7 +8,7 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 """
 from __future__ import annotations
 from .background import process_options
-import http.server, io, json, logging, os, subprocess, sys, threading, time, urllib.parse, contextlib
+import http.server, io, json, logging, os, socket, subprocess, sys, threading, time, urllib.parse, contextlib
 from pathlib import Path
 from . import activerealm, reader, render, scheduler, util, brand, origins, local_auth
 from .util import safe_seg
@@ -25,6 +25,7 @@ log = logging.getLogger("armada.serve")
 
 # Set by Handler._restart just before it re-executes this process; see _serve_until_done.
 RESTARTING = threading.Event()
+_RESTART_LOCK = threading.Lock()
 _content_httpd = None
 
 
@@ -568,6 +569,10 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             return {"ok": False, "out": f"no git remote / {e}"}
 
     def _restart(self):
+        with _RESTART_LOCK:
+            if RESTARTING.is_set():
+                return
+            RESTARTING.set()
         time.sleep(0.4)
         # Tell the main thread first: closing the socket below makes its serve_forever() raise, and
         # a main thread that then returns ends the process — racing the execv on this thread. That
@@ -645,16 +650,14 @@ def _init_logging(realm: str) -> None:
 class _Server(http.server.ThreadingHTTPServer):
     """The cockpit's HTTP server.
 
-    Keeps SO_REUSEADDR (the socketserver default) on purpose: Update & Restart re-execs the
-    process, and the port it just released sits in TIME_WAIT for up to two minutes. Without
-    address reuse the restarted process cannot rebind its own port and the app never comes back.
-
-    Duplicate instances are prevented by an explicit pre-bind check (`port_owner`) instead — see
-    serve(). That's the right tool for the job: a TIME_WAIT socket refuses connections, so it
-    can't be mistaken for a live server, while a real second instance answers immediately.
+    Windows SO_REUSEADDR allows two live listeners to bind the same address. Use
+    exclusive binding there; POSIX retains address reuse for restart handover.
+    The account-wide instance lock also prevents launches on different ports.
     """
 
     def __init__(self, address, handler, *, session=None):
+        if os.name == 'nt':
+            self.allow_reuse_address = False
         super().__init__(address, handler)
         self._owns_auth = session is None
         try:
@@ -662,6 +665,11 @@ class _Server(http.server.ThreadingHTTPServer):
         except Exception:
             super().server_close()
             raise
+
+    def server_bind(self):
+        if os.name == 'nt':
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
     def server_close(self):
         super().server_close()
@@ -782,6 +790,18 @@ def serve(realm: str, port: int = 8756):
             swallowed(log, 'serve: model refresh unavailable')
     # Bind before publishing a credential: a losing startup cannot replace a live server's token.
     httpd = _Server(("127.0.0.1", port), Handler)
+    from . import instance, updater
+    instance.publish_port(httpd.server_port)
+    update_stop = threading.Event()
+    def update_watch():
+        while not update_stop.wait(1):
+            try:
+                if updater.installed() and updater.apply_requested():
+                    if updater.progress()['phase'] == 'restarting':
+                        updater._restart_window(httpd.server_port)
+            except Exception:
+                log.exception('Could not coordinate the pending update')
+    threading.Thread(target=update_watch, daemon=True).start()
     content = None
     try:
         if start_content_server(httpd.server_port + 1, session=httpd.auth) is not None:
@@ -791,6 +811,7 @@ def serve(realm: str, port: int = 8756):
         _say(f"Open the private browser launch file: {httpd.auth.launch_file}")
         _serve_until_done(httpd)
     finally:
+        update_stop.set()
         if content is not None:
             content.shutdown()
             content.server_close()

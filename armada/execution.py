@@ -98,9 +98,8 @@ class RunSession:
         self.started = False
 
     def __enter__(self):
-        from . import realmops
-        with self.lock, realmops.lifecycle_lock(self.context.realm.root):
-            from . import updater
+        from . import realmops, updater
+        with updater.admission_lock(), self.lock, realmops.lifecycle_lock(self.context.realm.root):
             if updater.installed() and updater.apply_requested():
                 raise util.StateError("ARMADA is restarting to update. New tasks can start after it reopens.")
             realmops.assert_active(self.context.realm.root)

@@ -1,15 +1,8 @@
 # `armada/reader.py`
 
-ARMADA realm reader — adopts a realm folder into the model.
+Realm readers for the native schema and legacy schedule-folder imports.
 
-v0.1 speaks two dialects:
-  * ARMADA-native (the neutral schema in SPEC.md §4) — future.
-  * The reference cabinet (D:\Work\Hand) — the brownfield test fixture: it maps
-    schedule.json + <minister>.md bulletins + runs/*.jsonl into the ARMADA model.
-
-Reading a realth this way is exactly the "Adopt an existing setup" path from the
-setup flow, and it doubles as a schema-validation exercise: whatever the cabinet
-does NOT yet declare (skills, token usage) surfaces as a Gap, not a silent blank.
+Missing or unsupported legacy fields are reported as gaps rather than silently inferred.
 
 ### `_read(p: Path)`
 
@@ -33,7 +26,7 @@ does NOT yet declare (skills, token usage) surfaces as a Gap, not a silent blank
 
 ### `_resolve_theme(cfg: dict, theme: dict)`
 
-Coordinator / agent / collective display labels for a realm.
+Resolve template labels and compatibility overrides for existing realms.
 
 ### `read_native(root: Path)`
 

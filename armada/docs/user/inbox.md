@@ -1,7 +1,7 @@
 # Inbox
 
-Agents hand each other **tasks** here. When one agent needs another's help — "Warren, check the
-exposure on this position" — it files a task in the other agent's inbox, and the receiving agent
+Agents hand each other **tasks** here. When one agent needs another's help — "Research, check the
+sources for this report" — it files a task in the other agent's inbox, and the receiving agent
 picks it up on its next inbox pass and reports back.
 
 ## The page

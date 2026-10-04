@@ -185,12 +185,19 @@ def scheduler_running() -> bool:
     return pid != str(os.getpid()) and util.pid_alive(pid)
 
 
-def window_open(port: int = 8756) -> bool:
-    import socket
+def window_port() -> int:
+    from . import instance
+    return int(instance.current().get('port') or 8756)
+
+
+def window_open(port: int | None = None) -> bool:
+    from . import local_auth
+    port = window_port() if port is None else port
     try:
-        with socket.create_connection(("127.0.0.1", port), timeout=0.4):
-            return True
-    except OSError:
+        req = urllib.request.Request(f'http://127.0.0.1:{port}/api/instance', headers=local_auth.headers(port))
+        with urllib.request.urlopen(req, timeout=.4) as response:
+            return json.load(response).get('app') == 'ARMADA'
+    except (OSError, ValueError):
         return False
 
 
@@ -402,16 +409,66 @@ def code_on_disk() -> str:
     return _version_in(PKG) or __version__
 
 
+def admission_lock():
+    """Serialize update requests with task admission across app and scheduler processes."""
+    return util.file_lock(util.data_dir() / 'update-admission', validate_state=False)
+
+
+def pending_work() -> list:
+    """Live work across all realms; an idle scheduler and stale receipts are not work."""
+    from . import activerealm, execution
+    with execution.RUNS_LOCK:
+        blockers = [{'kind': 'task', 'label': 'Active conversation or job'} for _ in execution.ACTIVE_RUNS]
+    for root in activerealm.every():
+        root = Path(root)
+        for path in root.glob('agents/*/runs/.running/*.json'):
+            try:
+                item = json.loads(path.read_text(encoding='utf-8'))
+                if item.get('status') == 'finished':
+                    continue
+                if item.get('owner_pid') and util.pid_alive(item['owner_pid']):
+                    blockers.append({'kind': 'task', 'label': f'{path.parents[2].name}/{path.stem}'})
+            except (OSError, ValueError, TypeError, AttributeError):
+                blockers.append({'kind': 'error', 'label': f'Cannot read activity record: {path.name}'})
+        state = util.read_json_state(root / 'system_jobs.json', default=dict)
+        for jid, entry in state.items():
+            attempt = entry.get('attempt') if isinstance(entry, dict) else None
+            if not isinstance(attempt, dict) or attempt.get('state') != 'claimed':
+                continue
+            try:
+                with util.file_lock(root / '.scheduler' / 'system' / f'{jid}.json', timeout=0, validate_state=False):
+                    pass
+            except util.FileLockTimeout:
+                blockers.append({'kind': 'task', 'label': f'System: {jid}'})
+    return blockers
+
+
+def progress() -> dict:
+    if not apply_requested():
+        return {'phase': 'ready', 'message': 'It installs the next time ARMADA starts, or now:', 'blockers': []}
+    try:
+        blockers = pending_work()
+    except (OSError, ValueError, TypeError) as exc:
+        return {'phase': 'error', 'message': f'Cannot check active work: {exc}', 'blockers': []}
+    if blockers:
+        failed = any(b['kind'] == 'error' for b in blockers)
+        return {'phase': 'error' if failed else 'waiting_tasks', 'blockers': blockers,
+                'message': ('Update paused: ' if failed else 'Waiting for active work: ') +
+                           ', '.join(dict.fromkeys(b['label'] for b in blockers))}
+    if scheduler_running():
+        return {'phase': 'preparing', 'message': 'Preparing update — waiting for the scheduler to stop…', 'blockers': []}
+    return {'phase': 'restarting', 'message': 'Restarting to install the update…', 'blockers': []}
+
+
 def request_apply() -> dict:
     """Quiesce admission, then restart through the bootstrap; never swap under the HTTP worker."""
     from . import execution
-    with execution.RUNS_LOCK:
+    with admission_lock(), execution.RUNS_LOCK:
         v = staged_version()
         if not v: return {"ok": False, "error": "no update is waiting"}
-        if execution.ACTIVE_RUNS:
-            return {"ok": False, "error": "Finish or stop current tasks before restarting to update."}
         util.write_text_atomic(_request_path(), v)
-        return {"ok": True, "waiting": scheduler_running(), "restart": True, "version": v}
+    state = progress()
+    return {"ok": True, "waiting": state['phase'] != 'restarting', "restart": True, "version": v, **state}
 
 
 def apply_requested() -> bool:
@@ -439,6 +496,8 @@ def scheduler_pass(telegram_busy: bool = False) -> bool:
         requested = apply_requested()
         if not requested and (not auto_enabled() or window_open()):
             return False
+        if pending_work():
+            return False
         from . import execution
         with execution.RUNS_LOCK:
             if execution.ACTIVE_RUNS: return False
@@ -450,9 +509,10 @@ def scheduler_pass(telegram_busy: bool = False) -> bool:
     return False
 
 
-def _restart_window(port: int = 8756) -> bool:
+def _restart_window(port: int | None = None) -> bool:
     """After applying an update the owner asked for, restart the window's server onto the new code."""
     try:
+        port = window_port() if port is None else port
         from . import local_auth
         req = urllib.request.Request(f"http://127.0.0.1:{port}/restart", data=b"", method="POST",
                                      headers=local_auth.headers(port))
@@ -495,4 +555,5 @@ def status() -> dict:
             "staged": staged_version(), "status": st.get("status", ""), "latest": st.get("latest", ""),
             "checked": st.get("checked", ""), "detail": st.get("detail", ""),
             "applied": st.get("applied", ""), "requested": apply_requested(),
+            **progress(),
             "releases": RELEASES_PAGE}

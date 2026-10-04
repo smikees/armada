@@ -540,8 +540,10 @@ def _run_locked(realm_root, jid, manual):
     # execution still merge at completion; no state lock is held while external work runs.
     attempt = {"attempt_id": uuid.uuid4().hex, "state": "claimed", "owner_pid": os.getpid(),
                "started": _clock.now().isoformat(timespec="seconds")}
-    from . import realmops
-    with realmops.lifecycle_lock(realm_root), util.file_lock(_state_path(realm_root)):
+    from . import realmops, updater
+    with updater.admission_lock(), realmops.lifecycle_lock(realm_root), util.file_lock(_state_path(realm_root)):
+        if updater.installed() and updater.apply_requested():
+            return _outcome(jid, 'skipped', 'update-pending', 'ARMADA is restarting to update.')
         realmops.assert_active(realm_root)
         st = util.read_json_state(_state_path(realm_root), default=dict)
         _validate_state(st)

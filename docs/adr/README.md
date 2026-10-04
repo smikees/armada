@@ -1,14 +1,15 @@
 # Architecture decision records
 
 One page each: the situation, what was decided, what it costs. Written so a later session — or a
-later Mihai — can see *why* without re-deriving it, and so a settled question stays settled.
+later the maintainer — can see *why* without re-deriving it, and so a settled question stays settled.
 
-A decision is **Accepted** when Mihai says so. Superseding one means a new ADR that names the old
+A decision is **Accepted** when the maintainer says so. Superseding one means a new ADR that names the old
 one; the old one is not edited.
 
 | # | Decision | Status |
 |---|---|---|
-| [001](ADR-001-single-engine.md) | Claude is the only engine for v1 | Accepted 2026-09-21 |
+| [001](ADR-001-single-engine.md) | Initial single-engine prototype | Superseded by 013 |
+| [013](ADR-013-provider-neutral.md) | Any one or combination of Claude, Codex and Gemini | Current |
 | [002](ADR-002-alexander.md) | Alexander: a guide in v1, a developer via extension points later | Accepted 2026-09-21 |
 | [003](ADR-003-council.md) | The Council: plan-only, proposals as output, coordinator-curated | Accepted 2026-09-21 |
 | [004](ADR-004-catalogue-reframe.md) | The Catalogue is search + bring-a-link, not browse | Accepted 2026-09-21 |

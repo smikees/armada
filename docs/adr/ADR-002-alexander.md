@@ -31,7 +31,7 @@ templates, dashboard layouts — each with a schema, a loader, a location on dis
 fail-safe test for malformed input. When Alexander-the-developer ships (DEFERRED D.1), it
 writes into that surface only. The user's ARMADA stays the official build plus their plugins;
 updates still apply; reverting a change is deleting a file. It runs as a separate process with
-its own checkout, as Mihai specified — the separation is what keeps the blast radius small.
+its own checkout, as the maintainer specified — the separation is what keeps the blast radius small.
 
 ## Consequences
 

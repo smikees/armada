@@ -118,12 +118,12 @@ def test_concurrent_downloads_cannot_replace_a_newer_stage(inst):
     assert updater.apply_staged()=='1.2.0'
 
 
-def test_update_request_during_active_work_is_refused(inst,monkeypatch):
+def test_update_request_waits_for_active_work(inst,monkeypatch):
     updater.check(fetch=_release())
     monkeypatch.setattr(execution,'ACTIVE_RUNS',{'running':object()})
     result=updater.request_apply()
-    assert not result['ok'] and 'current tasks' in result['error']
-    assert not updater.apply_requested()
+    assert result['ok'] and result['waiting'] and result['phase'] == 'waiting_tasks'
+    assert updater.apply_requested()
     assert bootstrap.version(inst/'armada')=='1.0.0'
 
 

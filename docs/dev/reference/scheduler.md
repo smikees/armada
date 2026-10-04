@@ -5,8 +5,8 @@ Local scheduler (SPEC §8/§12) — the missing heart: fire jobs on their cadenc
 ARMADA owns scheduling itself (no OS cron required), so a realm is self-contained and portable.
 A job declares a `schedule` string; the scheduler decides when it's due, checks today's reports,
 durably claims today's attempt before dispatch, and fires it through the runner
-(command or agent). Timezone + grace window come from realm.json (matching the reference cabinet's
-`timezone` + `grace_minutes`), so a job missed by a reboot still fires if we're inside the grace.
+(command or agent). Timezone and grace window come from realm.json, so a job
+missed by a reboot still fires within the configured grace window.
 
 Two run modes (CLI):
   * daemon  — loop forever, tick every --interval seconds (the "runs on its own" experience).

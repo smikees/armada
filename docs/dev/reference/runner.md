@@ -6,7 +6,7 @@ This closes the telemetry gap the P1 cockpit surfaced: every run now records
 input/output/cache tokens + cost, per agent, in the realm files.
 
 v0.2 reads a minimal ARMADA-native realm (JSON configs + .md context) so a job has a
-prompt to run — the reference cabinet keeps its prompts in the scheduler, so the native
+prompt to run — legacy imports may keep prompts in a separate scheduler, so the native
 format is what the runner operates on. Context assembly is the P2 slice of §5: realm
 objectives + tenets + agent mandate + soul + the job prompt. (Threads/compaction = P3.)
 
@@ -16,7 +16,7 @@ objectives + tenets + agent mandate + soul + the job prompt. (Threads/compaction
 
 ### `_is_internal_artifact(path: str, agent_dir: Path)`
 
-True for files that are plumbing, not a user-facing artifact: the agent's own realm records (job proposals, ledgers, thread logs/attachments, memory). We still surface anything the agent writes OUTSIDE its own agent dir (e.g. into D:\Work\Hand), which is where real deliverables land.
+True for files that are plumbing, not a user-facing artifact: the agent's own realm records (job proposals, ledgers, thread logs/attachments, memory). We still surface anything the agent writes OUTSIDE its own agent dir (e.g. into a shared workspace folder), which is where real deliverables land.
 
 ### `_running_marker(agent_dir: Path, job_id: str, on: bool)`
 
@@ -213,7 +213,7 @@ One pass across every agent. The expensive part happens only where mail is actua
 
 ### `_run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_dir: Path)`
 
-Deterministic job: run a shell command / script, capture status+output. No engine, no tokens. This is what runs the cabinet's Python collectors (collect_*.py, render_status.py, telegram push).
+Deterministic job: run a shell command / script, capture status+output. No engine, no tokens. This is what runs deterministic scripts, data collection and report delivery.
 
 ### `_result_status(result)`
 

@@ -1,10 +1,10 @@
 # ADR-007 — Source-available: free for personal use, commercial use by agreement
 
-**Status:** Accepted · 2026-09-21 · decided by Mihai · **one action before any distribution**
+**Status:** Accepted · 2026-09-21 · decided by the maintainer · **one action before any distribution**
 
 ## Context
 
-Mihai's decision: the source is open to read and use, free for personal use, and anyone
+the maintainer's decision: the source is open to read and use, free for personal use, and anyone
 wanting to use it commercially talks to him first.
 
 Two facts about the current state matter. First, the repository has never been pushed anywhere
@@ -22,16 +22,16 @@ correction from exactly the audience most likely to contribute.
 ## Decision
 
 1. ARMADA is **source-available**: the code is public, free to use, modify and share for
-   non-commercial purposes; commercial use requires a separate agreement with Mihai.
-2. **Licence text: PolyForm Noncommercial 1.0.0** (confirmed by Mihai 2026-09-21). It is written for precisely
+   non-commercial purposes; commercial use requires a separate agreement with the maintainer.
+2. **Licence text: PolyForm Noncommercial 1.0.0** (confirmed by the maintainer 2026-09-21). It is written for precisely
    this arrangement, is short and readable, and is widely recognised. The alternative is a
    custom licence, which is more work to write and less likely to be understood. *(I am not a
-   lawyer; Mihai should confirm the choice, and it costs little to have someone qualified read
+   lawyer; the maintainer should confirm the choice, and it costs little to have someone qualified read
    it once before the beta ships.)*
 3. The README and the About page say "source-available, free for personal use; for commercial
    use, get in touch" and link to the licence. They do not say "open source".
 4. Contributions: to keep the commercial-licensing option real, outside contributions need a
-   simple contributor agreement (a CLA or a DCO-plus-assignment) so Mihai retains the right to
+   simple contributor agreement (a CLA or a DCO-plus-assignment) so the maintainer retains the right to
    license the whole under different terms. Decide the mechanism before accepting the first
    outside pull request; not needed for the beta.
 
@@ -46,4 +46,4 @@ correction from exactly the audience most likely to contribute.
   app, so the licence question doesn't arise for what it produces. Had it forked the app, the
   fork would have needed the same licence; one more reason for the extension-point route.
 - We give up: the "open source" label and the contributor goodwill that comes with it. In
-  exchange Mihai keeps a commercial path.
+  exchange the maintainer keeps a commercial path.

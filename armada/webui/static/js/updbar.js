@@ -15,9 +15,8 @@
     if(d.staged){
       el.innerHTML='<div class="mc-banner mc-banner-info" role="status">'+
         '<span class="mc-banner-msg">ARMADA v'+esc(d.staged)+' is ready.</span>'+
-        '<span id="mc-updbar-sub" class="mc-banner-sub">'+(d.requested
-          ?'Installing as soon as the running jobs finish…'
-          :'It installs the next time ARMADA starts, or now:')+'</span>'+
+        '<span id="mc-updbar-sub" class="mc-banner-sub">'+esc(d.message ||
+          (d.requested ? 'Preparing update…' : 'It installs the next time ARMADA starts, or now:'))+'</span>'+
         '<span class="mc-banner-act"><button class="btn btn-sm" id="mc-updbar-btn" '+
         (d.requested?'disabled ':'')+'onclick="mcUpdateNow(this,document.getElementById(\'mc-updbar-sub\'))">'+
         'Restart to update</button></span></div>';
@@ -55,7 +54,7 @@
       say('restarting…');
       try{ await fetch('/restart',{method:'POST'}); }catch(e){}
     }else{
-      say('installing as soon as the running jobs finish…');
+      say(r.message || 'Preparing update…');
     }
     const want=r.version||'';
     const started=Date.now();
@@ -63,6 +62,7 @@
       try{
         const s=await(await fetch('/api/update-status',{cache:'no-store'})).json();
         if(!want || s.version===want){ clearInterval(t); location.reload(); }
+        else { say(s.message || 'Preparing update…'); }
       }catch(e){ /* restarting: the server is briefly away */ }
       if(Date.now()-started>15*60000){ clearInterval(t);
         say('still waiting — it will install when ARMADA next restarts.'); if(btn) btn.disabled=false; }
@@ -70,5 +70,5 @@
   };
 
   check();
-  setInterval(function(){ if(!document.hidden) check(); }, 10*60000);
+  setInterval(function(){ if(!document.hidden) check(); }, 5000);
 })();

@@ -8,7 +8,7 @@ conversation threads.
    with the Codex desktop app on Windows.
 2. In setup or **Settings → App**, press **Sign in (opens browser window)** beside Codex. Sign in on the provider's
    website in your browser; Armada detects completion. An existing CLI login can be reused.
-3. Connect Claude too if you want models from both providers. **Disconnect** and **Reconnect**
+3. Use Codex alone, or connect Claude and/or Gemini too. **Disconnect** and **Reconnect**
    control Armada's access without signing other CLI applications out.
 4. Open any agent's **Configure** tab and choose a model. OpenAI models are labelled **OpenAI**.
    An agent set to inherit follows the realm's default model. Jobs can override their agent's model.

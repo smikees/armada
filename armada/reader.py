@@ -1,14 +1,6 @@
-"""ARMADA realm reader — adopts a realm folder into the model.
+"""Realm readers for the native schema and legacy schedule-folder imports.
 
-v0.1 speaks two dialects:
-  * ARMADA-native (the neutral schema in SPEC.md §4) — future.
-  * The reference cabinet (D:\\Work\\Hand) — the brownfield test fixture: it maps
-    schedule.json + <minister>.md bulletins + runs/*.jsonl into the ARMADA model.
-
-Reading a realth this way is exactly the "Adopt an existing setup" path from the
-setup flow, and it doubles as a schema-validation exercise: whatever the cabinet
-does NOT yet declare (skills, token usage) surfaces as a Gap, not a silent blank.
-"""
+Missing or unsupported legacy fields are reported as gaps rather than silently inferred."""
 from __future__ import annotations
 import json, re, datetime
 from pathlib import Path
@@ -160,12 +152,7 @@ _DEFAULT_LABELS = ("Coordinator", "Agent", "Realm")
 
 
 def _resolve_theme(cfg: dict, theme: dict) -> tuple[str, str, str]:
-    """Coordinator / agent / collective display labels for a realm.
-
-    'Hand' is a private label reserved for the owner's personal Cabinet — it is NEVER shown to
-    other users: it only applies when the realm is 'The Cabinet' AND owned by Mihai, and any
-    stray 'Hand' in some other realm's theme falls back to the type default.
-    """
+    """Resolve template labels and compatibility overrides for existing realms."""
     tmpl = str(cfg.get("template") or theme.get("template") or "scratch").lower()
     d_coord, d_agent, d_coll = _TYPE_LABELS.get(tmpl, _DEFAULT_LABELS)
     coord = theme.get("coordinator") or d_coord

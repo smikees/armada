@@ -4,9 +4,10 @@
 
 **An agent with tools acts as you.** When an agent works with its tools, it runs on your computer
 with your permissions: it can read and write your files, run commands, and use the services you've
-connected. ARMADA limits *which tools* each agent gets and requests Claude file-tool restrictions
-on other agents' and realm memory. Codex currently audits memory changes without that restriction;
-neither memory boundary contains arbitrary shell or MCP writes. Treat giving an agent a tool the way you'd treat running
+connected. ARMADA limits *which tools* each agent gets. File restrictions and memory auditing
+depend on the selected engine and its supported tools; see [Memory](memory.md) and
+[Gemini](gemini.md). These boundaries do not contain arbitrary shell or MCP writes.
+Treat giving an agent a tool the way you'd treat running
 that tool yourself.
 
 ## Five habits
@@ -24,8 +25,8 @@ that tool yourself.
 
 ## What ARMADA won't do
 
-- It never asks for, stores or sends your Claude password or keys; signing in happens in Claude's
-  own window.
+- Provider sign-in happens through the selected provider's CLI and website. ARMADA does not ask
+  you to paste your provider password into a realm or conversation.
 - It only answers requests from this computer, addressed to it.
 - It never shows you a capability as safer than what it can do.
 

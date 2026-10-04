@@ -5,17 +5,18 @@ The problems people actually run into, newest lessons first. If yours isn't here
 
 ## Every agent answers "Failed to authenticate"
 
-Claude Code's sign-in has lapsed. A bar at the top of the app offers **Sign in**, which opens
-Claude's own sign-in window; finish it in your browser and carry on. ARMADA never handles the
-password.
+Check the engine selected for the affected agent in **Settings → App → Engines**.
+If its login has expired, choose **Sign in** and finish the provider's browser flow.
+An unavailable status probe is not proof that you are signed out. Other connected
+engines remain usable; connector authentication is separate from engine login.
 
 ## My scheduled jobs stopped running
 
 - **Is there a banner on the Jobs page?** It says why the realm is paused — see
   [Jobs → Paused jobs](jobs.md#paused-jobs).
 - **Is the job switched on?**
-- **Is the scheduler running?** It's a separate background process, so jobs run with the window
-  closed. Opening ARMADA starts it if it isn't running, and if it stops, a yellow bar under the
+- **Is the scheduler running?** Jobs continue while ARMADA is open or hidden in the tray;
+  full quit stops the scheduler. Opening ARMADA starts it, and if it stops, a yellow bar under the
   menu says so, with a **Start it** button. If the bar comes back straight after you click it,
   `scheduler.log` (above) says why.
 - **Open the job** — its last run shows the error.
@@ -27,9 +28,18 @@ Open the thread the job ran in (the job's page links it). The agent says where i
 
 ## The usage bars in the header disappeared or look old
 
-They come from your Claude sign-in. When the sign-in token expires, ARMADA shows the last reading
-and its age rather than nothing; a background job keeps the sign-in fresh. If the bars stay stale
-for a day, sign in again (above).
+Each provider reports its own limits. ARMADA caches readings for five minutes and
+keeps the last reading during refresh. Hover the bar for its age or error. Some
+accounts do not report every window. Check that provider's engine status before
+reconnecting; a missing number does not by itself mean a login problem.
+
+## An update says it is waiting
+
+The banner identifies active work across all realms, scheduler shutdown, or an
+activity-record error. An idle scheduler does not count as a running job. New tasks
+pause while an update is requested. Keep active work running until it finishes.
+If an older version has multiple windows open, finish the work, fully quit ARMADA
+from the tray and reopen it once. Current versions prevent duplicate desktop instances.
 
 ## I added a realm from another computer and nothing runs
 

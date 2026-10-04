@@ -1,5 +1,4 @@
-"""ARMADA CLI. Verbs: open (P1 cockpit) · run (P2) · doctor (P2) · serve (P2 dogfood).
-Later: new, provision.
+"""ARMADA command-line entry points for desktop launch, realm management, execution and diagnostics.
 """
 from __future__ import annotations
 import argparse, sys, datetime
@@ -286,40 +285,45 @@ def main(argv=None):
         return doctor.run(args.realm, args.engine)
 
     if args.cmd in ("serve", "app"):
-        # No folder on the command line means "open where I left off" — see activerealm. A
-        # launcher (shortcut, .vbs, Start menu entry) is written once and then points at whatever
-        # realm existed that day; leaving the path out of it is what lets switching realms in the
-        # app survive closing the app.
-        from . import activerealm
-        realm = activerealm.resolve(args.realm)
-        note = ""
-        if realm and not activerealm.is_realm(realm):
-            # Named (or remembered) but not a realm any more — moved, deleted, a drive not mounted.
-            note = f"{realm} isn't a realm folder any more. Open another realm, or create one."
-            realm = ""
-        if not realm:
-            # First run, or nothing to open (5.3). Under pythonw a printed sentence reaches no one
-            # and the app seemed not to start at all; the window opens on the welcome page instead.
-            print(note or activerealm.no_realm_message())
-            from .serve import Handler
-            Handler.welcome_note = note
-        else:
-            activerealm.remember(realm)
-        # Under pythonw (the launchers, and Update & Restart's re-exec) there's no console, so a
-        # start-up failure that isn't logged is invisible: the window or server just never appears.
-        try:
-            if args.cmd == "serve":
-                from .serve import serve
-                serve(realm, args.port)
+        from . import instance
+        with instance.claim(args.cmd, args.port) as primary:
+            if not primary:
+                print("ARMADA is already running; bringing its window forward.")
                 return 0
-            from .app import run
-            return run(realm, args.port)
-        except Exception:
-            import logging
-            from . import util as _util
-            _util.init_logging("armada.log")
-            logging.getLogger("armada.cli").exception("%s failed to start (realm=%r)", args.cmd, realm)
-            raise
+            # No folder on the command line means "open where I left off" — see activerealm. A
+            # launcher (shortcut, .vbs, Start menu entry) is written once and then points at whatever
+            # realm existed that day; leaving the path out of it is what lets switching realms in the
+            # app survive closing the app.
+            from . import activerealm
+            realm = activerealm.resolve(args.realm)
+            note = ""
+            if realm and not activerealm.is_realm(realm):
+                # Named (or remembered) but not a realm any more — moved, deleted, a drive not mounted.
+                note = f"{realm} isn't a realm folder any more. Open another realm, or create one."
+                realm = ""
+            if not realm:
+                # First run, or nothing to open (5.3). Under pythonw a printed sentence reaches no one
+                # and the app seemed not to start at all; the window opens on the welcome page instead.
+                print(note or activerealm.no_realm_message())
+                from .serve import Handler
+                Handler.welcome_note = note
+            else:
+                activerealm.remember(realm)
+            # Under pythonw (the launchers, and Update & Restart's re-exec) there's no console, so a
+            # start-up failure that isn't logged is invisible: the window or server just never appears.
+            try:
+                if args.cmd == "serve":
+                    from .serve import serve
+                    serve(realm, args.port)
+                    return 0
+                from .app import run
+                return run(realm, args.port)
+            except Exception:
+                import logging
+                from . import util as _util
+                _util.init_logging("armada.log")
+                logging.getLogger("armada.cli").exception("%s failed to start (realm=%r)", args.cmd, realm)
+                raise
 
 
 if __name__ == "__main__":

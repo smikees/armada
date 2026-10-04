@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.75. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.79. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -53,11 +53,11 @@ the tests now guard).
 
 ## 5. Ship to the running app
 
-Since 2026-09-24 Mihai's everyday ARMADA is the **installed** copy (`%LOCALAPPDATA%\Programs\ARMADA`).
+Windows installations live at `%LOCALAPPDATA%\Programs\ARMADA` by default.
 Version 0.99.75 requires a full installer upgrade from older betas: the old runtime lacks the stable
 bootstrap and timezone data. Wait for active jobs to finish, run the installer and reopen ARMADA;
 verify the authenticated version endpoint. It preserves realms and settings. A private unsigned
-candidate may be installed locally when Mihai requests it, clearly recording that public release
+candidate may be installed locally when the maintainer requests it, clearly recording that public release
 validation is outstanding. It must not be published as the Application Control fix.
 
 For subsequent compatible releases, do §6 and §6b first, then use Settings → Check for updates →
@@ -74,15 +74,14 @@ Invoke-RestMethod "$b/update" -Headers $headers -Method Post
 ```
 
 Then open the pages the change touched, in light and dark mode, and check the browser console for
-errors. The scheduler is a separate process: it restarts itself onto new code when it's idle (the
-updater), or on its next start.
+errors. The owned scheduler exits when an update is ready; the replacement desktop starts its successor.
 
-A development-only check (the dev checkout on a spare port, not Mihai's window):
+A development-only check (the dev checkout on a spare port, not a live user window):
 `.venv\Scripts\python -m armada serve --port 8799`.
 
 ## 6. Publish
 
-Decided by Mihai 2026-09-24: every release is pushed to the public repo
+Decided by the maintainer 2026-09-24: every release is pushed to the public repo
 ([github.com/smikees/armada](https://github.com/smikees/armada)) as part of the routine, not on request.
 
 ```powershell
@@ -99,7 +98,7 @@ pushed; `archive/private-history` stays local.
 ### 6b. Publish an update release (once installed copies exist — from 5.2 / 5.10 on)
 
 Installed copies update themselves from GitHub Releases (5.4, [ADR-011](../adr/ADR-011-updater.md)).
-Every release is published (Mihai, 2026-09-24). Install the pinned runtime and development
+Every release is published (the maintainer, 2026-09-24). Install the pinned runtime and development
 dependencies, commit the release, push it, and wait for Windows validation to pass for that commit.
 Then run the enforced publish path:
 
@@ -157,17 +156,18 @@ Never commit build outputs or signing credentials.
 ## 7. Record it
 
 - Update "Where things stand" in `docs/LAUNCH_PLAN.md` with the version and validation evidence.
-  Mihai alone signs off acceptance steps and phase checkboxes.
+  The maintainer alone signs off acceptance steps and phase checkboxes.
 - Tick tickets in `docs/dev/UI_AUDIT.md` / `THREAT_MODEL.md` if the release closed any.
 
 ## Release boundaries
 
-The current published installer (0.99.78) lacks Authenticode signatures and can fail with error 4551
+The current published installer (0.99.79) lacks Authenticode signatures and can fail with error 4551
 on protected machines. Version 0.99.75 used the explicit one-release exception below; 0.99.76 continues the owner's
 requested unsigned beta distribution as a recorded maintenance-release deviation
 ([0.99.76 verification](RELEASE_0_99_76.md)); 0.99.77 follows the same recorded
 maintenance distribution ([0.99.77 verification](RELEASE_0_99_77.md)). The restart fix in
-0.99.78 continues it ([0.99.78 verification](RELEASE_0_99_78.md)).
+0.99.78 continues it ([0.99.78 verification](RELEASE_0_99_78.md)), as does 0.99.79
+([verification](RELEASE_0_99_79.md)).
 The standard public build path requires publisher signing; the account is not yet configured.
 Update manifests are Ed25519-signed; these are separate guarantees.
 Test clean-machine installation using the sandbox procedure
@@ -176,7 +176,7 @@ app merely to publish a release. Announcements and website deployment need their
 
 ### 2026-10-04: owner-authorized unsigned 0.99.75 publication
 
-Mihai explicitly requested publication of an unsigned version on the website after discussing
+The maintainer explicitly requested publication of an unsigned version on the website after discussing
 the Application Control limitation. This supersedes the signing and clean-Sandbox GUI gates
 for this release only; the enforced publisher and future release procedure remain unchanged.
 

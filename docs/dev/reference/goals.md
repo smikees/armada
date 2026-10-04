@@ -8,7 +8,7 @@ A goal is a Markdown file under <realm>/goals/, one per goal, with frontmatter:
     title: Reach EUR 2.5M net worth
     status: On track
     target: 2026-12-31
-    agents: warren,ray
+    agents: research,planning
     ---
     Description / what "done" looks like...
 

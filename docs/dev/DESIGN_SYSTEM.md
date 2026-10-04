@@ -168,7 +168,7 @@ has **two sets of words**:
 | amber | Review | Medium risk |
 | green | Trusted | Low risk |
 
-→ **Open question for Mihai** (ticket in the audit): pick one set. The review card's words came
+→ **Open question for the maintainer** (ticket in the audit): pick one set. The review card's words came
 from Phase 1's rounds with you; the User tab's predate them. Until decided, don't add a third.
 
 **Runs / Can touch** icons and colours (`capabilities._RUNS_ICON`, `_SCOPE_ICON`, `_ABILITY_CLR`)

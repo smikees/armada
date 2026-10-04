@@ -59,6 +59,7 @@ Log to stderr and to ~/.armada/logs/armada.log (outside the versioned realm) so 
 The cockpit's HTTP server.
 
 - `_Server.__init__(self, address, handler, *, session=None)` — —
+- `_Server.server_bind(self)` — —
 - `_Server.server_close(self)` — —
 
 ### `port_owner(port: int=8756)`

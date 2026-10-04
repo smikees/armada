@@ -28,7 +28,7 @@
 | [`catalogue._shared`](catalogue._shared.md) | Constants and cross-cutting matching/identity helpers shared by both catalogue.sources and catalogue.realm — every source label, the file-storage paths, the gen |
 | [`catalogue.realm`](catalogue.realm.md) | What a realm owns: adding a catalogue entry to it, adopting what discovery already found there, inspecting what a capability can reach, fetching a skill onto th |
 | [`catalogue.sources`](catalogue.sources.md) | The catalogue's three mirrored/queried sources — Claude plugin marketplaces, the MCP registry, anthropics/skills, and the skills you wrote yourself — normalised |
-| [`cli`](cli.md) | ARMADA CLI |
+| [`cli`](cli.md) | ARMADA command-line entry points for desktop launch, realm management, execution and diagnostics. |
 | [`clock`](clock.md) | One place the app asks what time it is. |
 | [`codex_usage`](codex_usage.md) | Account-wide OpenAI limits through Codex's authenticated app-server protocol. |
 | [`connector_runtime`](connector_runtime.md) | Provider-specific MCP connections for realm capabilities. |
@@ -56,6 +56,7 @@
 | [`goals`](goals.md) | Realm goals — the objectives agents actively advance (distinct from passive memory). |
 | [`icons`](icons.md) | Icon subsystem — the single source of every SVG the UI draws. |
 | [`inbox`](inbox.md) | Agent-to-agent delegation — an inbox per agent. |
+| [`instance`](instance.md) | One desktop/server owner per OS account, independent of realm and install path. |
 | [`job_access`](job_access.md) | Machine-local, owner-approved access and completion checks for external jobs. |
 | [`job_history`](job_history.md) | Job transcripts live separately from owner conversations; old logs stay intact. |
 | [`job_results`](job_results.md) | Versioned per-run job results |
@@ -74,7 +75,7 @@
 | [`provider_limits`](provider_limits.md) | Independent, bounded subscription checks; HTTP requests never wait on a CLI. |
 | [`provider_login`](provider_login.md) | Owned browser-login processes |
 | [`providers`](providers.md) | App-wide provider connections |
-| [`reader`](reader.md) | ARMADA realm reader — adopts a realm folder into the model. |
+| [`reader`](reader.md) | Realm readers for the native schema and legacy schedule-folder imports. |
 | [`realm_registry`](realm_registry.md) | Machine realm discovery with one strict, exclusive mutation boundary. |
 | [`realmformat`](realmformat.md) | The realm's on-disk format version, and the one place that upgrades it. |
 | [`realmops`](realmops.md) | Realm lifecycle — archive, export, delete. |

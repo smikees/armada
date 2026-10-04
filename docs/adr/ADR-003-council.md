@@ -7,7 +7,7 @@
 A council is a staged debate: the user poses a topic, the coordinator decides which agents
 should join (they "raise their hands"), adds framing context, the chosen agents weigh in one
 after another, and the coordinator summarises into actions the user approves or dismisses.
-Mihai wants it in v1 as the feature that differentiates ARMADA for casual users.
+the maintainer wants it in v1 as the feature that differentiates ARMADA for casual users.
 
 The parts that look hard — the UI — mostly exist: threads with turns, a roster, avatars. The
 parts that are actually hard are cost and judgement. Seven agents each reading the full context
@@ -32,10 +32,10 @@ delegation (an agent asks a teammate to do something, with the same gate).
    cap on turns and on tokens per council.
 5. **A cost guard runs before convening**: the estimated token spend is shown, and the app
    refuses to convene if it would cross the weekly limit.
-6. **Design before code.** A dedicated design session (Phase 7, step 7.1) with Mihai settles
+6. **Design before code.** A dedicated design session (Phase 7, step 7.1) with the maintainer settles
    the turn model, the cap, the invite logic, the context each participant gets, and what a
    council thread looks like beside an ordinary one — into a design doc and a UI sketch —
-   before anything is built. Two rounds of UI iteration with Mihai are budgeted.
+   before anything is built. Two rounds of UI iteration with the maintainer are budgeted.
 
 ## Consequences
 

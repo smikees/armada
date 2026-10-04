@@ -199,7 +199,7 @@ def _pill(inner: str, tone: str = "neutral", title: str = "", style: str = "") -
 
 
 def _poss(name: str) -> str:
-    """Possessive form (raw — caller should E() it): 'Marcus' → \"Marcus’\", 'Warren' → \"Warren’s\"."""
+    """Possessive form (raw — caller should E() it): 'James' → \"James’\", 'Robin' → \"Robin’s\"."""
     return name + ("’" if name.rstrip().endswith(("s", "S")) else "’s")
 
 

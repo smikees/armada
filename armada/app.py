@@ -469,6 +469,8 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
             url = f"http://127.0.0.1:{port}/"
             _app_url = url
             log.warning("port %s belongs to another or unhealthy server; opening on %s", old_port, port)
+        from . import instance
+        instance.publish_port(port)
         if not _server_matches(url, realm):
             def _serve():
                 try:
@@ -516,6 +518,8 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
                 painted.set()
     main.events.loaded += _page_loaded
     _main_window = main
+    from . import instance
+    activation_stop = instance.watch_activation(lambda: (main.show(), main.restore()))
     from . import appconfig
     from .tray import Tray
     tray = Tray(lambda: (main.show(), main.restore()), lambda: _quit_windows(main))
@@ -572,6 +576,7 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
         except TypeError:
             webview.start(_start_main)
     finally:
+        activation_stop.set()
         _quitting = True
         try:
             from . import schedsvc

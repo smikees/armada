@@ -520,7 +520,7 @@ def _cap_agents(realm, realm_root, it: dict) -> tuple:
 
 
 def _cap_availto_label(realm, coords, granted) -> str:
-    """The collapsed-row summary: 'Marcus + 4 agents', or '4 agents' where there's no coordinator."""
+    """The collapsed-row summary: 'Coordinator + 4 agents', or '4 agents' where there's no coordinator."""
     n = len(granted)
     if coords:
         who = ", ".join(a.display for a in coords)

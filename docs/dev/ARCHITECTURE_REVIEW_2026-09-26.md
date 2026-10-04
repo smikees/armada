@@ -402,4 +402,4 @@ was reproduced here. The signed updater's positive checks do not substitute for 
 install/update/rollback rehearsal.
 
 All work is entered as open launch-plan tickets. Review completion does not mark implementation
-or Mihai's launch sign-off complete.
+or the maintainer's launch sign-off complete.

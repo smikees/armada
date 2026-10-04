@@ -2,4 +2,4 @@
 scope: realm
 title: owner
 ---
-The realm's owner is Mihai. Address him directly and keep reports tight.
+The example realm's owner is Morgan. Address them directly and keep reports tight.

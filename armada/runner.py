@@ -4,7 +4,7 @@ This closes the telemetry gap the P1 cockpit surfaced: every run now records
 input/output/cache tokens + cost, per agent, in the realm files.
 
 v0.2 reads a minimal ARMADA-native realm (JSON configs + .md context) so a job has a
-prompt to run — the reference cabinet keeps its prompts in the scheduler, so the native
+prompt to run — legacy imports may keep prompts in a separate scheduler, so the native
 format is what the runner operates on. Context assembly is the P2 slice of §5: realm
 objectives + tenets + agent mandate + soul + the job prompt. (Threads/compaction = P3.)
 """
@@ -53,7 +53,7 @@ def _fs_snapshot(agent_dir: Path) -> dict:
 def _is_internal_artifact(path: str, agent_dir: Path) -> bool:
     """True for files that are plumbing, not a user-facing artifact: the agent's own realm records
     (job proposals, ledgers, thread logs/attachments, memory). We still surface anything the agent
-    writes OUTSIDE its own agent dir (e.g. into D:\\Work\\Hand), which is where real deliverables land."""
+    writes OUTSIDE its own agent dir (e.g. into a shared workspace folder), which is where real deliverables land."""
     try:
         p = Path(path).resolve()
     except Exception:  # noqa
@@ -1159,7 +1159,7 @@ def _write_report(agent_dir: Path, agent_id: str, report: dict) -> Path:
 
 def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_dir: Path) -> dict:
     """Deterministic job: run a shell command / script, capture status+output. No engine, no tokens.
-    This is what runs the cabinet's Python collectors (collect_*.py, render_status.py, telegram push)."""
+    This is what runs deterministic scripts, data collection and report delivery."""
     from . import util
     util.assert_realm_writable(agent_dir / "agent.json")
     cmd = job.get("run") or job.get("command", "")
@@ -1324,9 +1324,8 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
     realm_root = Path(realm_root)
     agent_dir = realm_root / "agents" / agent_id
     job_path = agent_dir / "jobs" / f"{job_id}.json"
-    from . import realmops, util
-    with realmops.lifecycle_lock(realm_root):
-        from . import updater
+    from . import realmops, util, updater
+    with updater.admission_lock(), realmops.lifecycle_lock(realm_root):
         if updater.installed() and updater.apply_requested():
             raise util.StateError("ARMADA is restarting to update. New jobs can start after it reopens.")
         realmops.assert_active(realm_root)

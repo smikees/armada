@@ -1,8 +1,8 @@
 # ADR-011 — Updates: signed releases on GitHub, verified in the app, swapped in at a quiet moment
 
 **Status:** Built · 2026-09-24 · designed and built by Opus 5.5 (launch plan 5.4) within decisions
-Mihai already made: automatic by default with an off switch (ADR-005), GitHub Releases as the
-channel, updates swap the package folder from a signed zip (ADR-009). Open for Mihai's review.
+the maintainer already made: automatic by default with an off switch (ADR-005), GitHub Releases as the
+channel, updates swap the package folder from a signed zip (ADR-009). Open for the maintainer's review.
 
 ## Context
 
@@ -33,7 +33,7 @@ GitHub account compromise alone can't reach installed copies: that takes the off
 lines), checked against the RFC's test vectors and against the `cryptography` library on random
 keys. No compiled dependency (which the in-place updater couldn't itself update), no new package in
 the installer. A verify costs about 3 ms. Not constant-time, which only matters for signing, and
-signing happens on Mihai's machine.
+signing happens on the maintainer's machine.
 
 **4. Runtime changes need the installer.** The manifest carries a runtime tag (Python minor + a hash of
 the pinned `requirements.txt`); the installer writes the same tag into `installed.json`. A release

@@ -1,12 +1,12 @@
 # ADR-012 — Alexander v1: explain, fix, build add-ons, report — through the app, never around it
 
-**Status:** Accepted · 2026-09-25 · Mihai's brief, written up by Opus 5.5 · widens ADR-002's v1
+**Status:** Accepted · 2026-09-25 · the maintainer's brief, written up by Opus 5.5 · widens ADR-002's v1
 ("a guide that cannot write realm state or code")
 
 ## Context
 
 ADR-002 made Alexander a read-only guide for v1 and deferred everything that changes anything to
-"Alexander-the-developer" (DEFERRED D.1). On 2026-09-25 Mihai set a larger brief for the beta:
+"Alexander-the-developer" (DEFERRED D.1). On 2026-09-25 the maintainer set a larger brief for the beta:
 
 1. a specialist in **how ARMADA works** — mostly from the user's side (CX), but also from the
    developer's side;
@@ -42,8 +42,8 @@ own identity, model or rules.
 review): no tools, no filesystem, no network. The app assembles his context — the relevant help
 pages, a snapshot of the realm (agents, jobs, recent runs and failures, settings that matter), the
 log lines around a failure, the page the owner is on — and he answers from that alone, citing it.
-**Model: Opus 5.5 at High effort, fixed for this version** (Mihai); the owner can't change it.
-His runs count as **System** usage in every cost report, beside system jobs (Mihai).
+**Model: Opus 5.5 at High effort, fixed for this version** (the maintainer); the owner can't change it.
+His runs count as **System** usage in every cost report, beside system jobs (the maintainer).
 
 **In the setup wizard he is scripted**, not generated: every word he says there is written in
 advance (`armada/alexander/wizard_script.py`), so a first run costs nothing, can't go wrong, and

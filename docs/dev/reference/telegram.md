@@ -2,7 +2,7 @@
 
 Talking to your agents from Telegram.
 
-Send `/warren what's our tech concentration?` and it lands in Warren's main thread, runs with his
+Send `/research summarize the new articles` and it lands in that agent's main thread, runs with its
 normal context, autonomy and capabilities, and the answer comes back to the chat. The turn is a
 real thread turn, so it's there in the app afterwards too — this is a second door into the same
 room, not a side channel.

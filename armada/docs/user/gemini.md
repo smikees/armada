@@ -1,6 +1,7 @@
 # Gemini models
 
-Gemini is ARMADA's third engine. An existing agent can use a Google model in threads and
+Gemini is one of ARMADA's supported engines. Use it on its own or alongside other providers.
+An agent can use a Google model in threads and
 scheduled jobs while keeping the same role, memories and history.
 
 ## Connect Google
@@ -33,7 +34,8 @@ connector login does not establish a Gemini connection. Each connector card show
 engines separately, with a spinner during checks and a reason when unavailable.
 
 The adapter uses a temporary project configuration for each invocation and cleans it up afterward.
-It does not grant access to parent folders or turn on global permission bypasses. Network access
+It retains explicitly approved workspace roots, including parent folders, without adding
+unapproved locations or global permission bypasses. Network access
 requires the run's explicit grant. Shell commands, automatic fallback models, enforced dollar
 budgets and sealed review turns are currently unavailable through this adapter. A job that needs
 one of these should use a compatible engine; ARMADA explains the unsupported requirement.

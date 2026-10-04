@@ -1,7 +1,7 @@
 # Codex integration and repository orientation
 
 Implemented against Codex CLI 0.158.0-alpha.2.1 on Windows, September 26, 2026.
-This follows Mihai's request to let every agent choose models across connected providers,
+This follows the maintainer's request to let every agent choose models across connected providers,
 superseding the earlier Claude-only decision in ADR-001.
 
 ## How Armada works
@@ -44,9 +44,8 @@ into the realm. `scheduler.py` runs jobs independently of the desktop window. `i
   use `--engine auto` for an agent's configured model.
 
 On this development machine the app and scheduler run from the source checkout. The existing
-Windows `ARMADA Scheduler` sign-in entry now calls its `SCHEDULER.vbs`; the older Cabinet
-resilience launcher also uses `auto`. The installed release has not been rebuilt. The installer
-template is updated so future installations also preserve each agent's provider choice.
+The desktop owns its scheduler service. Full quit stops the service; tray mode keeps it active.
+Older sign-in launch entries are retired by the desktop lifecycle code.
 
 ## Authentication and capabilities
 

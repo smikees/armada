@@ -14,7 +14,7 @@ Requires PHP 8.1 or later with cURL, HTTPS to Resend, and a writable private loc
 2. Copy `config.example.php` there as `config.php` and restrict it to 0600. Enter a new Resend
    sending-only key restricted to the ARMADA sending domain, and at least 32 random characters
    for `rate_salt`. Create its `state/` directory with permissions 0700. Never copy that configured
-   file into this repository. Mihai confirmed deletion of the previously distributed beta key.
+   file into this repository. the maintainer confirmed deletion of the previously distributed beta key.
 3. Set `ARMADA_REPORT_PRIVATE` in the hosting PHP environment to the private directory, or set
    the nonsecret absolute path in the public `report.php` entry point. Upload only that entry
    point to the website's `/api/report.php`. The library and configuration stay outside the web root.
@@ -24,7 +24,7 @@ Requires PHP 8.1 or later with cURL, HTTPS to Resend, and a writable private loc
    is only one email. Verify the installed client's preview and Send report flow afterward.
 
 Deployed on 3 October 2026 to PHP 8.3 hosting. The approved verification email was accepted
-by Resend and Mihai confirmed its arrival. Live checks verified recipient/size restrictions,
+by Resend and the maintainer confirmed its arrival. Live checks verified recipient/size restrictions,
 private URLs returning 404, and identical-request deduplication. Temporary installers were
 removed. Final installer/client rehearsal is tracked under R7 in the public-readiness review.
 The static website deployment procedure must not upload this entire directory. Keep backups

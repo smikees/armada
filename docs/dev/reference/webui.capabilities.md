@@ -99,7 +99,7 @@ A collapsible Advanced section (an expansion inside the expansion): granular per
 
 ### `_cap_availto_label(realm, coords, granted)`
 
-The collapsed-row summary: 'Marcus + 4 agents', or '4 agents' where there's no coordinator.
+The collapsed-row summary: 'Coordinator + 4 agents', or '4 agents' where there's no coordinator.
 
 ### `_cap_availto_cell(realm, realm_root, it: dict)`
 

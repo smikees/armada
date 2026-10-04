@@ -2,7 +2,7 @@
 
 The realm's dashboard. Across the top: how many agents, active jobs, runs in the last 30 days,
 tokens used, and what those tokens would have cost on the API (you pay your subscription, not
-this — it's there to compare). The agent count includes the coordinator (Prime Minister).
+this — it's there to compare). The agent count includes the realm's coordinator.
 The token total includes all reported usage across Claude, Codex and Gemini. A **+** and tooltip
 identify partial totals when some runs did not report tokens or could not be priced.
 

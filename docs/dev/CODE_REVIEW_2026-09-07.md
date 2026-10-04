@@ -13,11 +13,11 @@ Snapshot at v0.45.2. Purpose: catch structural debt now, before the native-app +
 
 ## Do now (this week, before/at V1)
 
-**1. A thin test net around the non-UI core.** This is the biggest gap. The north-star is "migrate the live Cabinet and run it unattended" — that's an integration guarantee with no safety net today. We don't need UI tests; we need ~15–20 fast unit/integration tests over the pure logic that's most likely to break silently:
-- `scheduler`: `parse_schedule`, `parse_days`, `cron_match`, `due_now` (incl. the Vixie DOM/DOW OR cases the Cabinet actually uses).
+**1. A thin test net around the non-UI core.** This is the biggest gap. The north-star is "run portable realms unattended" — that's an integration guarantee with no safety net today. We don't need UI tests; we need ~15–20 fast unit/integration tests over the pure logic that's most likely to break silently:
+- `scheduler`: `parse_schedule`, `parse_days`, `cron_match`, `due_now` (incl. the Vixie DOM/DOW OR schedule combinations).
 - `runner._cli_model` / `_resolve_model` (the model-mapping bug that hit prod).
 - `webui._jobcal_events` (status resolution, missed vs scheduled, run matching).
-- `reader.read` + `validate` on `Hand-realm` (a golden-file test: "export still parses, N agents / M jobs").
+- `reader.read` + `validate` on a synthetic example realm (a golden-file test: "export still parses, N agents / M jobs").
 - `threads` truncate/append round-trip.
 These would have caught the model-selector bug and will catch export/schedule regressions during the stress test. Cheap, high leverage.
 

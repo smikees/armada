@@ -10,7 +10,7 @@ one ticket, one commit, suite at baseline, golden diff read line by line, a scre
 before and after. Tickets are ordered: do **F1** first — every later ticket depends on the classes
 it adds. Within a section, top to bottom. Mark a ticket `[x]` with the version it shipped in.
 
-Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
+Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs the maintainer.
 
 ---
 
@@ -83,7 +83,7 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
 
 - [x] **T1** *(v0.99.69)* `_base._page_title` emits `.mc-h-page` + `.mc-eyebrow`; the agent frame title takes
   `.mc-h-page.is-agent`. S · **H**
-- [x] **T2** *(v0.99.69 — Settings cards, Memory, Inbox → `.mc-h-sect`; the agent-tab headings (Jobs, Inbox, Goals) stay at their shared 17px, and Jobs now reads "Jobs · N active · X owns")* Section headings drawn inline (Agent → Jobs "Active jobs · 4 · Warren owns", Memory
+- [x] **T2** *(v0.99.69 — Settings cards, Memory, Inbox → `.mc-h-sect`; the agent-tab headings (Jobs, Inbox, Goals) stay at their shared 17px, and Jobs now reads "Jobs · N active · X owns")* Section headings drawn inline (Agent → Jobs "Active jobs · 4 · Research owns", Memory
   "Per-agent memories", Settings card headings, Inbox "New messages") → `.mc-h-sect`, and the
   agent-Jobs one reads like its realm counterpart ("Jobs · 4"). S · **H**
 - [x] **T3** *(v0.99.69)* Dialog titles (16px heading, repeated in every modal) → `.mc-h-card`. S · **H**
@@ -119,7 +119,7 @@ Model key: **H** Haiku 4.5 · **S** Sonnet 5 · **M** needs Mihai.
   including `static/js/sysjobs.js`'s copy. M · **S**
 - [x] **C3** *(v0.99.66)* Inbox: the page subtitle says "tasks your agents have handed each other"; the sections
   say "New messages" and "Message archive". → tasks (§9). S · **H**
-- [x] **C4** *(v0.99.71 — Mihai chose High / Medium / Low risk)* **M:** capability risk has two word sets for one red/amber/green scale — "Caution /
+- [x] **C4** *(v0.99.71 — the maintainer chose High / Medium / Low risk)* **M:** capability risk has two word sets for one red/amber/green scale — "Caution /
   Review / Trusted" (User tab, legend) and "High / Medium / Low risk" (bring-a-link review card).
   Pick one; then a one-commit rename. S · **M**, then **H**
 

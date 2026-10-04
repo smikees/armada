@@ -1,6 +1,6 @@
 # ARMADA — architecture
 
-**Current release: v0.99.74 (2026-10-03).** The engine seam now supports Claude Code, Codex CLI
+**Current implementation (October 2026).** The engine seam now supports Claude Code, Codex CLI
 and Gemini through Antigravity CLI. Provider discovery and authentication use Windows-installed
 CLIs; the desktop launcher starts independently of provider desktop apps. Jobs persist execution,
 audit outcome and delivery against individual runs, with bounded retries and run-specific evidence.
@@ -33,10 +33,10 @@ Read with: [`SCHEMA.md`](SCHEMA.md) (the realm on disk), [`ENGINE_SEAM_AUDIT.md`
 
 ## 1. What runs
 
-ARMADA is a local, single-user app over a folder. Two long-lived processes, one per machine:
+ARMADA is a local, single-user app over a folder. One desktop/server owner per Windows account, plus its owned scheduler service:
 
 ```
-ARMADA.vbs ─► armada app ─► app.py (pywebview window)
+ARMADA.exe ─► armada app ─► app.py (pywebview window)
                               └─ thread: serve.serve()  ── HTTP on 127.0.0.1:8756
                                    + thread: ContentHandler ── 127.0.0.1:8757, untrusted pages only (5.8a)
                                    Handler = route tables (serve.py) + mixins (routes/*)
@@ -55,19 +55,19 @@ app.py launch ─┴► armada schedule ─► scheduler.run_daemon()   (windowl
 - **The server** selects a default realm (`Handler.realm`; `/switch` moves it and
   `activerealm` remembers it on the machine). Each request captures an immutable destination;
   in-flight turns and explicitly bound content retain their original realm. Stale-page mutations
-  are rejected. See [request and run identity](REQUEST_CONTEXT.md). Update & Restart (`serve._restart`) is a `git pull`
-  plus a re-exec of the same process.
+  are rejected. See [request and run identity](REQUEST_CONTEXT.md). Installed updates use signed packages and the stable recovery bootstrap; development
+  checkouts use Git. The account-wide `instance` lock covers all realms and ports.
 - **The scheduler** is separate on purpose: a realm's jobs don't pause because you're looking at
-  another one, or because the window is closed. It holds an exclusive per-realm OS lease, with
+  another one, or because the window is hidden in the tray. Full quit stops the owned scheduler. It holds an exclusive per-realm OS lease, with
   PID/token metadata in `scheduler.lock.json`. Durable daily claims prevent automatic replay
   after a crash (2.14). That lease is also how the app knows it's running
   (`schedsvc.status`): the window starts it on launch if not, and `schedbar.js` shows a bar on
   every page when it's down and the realm has scheduled jobs (5.5).
 - **The engine** is a subprocess per turn: Claude Code via `engine/claude.py` or Codex CLI via
-  `engine/codex.py`. ARMADA assembles
+  `engine/codex.py`, or Antigravity via `engine/gemini.py`. ARMADA assembles
   the whole system prompt itself; the CLI supplies tools, MCP servers, skills and plugins.
   All agent model turns share the [turn coordinator](EXECUTION_CONTRACTS.md).
-  Claude and Codex model turns share `engine/process.py` for deadlines, bounded pipe handling and
+  Provider model turns share `engine/process.py` for deadlines, bounded pipe handling and
   process-tree ownership; each adapter retains its protocol parser. See [CLI turn lifecycle](PROCESS_LIFECYCLE.md).
 - **Logs** go to `~/.armada/logs/` — `armada.log` (server), `scheduler.log` (scheduler).
 
@@ -94,7 +94,7 @@ execution    runner.py (compatibility entry points and context/capture helpers)
              execution.py (TurnCoordinator · RunSession: admission → progress → terminal persistence)
              thread_metadata.py (read/unread/last-thread persistence)
              memory_boundary.py (provider file-tool rules · bounded observation, never rollback)
-             engine/ (contracts · base · claude · codex · mock — typed provider seam)
+             engine/ (contracts · base · claude · codex · gemini · mock — typed provider seam)
              sysjobs.py · sysskills.py + system_skills/ · inbox.py (agent → agent)
              capscan.py · catalogue/ (_shared · sources · realm) · models.py · usage_api.py · auth.py
 ────────────────────────────────────────────────────────────────────────────────────────

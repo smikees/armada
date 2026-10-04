@@ -3,8 +3,8 @@
 ARMADA owns scheduling itself (no OS cron required), so a realm is self-contained and portable.
 A job declares a `schedule` string; the scheduler decides when it's due, checks today's reports,
 durably claims today's attempt before dispatch, and fires it through the runner
-(command or agent). Timezone + grace window come from realm.json (matching the reference cabinet's
-`timezone` + `grace_minutes`), so a job missed by a reboot still fires if we're inside the grace.
+(command or agent). Timezone and grace window come from realm.json, so a job
+missed by a reboot still fires within the configured grace window.
 
 Two run modes (CLI):
   * daemon  — loop forever, tick every --interval seconds (the "runs on its own" experience).
@@ -611,6 +611,13 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                               ( _util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
                 print("  ARMADA window exited — stopping scheduled jobs", flush=True)
                 break
+            if _update_wanted():
+                restart = not app_owner  # the replacement desktop starts its own scheduler
+                break
+            from . import updater
+            if updater.apply_requested():
+                time.sleep(1)
+                continue
             from . import clock
             now = clock.now()  # Display-only; each tick validates its own realm clock.
             if rescan is not None:
@@ -632,9 +639,12 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                         print(f"    {r.get('detail') or r.get('error')}", flush=True)
             if _update_wanted():
                 print("  an ARMADA update is in place — restarting on the new version", flush=True)
-                restart = True
+                restart = not app_owner
                 break
             for _ in range(max(5, interval)):
+                from . import updater
+                if updater.apply_requested():
+                    break
                 if app_owner and (not _util.pid_alive(app_owner) or
                                   (_util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
                     break

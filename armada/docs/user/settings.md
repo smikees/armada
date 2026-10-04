@@ -66,7 +66,18 @@ Your avatar replaces "You" in threads.
   Minimize or close the window to keep scheduled jobs running in the tray. Turn this off to
   make closing the window quit ARMADA and stop future scheduled runs until it opens again.
 - **Advanced → Alexander** — choose his model and effort for all realms. Automatic uses
-  Claude Opus 5.5 at Medium whenever Claude is connected, GPT-6 Sol at Medium with Codex only,
-  or the latest Gemini Flash at Medium when only Gemini is connected.
+  an available connected engine according to ARMADA's defaults. Any supported provider
+  can be used on its own; Alexander's model choice does not set your agents' defaults.
   Choose **Automatic (default)** in either dropdown to restore its default behavior.
   An explicit model stays selected when its provider disconnects; reconnect or choose Automatic.
+
+## Restarting and updating
+
+Only one ARMADA desktop/server instance can run under your Windows account. Opening it
+again brings forward the existing window, including from the tray. Changing realms does
+not create another app instance. The scheduler is an internal background process.
+
+**Restart to update** pauses new task admissions and waits for active work across all
+realms. The banner distinguishes active conversations/jobs from scheduler shutdown and
+restart. An idle scheduler is not a running job. If an activity record cannot be read,
+the update explains the error rather than claiming that a job is running.

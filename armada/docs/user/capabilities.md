@@ -51,3 +51,5 @@ doesn't have, it asks in a thread and you approve or decline.
 
 **Check for version updates** asks Claude Code which installed plugins and servers have newer
 versions; an update button appears on those cards. ARMADA also checks on its own every so often.
+This action manages Claude-owned plugin installations. It does not make Claude a prerequisite
+for using Codex or Gemini; each capability's engine badges show where that capability is available.

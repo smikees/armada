@@ -1,6 +1,6 @@
 # Landing page review
 
-Target: armada.stamih.com. Status: approved by Mihai and published on 2026-10-03.
+Target: armada.stamih.com. Status: approved by the maintainer and published on 2026-10-03.
 This brief supersedes the provisional composition shortlist and synthetic UI
 directions from earlier in this task.
 
@@ -26,5 +26,5 @@ subscription prices, unverified guarantees or exposure of private realm content.
 assets and font notices are recorded in ASSETS.md. Review captures are at
 `../build/website-review/desktop.png` and `../build/website-review/mobile.png`.
 
-Mihai explicitly approved publication on 2026-10-03. Credentials must remain outside source,
+the maintainer explicitly approved publication on 2026-10-03. Credentials must remain outside source,
 documentation, browser scripts, logs and downloadable website files.

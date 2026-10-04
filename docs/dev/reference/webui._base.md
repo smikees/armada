@@ -41,7 +41,7 @@ A status pill. `inner` is HTML (escape text before passing it).
 
 ### `_poss(name: str)`
 
-Possessive form (raw — caller should E() it): 'Marcus' → "Marcus’", 'Warren' → "Warren’s".
+Possessive form (raw — caller should E() it): 'James' → "James’", 'Robin' → "Robin’s".
 
 ### `_ask_alexander(agent_id: str, job_id: str, ev: dict)`
 

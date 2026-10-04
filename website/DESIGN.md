@@ -70,7 +70,7 @@ components:
 ## Overview
 
 The current implementation is a simple, professional software introduction with clear download,
-repository and documentation links. This documents the HTML/CSS approved by Mihai and published on 2026-10-03.
+repository and documentation links. This documents the HTML/CSS approved by the maintainer and published on 2026-10-03.
 
 The user rejected generated compositions and invented application UI. The current page uses
 text and the exact supplied ARMADA brand artwork. Any future product imagery must be real
@@ -184,7 +184,7 @@ Smooth scrolling is the only motion behavior. Reduced-motion preference disables
 - **Do** keep copy factual, professional and easy to scan.
 - **Do** preserve visible focus, the skip link and responsive reading order.
 - **Do** use real application screenshots if product imagery is added in a future revision.
-- **Do** obtain Mihai's UI approval before FTPS publication.
+- **Do** obtain the maintainer's UI approval before FTPS publication.
 
 ### Don't:
 

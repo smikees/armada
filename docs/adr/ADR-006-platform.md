@@ -1,15 +1,15 @@
 # ADR-006 — Windows for the beta; macOS in scope after
 
-**Status:** Accepted · 2026-09-21 · decided by Mihai
+**Status:** Accepted · 2026-09-21 · decided by the maintainer
 
 ## Context
 
 ARMADA has only ever run on Windows. That is visible in the code: `.vbs` launchers, a
-`cabinet-up.ps1` resilience script, `CREATE_NO_WINDOW` flags around the Claude CLI subprocess,
+Windows resilience scripts, `CREATE_NO_WINDOW` flags around the Claude CLI subprocess,
 the Claude Desktop extension path pattern (`Claude Extensions\<bundle-id>`), and `pythonw.exe`
 for a console-less process. None of it is wrong; all of it is one platform's shape.
 
-macOS is a real target — Claude Desktop and Claude Code both run there, and the kind of user
+macOS is a real target — the supported provider CLIs run there, and the kind of user
 ARMADA is for is well represented on it. But a second platform before the first has shipped
 doubles the installer work, the clean-machine testing and the support surface, for a beta whose
 job is to find out what breaks for other people at all.

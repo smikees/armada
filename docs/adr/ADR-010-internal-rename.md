@@ -1,6 +1,6 @@
 # ADR-010 — The internals are renamed `armada` too
 
-**Status:** Accepted · 2026-09-24 · decided by Mihai · supersedes ADR-008's internals policy
+**Status:** Accepted · 2026-09-24 · decided by the maintainer · supersedes ADR-008's internals policy
 (ADR-008's decision on the product name stands)
 
 ## Context
@@ -46,7 +46,6 @@ local only and isn't renamed here.
   realm-format migration **1 → 2** (`realmformat._m1_to_2`): command jobs calling `-m matcap` now
   call `-m armada`, the realm cache `.matcap/` becomes `.armada/`, and the environment block agents
   see says ARMADA.
-- Anything outside the repo that starts the old module has to change with it. On the owner's
-  machine that was `D:\Work\Hand\ops\resilience\cabinet-up.ps1`, updated the same day.
+- External launch scripts using the old module name must be updated too.
 - `realmformat.CURRENT` is 2. An older build that opens a migrated realm sees a newer format and
   leaves it alone (2.8's rule), so the only way back is the old history, not an old build.

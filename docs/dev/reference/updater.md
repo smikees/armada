@@ -96,7 +96,11 @@ The scheduler says it's up (or going down), so start-up can tell whether it's ru
 
 —
 
-### `window_open(port: int=8756)`
+### `window_port()`
+
+—
+
+### `window_open(port: int | None=None)`
 
 —
 
@@ -153,6 +157,18 @@ Apply under the stable bootstrap's lock and journal; ordinary callers restart fi
 
 The version of the package folder as it is on disk now — which differs from __version__ once another process has applied an update under this one.
 
+### `admission_lock()`
+
+Serialize update requests with task admission across app and scheduler processes.
+
+### `pending_work()`
+
+Live work across all realms; an idle scheduler and stale receipts are not work.
+
+### `progress()`
+
+—
+
 ### `request_apply()`
 
 Quiesce admission, then restart through the bootstrap; never swap under the HTTP worker.
@@ -169,7 +185,7 @@ Compatibility hook for legacy callers; normal installed launches use armada_boot
 
 Called by the scheduler after each pass. True means "restart this process now": either it just applied an update, or someone else did and this process is running code that's gone.
 
-### `_restart_window(port: int=8756)`
+### `_restart_window(port: int | None=None)`
 
 After applying an update the owner asked for, restart the window's server onto the new code.
 

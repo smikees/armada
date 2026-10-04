@@ -1,6 +1,6 @@
 # ADR-008 — The name is ARMADA
 
-**Status:** Accepted · 2026-09-24 · decided by Mihai (the name). The internal-identifier policy below
+**Status:** Accepted · 2026-09-24 · decided by the maintainer (the name). The internal-identifier policy below
 is a recommendation awaiting his confirmation.
 
 ## Context
