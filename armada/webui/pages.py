@@ -629,7 +629,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                   "Delete realm…", f"mcRealmDelete(this,{js_path},{js_name})", danger=True))
 
     model_opts = _model_options(realm_root, dmodel)
-    eff_opts = "".join(f'<option {"selected" if e==deffort else ""}>{E(e)}</option>' for e in _EFFORTS)
+    eff_opts = _effort_options(realm_root, deffort)
     fb_opts = '<option value="">None (no fallback)</option>' + _model_options(realm_root, dfallback)
     from .. import verbosity as _verbosity
     _dverb = _verbosity.realm_level(realm_root)

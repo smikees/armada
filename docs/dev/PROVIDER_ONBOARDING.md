@@ -1,5 +1,34 @@
 # Provider onboarding and Alexander preferences
 
+October 4, 2026 / v0.99.76: team defaults now have their own release policy in
+`armada/engine/defaults.py`, independent of Alexander. The priority is Claude
+(Opus 5.5, then Sonnet 5), Codex (GPT-6.1 Sol, then GPT-6 Sol), then Gemini
+(3.8 Flash, then 3.7 Flash), considering only connected providers. This is a
+reviewable general-purpose release preference, not a quality ranking for every task.
+A preferred model must appear in vendor metadata: Claude's live model catalogue,
+Codex's CLI model cache, or Antigravity's live models response. UI seed lists do not
+prove availability. Unknown, empty or unavailable catalogues select the provider's
+own default with automatic effort, omitting the model/effort overrides where applicable.
+The chosen values and release/reason are saved before the first realm preflight; new
+agents inherit them. Existing realms, adopted realms and explicit agent/job choices
+are not migrated. Revisit the policy at each release. The provider-default fallback
+also lets an older installer work with an unfamiliar future model catalogue.
+
+Background CLI probes share `background.process_options()`: CREATE_NO_WINDOW plus
+STARTF_USESHOWWINDOW/SW_HIDE on Windows. Git update checks had no visibility flags;
+these now use the same policy. Interactive sign-in actions remain explicit. Regression
+coverage includes an actual Windows child process with no attached console.
+
+Gemini regression: the isolated custom agent excludes the vendor's default components,
+including cwd context. A native headless test reproduced the reported first-prompt failure:
+`list_dir` guessed `/workspace` on Windows and was denied. Explicitly naming the approved
+Windows folder succeeded. Each run now injects the real task folder plus absolute-path
+instructions; the temporary CLI launch directory is identified as runtime scaffolding.
+Permission errors preserve the vendor diagnostics and add the attempted file-tool path.
+No wildcard filesystem permission, skip-permissions flag, or global settings edit is added.
+Vendor behavior reference: https://antigravity.google/docs/cli/headless (permissions section).
+
+
 October 3, 2026 update: setup accepts one or more of Claude, Codex and Gemini.
 Both the Windows installer (optional unchecked tasks) and the in-app wizard can
 install their vendor CLIs. Gemini uses Google's Antigravity CLI and its official

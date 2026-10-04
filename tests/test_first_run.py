@@ -78,8 +78,8 @@ def test_wizard_requires_a_connected_provider_before_creating_files(srv, tmp_pat
     assert not (root / "Home").exists()
 
 
-@pytest.mark.parametrize('provider,model', [('codex', 'gpt-6-sol'), ('gemini', 'gemini:auto')])
-def test_wizard_rechecks_preflight_after_applying_provider_defaults(srv, tmp_path, monkeypatch, provider, model):
+@pytest.mark.parametrize('provider,model', [('codex', 'codex:default'), ('gemini', 'gemini:default')])
+def test_wizard_applies_provider_defaults_before_first_preflight(srv, tmp_path, monkeypatch, provider, model):
     from armada import providers, preflight
     monkeypatch.setattr(providers, "statuses", lambda **kw: {
         p: {"connected": p == provider} for p in ('claude', 'codex', 'gemini')})
@@ -92,7 +92,7 @@ def test_wizard_rechecks_preflight_after_applying_provider_defaults(srv, tmp_pat
     srv.post("/api/set-approot", {"root": str(tmp_path / "ARMADA"), "create": True})
     result = srv.post("/api/first-realm", {"name": "Home", "owner": "Alex", "wizard": True, "check_providers": True})
     assert result["ok"] and result["preflight"]["ok"]
-    assert len(checked) == 2 and checked[-1] == model
+    assert checked == [model]
 
 
 def test_the_suggested_folder_is_created_but_not_a_whole_tree(srv, tmp_path):

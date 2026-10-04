@@ -4,6 +4,7 @@ No credentials are read by Armada and no model turn is started. The short-lived 
 only initializes and reads account/rateLimits/read; failures never become a fabricated 0%.
 """
 from __future__ import annotations
+from .background import process_options
 
 import datetime as dt
 import json
@@ -30,7 +31,7 @@ def _read_limits(timeout=20) -> dict:
     # Suppress unrelated integrations. Account reads require no thread, MCP server or tool.
     proc = subprocess.Popen(launcher + _feature_args() + ["app-server"],
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                            text=True, encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+                            text=True, encoding="utf-8", errors="replace", **process_options())
     replies = queue.Queue()
 
     def read():

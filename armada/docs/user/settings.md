@@ -23,6 +23,12 @@ you use them.
   opens another registered realm, or the welcome screen if none remain. Delete asks you to type
   the realm folder's name and waits for its active tasks to finish.
 
+New teams choose their initial model from the engines connected during setup, using
+that ARMADA release's preferences. If your provider offers models the release does
+not recognize, ARMADA uses the provider's default. Agents inherit this realm default
+until you choose their own model. Alexander's model is independent. Updating ARMADA
+does not replace models you have already chosen.
+
 ## User
 
 **Your profile** — your name and a few facts. Agents know them through System memory.

@@ -7,6 +7,7 @@ engine underneath is the same runner/scheduler the CLI uses. Later this same UI 
 native window; today it's the browser reaching http://127.0.0.1:<port>.
 """
 from __future__ import annotations
+from .background import process_options
 import http.server, io, json, logging, os, subprocess, sys, threading, time, urllib.parse, contextlib
 from pathlib import Path
 from . import activerealm, reader, render, scheduler, util, brand, origins, local_auth
@@ -517,17 +518,17 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         """Fetch and report whether the local checkout is behind its upstream."""
         try:
             subprocess.run(["git", "-C", str(REPO), "fetch", "--quiet"],
-                           capture_output=True, text=True, timeout=60)
+                           stdin=subprocess.DEVNULL, **process_options(), capture_output=True, text=True, timeout=60)
             up = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--abbrev-ref", "@{u}"],
-                                capture_output=True, text=True, timeout=15)
+                                stdin=subprocess.DEVNULL, **process_options(), capture_output=True, text=True, timeout=15)
             if up.returncode != 0:
                 return {"ok": True, "newer": False, "error": "no upstream configured"}
             cnt = subprocess.run(["git", "-C", str(REPO), "rev-list", "--count", "HEAD..@{u}"],
-                                 capture_output=True, text=True, timeout=15)
+                                 stdin=subprocess.DEVNULL, **process_options(), capture_output=True, text=True, timeout=15)
             behind = int((cnt.stdout or "0").strip() or "0")
             latest = ""
             desc = subprocess.run(["git", "-C", str(REPO), "describe", "--tags", "--abbrev=0", "@{u}"],
-                                  capture_output=True, text=True, timeout=15)
+                                  stdin=subprocess.DEVNULL, **process_options(), capture_output=True, text=True, timeout=15)
             if desc.returncode == 0:
                 latest = desc.stdout.strip().lstrip("v")
             return {"ok": True, "newer": behind > 0, "behind": behind, "latest": latest}
@@ -560,7 +561,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     def _git_pull(self) -> dict:
         try:
             r = subprocess.run(["git", "-C", str(REPO), "pull", "--ff-only"],
-                               capture_output=True, text=True, timeout=90)
+                               stdin=subprocess.DEVNULL, **process_options(), capture_output=True, text=True, timeout=90)
             return {"ok": r.returncode == 0, "out": (r.stdout + r.stderr).strip()[:1500] or "up to date"}
         except Exception as e:  # noqa
             log.debug('_git_pull: failed; error returned to the caller', exc_info=True)

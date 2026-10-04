@@ -4,6 +4,7 @@ A realm grant is permission, not a provider login. Claude's MCP inventory and Co
 MCP inventory are separate; never infer one provider's authentication from the other.
 """
 from __future__ import annotations
+from .background import process_options
 import logging
 
 import json
@@ -163,7 +164,7 @@ def claude_inventory() -> dict[str, bool] | None:
     try:
         result = subprocess.run(launcher + ["mcp", "list"], capture_output=True, text=True,
                                 timeout=25, encoding="utf-8", errors="replace",
-                                env=engine._env(), creationflags=_NO_WINDOW)
+                                env=engine._env(), **process_options())
     except (OSError, subprocess.SubprocessError):
         return None
     if result.returncode:
@@ -310,7 +311,7 @@ def connect_codex(cap: dict, realm_root=None) -> dict:
     try:
         subprocess.Popen(launcher + _feature_args() + ["mcp", "login", sid], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                         creationflags=_NO_WINDOW)
+                         **process_options())
     except OSError:
         return {"ok": False, "error": "Codex could not start the connector sign-in."}
     return {"ok": True, "state": "sign_in"}

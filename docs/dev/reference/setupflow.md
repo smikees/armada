@@ -39,7 +39,7 @@ True while a wizard-made realm hasn't finished its setup.
 
 —
 
-### `begin(realm_root, owner: str='', connected_providers=None)`
+### `begin(realm_root, owner: str='', connected_providers=None, defaults=None)`
 
 Mark a freshly made realm as mid-setup, and record the owner's name where the app keeps it (realm.json `user.name`, which Settings → User edits and every agent reads).
 

@@ -15,6 +15,7 @@ the `cmd /c` shim eats them. Falls back to the cmd shim + a non-empty deny-list 
 native/js entry can't be resolved.
 """
 from __future__ import annotations
+from ..background import process_options
 import json, os, re, shutil, subprocess, tempfile, time
 from typing import Optional, Callable
 from .base import EngineAdapter, RunResult, Usage
@@ -267,7 +268,7 @@ class ClaudeEngine(EngineAdapter):
         if not self._direct():
             raise ValueError("Capability gating requires Claude's native or Node launcher; reinstall Claude Code to repair its launcher.")
         kwargs = dict(capture_output=True, text=True, timeout=25, cwd=cwd, env=self._env(),
-                      encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+                      encoding="utf-8", errors="replace", **process_options())
         version = subprocess.run(self._launcher() + ["--version"], **kwargs)
         match = re.match(r"(\d+)\.(\d+)\.(\d+)", version.stdout.strip())
         if version.returncode or not match or tuple(map(int, match.groups())) < (2, 1, 263):
@@ -393,7 +394,7 @@ class ClaudeEngine(EngineAdapter):
         try:
             v = subprocess.run(lp + ["--version"], capture_output=True, text=True, timeout=25,
                                env=self._env(), encoding="utf-8", errors="replace",
-                               creationflags=_NO_WINDOW)
+                               **process_options())
             if v.returncode != 0:
                 return False, f"`claude --version` failed: {(v.stderr or v.stdout).strip()[:200]}"
             ver = (v.stdout or v.stderr).strip().splitlines()[0] if (v.stdout or v.stderr) else "?"
@@ -415,6 +416,8 @@ class ClaudeEngine(EngineAdapter):
             effort: Optional[str] = None, fallback_model: Optional[str] = None,
             max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
             only_tools: Optional[list] = None, verbosity: Optional[str] = None) -> RunResult:
+        if model == 'claude:default':
+            model = None
         try:
             validate_request(self.name, self.capabilities, RunRequest(system, prompt,
                 fallback_model=fallback_model, max_budget_usd=max_budget_usd,
@@ -496,6 +499,8 @@ class ClaudeEngine(EngineAdapter):
         """Run a turn in streaming mode, calling on_event(dict) for each intermediate step
         (thinking / tool use / tool result / text) as Claude Code emits them (stream-json NDJSON).
         Returns the final RunResult; malformed or missing terminal output fails the turn."""
+        if model == 'claude:default':
+            model = None
         def emit(event):
             safe_emit(on_event, event)
         try:

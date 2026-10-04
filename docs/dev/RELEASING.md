@@ -14,6 +14,10 @@ A release consists of the source commit, Windows installer and signed update ass
 
 ## 2. Version and changelog
 
+Review `armada/engine/defaults.py` against the providers' available models each release.
+Keep the connected-provider filtering and provider-default escape hatch; never use a
+UI seed catalogue as proof that a specific model is still supported.
+
 1. Bump `__version__` in `armada/__init__.py` (for example `0.99.73` → `0.99.74`).
 2. Add one entry at the **top** of `_CHANGELOG` in `armada/webui/changelog.py`:
    `("0.99.74", ["…", "…"])` — one string per thing the owner will notice.

@@ -20,7 +20,7 @@ stays in serve.py, only the handler bodies moved.
 - `RealmRoutes._get_realm_icon(self)` — —
 - `RealmRoutes._get_realm(self)` — —
 - `RealmRoutes._pick_folder(self)` — Open a native folder picker on the user's machine (local app).
-- `RealmRoutes._new_realm(self, body: dict)` — —
+- `RealmRoutes._new_realm(self, body: dict, *, defaults=None)` — —
 - `RealmRoutes._set_all_agent_defaults(self, body: dict)` — —
 - `RealmRoutes._save_realm_settings(self, body: dict)` — —
 - `RealmRoutes._upload_realm_icon(self, body: dict)` — —

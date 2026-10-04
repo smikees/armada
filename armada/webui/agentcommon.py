@@ -64,6 +64,8 @@ def _effort_options(realm_root, selected: str = "", inherit: bool = False) -> st
     html = (f'<option value="" {"selected" if not selected else ""}>'
             f'{E(_inherit_label(_realm_cfg_value(realm_root, "default_effort", "high")))}</option>'
             if inherit else "")
+    if selected == "auto":
+        html += '<option value="auto" selected>Provider default</option>'
     return html + "".join(
         f'<option {"selected" if e == selected else ""}>{E(e)}</option>' for e in _EFFORTS)
 
@@ -76,10 +78,10 @@ def _model_options(realm_root, selected: str = "", inherit: bool = False) -> str
     ids = {mid for mid, _ in opts}
     dflt = _realm_cfg_value(realm_root, "default_model")
     dlab = next((lab for mid, lab in opts if mid == dflt), "") or (
-        _pretty_model(dflt) if dflt.startswith("claude-") else dflt)
+        _pretty_model(dflt) if dflt.startswith("claude-") or dflt.endswith(":default") else dflt)
     html = f'<option value="">{E(_inherit_label(dlab))}</option>' if inherit else ""
     if selected and selected not in ids:
-        lab = _pretty_model(selected) if selected.startswith("claude-") else selected
+        lab = _pretty_model(selected) if selected.startswith("claude-") or selected.endswith(":default") else selected
         html += f'<option value="{E(selected)}" selected>{E(lab)}</option>'
     for mid, lab in opts:
         html += f'<option value="{E(mid)}"{" selected" if mid == selected else ""}>{E(lab)}</option>'

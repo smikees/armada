@@ -11,7 +11,7 @@ def apply_to_agents(root, model, effort, level):
     root = Path(root).resolve()
     if not isinstance(model, str) or model not in dict(models.options(root)):
         raise ValueError("Choose a model from the connected providers.")
-    if not isinstance(effort, str) or effort not in ("low", "medium", "high", "xhigh", "max"):
+    if not isinstance(effort, str) or effort not in ("auto", "low", "medium", "high", "xhigh", "max"):
         raise ValueError("Choose a valid thinking level.")
     if not isinstance(level, str) or level not in verbosity.LEVELS:
         raise ValueError("Choose a valid verbosity level.")
@@ -20,7 +20,7 @@ def apply_to_agents(root, model, effort, level):
         item = next((m for m in cached_models() if m["slug"] == model_id(model)), {})
         supported = [v.get("effort") if isinstance(v, dict) else v
                      for v in item.get("supported_reasoning_levels", [])]
-        if supported and effort not in supported:
+        if supported and effort != "auto" and effort not in supported:
             raise ValueError("That thinking level is not supported by the selected model.")
     if model_provider(model) == 'gemini':
         from .alexander.config import efforts

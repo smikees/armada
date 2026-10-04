@@ -1,5 +1,6 @@
 """Google Gemini through the supported Antigravity CLI; cached login, fresh scoped turns."""
 from __future__ import annotations
+from ..background import process_options
 import json, os, re, shutil, subprocess, tempfile, threading, time, uuid
 from contextlib import contextmanager
 from pathlib import Path
@@ -26,12 +27,14 @@ def cached_models():
     return rows if isinstance(rows,list) and rows else list(_SEED)
 
 def model_options():
-    return MODEL_OPTIONS[:1] + [(m['id'],m['label']) for m in cached_models()]
+    return MODEL_OPTIONS[:1] + [('gemini:default', 'Google · Gemini default model')] + [(m['id'],m['label']) for m in cached_models()]
 
 def model_id(value):
     value = str(value or '').strip().lower()
-    if value in ('','gemini:auto','gemini:default'):
-        return next((m['id'] for m in cached_models() if 'flash' in m['id']),_SEED[0]['id'])
+    if value == 'gemini:default':
+        return ''
+    if value in ('','gemini:auto'):
+        return next((m['id'] for m in cached_models() if 'flash' in m['id']), '')
     return re.sub(r'-(low|medium|high|max)$', '', value.removeprefix('gemini:'))
 
 @contextmanager
@@ -98,7 +101,7 @@ class GeminiEngine(EngineAdapter):
         launcher = self._launcher()
         if not launcher: raise FileNotFoundError("Install Gemini's Antigravity CLI in Settings → App.")
         return subprocess.run(launcher+args,stdin=subprocess.DEVNULL,capture_output=True,text=True,
-            encoding='utf-8',errors='replace',timeout=25,creationflags=_NO_WINDOW)
+            encoding='utf-8',errors='replace',timeout=25,**process_options())
     def auth_status(self,force=False):
         global _auth_cache
         with _auth_lock:
@@ -192,8 +195,8 @@ class GeminiEngine(EngineAdapter):
         if level=='auto': level = 'medium'
         if level not in ('low','medium','high'): raise ValueError('Gemini thinking must be low, medium or high.')
         if row and level not in row['efforts']: level = 'high'
-        actual = mid+'-'+level
-        terminal = None; chunks = []; started = set(); finished = set()
+        actual = mid+'-'+level if mid else ''
+        terminal = None; chunks = []; started = set(); finished = set(); file_requests = []
         def line(raw):
             nonlocal terminal
             if not raw.strip(): return
@@ -211,8 +214,10 @@ class GeminiEngine(EngineAdapter):
                         params = info.get('parameters') or {}
                         canonical = next((alias for alias, original in _ALIASES.items() if original == name), name)
                         if name == 'multi_replace_file_content': canonical = 'MultiEdit'
-                        target = params.get('TargetFile') or params.get('AbsolutePath')
+                        target = params.get('TargetFile') or params.get('AbsolutePath') or params.get('DirectoryPath') or params.get('SearchDirectory')
                         if target: params = {**params, 'file_path':target}
+                        if target and name in _FILE_TOOLS:
+                            file_requests.append({'tool':name,'path':str(target)})
                         started.add(tid); safe_emit(on_event,{'kind':'tool','name':canonical,'id':tid,'input':params})
                     if step.get('state')=='DONE' and tid not in finished:
                         finished.add(tid); safe_emit(on_event,{'kind':'tool_result','id':tid,'content':info.get('output') or str(info.get('error') or ''),'is_error':bool(info.get('error'))})
@@ -223,21 +228,32 @@ class GeminiEngine(EngineAdapter):
         if verbosity:
             from ..verbosity import prompt_block
             system += '\n\n' + prompt_block(verbosity)
+        work = Path(cwd or os.getcwd()).resolve()
+        roots = list(dict.fromkeys([work]+[Path(p).resolve() for p in self.writable_roots
+            if Path(p).is_dir() and not work.is_relative_to(Path(p).resolve())]))
+        # excludeDefaultComponents intentionally removes ambient instructions, but also
+        # removes the vendor's cwd context. Without our replacement Gemini guesses
+        # /workspace (including on Windows), then its very first list_dir is denied.
+        system += ('\n\n[ARMADA working environment]\n'
+                   f'Host operating system: {"Windows" if os.name == "nt" else os.name}.\n'
+                   f'Your task working folder is {json.dumps(str(work))}.\n'
+                   'Resolve relative task paths against this folder and pass absolute paths to file tools. '
+                   'Use this exact folder when asked for the current directory; do not guess /workspace, '
+                   'the home folder, or a parent directory. The CLI launch folder is temporary runtime '
+                   'scaffolding, not the task folder.\n')
         agent = self._agent(system,allow_tools,disallowed_tools or [])
         selected_tools = json.loads(agent.split('---',2)[1])['tools']
         file_access = bool(set(selected_tools) & set(_FILE_TOOLS))
         with tempfile.TemporaryDirectory(prefix='armada-gemini-') as folder:
             path = Path(folder)/'.agents/agents/armada-turn.md'; path.parent.mkdir(parents=True)
             path.write_text(agent,encoding='utf-8')
-            args = self._launcher()+['--agent','armada-turn','--model',actual,'--disable-slash-commands',
+            args = self._launcher()+['--agent','armada-turn'] + (['--model',actual] if actual else []) + ['--disable-slash-commands',
                 '--input-format','stream-json','--output-format','stream-json','--print-timeout','0']
-            work = Path(cwd or os.getcwd()).resolve()
-            roots = [work]+[Path(p).resolve() for p in self.writable_roots if Path(p).is_dir() and not work.is_relative_to(Path(p).resolve())]
             if file_access:
-                for root in dict.fromkeys(roots): args += ['--add-dir',str(root)]
+                for root in roots: args += ['--add-dir',str(root)]
             body = json.dumps({'event':'user','message':{'content':prompt}},ensure_ascii=False)
             servers = [entry['name'] for entry in self._connectors(disallowed_tools or [])] if allow_tools else []
-            with scoped_project(list(dict.fromkeys(roots)) if file_access else [],servers,allow_tools and self.network_access) as project:
+            with scoped_project(roots if file_access else [],servers,allow_tools and self.network_access) as project:
                 result = supervise(args+['--project',project],prompt=body,on_line=line,timeout=timeout,cwd=folder,on_proc=on_proc)
         stats = (terminal or {}).get('usage') or {}; cached = stats.get('cache_read_tokens') or 0; incoming = stats.get('input_tokens')
         # CLI input includes cached tokens; Armada's total adds cache reads separately.
@@ -252,6 +268,8 @@ class GeminiEngine(EngineAdapter):
         if not output.strip():
             reason = next((line for line in result.stderr.splitlines() if 'no output produced' in line), '')
             error = error or reason.split('Add an allow-rule')[0].strip() or 'Gemini returned an empty response.'
+        if error and 'read_file' in error and file_requests:
+            error += ' Requested path: ' + file_requests[-1]['path'] + '.'
         return RunResult(ok=not error,output=output,model=actual,usage=usage,error=error,
             cancelled=result.cancelled or status in ('CANCELED','INTERRUPTED'),timed_out=result.timed_out,
-            raw={'result':terminal or {},'diagnostics':result.stderr})
+            raw={'result':terminal or {},'diagnostics':result.stderr,'file_requests':file_requests})

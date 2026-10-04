@@ -86,6 +86,14 @@ def test_stream_and_usage_preserve_output_without_double_counting_cache(engine, 
     assert not list((Path.home()/'.gemini/config/projects').glob('armada-*.json'))
 
 
+def test_provider_default_omits_model_flag_even_with_unknown_future_models(engine, monkeypatch, tmp_path):
+    monkeypatch.setattr(g, 'cached_models', lambda: [{'id': 'gemini-future', 'efforts': ['high']}])
+    def inspect(args, kwargs):
+        assert '--model' not in args
+    stream(monkeypatch, [final()], inspect=inspect)
+    assert engine.run_stream('system', 'prompt', model='gemini:default', effort='', cwd=tmp_path).ok
+
+
 def test_scoped_project_and_custom_agent_never_inherit_ambient_tools(engine, monkeypatch, tmp_path):
     own = tmp_path/'realm/agents/test'; own.mkdir(parents=True)
     extra = tmp_path/'approved'; extra.mkdir()
@@ -103,6 +111,9 @@ def test_scoped_project_and_custom_agent_never_inherit_ambient_tools(engine, mon
         assert front['inheritMcp'] is front['inheritCustomizations'] is False
         assert 'run_command' not in front['tools'] and 'search_web' not in front['tools']
         assert 'How much to write (Brief)' in agent
+        assert '[ARMADA working environment]' in agent
+        assert json.dumps(str(own)) in agent
+        assert 'pass absolute paths to file tools' in agent
         assert str(tmp_path/'realm') not in args
     stream(monkeypatch,[final()],inspect=inspect)
     assert engine.run_stream('system','prompt',cwd=own,allow_tools=True,verbosity='brief').ok
@@ -117,6 +128,19 @@ def test_tool_events_have_canonical_names_and_paths(engine, monkeypatch, tmp_pat
     assert engine.run_stream('','',cwd=tmp_path,on_event=seen.append).ok
     assert [(e['kind'],e['id']) for e in seen] == [('tool','4'),('tool_result','4')]
     assert seen[0]['name']=='Write' and seen[0]['input']['file_path']=='report.md'
+
+
+def test_denied_directory_keeps_the_requested_path_without_expanding_grants(engine, monkeypatch, tmp_path):
+    denial = 'jetski: no output produced — a tool required the "read_file" permission that headless mode cannot prompt for, so it was auto-denied.'
+    stream(monkeypatch, [{'event':'step_update','step_update':{'step_type':'tool',
+        'step_index':1,'tool_name':'list_dir','state':'ACTIVE',
+        'tool_info':{'parameters':{'DirectoryPath':'/workspace'}}}}, final('')],
+        ProcessResult(returncode=0,stderr=denial))
+    result = engine.run_stream('system','List the current directory',cwd=tmp_path,allow_tools=True)
+    assert not result.ok
+    assert 'Requested path: /workspace.' in result.error
+    assert result.raw['diagnostics'] == denial
+    assert result.raw['file_requests'] == [{'tool':'list_dir','path':'/workspace'}]
 
 
 @pytest.mark.parametrize('events,result,message',[

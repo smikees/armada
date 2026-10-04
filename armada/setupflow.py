@@ -75,19 +75,17 @@ def _update(realm_root, fn) -> dict:
         return {"ok": False, "error": str(e)[:160]}
 
 
-def begin(realm_root, owner: str = "", connected_providers=None) -> dict:
+def begin(realm_root, owner: str = "", connected_providers=None, defaults=None) -> dict:
     """Mark a freshly made realm as mid-setup, and record the owner's name where the app keeps it
     (realm.json `user.name`, which Settings → User edits and every agent reads)."""
     def fn(cfg, st):
         st.clear()
         st.update({"step": REALM_STEPS[0], "started": _now()})
-        if connected_providers:
-            from .alexander.config import resolve
-            provider, model, effort = resolve('', states={p: {'connected': p in connected_providers} for p in ('claude', 'codex', 'gemini')})
-            cfg["providers"] = list(connected_providers)
-            cfg["provider"] = provider
-            cfg["default_model"] = model
-            cfg["default_effort"] = effort
+        if defaults is not None:
+            cfg.update(defaults)
+        elif connected_providers:
+            from .engine.defaults import choose
+            cfg.update(choose({p: {'connected': True} for p in connected_providers}))
         if owner:
             user = dict(cfg.get("user") or {})
             user["name"] = owner

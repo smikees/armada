@@ -203,6 +203,8 @@ def _resolve_effort(realm_root: Path, agent: dict) -> str:
     if not eff:
         rj = _load_json(Path(realm_root) / "realm.json")
         eff = str(rj.get("default_effort") or "").strip().lower()
+    if eff == "auto":
+        return ""  # Let an unfamiliar provider-default model use its own supported effort.
     return eff if eff in _EFFORT_LEVELS else "high"
 
 

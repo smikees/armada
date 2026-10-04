@@ -125,24 +125,25 @@ def test_codex_only_wizard_sets_executable_defaults(connections, tmp_path):
 
 
 @pytest.mark.parametrize('connected', [['claude'], ['codex'], ['claude', 'codex']])
-def test_new_realm_defaults_match_alexander(connections, tmp_path, connected):
+def test_new_realm_defaults_follow_release_policy(connections, tmp_path, connected):
     from armada.setup import scaffold
     connections.update({p: p in connected for p in connections})
     root = scaffold(tmp_path / 'realm', 'company', 'Home')
-    expected = alex.resolve(root)
+    from armada.engine.defaults import choose
+    expected = choose({p: {"connected": True} for p in connected})
     assert setupflow.begin(root, owner='Alex', connected_providers=connected)['ok']
     cfg = json.loads((root / 'realm.json').read_text())
-    assert (cfg['provider'], cfg['default_model'], cfg['default_effort']) == expected
+    assert (cfg['provider'], cfg['default_model'], cfg['default_effort']) == (expected['provider'], expected['default_model'], expected['default_effort'])
 
 
-def test_new_realm_uses_explicit_alexander_preference(connections, tmp_path):
+def test_new_realm_ignores_explicit_alexander_preference(connections, tmp_path):
     from armada.setup import scaffold
     connections.update(claude=True, codex=True)
     appconfig.save({'alexander': {'model': 'gpt-6-sol', 'effort': 'high'}})
     root = scaffold(tmp_path / 'realm', 'company', 'Home')
     setupflow.begin(root, connected_providers=['claude', 'codex'])
     cfg = json.loads((root / 'realm.json').read_text())
-    assert cfg['default_model'] == 'gpt-6-sol' and cfg['default_effort'] == 'high'
+    assert cfg['default_model'] == 'claude:default' and cfg['default_effort'] == 'auto'
 
 
 def test_codex_status_includes_cli_version(connections):

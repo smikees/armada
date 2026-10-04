@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 
 def scaffold(folder, template_id: str = "scratch", name: str | None = None,
-             icon: str | None = None, agents: list | None = None) -> Path:
+             icon: str | None = None, agents: list | None = None, defaults: dict | None = None) -> Path:
     if template_id not in TEMPLATES:
         raise SystemExit(f"ARMADA: unknown template '{template_id}' (have: {', '.join(TEMPLATES)})")
     t = TEMPLATES[template_id]
@@ -33,6 +33,7 @@ def scaffold(folder, template_id: str = "scratch", name: str | None = None,
         "name": realm_name, "schema_version": SCHEMA_VERSION, "theme_ref": "theme.json",
         "default_engine": "claude", "template": template_id,
         "created": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+        **(defaults or {}),
     }, indent=2), encoding="utf-8")
     (root / "theme.json").write_text(json.dumps({**theme, "template": template_id}, indent=2,
                                                 ensure_ascii=False), encoding="utf-8")

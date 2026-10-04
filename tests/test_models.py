@@ -25,7 +25,7 @@ def test_refresh_orders_newest_first_and_retires_missing(monkeypatch, tmp_path):
     r = models.refresh(str(tmp_path))
     assert r["ok"] and r["active"] == 2
     ids = [i for i, _ in models.options(str(tmp_path))]
-    assert ids == ["claude-opus-6", "claude-opus-5"]          # newest (later created_at) first
+    assert ids == ["claude-opus-6", "claude-opus-5", "claude:default"]          # newest (later created_at) first
     # seed ids not in the live list are retired (kept in cache, hidden from dropdowns)
     cached = {m["id"]: m for m in models.load(str(tmp_path))["models"]}
     assert cached["claude-fable-5-1"]["active"] is False
@@ -40,7 +40,7 @@ def test_refresh_unavailable_keeps_cache(monkeypatch, tmp_path):
     monkeypatch.setattr(models, "fetch_live_result", lambda: (None, "unreachable (test)"))   # endpoint down / token expired
     r = models.refresh(str(tmp_path))
     assert r["ok"] is False
-    assert [i for i, _ in models.options(str(tmp_path))] == ["claude-opus-6"]   # unchanged
+    assert [i for i, _ in models.options(str(tmp_path))] == ["claude-opus-6", "claude:default"]   # unchanged
 
 
 def test_options_written_atomically_and_reload(monkeypatch, tmp_path):

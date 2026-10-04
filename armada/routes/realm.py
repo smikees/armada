@@ -133,7 +133,7 @@ class RealmRoutes:
             swallowed(log, '_pick_folder: failed; error returned to the caller')
             return {"ok": False, "error": f"picker unavailable ({e}) — type the path"}
 
-    def _new_realm(self, body: dict) -> dict:
+    def _new_realm(self, body: dict, *, defaults=None) -> dict:
         mode, name, path = body.get("mode", "create"), (body.get("name") or "").strip(), (body.get("path") or "").strip()
         if not path:
             return {"ok": False, "error": "folder required"}
@@ -154,8 +154,14 @@ class RealmRoutes:
                     return {"ok": False, "error": "no realm.json or cabinet/ in that folder"}
             else:
                 from ..setup import scaffold
+                if defaults is None:
+                    from .. import providers
+                    from ..engine.defaults import choose
+                    states = providers.statuses(force=True) if providers.observed() else {}
+                    if any(st.get("connected") for st in states.values()):
+                        defaults = choose(states)
                 scaffold(str(p), body.get("template", "scratch"), name or p.name,
-                         icon=body.get("icon") or None, agents=body.get("agents"))
+                         icon=body.get("icon") or None, agents=body.get("agents"), defaults=defaults)
             if body.get("iconData"):
                 self._write_data_image(p / "icon", body["iconData"])
             # Import: an adopted folder may come from an older ARMADA (2.8). A newer one is
@@ -434,28 +440,25 @@ class RealmRoutes:
                 return {"ok": False, "error": "A team needs at least one agent."}
             payload["agents"] = agents
         connected = None
+        defaults = None
         if body.get("wizard") and body.get("check_providers"):
             from .. import providers
-            connected = [p for p, st in providers.statuses(force=True).items() if st["connected"]]
+            states = providers.statuses(force=True)
+            connected = [p for p, st in states.items() if st["connected"]]
             if not connected:
                 return {"ok": False, "error": "Connect a provider before appointing your team."}
-            from ..alexander.config import resolve
+            from ..engine.defaults import choose
             try:
-                resolve('', states={p: {'connected': p in connected} for p in providers.NAMES})
+                defaults = choose(states)
             except ValueError as exc:
                 return {"ok": False, "error": str(exc)}
-        r = self._new_realm(payload)
+        r = self._new_realm(payload, defaults=defaults)
         if r.get("ok") and body.get("wizard"):
             from .. import setupflow
             owner = " ".join(str(body.get("owner") or "").split())[:60]
-            setup = setupflow.begin(r["path"], owner=owner, connected_providers=connected)
+            setup = setupflow.begin(r["path"], owner=owner, defaults=defaults)
             if not setup.get("ok"):
                 return {**r, "ok": False, "error": setup["error"]}
-            if connected:
-                # Scaffolding checks its initial Claude default. Recheck the chosen provider
-                # so a Codex- or Gemini-only setup does not inherit a stale scheduler hold.
-                from .. import preflight
-                r["preflight"] = preflight.apply_hold(r["path"])
         return r
 
     @staticmethod

@@ -20,6 +20,7 @@
 | [`approot`](approot.md) | The app root — the one folder on this machine that ARMADA is allowed to work in. |
 | [`assets`](assets.md) | Static-asset plumbing — how server-rendered pages reference the CSS/JS served from webui/static. |
 | [`auth`](auth.md) | Claude Code sign-in state, and a way to fix it without leaving ARMADA. |
+| [`background`](background.md) | Windows launch options for unattended probes (never interactive sign-in windows). |
 | [`brand`](brand.md) | ARMADA brand surface — the single place that defines the app's visible identity. |
 | [`capabilities`](capabilities.md) | Who may use which capability. |
 | [`capscan`](capscan.md) | Real capability version-scan + update, via the Claude Code CLI. |
@@ -42,6 +43,7 @@
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
 | [`engine.codex`](engine.codex.md) | Codex CLI turns, using the owner's login and Armada's existing context and history. |
 | [`engine.contracts`](engine.contracts.md) | Provider-independent requests, events and enforceable execution capabilities. |
+| [`engine.defaults`](engine.defaults.md) | Release-owned defaults for new teams, independent of Alexander's personal settings. |
 | [`engine.gemini`](engine.gemini.md) | Google Gemini through the supported Antigravity CLI; cached login, fresh scoped turns. |
 | [`engine.mcp`](engine.mcp.md) | Translate MCP display names to their tool namespace without granting access. |
 | [`engine.mcp_runtime`](engine.mcp_runtime.md) | Live MCP startup evidence; saved OAuth credentials are not a connection test. |

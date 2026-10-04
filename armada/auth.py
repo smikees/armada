@@ -14,6 +14,7 @@ ARMADA only asks "are you signed in?" afterwards.
 because it also covers API-key and enterprise auth paths that never touch that file.
 """
 from __future__ import annotations
+from .background import process_options
 import json
 import os
 import re
@@ -57,7 +58,7 @@ def _status_live() -> dict:
         return {"ok": False, "logged_in": False, "method": "", "reason": "cli-missing"}
     try:
         r = subprocess.run(lp + ["auth", "status", "--json"], capture_output=True, text=True,
-                           timeout=25, encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+                           timeout=25, encoding="utf-8", errors="replace", **process_options())
     except Exception as e:  # noqa
         swallowed(log, '_status_live: failed; error returned to the caller')
         return {"ok": False, "logged_in": False, "method": "", "reason": f"probe-failed: {e}"[:120]}
@@ -83,7 +84,7 @@ def _version(lp) -> str:
     "2.1.263 (Claude Code)"."""
     try:
         r = subprocess.run(lp + ["--version"], capture_output=True, text=True, timeout=20,
-                           encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+                           encoding="utf-8", errors="replace", **process_options())
     except (OSError, subprocess.SubprocessError):
         return ""
     m = re.search(r"\d+\.\d+\.\d+", r.stdout or "")

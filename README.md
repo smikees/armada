@@ -24,6 +24,8 @@ see what each one is being told before it answers.
 > **Status: beta, Windows only.** ARMADA is in a small invited beta. Expect rough edges — and
 > please report them.
 
+**Next version in preparation: 0.99.76** — connected-engine defaults, hidden background checks, and correct Gemini working-folder context.
+
 **Current release: [v0.99.75 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.75).**
 [Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.75/ARMADA-Setup-0.99.75.exe)
 or browse [all releases](https://github.com/smikees/armada/releases).

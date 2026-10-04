@@ -328,6 +328,7 @@ def options(realm_root) -> list[tuple[str, str]]:
         _maybe_refresh_async(realm_root)
         models = _ordered([m for m in load(realm_root).get("models", []) if m.get("active", True)])
         result.extend((m["id"], m.get("label") or m["id"]) for m in models)
+        result.append(("claude:default", "Anthropic · Claude default model"))
     if "codex" in providers:
         result.extend((m["slug"], "OpenAI · " + (m.get("display_name") or m["slug"]))
                       for m in cached_models())

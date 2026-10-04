@@ -273,6 +273,10 @@ def _pretty_model(m) -> str:
         return "Unknown"
     if d.startswith("mock"):
         return "Mock (offline)"
+    if d == 'claude:default':
+        return 'Claude default'
+    if d == 'gemini:default':
+        return 'Gemini default'
     if models.is_gemini_model(d):
         from ..engine.gemini import model_id
         if d in ('gemini:auto','gemini:default'): return 'Gemini Auto (latest Flash)'

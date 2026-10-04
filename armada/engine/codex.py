@@ -4,6 +4,7 @@ One fresh exec per turn avoids keeping a second, divergent conversation in Codex
 are translated to Armada's existing stream contract. No credential file is read or copied.
 """
 from __future__ import annotations
+from ..background import process_options
 
 import json
 import logging
@@ -117,7 +118,7 @@ class CodexEngine(EngineAdapter):
         if not launcher:
             raise FileNotFoundError("Codex CLI not found. Install Codex CLI and run `codex login`.")
         return subprocess.run(launcher + args, capture_output=True, text=True, timeout=25,
-                              encoding="utf-8", errors="replace", creationflags=_NO_WINDOW, cwd=cwd)
+                              encoding="utf-8", errors="replace", **process_options(), cwd=cwd)
 
     def auth_status(self):
         try:

@@ -9,6 +9,7 @@ Everything here is best-effort and never raises out: a missing CLI or an offline
 means "nothing to report", so a scan can't break the app or a run.
 """
 from __future__ import annotations
+from .background import process_options
 import json
 import re
 import subprocess
@@ -35,7 +36,7 @@ def _run(args, timeout=60):
         return 1, ""
     try:
         r = subprocess.run(lp + args, capture_output=True, text=True, timeout=timeout,
-                           encoding="utf-8", errors="replace", creationflags=_NO_WINDOW)
+                           encoding="utf-8", errors="replace", **process_options())
         return r.returncode, (r.stdout or "") + (r.stderr or "")
     except Exception:  # noqa
         swallowed(log, '_run: failed; returning a fallback')
