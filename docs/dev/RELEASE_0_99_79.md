@@ -38,7 +38,14 @@ ports/modes, crash recovery, socket ownership and immediate rebinding. Update te
 cover an idle scheduler, another realm's live work, dead/finished receipts, stale
 system claims and non-default ports. JavaScript syntax passed.
 
-Full isolated suite, exact-commit CI, packaging and public download validation: pending.
+Full isolated suite: **3,087 passed, five skipped**. Documentation, broad-exception logging
+and rendered-page checks also passed after the final copy cleanup. Package startup and all
+five native interrupted-update recovery checks passed. The local update signature, source
+commit, ZIP size and SHA-256 were verified.
+
+[Exact-commit Windows/PHP CI](https://github.com/smikees/armada/actions/runs/37219871609)
+passed on Python 3.12.10 and current 3.12, plus the PHP relay checks. Public latest-release
+manifest signature, commit, ZIP size/hash and installer hash were verified after publication.
 
 ## Distribution boundaries
 
@@ -50,3 +57,15 @@ New instance ownership takes effect after the corrected version starts.
 This continues the owner-authorized unsigned maintenance beta. Authenticode and
 clean-Sandbox GUI acceptance remain unverified, and error 4551 is not resolved.
 The standard public release gates remain unchanged and are not represented as passed.
+
+## Published release metadata
+
+Release: [v0.99.79](https://github.com/smikees/armada/releases/tag/v0.99.79).
+Installer and package source: `cc47b584613b06de40b3e600e7d41b64546a20fc`.
+Runtime: `py3.12-abe4061a3fa70426`. Subsequent metadata edits change documentation only.
+Installer SHA-256: `02c0bf49a894a7d88bcd64752f1a16c072b2287590374acb22f410038960d6c4`.
+Update ZIP SHA-256: `32a4a103d05299bce43b27c101130dc50e1448db8c3a6e219640a16b3320b567`.
+
+GitHub About states that any provider or combination is supported. Website download
+links were updated through verified FTPS with a backup of the replaced index; the report
+relay was unchanged. No live realm or scheduled job was modified for this release.

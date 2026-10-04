@@ -2,6 +2,9 @@
 
 **Status:** Accepted · 2026-09-21 (fields filled by the maintainer the same day)
 
+**Current engine policy:** the historical single-engine launch scope below is superseded by
+[ADR-013](ADR-013-provider-neutral.md). Claude, Codex and Gemini are equal options, alone or together.
+
 ## Context
 
 ARMADA has been built and used by one person on one machine. Every feature on the launch list

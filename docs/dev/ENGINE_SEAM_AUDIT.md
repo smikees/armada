@@ -3,7 +3,7 @@
 *Phase 2, step 2.6 — ADR-001's homework. Written 2026-09-24 against v0.99.39.*
 
 **Historical audit:** the Claude-only decision was superseded on September 26. Current routing
-and provider restrictions are in [Codex integration](CODEX_INTEGRATION.md); 2.20 introduces the
+and provider restrictions are in [Provider onboarding](PROVIDER_ONBOARDING.md); 2.20 introduces the
 shared coordinator and [execution contracts](EXECUTION_CONTRACTS.md). The findings below describe
 the original baseline, not the current implementation.
 

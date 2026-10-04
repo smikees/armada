@@ -12,7 +12,9 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Verification evidence is recorded in `docs/dev/RELEASE_*.md`.
+Version **0.99.79** delivers single-instance ownership and accurate update progress.
+[Verification](dev/RELEASE_0_99_79.md): 3,087 local tests passed with five skips; exact-commit
+Windows/PHP CI, package startup and native recovery checks passed.
 
 ## Implemented foundations
 
