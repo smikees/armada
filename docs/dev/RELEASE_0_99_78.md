@@ -27,6 +27,9 @@ transition; later restarts use the fix. No realm rename is required.
 - Native replacement tests cover empty arguments, embedded quotes and trailing
   backslashes. A separate test preserves raw POSIX arguments.
 - Focused restart, desktop lifetime, bootstrap recovery and updater tests passed.
+- The first full run exposed a test-fixture race: a child-process test read its
+  receipt after file creation but before JSON was written. Receipts now publish
+  by atomic rename; process-cleanup assertions are unchanged.
 - Full isolated suite, Windows CI and packaging validation: pending.
 - No live user realm, scheduled job or global CLI policy was modified.
 

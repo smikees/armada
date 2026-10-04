@@ -45,7 +45,8 @@ def test_parent_child_grandchild_and_inherited_pipes_are_owned(tmp_path,ending):
     grandchild = f'import time;from pathlib import Path;time.sleep(15);Path({str(marker)!r}).write_text("orphan")'
     child = ('import subprocess,sys,os,json,time;from pathlib import Path;'
         f'p=subprocess.Popen([sys.executable,"-c",{grandchild!r}]);'
-        f'Path({str(pid_file)!r}).write_text(json.dumps([os.getpid(),p.pid]));time.sleep(30)')
+        f'proof=Path({str(pid_file)!r});pending=proof.with_suffix(".pending");'
+        'pending.write_text(json.dumps([os.getpid(),p.pid]));pending.replace(proof);time.sleep(30)')
     parent = ('import subprocess,sys,time;from pathlib import Path;'
         f'subprocess.Popen([sys.executable,"-c",{child!r}]);\n'
         f'while not Path({str(pid_file)!r}).exists():time.sleep(.01)\n'

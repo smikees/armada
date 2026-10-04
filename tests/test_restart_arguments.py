@@ -37,7 +37,8 @@ def install(tmp_path):
     bootstrap = root / 'armada_bootstrap.py'
     bootstrap.write_text(
         'import json, sys\nfrom pathlib import Path\n'
-        f'Path({str(marker)!r}).write_text(json.dumps(sys.argv[1:]), encoding="utf-8")\n',
+        f'marker = Path({str(marker)!r})\npending = marker.with_suffix(".pending")\n'
+        'pending.write_text(json.dumps(sys.argv[1:]), encoding="utf-8")\npending.replace(marker)\n',
         encoding='utf-8')
     return root, marker, bootstrap
 
