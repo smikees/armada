@@ -240,3 +240,10 @@ profile and Codex login. Its real status shows Claude 2.1.283 (signed out), Code
 in), Python 3.12.10 included and WebView2 153.0.4234.48. Packaged UI verified the step placement,
 name gate and all eight portrait loads. Proof: `D:/Work/armada-team-roster-final.png` and
 `D:/Work/armada-welcome-refined.png`. No published release or live-app restart was performed.
+
+### 2026-10-04 — Gemini approved ancestor roots (0.99.77)
+
+Gemini must retain every existing root explicitly supplied by ExecutionPolicy, even
+when it contains the agent cwd. Removing such a root blocks normal realm-level
+reads. Native before/after and outside-scope probes are recorded in
+[0.99.77 verification](RELEASE_0_99_77.md). No wildcard or global permission is needed.

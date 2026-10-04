@@ -229,14 +229,18 @@ class GeminiEngine(EngineAdapter):
             from ..verbosity import prompt_block
             system += '\n\n' + prompt_block(verbosity)
         work = Path(cwd or os.getcwd()).resolve()
+        # The runner explicitly authorizes the realm/workspace roots. An ancestor
+        # of cwd is not redundant: access to agents/captain does not authorize
+        # listing the realm itself or reading its shared task files.
         roots = list(dict.fromkeys([work]+[Path(p).resolve() for p in self.writable_roots
-            if Path(p).is_dir() and not work.is_relative_to(Path(p).resolve())]))
+            if Path(p).is_dir()]))
         # excludeDefaultComponents intentionally removes ambient instructions, but also
         # removes the vendor's cwd context. Without our replacement Gemini guesses
         # /workspace (including on Windows), then its very first list_dir is denied.
         system += ('\n\n[ARMADA working environment]\n'
                    f'Host operating system: {"Windows" if os.name == "nt" else os.name}.\n'
                    f'Your task working folder is {json.dumps(str(work))}.\n'
+                   f'The run authorizes these folders and their contents: {json.dumps([str(p) for p in roots])}.\n'
                    'Resolve relative task paths against this folder and pass absolute paths to file tools. '
                    'Use this exact folder when asked for the current directory; do not guess /workspace, '
                    'the home folder, or a parent directory. The CLI launch folder is temporary runtime '

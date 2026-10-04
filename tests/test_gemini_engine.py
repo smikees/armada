@@ -103,7 +103,7 @@ def test_scoped_project_and_custom_agent_never_inherit_ambient_tools(engine, mon
         pid = args[args.index('--project')+1]
         config = json.loads((Path.home()/'.gemini/config/projects'/f'{pid}.json').read_text())
         grants = config['permissionGrants']['permissionGrants']
-        assert grants['allow'] == [f'write_file({own.as_posix()})',f'write_file({extra.as_posix()})']
+        assert grants['allow'] == [f'write_file({own.as_posix()})',f'write_file({(tmp_path/"realm").as_posix()})',f'write_file({extra.as_posix()})']
         assert 'command(*)' in grants['deny'] and 'read_url(*)' in grants['deny']
         agent = (Path(kwargs['cwd'])/'.agents/agents/armada-turn.md').read_text()
         front = json.loads(agent.split('---')[1])
@@ -114,7 +114,8 @@ def test_scoped_project_and_custom_agent_never_inherit_ambient_tools(engine, mon
         assert '[ARMADA working environment]' in agent
         assert json.dumps(str(own)) in agent
         assert 'pass absolute paths to file tools' in agent
-        assert str(tmp_path/'realm') not in args
+        assert str(tmp_path/'realm') in args
+        assert str(tmp_path) not in args  # Only the explicitly authorized parent.
     stream(monkeypatch,[final()],inspect=inspect)
     assert engine.run_stream('system','prompt',cwd=own,allow_tools=True,verbosity='brief').ok
 
@@ -141,6 +142,25 @@ def test_denied_directory_keeps_the_requested_path_without_expanding_grants(engi
     assert 'Requested path: /workspace.' in result.error
     assert result.raw['diagnostics'] == denial
     assert result.raw['file_requests'] == [{'tool':'list_dir','path':'/workspace'}]
+
+
+@pytest.mark.parametrize('realm_name', ["Laura's projects", 'Team (research)', 'Călătorii'])
+def test_authorized_ancestors_survive_gemini_permission_translation(engine, monkeypatch, tmp_path, realm_name):
+    realm = tmp_path/realm_name
+    own = realm/'agents/captain'
+    own.mkdir(parents=True)
+    outside = tmp_path/'outside'; outside.mkdir()
+    engine = engine.configure(ExecutionPolicy(writable_roots=(str(realm), str(realm), str(own))))
+    def inspect(args, kwargs):
+        added = [args[i+1] for i, arg in enumerate(args[:-1]) if arg == '--add-dir']
+        assert added == [str(own), str(realm)]
+        config = json.loads((Path.home()/'.gemini/config/projects'/f'{args[-1]}.json').read_text(encoding='utf-8'))
+        grants = config['permissionGrants']['permissionGrants']
+        assert grants['allow'] == [f'write_file({own.as_posix()})', f'write_file({realm.as_posix()})']
+        assert 'write_file(*)' not in grants['allow'] and 'read_file(*)' not in grants['allow']
+        assert str(outside) not in args and str(tmp_path) not in args
+    stream(monkeypatch, [final()], inspect=inspect)
+    assert engine.run_stream('system', 'Read the realm', cwd=own, allow_tools=True).ok
 
 
 @pytest.mark.parametrize('events,result,message',[
@@ -194,7 +214,7 @@ def test_real_filesystem_extension_maps_to_scoped_native_tools(engine, monkeypat
         config = json.loads((Path.home()/'.gemini/config/projects'/f'{project}.json').read_text())
         allowed = config['permissionGrants']['permissionGrants']['allow']
         assert not any(s.startswith('mcp(') for s in allowed)
-        assert allowed == ([f'write_file({own.as_posix()})'] if effective else [])
+        assert allowed == ([f'write_file({own.as_posix()})',f'write_file({tmp_path.as_posix()})'] if effective else [])
         assert ('No separate filesystem connector login is needed' in content) is effective
     stream(monkeypatch,[final('PONG\nARMADA_JOB_RESULT: SUCCESS')],inspect=inspect)
     result = (runner.chat(tmp_path,'health','main','Test ping',engine='auto') if path=='chat'

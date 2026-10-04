@@ -26,6 +26,7 @@ import threading
 import time
 from pathlib import Path  # noqa: F401 — used by the feed helpers below
 from .util import swallowed
+from .background import process_options
 
 log = logging.getLogger("armada.notify")
 
@@ -96,7 +97,6 @@ _recent: dict = {}
 _lock = threading.Lock()
 _feed_lock = threading.Lock()
 
-_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 
 # PowerShell reads the toast text from stdin as JSON, so no user text is ever interpolated into the
 # script source — titles containing quotes, $, or backticks can't break or inject into it.
@@ -301,7 +301,7 @@ def _send(title: str, body: str) -> None:
         p = subprocess.Popen(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS],
             stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-            text=True, encoding="utf-8", creationflags=_NO_WINDOW)
+            text=True, encoding="utf-8", **process_options())
         _, err = p.communicate(payload, timeout=20)
         if p.returncode != 0:
             log.debug("toast failed: %s", (err or "").strip()[:200])

@@ -67,3 +67,43 @@ def test_real_background_child_has_no_console():
         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10,
         **background.process_options())
     assert result.returncode == 0 and result.stdout.strip() == "False"
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows environment probe')
+def test_system_memory_refresh_never_launches_platform_shell_fallback(monkeypatch, tmp_path):
+    import platform
+    from armada import memory
+    # WMI failures in Python's platform helper previously fell back to `ver`.
+    # Reject both that helper and any child launch, rather than simulating a healthy WMI.
+    def forbidden(*args, **kwargs):
+        pytest.fail('Environment refresh must use native APIs, never WMI/shell probes')
+    monkeypatch.setattr(platform, 'uname', forbidden)
+    monkeypatch.setattr(subprocess, 'Popen', forbidden)
+    (tmp_path/'realm.json').write_text('{"name":"Environment fixture"}', encoding='utf-8')
+    result = memory.refresh_system_memory(tmp_path, trigger='test-periodic-refresh')
+    assert result['changed']
+    env = memory.default_env()
+    assert env['Operating system'].startswith('Windows') and env['Machine'] and env['CPU']
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows supervised launch')
+@pytest.mark.parametrize('rpc', [False, True])
+def test_supervised_streams_hide_windows_and_keep_suspended_job_assignment(monkeypatch, rpc):
+    from armada.engine import process
+    real_popen = subprocess.Popen
+    calls = []
+    def checked(args, **kwargs):
+        assert_hidden(kwargs)
+        assert kwargs['creationflags'] & 0x4
+        calls.append(args)
+        return real_popen(args, **kwargs)
+    monkeypatch.setattr(subprocess, 'Popen', checked)
+    args = [sys.executable, '-c', 'import ctypes,json; print(json.dumps({"console":bool(ctypes.windll.kernel32.GetConsoleWindow())}),flush=True)']
+    seen = []
+    if rpc:
+        result = process.supervise_rpc(args, start=lambda send: None,
+            on_message=lambda item, send: seen.append(item) or True, timeout=10)
+    else:
+        import json
+        result = process.supervise(args, prompt='', on_line=lambda line: seen.append(json.loads(line)), timeout=10)
+    assert not result.error and seen == [{'console': False}] and calls

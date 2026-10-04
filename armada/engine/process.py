@@ -16,6 +16,7 @@ import signal
 import subprocess
 import threading
 import time
+from ..background import process_options
 
 log = logging.getLogger(__name__)
 MAX_LINE = 8 * 1024 * 1024
@@ -141,7 +142,7 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
             tree = WindowsJob()
         proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace" if raw_output else "strict",
-                                cwd=cwd, env=env, creationflags=0x08000004 if os.name == "nt" else 0,
+                                cwd=cwd, env=env, **process_options(suspended=True),
                                 start_new_session=os.name != "nt")
         if tree is not None:
             tree.attach_and_resume(proc)
@@ -307,7 +308,7 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
             tree = WindowsJob()
         proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="strict",
-                                cwd=cwd, env=env, creationflags=0x08000004 if os.name == "nt" else 0,
+                                cwd=cwd, env=env, **process_options(suspended=True),
                                 start_new_session=os.name != "nt")
         if tree is not None:
             tree.attach_and_resume(proc)

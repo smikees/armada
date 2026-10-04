@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import appconfig, util
 from .util import swallowed
+from .background import process_options
 
 log = logging.getLogger(__name__)
 
@@ -88,13 +89,14 @@ def start() -> dict:
     from .updater import launch_arguments
     cmd = [_python_for_background(), *launch_arguments("schedule", "--engine", "auto",
                                                        "--app-owner", str(os.getpid()))]
-    flags = 0
+    options = process_options()
     if os.name == "nt":
-        DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW = 0x8, 0x200, 0x08000000
-        flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+        # DETACHED_PROCESS causes Windows to ignore CREATE_NO_WINDOW. The
+        # scheduler already has explicit ownership and needs no console attachment.
+        options['creationflags'] |= subprocess.CREATE_NEW_PROCESS_GROUP
     try:
         p = subprocess.Popen(cmd, cwd=str(_REPO), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, close_fds=True, creationflags=flags,
+                             stderr=subprocess.DEVNULL, close_fds=True, **options,
                              start_new_session=(os.name != "nt"))
     except Exception as e:  # noqa — reported to the caller, who shows it
         swallowed(log, "start: could not launch the scheduler")
@@ -131,7 +133,7 @@ def stop_for_app_exit() -> None:
         try:
             if os.name == "nt":
                 subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
-                               capture_output=True, timeout=5, check=False, creationflags=0x08000000)
+                               capture_output=True, timeout=5, check=False, **process_options())
             else:
                 import signal
                 os.kill(pid, signal.SIGTERM)

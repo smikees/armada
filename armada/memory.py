@@ -232,18 +232,39 @@ def merge_core_fields(realm_root, fields: dict):
 def default_env() -> dict:
     """Best-effort environment facts from the standard library (portable; no extra deps)."""
     import platform
+    import socket
+    import sys
     import time as _time
     tz = ""
     try:
         tz = (_time.tzname[_time.localtime().tm_isdst and 1 or 0] or "").strip()
     except Exception:  # noqa
         log.debug('default_env: failed; ignored', exc_info=True)
-    osname = f"{platform.system()} {platform.release()}".strip()
-    ver = platform.version()
+    if os.name == "nt":
+        # platform.uname()/win32_ver() can fall back to spawning `cmd /c ver`
+        # when WMI is unavailable. In a GUI host that flashes a console, including
+        # during periodic system-memory refreshes. These native APIs never spawn.
+        win = sys.getwindowsversion()
+        major, minor, build = win.platform_version
+        release = ("11" if build >= 22000 else "10") if major == 10 and win.product_type == 1 else ""
+        osname = f"Windows {release}".strip()
+        ver = f"{major}.{minor}.{build}"
+        cpu = os.environ.get('PROCESSOR_IDENTIFIER', '')
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'HARDWARE\DESCRIPTION\System\CentralProcessor\0') as key:
+                cpu = str(winreg.QueryValueEx(key, 'ProcessorNameString')[0]).strip() or cpu
+        except OSError:
+            pass
+        machine = socket.gethostname()
+    else:
+        osname = f"{platform.system()} {platform.release()}".strip()
+        ver = platform.version()
+        cpu, machine = platform.processor(), platform.node()
     if ver and ver not in osname:
         osname = f"{osname} ({ver})"
-    env = {"Operating system": osname, "Machine": platform.node(),
-           "CPU": platform.processor() or f"{__import__('os').cpu_count()} cores"}
+    env = {"Operating system": osname, "Machine": machine,
+           "CPU": cpu or f"{os.cpu_count()} cores"}
     if tz:
         env["Timezone"] = tz
     return env
