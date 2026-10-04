@@ -1,0 +1,43 @@
+name: Windows validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12.10', '3.12']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run isolated default tests
+        run: python tools/release_gate.py
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check PHP report relay without network
+        run: php support-relay/test.php "$RUNNER_TEMP/relay-test"

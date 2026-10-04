@@ -12,11 +12,70 @@ now: nothing in the suite touches the network or spawns a desktop toast, and a t
 fails loudly rather than quietly buzzing somebody's phone.
 """
 import sys
+import ipaddress
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+
+def pytest_addoption(parser):
+    parser.addoption("--live-realm", default="", help="Explicit read-only integration check of this realm")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_home(monkeypatch, tmp_path_factory):
+    """No default test may discover the developer's provider credentials or machine registry."""
+    home = tmp_path_factory.mktemp('isolated-home')
+    for variable, folder in {'HOME':home, 'USERPROFILE':home, 'APPDATA':home/'AppData/Roaming',
+                             'LOCALAPPDATA':home/'AppData/Local', 'CODEX_HOME':home/'.codex',
+                             'XDG_CONFIG_HOME':home/'.config'}.items():
+        folder.mkdir(parents=True,exist_ok=True)
+        monkeypatch.setenv(variable,str(folder))
+    for variable in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','GEMINI_API_KEY','GOOGLE_API_KEY',
+                     'RESEND_API_KEY','ARMADA_RESEND_KEY','ARMADA_TEST_REALM'):
+        monkeypatch.delenv(variable,raising=False)
+    from armada import usage_api
+    monkeypatch.setattr(usage_api,'_CREDS',home/'.claude/.credentials.json')
+
+
+@pytest.fixture(autouse=True)
+def _external_boundaries(monkeypatch):
+    """Fail loudly at real network/process boundaries; individual tests inject fake transports."""
+    import socket
+    connect, connect_ex = socket.socket.connect, socket.socket.connect_ex
+    def local(address):
+        if not isinstance(address,tuple): return  # Unix-domain sockets
+        host = address[0]
+        if host == 'localhost': return
+        try: allowed = ipaddress.ip_address(host).is_loopback
+        except ValueError: allowed = False
+        if not allowed: pytest.fail('A default test attempted a non-loopback network connection')
+    def guarded_connect(sock,address):
+        local(address)
+        return connect(sock,address)
+    def guarded_connect_ex(sock,address):
+        local(address)
+        return connect_ex(sock,address)
+    monkeypatch.setattr(socket.socket,'connect',guarded_connect)
+    monkeypatch.setattr(socket.socket,'connect_ex',guarded_connect_ex)
+    popen = subprocess.Popen
+    def guard_process(args):
+        argv = [str(item) for item in args] if isinstance(args,(list,tuple)) else [str(args)]
+        executable = Path(argv[0]).name.lower() if argv else ''
+        provider = executable.removesuffix('.exe').removesuffix('.cmd') in ('claude','codex','agy','antigravity')
+        script = any('/claude-code/' in arg.replace('\\','/').lower() or '/@openai/codex/' in arg.replace('\\','/').lower()
+                     for arg in argv[1:] if '\n' not in arg)
+        if provider or script: pytest.fail('A default test attempted to launch a real provider CLI')
+    class GuardedPopen(popen):
+        # Keep Popen a class: asyncio.windows_utils subclasses it, including on a late import.
+        def __init__(self,args,*a,**kw):
+            guard_process(args)
+            super().__init__(args,*a,**kw)
+    monkeypatch.setattr(subprocess,'Popen',GuardedPopen)
 
 
 @pytest.fixture(autouse=True)

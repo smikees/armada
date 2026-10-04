@@ -40,8 +40,8 @@
   window.mcUpdCheck=check;
 
   // Put the waiting version in place and come back on it. Used by this bar and by Settings.
-  // Either this window's server swaps the folder itself (then restarts), or — when the scheduler is
-  // running — the scheduler does it at its next quiet moment and restarts the window after. Both
+  // The window and scheduler restart when idle. The stable launcher then replaces the package
+  // after every process using the old version has exited. Both
   // end the same way: the server comes back reporting the new version, and the page reloads.
   window.mcUpdateNow=async function(btn,msg){
     const say=function(t){ if(msg) msg.textContent=t; };
@@ -51,7 +51,7 @@
     try{ r=await(await fetch('/update',{method:'POST'})).json(); }
     catch(e){ say('error: '+e); if(btn) btn.disabled=false; return; }
     if(!r.ok){ say(r.error||r.out||"Couldn't update."); if(btn) btn.disabled=false; return; }
-    if(r.applied || r.out!==undefined){             // swapped here (or a git pull): restart now
+    if((r.restart && !r.waiting) || r.applied || r.out!==undefined){
       say('restarting…');
       try{ await fetch('/restart',{method:'POST'}); }catch(e){}
     }else{

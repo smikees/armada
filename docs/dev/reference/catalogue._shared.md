@@ -44,7 +44,7 @@ One catalogue record. `key` is what the UI and the realm both refer to it by.
 
 ### `_known_realms()`
 
-Realm folders from ARMADA's own registry. Read directly rather than through serve, which would drag the whole web layer into a module the daily job imports.
+Read the domain registry without importing the HTTP layer.
 
 ### `_norm_id(s)`
 

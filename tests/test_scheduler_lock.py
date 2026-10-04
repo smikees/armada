@@ -116,9 +116,11 @@ def test_dry_run_ticks_are_never_blocked_by_the_lock(tmp_path, monkeypatch):
     assert fired == [], "no agents/jobs in this fixture, and no lock-skip record either"
 
 
-def test_a_standalone_tick_takes_and_releases_the_lock_around_itself(tmp_path):
+def test_a_standalone_tick_takes_and_releases_the_lock_around_itself(tmp_path, monkeypatch):
     """After a normal (unlocked) tick, the lock must not be left behind for the next caller."""
     r = _realm(tmp_path)
+    from armada import sysjobs
+    monkeypatch.setattr(sysjobs, 'run_due', lambda *a, **kw: [])
     S.tick(r)
     assert S.lock_holder(r) is None
 

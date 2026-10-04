@@ -20,7 +20,7 @@ from golden_support import ServedRealm, build_fixture
 
 def request(server, path, *, context=None, body=None, port=None):
     conn = http.client.HTTPConnection("127.0.0.1", port or server.port, timeout=10)
-    headers = {"Content-Type": "application/json"}
+    headers = {**server.auth_headers(), "Content-Type": "application/json"}
     if context:
         headers["X-Armada-Realm"] = context.realm_id
     try:
@@ -148,7 +148,7 @@ def test_same_ids_in_two_realms_keep_turns_reports_titles_and_cancellation_separ
             try:
                 conn.request("POST", "/api/chat-stream", json.dumps({"agent": "captain", "thread": "new-chat-race",
                              "message": "ping", "tid": "same-run"}),
-                             {"Content-Type": "application/json", "X-Armada-Realm": context.realm_id})
+                             {**server.auth_headers(), "Content-Type": "application/json", "X-Armada-Realm": context.realm_id})
                 response = conn.getresponse()
                 assert response.status == 200
                 while line := response.readline():

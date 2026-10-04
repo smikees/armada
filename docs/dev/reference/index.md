@@ -59,6 +59,7 @@
 | [`job_results`](job_results.md) | Versioned per-run job results |
 | [`job_retries`](job_retries.md) | Bounded job retries with durable attempt evidence and conservative replay rules. |
 | [`jobs`](jobs.md) | Agent-authored job proposals (pending owner approval). |
+| [`local_auth`](local_auth.md) | Per-server loopback credentials, bootstrapped through an owner-only local file. |
 | [`memory`](memory.md) | Layered memory + always-on core assembly (SPEC §5). |
 | [`memory_boundary`](memory_boundary.md) | Non-destructive memory boundary: provider denials where available, observation everywhere. |
 | [`model`](model.md) | ARMADA domain model (neutral ontology). |
@@ -72,6 +73,7 @@
 | [`provider_login`](provider_login.md) | Owned browser-login processes |
 | [`providers`](providers.md) | App-wide provider connections |
 | [`reader`](reader.md) | ARMADA realm reader — adopts a realm folder into the model. |
+| [`realm_registry`](realm_registry.md) | Machine realm discovery with one strict, exclusive mutation boundary. |
 | [`realmformat`](realmformat.md) | The realm's on-disk format version, and the one place that upgrades it. |
 | [`realmops`](realmops.md) | Realm lifecycle — archive, export, delete. |
 | [`recommended`](recommended.md) | Starter capabilities with explicit upstream sources and connection requirements. |
@@ -100,7 +102,7 @@
 | [`starter_profiles`](starter_profiles.md) | Bundled starter profiles, separate from personal realms and copied only at creation. |
 | [`startup_splash`](startup_splash.md) | Loading artwork inside the main window, including while WebView2 starts. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
-| [`support`](support.md) | Report an issue (launch plan 5.6, ADR-005). |
+| [`support`](support.md) | Send exactly the approved, redacted report through ARMADA's public relay. |
 | [`sysjobs`](sysjobs.md) | System jobs — the recurring work ARMADA does to keep itself current. |
 | [`sysskills`](sysskills.md) | System skills — the skills ARMADA itself needs to work. |
 | [`sysusage`](sysusage.md) | System usage: tokens ARMADA itself spends, as opposed to the owner's agents. |

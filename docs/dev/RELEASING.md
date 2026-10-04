@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.74. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.75. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -49,16 +49,24 @@ the tests now guard).
 
 ## 5. Ship to the running app
 
-Since 2026-09-24 Mihai's everyday ARMADA is the **installed** copy (`%LOCALAPPDATA%\Programs\ARMADA`),
-so a change reaches him as a release: do §6 and §6b first, then update his copy the way Check for
-updates → Restart to update does, and confirm the version:
+Since 2026-09-24 Mihai's everyday ARMADA is the **installed** copy (`%LOCALAPPDATA%\Programs\ARMADA`).
+Version 0.99.75 requires a full installer upgrade from older betas: the old runtime lacks the stable
+bootstrap and timezone data. Wait for active jobs to finish, run the installer and reopen ARMADA;
+verify the authenticated version endpoint. It preserves realms and settings. A private unsigned
+candidate may be installed locally when Mihai requests it, clearly recording that public release
+validation is outstanding. It must not be published as the Application Control fix.
+
+For subsequent compatible releases, do §6 and §6b first, then use Settings → Check for updates →
+Restart to update. Local scripting must read the owner-protected authentication file without
+printing its token:
 
 ```powershell
 $b = "http://127.0.0.1:8756"
-Invoke-RestMethod "$b/api/check-update" -TimeoutSec 180          # downloads, verifies, stages
-$u = Invoke-RestMethod "$b/update" -Method Post                  # swaps it in (or asks the scheduler to)
-if ($u.applied) { Invoke-RestMethod "$b/restart" -Method Post }
-Start-Sleep 8; (Invoke-RestMethod "$b/api/update-status").version
+$auth = Get-Content "$env:USERPROFILE\.armada\local-auth\8756.json" -Raw | ConvertFrom-Json
+$headers = @{Authorization=('Bearer ' + $auth.token)}
+Invoke-RestMethod "$b/api/check-update" -Headers $headers -TimeoutSec 180
+Invoke-RestMethod "$b/update" -Headers $headers -Method Post
+# After restart, read the new token and check /api/update-status with the new headers.
 ```
 
 Then open the pages the change touched, in light and dark mode, and check the browser console for
@@ -80,35 +88,67 @@ cmd /c 'git -c credential.helper= -c "credential.helper=!\"C:/Program Files/GitH
 ```
 
 Before pushing, the commit must not add anything personal: no realm data, no keys (the Resend key
-lives in `MATCAP-private\resend.key`, outside the repo, and never in it), no personal figures.
+lives only in private hosting configuration, and never in a client build), no personal figures.
 Commits are authored with the GitHub no-reply address (repo-local `user.email`). Only `main` is
 pushed; `archive/private-history` stays local.
 
 ### 6b. Publish an update release (once installed copies exist — from 5.2 / 5.10 on)
 
 Installed copies update themselves from GitHub Releases (5.4, [ADR-011](../adr/ADR-011-updater.md)).
-Every release is published (Mihai, 2026-09-24). After the push, from the same commit — or all of it
-in one go with `.venv\Scripts\python tools\publish_release.py`:
+Every release is published (Mihai, 2026-09-24). Install the pinned runtime and development
+dependencies, commit the release, push it, and wait for Windows validation to pass for that commit.
+Then run the enforced publish path:
 
 ```powershell
-.venv\Scripts\python tools\build_release.py          # signs with ..\MATCAP-private\update-signing.key
-gh release create v<version> dist\v<version>\* --title "ARMADA v<version>" --notes "<changelog lines>"
+.venv\Scripts\python tools\publish_release.py
 ```
 
-For a release that goes to testers as an installer, build it from the same commit (Windows, with
-`uv` and Inno Setup 7; [ADR-009](../adr/ADR-009-installer.md)):
+It runs the isolated default suite, requires successful push CI for the exact HEAD, builds both
+artifacts, and rehearses that exact installer in Windows Sandbox before publishing. A source
+change during validation aborts publishing. Sandbox evidence includes the installer SHA-256,
+report and first-window screenshot under build/sandbox-runs. To rehearse privately:
 
 ```powershell
-.venv\Scripts\python tools\build_installer.py     # stage, smoke-test, compile → dist\ARMADA-Setup-<version>.exe
-.venv\Scripts\python tools\sandbox_test.py        # 5.10: install/open/uninstall/reinstall in Windows Sandbox
+.venv\Scripts\python tools\build_installer.py
+.venv\Scripts\python tools\sandbox_test.py --installer dist\ARMADA-Setup-<version>.exe
 ```
 
-Attach `ARMADA-Setup-<version>.exe` to the same GitHub release. It must be built after
-`armada/support_key.txt` is in place, or Report an issue only saves reports locally.
+The builder exercises interrupted-update recovery through the compiled native launcher and checks
+named timezones in its bundled runtime. The default suite isolates user homes, refuses external
+network connections and real provider launches, and skips live-realm checks unless --live-realm
+is explicitly supplied. CI tests both the packaged Python patch version and the current 3.12 patch.
+Review Python security updates before each release; refreshing the packaged runtime requires a
+new installer and another Sandbox rehearsal.
 
-A normal release, never a pre-release or draft (the updater follows `/releases/latest/download/`,
-which skips both). A release whose `requirements.txt` changed ships the installer too: copies
-won't take it in place. Never commit `dist/` or the key.
+No mail key belongs in either artifact. Report an issue sends through the PHP relay; see
+the [relay deployment instructions](../../support-relay/README.md). The old beta sending key was
+revoked and live relay delivery was confirmed on 2026-10-03.
+
+Public installer builds now require `ARMADA_SIGNING_CONFIG`, pointing to private JSON outside
+the repository. Its `command` is an argument array invoking the chosen signing provider with
+exactly one `{file}` placeholder; `publisher` is the exact certificate subject. Configure SHA-256
+file digests and RFC 3161 timestamping in the provider command. Keep credentials in the provider's
+credential store, never in arguments or the JSON. For a certificate in the user's store, the
+arguments are `signtool.exe`, `sign`, `/sha1`, the thumbprint, `/fd`, `SHA256`, `/tr`, the timestamp
+URL, `/td`, `SHA256`, `{file}`. Use a certificate trusted by Windows for public distribution.
+
+The builder signs unsigned PE files, including native Python modules, preserves valid upstream
+signatures and rejects invalid ones. Inno Setup invokes the same signing helper with
+`SignedUninstaller=yes`, covering its extracted temporary executable as well as Setup and
+Uninstall. Every new signature must validate, match the configured publisher and carry a
+timestamp. Test the signed result on a clean Windows installation with Smart App Control enabled;
+signature inspection alone does not establish compliance with every managed enterprise policy.
+Private local builds can use `tools/build_installer.py --allow-unsigned`; the publish script has
+no such override. `tools/sign_windows.py` has been tested with a simulated signer; end-to-end
+trusted signing remains pending the publisher account.
+
+The stable bootstrap ships outside the replaceable package. Its protocol and dependencies form
+the runtime compatibility tag; changing either requires a new installer. Existing beta clients
+must install this stabilization release because their runtime lacks the bootstrap and timezone
+data. Later compatible package updates recover through the journal before importing ARMADA.
+
+Publish a normal release, never a pre-release or draft: the updater follows the latest release.
+Never commit build outputs or signing credentials.
 
 ## 7. Record it
 
@@ -118,7 +158,9 @@ won't take it in place. Never commit `dist/` or the key.
 
 ## Release boundaries
 
-The installer is not Authenticode-signed in this beta. Update manifests are Ed25519-signed;
-these are separate guarantees. Test clean-machine installation using the sandbox procedure
+The last published installer (0.99.74) lacks Authenticode signatures and can fail with error 4551
+on protected machines. Public builds now require publisher signing; the account is not yet
+configured. Update manifests are Ed25519-signed; these are separate guarantees.
+Test clean-machine installation using the sandbox procedure
 above when changing packaging, launcher or runtime dependencies. Do not restart a user's running
 app merely to publish a release. Announcements and website deployment need their own authorization.

@@ -20,6 +20,8 @@ import time
 log = logging.getLogger(__name__)
 MAX_LINE = 8 * 1024 * 1024
 MAX_STDOUT = 32 * 1024 * 1024
+MAX_COMMAND_STDOUT = 4 * 1024 * 1024
+MAX_COMMAND_STDERR = 1024 * 1024
 CLEANUP_SECONDS = 3
 
 
@@ -30,6 +32,7 @@ class ProcessResult:
     error: str = ""
     cancelled: bool = False
     timed_out: bool = False
+    stdout: str = ""
 
 
 class RunProcess:
@@ -60,7 +63,7 @@ def safe_emit(callback, event):
             log.exception("CLI event observer failed")
 
 
-def supervise(args, *, prompt, on_line, timeout, cwd=None, env=None, on_proc=None):
+def supervise(args, *, prompt, on_line, timeout, cwd=None, env=None, on_proc=None, raw_output=False):
     """Run one owned process; on_line receives complete lines and may reject malformed output.
 
 Callbacks must return promptly. Memory is bounded at the transport: at most 8 queued lines
@@ -72,7 +75,7 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
     workers = []
     stopping = threading.Event()
     events = queue.Queue(maxsize=8)
-    stderr = deque(maxlen=64)
+    stderr = deque(maxlen=None if raw_output else 64)
     worker_errors = []
     deadline = time.monotonic() + timeout if timeout else None
 
@@ -86,8 +89,9 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
 
     def stdout_reader():
         try:
-            while line := proc.stdout.readline(MAX_LINE + 1):
-                if len(line) > MAX_LINE:
+            read = (lambda: proc.stdout.read(4096)) if raw_output else (lambda: proc.stdout.readline(MAX_LINE + 1))
+            while line := read():
+                if not raw_output and len(line) > MAX_LINE:
                     raise ValueError("CLI output line exceeded the 8 MiB limit")
                 put(("line", line))
         except Exception as exc:
@@ -99,7 +103,11 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
 
     def stderr_reader():
         try:
+            received = 0
             while chunk := proc.stderr.read(4096):
+                received += len(chunk.encode('utf-8'))
+                if raw_output and received > MAX_COMMAND_STDERR:
+                    raise ValueError("Command stderr exceeded the 1 MiB limit; process tree stopped")
                 stderr.append(chunk)
         except Exception as exc:
             log.exception("CLI stderr reader failed")
@@ -132,7 +140,7 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
             from .windows_job import WindowsJob
             tree = WindowsJob()
         proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="strict",
+                                stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace" if raw_output else "strict",
                                 cwd=cwd, env=env, creationflags=0x08000004 if os.name == "nt" else 0,
                                 start_new_session=os.name != "nt")
         if tree is not None:
@@ -179,11 +187,13 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
                 eof = True
             elif kind == "error":
                 raise RuntimeError(value)
-            elif value.strip():
-                received += len(value)
-                if received > MAX_STDOUT:
-                    raise ValueError("CLI stdout exceeded the 32 MiB turn limit")
-                on_line(value)
+            else:
+                received += len(value.encode('utf-8'))
+                if received > (MAX_COMMAND_STDOUT if raw_output else MAX_STDOUT):
+                    raise ValueError("Command stdout exceeded the 4 MiB limit; process tree stopped" if raw_output
+                                     else "CLI stdout exceeded the 32 MiB turn limit")
+                if raw_output or value.strip():
+                    on_line(value)
     except Exception as exc:
         result.error = f"CLI process failed: {exc}"
         log.debug("CLI supervisor failed", exc_info=True)
@@ -227,11 +237,24 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
                 except Exception as exc:
                     log.exception("CLI process handle close failed")
                     result.error = result.error or f"CLI handle cleanup failed: {exc}"
-        result.stderr = "".join(stderr)[-4000:]
+        result.stderr = "".join(stderr) if raw_output else "".join(stderr)[-4000:]
         if worker_errors and not result.error:
             result.error = worker_errors[0]
     if result.returncode != 0 and not result.error:
         result.error = f"CLI exited with code {result.returncode}: {result.stderr}"
+    return result
+
+
+def supervise_command(args, *, timeout, cwd=None, env=None, on_proc=None):
+    """Own a noninteractive command without parsing a provider protocol.
+
+    Preserve whitespace and replacement decoding. Exceeding either output limit stops the
+    entire tree and reports failure, so a truncated success cannot pass job-result checks.
+    """
+    chunks = []
+    result = supervise(args, prompt="", on_line=chunks.append, timeout=timeout, cwd=cwd,
+                       env=env, on_proc=on_proc, raw_output=True)
+    result.stdout = "".join(chunks)
     return result
 
 

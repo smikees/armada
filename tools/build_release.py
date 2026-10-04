@@ -68,6 +68,8 @@ def build(key_path: Path, out_root: Path) -> Path:
     if _git("status", "--porcelain", "--untracked-files=no", "--", "armada").strip():   # only tracked files ship
         sys.exit("armada/ has uncommitted changes — commit first; a release is a commit")
     files = [f for f in _git("ls-files", "--", "armada").splitlines() if f]
+    if any(Path(f).name == "support_key.txt" for f in files):
+        sys.exit("A support credential must never enter a release")
     if not files:
         sys.exit("git lists no files under armada/")
     out = out_root / f"v{ver}"

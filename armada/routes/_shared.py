@@ -1,7 +1,6 @@
 """Shared helpers for the route mixins in armada/routes/.
 
-Module-level functions used by more than one area: the realm registry at ~/.armada/realms.json,
-a realm's JSON projection, a job's JSON projection, thread-title heuristics. Plus `SharedRoutes`,
+Module-level functions used by more than one area: a realm's JSON projection, a job's JSON projection, thread-title heuristics. Plus `SharedRoutes`,
 a mixin of handler methods that are themselves genuinely cross-cutting (`_slug`,
 `_write_data_image`, `_refresh_system`/`_refresh_system_ep`, `_render_md`) rather than belonging
 to one area.
@@ -62,56 +61,6 @@ def _llm_title(agent_dir, first_msg: str) -> str:
     except Exception:  # noqa
         swallowed(log, '_llm_title: failed; ignored')
     return ""
-
-
-def _reg_path() -> Path:
-    return util.data_dir() / "realms.json"
-
-
-def _reg_load() -> list[dict]:
-    p = _reg_path()
-    try:
-        return json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else []
-    except Exception:  # noqa
-        swallowed(log, '_reg_load: failed; returning a fallback')
-        return []
-
-
-def _reg_save(items: list[dict]) -> None:
-    p = _reg_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    util.write_json_atomic(p, items)
-
-
-def _reg_rename(path: str, name: str) -> None:
-    """Keep the registry's copy of a realm's name in step with realm.json.
-
-    Two stores hold it: realm.json, which the realm itself carries anywhere it goes, and
-    ~/.armada/realms.json, which is what the switcher and the realm menu actually read. Writing
-    one without the other is how a realm ends up with two names on the same screen.
-    """
-    try:
-        target = str(Path(path).resolve())
-    except OSError:
-        return
-    items = _reg_load()
-    hit = False
-    for i in items:
-        try:
-            if str(Path(i.get("path", "")).resolve()) == target:
-                i["name"], hit = name, True
-        except OSError:
-            continue
-    if hit:
-        _reg_save(items)
-
-
-def _reg_ensure(path: str, name: str) -> None:
-    path = str(Path(path).resolve())
-    items = _reg_load()
-    if not any(i.get("path") == path for i in items):
-        items.append({"name": name, "path": path})
-        _reg_save(items)
 
 
 # ---- model -> JSON -------------------------------------------------------------------------

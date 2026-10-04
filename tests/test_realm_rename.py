@@ -11,7 +11,7 @@ import json
 import pytest
 
 from armada import reader, serve
-from armada.routes import _shared
+from armada import realm_registry
 
 
 @pytest.fixture
@@ -20,12 +20,10 @@ def realm(tmp_path, monkeypatch):
                                          encoding="utf-8")
     (tmp_path / "agents").mkdir()
     reg = tmp_path / "registry.json"
-    # _save_realm_settings (armada/routes/realm.py) reaches the registry through _shared's own
-    # module-level _reg_path — that's the name it actually resolves at call time, so that's what
-    # has to be patched (patching armada.serve's copy of the name wouldn't reach it).
-    monkeypatch.setattr(_shared, "_reg_path", lambda: reg)
-    _shared._reg_save([{"name": "Old Name", "path": str(tmp_path.resolve())},
-                       {"name": "Somewhere Else", "path": str(tmp_path / "other")}])
+    monkeypatch.setattr(realm_registry, "path", lambda: reg)
+    with realm_registry.edit() as rows:
+        rows[:] = [{"name": "Old Name", "path": str(tmp_path.resolve())},
+                   {"name": "Somewhere Else", "path": str(tmp_path / "other")}]
     return tmp_path
 
 
@@ -43,7 +41,7 @@ def test_renaming_writes_realm_json(realm):
 
 def test_renaming_also_updates_the_switcher(realm):
     _save(realm, {"name": "The Cabinet"})
-    items = _shared._reg_load()
+    items = realm_registry.load()
     assert items[0]["name"] == "The Cabinet"
     assert items[1]["name"] == "Somewhere Else", "only this realm's entry moves"
 
@@ -69,10 +67,11 @@ def test_not_sending_a_name_leaves_it_alone(realm):
 def test_renaming_a_realm_the_registry_does_not_know(realm, monkeypatch):
     """Adding a realm registers it, but a realm opened by path alone may not be in the list. That
     is not a reason to refuse the rename."""
-    _shared._reg_save([{"name": "Somewhere Else", "path": str(realm / "other")}])
+    with realm_registry.edit() as rows:
+        rows[:] = [{"name": "Somewhere Else", "path": str(realm / "other")}]
     assert _save(realm, {"name": "Unlisted"})["ok"] is True
     assert json.loads((realm / "realm.json").read_text(encoding="utf-8"))["name"] == "Unlisted"
-    assert [i["name"] for i in _shared._reg_load()] == ["Somewhere Else"]
+    assert [i["name"] for i in realm_registry.load()] == ["Somewhere Else"]
 
 
 def test_the_settings_page_offers_the_field(realm):

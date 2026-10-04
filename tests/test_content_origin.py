@@ -15,7 +15,7 @@ from armada import origins, serve
 from armada.request_context import RealmContext
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def srv(tmp_path_factory):
     root = Path(build_fixture(tmp_path_factory.mktemp("content") / "realm"))
     site = root / "shared" / "site"
@@ -38,7 +38,9 @@ def srv(tmp_path_factory):
 
 def _req(port, method, path, headers=None, body=None):
     c = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
-    h = {"Host": f"127.0.0.1:{port}", "X-Armada-Realm": RealmContext.capture(serve.Handler.realm).realm_id, **(headers or {})}
+    from armada import local_auth
+    auth = {"Authorization": "Bearer " + serve._content_httpd.auth.token} if port == origins.content_port() else local_auth.headers(port)
+    h = {**auth, "Host": f"127.0.0.1:{port}", "X-Armada-Realm": RealmContext.capture(serve.Handler.realm).realm_id, **(headers or {})}
     data = json.dumps(body).encode() if body is not None else None
     if data:
         h["Content-Type"] = "application/json"

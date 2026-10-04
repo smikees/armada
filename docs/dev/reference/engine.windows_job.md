@@ -20,10 +20,16 @@ fails launch; process.py then kills the still-suspended child. No shell or taskk
 —
 
 
+### class `Accounting`
+
+—
+
+
 ### class `WindowsJob`
 
 —
 
 - `WindowsJob.__init__(self)` — —
 - `WindowsJob.attach_and_resume(self, process)` — —
+- `WindowsJob._process_handles(self)` — Hold identities across termination; querying numeric PIDs afterward can see reuse.
 - `WindowsJob.close(self)` — —

@@ -216,15 +216,19 @@ def parse_schedule(sched: str) -> Optional[tuple[set[int], int, int]]:
     return days, hh, mm
 
 
+class TimezoneError(ValueError):
+    """A configured realm clock must never silently become the machine clock."""
+
+
 def _tz(realm_cfg: dict):
     name = realm_cfg.get("timezone")
-    if name:
-        try:
-            from zoneinfo import ZoneInfo
-            return ZoneInfo(name)
-        except Exception:  # noqa - missing tzdata etc.; fall back to local
-            log.debug('_tz: failed; ignored', exc_info=True)
-    return None  # local time
+    if not name or name == "local":
+        return None  # Both existing local settings and an unset zone follow the machine.
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(name)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise TimezoneError(f"Cannot resolve realm timezone {name!r}. Choose a valid IANA timezone in Settings, or repair the installation's timezone data.") from exc
 
 
 def now_in(realm_cfg: dict) -> datetime.datetime:
@@ -357,7 +361,12 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
         realmformat.ensure(realm_root)
     cfg = _load_json(realm_root / "realm.json")
     grace = grace_min if grace_min is not None else int(cfg.get("grace_minutes", 120))
-    now = at or now_in(cfg)
+    try:
+        _tz(cfg)  # Validate even when a caller supplies a preview clock.
+        now = at or now_in(cfg)
+    except TimezoneError as exc:
+        return [{"agent": "system", "job": "timezone-hold", "kind": "system",
+                 "status": "held", "detail": str(exc)}]
     day_iso = now.date().isoformat()
     fired = []
     lease = _lease
@@ -602,7 +611,8 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                               ( _util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
                 print("  ARMADA window exited — stopping scheduled jobs", flush=True)
                 break
-            now = now_in(cfg)
+            from . import clock
+            now = clock.now()  # Display-only; each tick validates its own realm clock.
             if rescan is not None:
                 _adopt_new_realms(rescan, owned, others)
             for p in [realm_root, *others]:

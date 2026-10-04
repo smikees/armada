@@ -22,6 +22,7 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 - `Handler._refuse_host(self)` — —
 - `Handler.log_message(self, *args)` — —
 - `Handler._cross_site(self)` — —
+- `Handler._authenticated(self)` — —
 - `Handler.do_GET(self)` — —
 - `Handler._route_welcome_get(self, path: str)` — —
 - `Handler._route_welcome_post(self, path: str)` — —
@@ -57,6 +58,8 @@ Log to stderr and to ~/.armada/logs/armada.log (outside the versioned realm) so 
 
 The cockpit's HTTP server.
 
+- `_Server.__init__(self, address, handler, *, session=None)` — —
+- `_Server.server_close(self)` — —
 
 ### `port_owner(port: int=8756)`
 
@@ -73,7 +76,7 @@ The content-only server (5.8a): the untrusted pages and nothing else — no API,
 
 —
 
-### `start_content_server(port: int)`
+### `start_content_server(port: int, *, session=None)`
 
 Bind the content server on `port` (the app's port + 1), or any free port if that one is still held — Update & Restart hands ports over, and for a moment the old process may keep it. Returns the port bound, or None if nothing could be (the app then sandboxes that content itself).
 

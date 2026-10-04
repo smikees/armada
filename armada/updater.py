@@ -24,14 +24,11 @@ signing key too, which lives offline in MATCAP-private and never in the reposito
 
 **When it's applied.** Downloading and checking happen in the background (a system job in the
 scheduler, or Settings → Check for updates). The verified folder waits beside the live one as
-`armada.staged\\`. It replaces the live folder only when exactly one ARMADA process would be
-running the old code, so no process ever runs half old, half new:
-
-- at start-up (`boot()`), before anything else is imported — the window when the scheduler isn't
-  running, the scheduler when the window isn't open;
-- by the scheduler between passes, when the window isn't open and nothing is mid-reply;
-- when the owner clicks *Restart to update* (the scheduler, if running, is asked to do it at its
-  next quiet moment and to restart the window after; otherwise the window does it itself).
+`armada.staged\\`. Applying it requires a restart through the stable bootstrap outside this
+package. The bootstrap owns a durable journal and an installation lock, recovers any interrupted
+swap before importing ARMADA, and waits for existing process leases to close. The scheduler asks
+the window to restart only at a quiet point; new work is refused once a restart is requested.
+No running HTTP worker replaces the package it has imported.
 
 The old folder is kept as `armada.previous\\` until the next update, so a bad release can be rolled
 back by hand. The data folder and realms are never touched; the realm migration (2.8) runs on the
@@ -54,6 +51,9 @@ import sys
 import time
 import urllib.request
 import zipfile
+import tempfile
+
+import armada_bootstrap as bootstrap
 from pathlib import Path
 
 from . import __version__, ed25519, util
@@ -79,7 +79,7 @@ MARKER = ROOT / "installed.json"                 # written by the installer (5.2
 STAGED = ROOT / "armada.staged"
 PREVIOUS = ROOT / "armada.previous"
 _STAGED_INFO = ".staged.json"
-_CARRY = ("support_key.txt",)                   # local files the release zip doesn't ship
+_CARRY = ()                                    # no client credentials are carried into updates
 
 _MAX_MANIFEST, _MAX_SIG, _MAX_ZIP = 64 * 1024, 1024, 60 * 1024 * 1024
 _VER_RE = re.compile(r"^\d+(\.\d+){1,3}$")
@@ -97,7 +97,7 @@ def runtime_tag(requirements_text: str, python: str | None = None) -> str:
     installed one; otherwise it needs a new installer. Comments and blank lines don't count."""
     py = python or f"{sys.version_info[0]}.{sys.version_info[1]}"
     lines = sorted(l.split("#", 1)[0].strip().lower() for l in requirements_text.splitlines())
-    body = "\n".join(l for l in lines if l)
+    body = "\n".join(l for l in lines if l) + f"\nbootstrap:{bootstrap.PROTOCOL}"
     return f"py{py}-" + hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
 
 
@@ -157,7 +157,7 @@ def _save(**kw) -> dict:
 
 
 def _request_path() -> Path:
-    return util.data_dir() / "update-apply.request"
+    return ROOT / bootstrap.REQUEST
 
 
 def _scheduler_pid_path() -> Path:
@@ -253,7 +253,8 @@ def _safe_members(zf: zipfile.ZipFile) -> list:
         n = info.filename.replace("\\", "/")
         parts = n.split("/")
         if (not n.startswith("armada/") or n.startswith("/") or ":" in parts[0]
-                or any(p in ("..",) for p in parts)):
+                or any(p in ("..",) or ":" in p or p.rstrip(' .') != p for p in parts)
+                or any(p.lower() == 'support_key.txt' for p in parts)):
             raise UpdateError("the release zip has an unexpected layout")
         if "__pycache__" in parts:
             continue
@@ -271,6 +272,7 @@ def _version_in(folder: Path) -> str:
 
 def staged_version() -> str:
     """The version waiting in armada.staged, if a complete, checked one is there."""
+    if (ROOT / bootstrap.ERROR).exists(): return ""
     try:
         info = json.loads((STAGED / _STAGED_INFO).read_text(encoding="utf-8"))
     except Exception:  # silent-ok: no staged update is the usual case
@@ -282,22 +284,36 @@ def staged_version() -> str:
 def _stage(m: dict, blob: bytes) -> None:
     if len(blob) != m["size"] or hashlib.sha256(blob).hexdigest() != m["sha256"]:
         raise UpdateError("the download doesn't match the signed release (size or checksum)")
-    tmp = ROOT / "armada.staging-tmp"
-    shutil.rmtree(tmp, ignore_errors=True)
-    shutil.rmtree(STAGED, ignore_errors=True)
-    tmp.mkdir(parents=True)
-    zpath = tmp / "release.zip"
-    zpath.write_bytes(blob)
-    with zipfile.ZipFile(zpath) as zf:
-        zf.extractall(tmp, members=_safe_members(zf))
-    zpath.unlink()
-    if _version_in(tmp / "armada") != m["version"]:
-        shutil.rmtree(tmp, ignore_errors=True)
-        raise UpdateError("the release's code doesn't carry the version it was signed as")
-    (tmp / "armada" / _STAGED_INFO).write_text(json.dumps({"version": m["version"], "sha256": m["sha256"]}),
-                                               encoding="utf-8")
-    util._replace_retrying(tmp / "armada", STAGED)
-    shutil.rmtree(tmp, ignore_errors=True)
+    with bootstrap.install_lock(ROOT):
+        # A slower download must not replace a newer verified stage from another checker.
+        existing = staged_version()
+        if existing and not newer(m["version"], existing):
+            return
+        if not newer(m["version"], code_on_disk()):
+            return
+        tmp = Path(tempfile.mkdtemp(prefix=".armada-staging-", dir=ROOT))
+        old_stage = ROOT / (tmp.name + "-previous")
+        try:
+            zpath = tmp / "release.zip"
+            zpath.write_bytes(blob)
+            with zipfile.ZipFile(zpath) as zf:
+                zf.extractall(tmp, members=_safe_members(zf))
+            zpath.unlink()
+            package = tmp / "armada"
+            if _version_in(package) != m["version"]:
+                raise UpdateError("the release's code doesn't carry the version it was signed as")
+            bootstrap.atomic_json(package / _STAGED_INFO,
+                {"version":m["version"], "sha256":m["sha256"], "files":bootstrap.inventory(package)})
+            if STAGED.exists(): bootstrap.replace(STAGED, old_stage)
+            try:
+                bootstrap.replace(package, STAGED)
+                (ROOT / bootstrap.ERROR).unlink(missing_ok=True)
+            except BaseException:
+                if old_stage.exists(): bootstrap.replace(old_stage, STAGED)
+                raise
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            if old_stage.exists(): shutil.rmtree(old_stage)
 
 
 def check(download: bool = True, fetch=None) -> dict:
@@ -365,41 +381,19 @@ def check_due() -> bool:
 # ---- applying -------------------------------------------------------------------------------------
 
 def apply_staged() -> str:
-    """Swap armada.staged in as the live package. Returns the version now installed, or "" when there
-    was nothing to apply or the swap couldn't happen (tried again later; the live copy is untouched).
-
-    Two renames. If the second fails, the first is undone, so the live folder is never missing."""
+    """Apply under the stable bootstrap's lock and journal; ordinary callers restart first."""
     v = staged_version()
-    if not v or not installed():
+    if not v or not installed(): return ""
+    try:
+        applied = bootstrap.apply(ROOT)
+    except (OSError, ValueError):
+        swallowed(log, "apply_staged: package replacement deferred", level=logging.WARNING)
         return ""
-    old = __version__
-    try:
-        if PREVIOUS.exists():
-            shutil.rmtree(PREVIOUS)
-        for name in _CARRY:
-            if (PKG / name).exists() and not (STAGED / name).exists():
-                shutil.copy2(PKG / name, STAGED / name)
-        util._replace_retrying(PKG, PREVIOUS)
-        try:
-            util._replace_retrying(STAGED, PKG)
-        except Exception:
-            util._replace_retrying(PREVIOUS, PKG)
-            raise
-    except Exception:  # noqa — a locked file (antivirus, an open editor): leave it for next time
-        swallowed(log, "apply_staged: couldn't swap the package folder; will retry", level=logging.WARNING)
-        return ""
-    try:
-        (PKG / _STAGED_INFO).unlink()
-    except OSError:
-        pass
-    _save(status="applied", applied=v, previous=old,
-          applied_at=time.strftime("%Y-%m-%dT%H:%M:%S"))
-    try:
-        _request_path().unlink()
-    except OSError:
-        pass
-    log.info("update: v%s installed (was v%s); v%s kept in armada.previous", v, old, old)
-    return v
+    if applied:
+        _save(status="applied", applied=applied, previous=__version__,
+              applied_at=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        _request_path().unlink(missing_ok=True)
+    return applied
 
 
 def code_on_disk() -> str:
@@ -409,17 +403,15 @@ def code_on_disk() -> str:
 
 
 def request_apply() -> dict:
-    """*Restart to update*, from the window. Returns {"applied": v} when this process swapped the
-    folder itself (then the caller restarts), or {"waiting": True} when the scheduler will."""
-    v = staged_version()
-    if not v:
-        return {"ok": False, "error": "no update is waiting"}
-    if scheduler_running():
+    """Quiesce admission, then restart through the bootstrap; never swap under the HTTP worker."""
+    from . import execution
+    with execution.RUNS_LOCK:
+        v = staged_version()
+        if not v: return {"ok": False, "error": "no update is waiting"}
+        if execution.ACTIVE_RUNS:
+            return {"ok": False, "error": "Finish or stop current tasks before restarting to update."}
         util.write_text_atomic(_request_path(), v)
-        return {"ok": True, "waiting": True, "version": v}
-    got = apply_staged()
-    return {"ok": bool(got), "applied": got, "version": v,
-            **({} if got else {"error": "Couldn't replace the program files just now. Try again in a minute."})}
+        return {"ok": True, "waiting": scheduler_running(), "restart": True, "version": v}
 
 
 def apply_requested() -> bool:
@@ -427,22 +419,11 @@ def apply_requested() -> bool:
 
 
 def boot(mode: str) -> bool:
-    """At process start, before the app is imported: apply a staged update if this is the only
-    ARMADA process that could be running the old code. True when it applied (the caller re-execs).
-
-    The window applies when the scheduler isn't running; the scheduler applies when the window isn't
-    open. Either way the other one, started afterwards, loads the new code."""
-    try:
-        if not installed() or not staged_version():
-            return False
-        if mode == "app" and scheduler_running():
-            return False
-        if mode == "schedule" and window_open():
-            return False
-        return bool(apply_staged())
-    except Exception:  # noqa — an updater problem must never stop ARMADA starting
-        swallowed(log, "boot: failed; starting the current version")
-        return False
+    """Compatibility hook for legacy callers; normal installed launches use armada_bootstrap.py."""
+    if not installed() or not staged_version(): return False
+    if mode == "app" and scheduler_running(): return False
+    if mode == "schedule" and window_open(): return False
+    return bool(apply_staged())
 
 
 def scheduler_pass(telegram_busy: bool = False) -> bool:
@@ -458,22 +439,33 @@ def scheduler_pass(telegram_busy: bool = False) -> bool:
         requested = apply_requested()
         if not requested and (not auto_enabled() or window_open()):
             return False
-        if apply_staged():
-            if requested:
-                _restart_window()
+        from . import execution
+        with execution.RUNS_LOCK:
+            if execution.ACTIVE_RUNS: return False
+            if requested and window_open() and not _restart_window(): return False
+            # The new bootstrap waits for old process leases to close before replacing files.
             return True
     except Exception:  # noqa
         swallowed(log, "scheduler_pass: failed; ignored")
     return False
 
 
-def _restart_window(port: int = 8756) -> None:
+def _restart_window(port: int = 8756) -> bool:
     """After applying an update the owner asked for, restart the window's server onto the new code."""
     try:
-        req = urllib.request.Request(f"http://127.0.0.1:{port}/restart", data=b"", method="POST")
-        urllib.request.urlopen(req, timeout=5).close()
+        from . import local_auth
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/restart", data=b"", method="POST",
+                                     headers=local_auth.headers(port))
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return response.status == 200
     except Exception:  # noqa — the window may have been closed meanwhile; it'll start on the new code
         log.debug("_restart_window: failed; ignored", exc_info=True)
+        return False
+
+
+def launch_arguments(*args):
+    entry = ROOT / "armada_bootstrap.py"
+    return [str(entry), *args] if installed() else ["-m", "armada", *args]
 
 
 def reexec() -> None:
@@ -482,9 +474,9 @@ def reexec() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == 'app' and os.name == 'nt':
         from .desktop_launch import spawn
         host = Path(sys.executable).with_name('ARMADA.exe')
-        spawn([str(host if host.is_file() else sys.executable), '-m', 'armada', *sys.argv[1:]], ROOT)
+        spawn([str(host if host.is_file() else sys.executable), *launch_arguments(*sys.argv[1:])], ROOT)
         raise SystemExit(0)
-    argv = [sys.executable, "-m", "armada", *sys.argv[1:]]
+    argv = [sys.executable, *launch_arguments(*sys.argv[1:])]
     log.info("update: restarting %s", argv)
     os.chdir(ROOT)
     os.execv(sys.executable, argv)
@@ -493,6 +485,11 @@ def reexec() -> None:
 def status() -> dict:
     """For the window: what the updater knows, without touching the network."""
     st = state()
+    try:
+        error = json.loads((ROOT / bootstrap.ERROR).read_text(encoding="utf-8"))['error']
+        st = {**st, 'status': 'error', 'detail': 'Update was not applied: ' + str(error)}
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
     return {"installed": installed(), "version": __version__, "auto": auto_enabled(),
             "staged": staged_version(), "status": st.get("status", ""), "latest": st.get("latest", ""),
             "checked": st.get("checked", ""), "detail": st.get("detail", ""),

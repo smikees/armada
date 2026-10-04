@@ -129,6 +129,7 @@ def test_native_splash_exists_before_waiting_for_server(ready):
          patch.object(app, 'webview2_version', return_value='1'), \
          patch.object(app, '_retire_scheduler_run_key'), patch.object(app, '_set_app_user_model_id'), \
          patch.object(app, '_server_matches', return_value=True), \
+         patch('armada.local_auth.browser_url', return_value='http://127.0.0.1:8756/auth#test'), \
          patch.object(app, '_wait_until_up', side_effect=wait), patch.object(app, '_apply_window_icon'), \
          patch.object(app, '_fatal') as fatal, patch.object(app.threading, 'Thread'), \
          patch('armada.serve.port_owner', return_value=0), patch('armada.tray.Tray'), \
@@ -139,7 +140,7 @@ def test_native_splash_exists_before_waiting_for_server(ready):
     webview.create_window.assert_called_once()
     loading_panel.assert_called_once_with(window)
     if ready:
-        window.load_url.assert_called_once_with('http://127.0.0.1:8756/')
+        window.load_url.assert_called_once_with('http://127.0.0.1:8756/auth#test')
         loader.ready.assert_called_once()
     else:
         fatal.assert_called_once()

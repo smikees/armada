@@ -11,7 +11,7 @@ from uuid import uuid4
 from .. import activerealm, reader, render, scheduler, util, brand
 from ..util import safe_seg
 from . import _shared
-from ._shared import _reg_load
+from ..realm_registry import load as _reg_load
 from ..util import swallowed
 
 log = logging.getLogger("armada.serve")

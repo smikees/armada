@@ -9,12 +9,12 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 from __future__ import annotations
 import http.server, io, json, logging, os, subprocess, sys, threading, time, urllib.parse, contextlib
 from pathlib import Path
-from . import activerealm, reader, render, scheduler, util, brand, origins
+from . import activerealm, reader, render, scheduler, util, brand, origins, local_auth
 from .util import safe_seg
 from .routes import realm as routes_realm, agents as routes_agents, jobs as routes_jobs
 from .routes import caps as routes_caps, catalogue as routes_catalogue, settings as routes_settings
 from .routes import dashboard as routes_dashboard, _shared as routes_shared
-from .routes._shared import _reg_ensure, _reg_load
+from .realm_registry import ensure as _reg_ensure, load as _reg_load
 from .util import swallowed
 from .request_context import RealmContext, RealmMismatch, SELECTION_LOCK, content_path, bind_content_html
 
@@ -88,6 +88,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
         if csp:
             self.send_header("Content-Security-Policy", csp)
         elif getattr(self, "_sandbox_this", False):
@@ -182,6 +183,13 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         return self._REFUSE_CROSS_SITE and sfs in ("cross-site", "same-site") \
             and not urllib.parse.urlparse(self.path).path.startswith("/static/")
 
+    def _authenticated(self) -> bool:
+        session = getattr(self.server, "auth", None)
+        if session is not None and session.allows(self.headers):
+            return True
+        self._json(401, {"ok": False, "error": "Open ARMADA to access this local session."})
+        return False
+
     def do_GET(self):
         self._sandbox_this = False             # per request, even on a kept-alive connection
         if not self._host_ok():
@@ -192,7 +200,18 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
                         self.headers.get("Sec-Fetch-Site"))
             self._send(403, "cross-site request refused", "text/plain")
             return
-        if urllib.parse.urlparse(self.path).path == "/api/instance":
+        route = urllib.parse.urlsplit(self.path).path
+        if not getattr(self, "_CONTENT_ONLY", False):
+            if route == "/health":
+                self._json(200, {"app": "ARMADA"})
+                return
+            if route == "/auth":
+                self._send(200, local_auth.BOOTSTRAP_HTML,
+                           csp="default-src 'none'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'")
+                return
+        if not route.startswith("/static/") and not self._authenticated():
+            return
+        if route == "/api/instance":
             # Startup must be able to identify a live ARMADA server even when its
             # dashboard cannot render (for example, a damaged realm/job file).
             self._json(200, {"app": "ARMADA", "realm_id": RealmContext.capture(type(self).realm).realm_id})
@@ -333,6 +352,16 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         if not self._same_origin():
             log.warning("blocked cross-origin POST %s from Origin=%s", self.path, self.headers.get("Origin"))
             self._json(403, {"ok": False, "error": "cross-origin request blocked"})
+            return
+        if not self._authenticated():
+            return
+        if urllib.parse.urlsplit(self.path).path == "/auth":
+            session = self.server.auth
+            self.send_response(204)
+            self.send_header("Set-Cookie", f"{session.cookie_name}={session.token}; HttpOnly; SameSite=Strict; Path=/")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
             return
         try:
             self._bind_request(mutation=True)
@@ -557,8 +586,9 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         except Exception:  # noqa — best-effort; the exec below tears it down regardless
             log.debug('_restart: failed; ignored', exc_info=True)
         os.chdir(REPO)
-        argv = [sys.executable, "-m", "armada", _launch_mode(), self.realm,
-                "--port", str(self.server.server_address[1])]
+        from .updater import launch_arguments
+        argv = [sys.executable, *launch_arguments(_launch_mode(), self.realm,
+                "--port", str(self.server.server_address[1]))]
         # Under pythonw nothing sees stderr, so a restart that fails to come back used to leave no
         # trace at all (seen once, 2026-09-24). Say what's about to run; the new process's own
         # start-up failures are logged by cli.
@@ -622,6 +652,20 @@ class _Server(http.server.ThreadingHTTPServer):
     can't be mistaken for a live server, while a real second instance answers immediately.
     """
 
+    def __init__(self, address, handler, *, session=None):
+        super().__init__(address, handler)
+        self._owns_auth = session is None
+        try:
+            self.auth = session or local_auth.Session(self.server_port)
+        except Exception:
+            super().server_close()
+            raise
+
+    def server_close(self):
+        super().server_close()
+        if getattr(self, "_owns_auth", False) and hasattr(self, "auth"):
+            self.auth.close()
+
 
 def port_owner(port: int = 8756) -> bool:
     """True if something is already listening on the loopback port."""
@@ -667,7 +711,7 @@ def _content_loop(httpd) -> None:
             swallowed(log, "content server stopped")
 
 
-def start_content_server(port: int) -> int | None:
+def start_content_server(port: int, *, session=None) -> int | None:
     """Bind the content server on `port` (the app's port + 1), or any free port if that one is still
     held — Update & Restart hands ports over, and for a moment the old process may keep it. Returns
     the port bound, or None if nothing could be (the app then sandboxes that content itself)."""
@@ -675,7 +719,7 @@ def start_content_server(port: int) -> int | None:
     for want in (port, 0):
         while True:
             try:
-                httpd = _Server(("127.0.0.1", want), ContentHandler)
+                httpd = _Server(("127.0.0.1", want), ContentHandler, session=session)
                 break
             except OSError:
                 if want == 0 or time.monotonic() > deadline:
@@ -719,59 +763,33 @@ def _serve_until_done(httpd) -> None:
 def serve(realm: str, port: int = 8756):
     Handler.realm = realm
     _init_logging(realm)
-    # Refuse to start a second instance, before doing any other work. SO_REUSEADDR would otherwise
-    # let the bind succeed on Windows while the OS kept routing connections to the process that
-    # already owns the port — ARMADA would log "serving" and then answer nothing. Asking the port
-    # whether anyone replies catches that without breaking restart-over-TIME_WAIT (a TIME_WAIT
-    # socket doesn't accept connections, so it can't be mistaken for a live server).
-    # Restart hands the port over from the outgoing process, so tolerate a brief overlap before
-    # calling it a duplicate. A real second instance keeps answering and still fails here.
     deadline = time.monotonic() + 4.0
     while port_owner(port):
         if time.monotonic() > deadline:
-            log.error("ARMADA: port %s already has a live server — is ARMADA already running?", port)
             raise OSError(f"port {port} is already serving — ARMADA may already be running")
         time.sleep(0.25)
-    start_content_server(port + 1)
-    if not realm:
-        # First run (5.3): nothing to open yet. Serve the welcome page until a realm exists.
-        try:
-            httpd = _Server(("127.0.0.1", port), Handler)
-        except OSError as e:
-            log.error("ARMADA: could not bind port %s (%s)", port, e)
-            raise
-        log.info("ARMADA serving on :%s (no realm yet — welcome page)", port)
-        _say(f"ARMADA app → http://127.0.0.1:{port}  (no realm yet — the page will set one up)")
-        _serve_until_done(httpd)
-        return
-    # Bring the realm's on-disk format up to date before anything reads it (Phase 2, 2.8).
-    from . import realmformat
-    realmformat.ensure(realm)
-    try:
-        from . import reader
+    if realm:
+        from . import realmformat
+        realmformat.ensure(realm)
         _reg_ensure(realm, reader.read(realm).name)
-    except Exception:  # noqa - registry is best-effort
-        swallowed(log, 'serve: failed; falling back')
-        _reg_ensure(realm, Path(realm).name)
-    # The model catalogue is refreshed by the 'model-catalog' system job, not on every boot — this
-    # used to fire on each server start (so repeatedly during a working session, and never at all
-    # if the app stayed shut). Here we only run it if it's actually due, which also covers the case
-    # where the scheduler isn't running.
+        try:
+            from . import sysjobs
+            if not os.environ.get("ARMADA_NO_MODEL_SYNC") and sysjobs.due(realm, "model-catalog"):
+                threading.Thread(target=lambda: sysjobs.run_one(realm, "model-catalog"), daemon=True).start()
+        except Exception:
+            swallowed(log, 'serve: model refresh unavailable')
+    # Bind before publishing a credential: a losing startup cannot replace a live server's token.
+    httpd = _Server(("127.0.0.1", port), Handler)
+    content = None
     try:
-        from . import sysjobs as _sysjobs
-        # ARMADA_NO_MODEL_SYNC (tests, the golden fixture): not even the boot-time run. It would
-        # only record a skip, but on a background thread that races the first page render.
-        if not os.environ.get("ARMADA_NO_MODEL_SYNC") and _sysjobs.due(realm, "model-catalog"):
-            threading.Thread(target=lambda: _sysjobs.run_one(realm, "model-catalog"),
-                             daemon=True).start()
-    except Exception:  # noqa — upkeep must never block serving
-        swallowed(log, 'serve: failed; ignored')
-    try:
-        httpd = _Server(("127.0.0.1", port), Handler)
-    except OSError as e:
-        log.error("ARMADA: could not bind port %s (%s)", port, e)
-        raise
-    log.info("ARMADA serving on :%s (realm=%s)", port, realm)
-    _say(f"ARMADA app → http://127.0.0.1:{port}  (realm: {realm})")
-    _say("  Ctrl-C to stop · click agents/jobs, Run a job, or ⟳ Update & Restart.")
-    _serve_until_done(httpd)
+        if start_content_server(httpd.server_port + 1, session=httpd.auth) is not None:
+            content = _content_httpd
+        log.info("ARMADA serving on :%s", httpd.server_port)
+        _say(f"ARMADA app → http://127.0.0.1:{httpd.server_port}")
+        _say(f"Open the private browser launch file: {httpd.auth.launch_file}")
+        _serve_until_done(httpd)
+    finally:
+        if content is not None:
+            content.shutdown()
+            content.server_close()
+        httpd.server_close()

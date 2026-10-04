@@ -25,6 +25,11 @@
 #define AppExe "{app}\python\ARMADA.exe"
 
 [Setup]
+#ifdef SignWindows
+; Signing only the outer installer leaves its extracted .tmp executable blocked by App Control.
+SignTool=ArmadaSigning
+SignedUninstaller=yes
+#endif
 AppId={{C7FEBEB8-88A6-442A-B1EB-22BD3E9D2BCD}
 AppName={#AppName}
 AppVersion={#AppVersion}
@@ -87,6 +92,10 @@ Type: filesandordirs; Name: "{app}\armada.staged"
 Type: filesandordirs; Name: "{app}\armada.staging-tmp"
 Type: filesandordirs; Name: "{app}\python"
 Type: filesandordirs; Name: "{app}\licenses"
+Type: filesandordirs; Name: "{app}\armada.previous"
+Type: filesandordirs; Name: "{app}\.armada-processes"
+Type: filesandordirs; Name: "{app}\.armada-staging-*"
+Type: files; Name: "{app}\.armada-update*"
 
 [Files]
 Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -115,6 +124,10 @@ Type: filesandordirs; Name: "{app}\armada.staged"
 Type: filesandordirs; Name: "{app}\armada.previous"
 Type: filesandordirs; Name: "{app}\armada.staging-tmp"
 Type: filesandordirs; Name: "{app}\python"
+Type: dirifempty; Name: "{app}"
+Type: filesandordirs; Name: "{app}\.armada-processes"
+Type: filesandordirs; Name: "{app}\.armada-staging-*"
+Type: files; Name: "{app}\.armada-update*"
 Type: dirifempty; Name: "{app}"
 
 [Code]
@@ -169,15 +182,18 @@ end;
 procedure StopArmada(Dir: String);
 var
   Rc: Integer;
+  SafeDir: String;
 begin
   if not DirExists(Dir) then
     Exit;
   Log('Stopping ARMADA processes running from ' + Dir);
+  SafeDir := Dir;
+  StringChangeEx(SafeDir, '''', '''''', True);
   Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
     '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' +
-    'Get-Process python,pythonw,ARMADA -ErrorAction SilentlyContinue | ' +
-    'Where-Object { $_.Path -and $_.Path.StartsWith(''' + Dir + '\python\'', ''OrdinalIgnoreCase'') } | ' +
-    'Stop-Process -Force; Start-Sleep -Milliseconds 500"',
+    'Get-CimInstance Win32_Process | ' +
+    'Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith(''' + SafeDir + '\python\'', ''OrdinalIgnoreCase'') } | ' +
+    'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop }; Start-Sleep -Milliseconds 500"',
     '', SW_HIDE, ewWaitUntilTerminated, Rc);
   Log('Stop exit code: ' + IntToStr(Rc));
 end;

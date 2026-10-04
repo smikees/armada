@@ -117,5 +117,6 @@ def relaunch_if_needed(args):
     host = Path(sys.executable).with_name('ARMADA.exe')
     if not host.is_file():
         host = Path(sys.executable)
-    spawn([str(host), '-m', 'armada', *args])
+    from .updater import launch_arguments
+    spawn([str(host), *launch_arguments(*args)])
     return True

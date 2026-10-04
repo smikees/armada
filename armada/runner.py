@@ -1189,22 +1189,20 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     checks = job_access.expanded_checks(realm_root, grant.checks)
     result_job = job_results.requirements(job, checks)
     t0 = time.time()
-    timed_out = False
-    try:
-        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout,
-                           encoding="utf-8", errors="replace", env=env,
-                           creationflags=(0x08000000 if os.name == "nt" else 0))  # CREATE_NO_WINDOW
-        out = (p.stdout or "").strip()
-        err = (p.stderr or "").strip()
-        ok = p.returncode == 0
-        rc = p.returncode
-    except subprocess.TimeoutExpired as e:
-        timed_out = True
-        out = e.stdout or ""
-        out = out.decode("utf-8", errors="replace") if isinstance(out, bytes) else out
-        err, ok, rc = f"TimeoutExpired: {e}", False, -1
-    except (FileNotFoundError, OSError) as e:
-        out, err, ok, rc = "", f"{type(e).__name__}: {e}", False, -1
+    from .engine.process import supervise_command
+    from .execution import RunSession
+    from .job_history import thread_name
+    context = RunContext.capture(realm_root, agent_id, thread_name(job_id), run_id=run_id)
+    with RunSession(context) as session:
+        result = supervise_command(argv, cwd=cwd, timeout=timeout, env=env, on_proc=session.bind)
+    out = result.stdout.strip()
+    err = result.stderr.strip()
+    if result.error:
+        err = (err + "\n" + result.error).strip()
+    ok = result.returncode == 0 and not result.error
+    rc = result.returncode if result.returncode is not None else -1
+    timed_out = result.timed_out
+    cancelled = result.cancelled
     dur = round(time.time() - t0, 2)
     ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     # On failure the useful line is in stderr, even when the script also printed to stdout — taking
@@ -1213,7 +1211,7 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
         lines = [ln for ln in (s or "").splitlines() if ln.strip()]
         return " · ".join(lines[-n:])[:300]
     tail = (_tail(err) or _tail(out)) if not ok else (_tail(out, 1) or _tail(err, 1))
-    if not ok and rc not in (0, -1) and "exit" not in tail.lower():
+    if not ok and rc not in (0, -1) and "exit code" not in tail.lower():
         tail = f"{tail} (exit code {rc})" if tail else f"exited with code {rc}"
     report = {"ts": ts, "agent": agent_id, "task": job_id, "kind": "command",
               "cmd": cmd if isinstance(cmd, str) else " ".join(cmd),
@@ -1222,7 +1220,7 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     from .job_history import save_transcript
     report["run_id"] = run_id
     report["result"] = job_results.evaluate(out, run_id=run_id, job=result_job,
-        root=realm_root, started=t0, runtime_execution="timed_out" if timed_out else "completed" if ok else "failed",
+        root=realm_root, started=t0, runtime_execution="cancelled" if cancelled else "timed_out" if timed_out else "completed" if ok else "failed",
         runtime_error=err if not ok else "", roots=grant.roots, checks=checks)
     report["status"] = job_results.status(report["result"])
     report["app_errors"] = report["result"]["app_errors"]
@@ -1326,6 +1324,9 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
     job_path = agent_dir / "jobs" / f"{job_id}.json"
     from . import realmops, util
     with realmops.lifecycle_lock(realm_root):
+        from . import updater
+        if updater.installed() and updater.apply_requested():
+            raise util.StateError("ARMADA is restarting to update. New jobs can start after it reopens.")
         realmops.assert_active(realm_root)
         job = read_json_state(job_path) if job_path.exists() else {}
         if not job:

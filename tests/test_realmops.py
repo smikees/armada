@@ -142,8 +142,9 @@ def test_archive_active_realm_selects_another_registered_realm(tmp_path, monkeyp
         path.mkdir()
         (path / "realm.json").write_text('{}', encoding="utf-8")
     records = [{"name": p.name, "path": str(p)} for p in (current, other)]
-    monkeypatch.setattr(routes, "_reg_load", lambda: records)
-    monkeypatch.setattr(routes, "_reg_save", lambda rows: records.__setitem__(slice(None), rows))
+    monkeypatch.setattr(routes.realm_registry, "path", lambda: tmp_path / "registry.json")
+    with routes.realm_registry.edit() as rows:
+        rows[:] = records
     seen = []
     monkeypatch.setattr(routes.activerealm, "forget", lambda path: seen.append(("forget", path)))
     monkeypatch.setattr(routes.activerealm, "remember", lambda path: seen.append(("remember", path)))
@@ -151,7 +152,7 @@ def test_archive_active_realm_selects_another_registered_realm(tmp_path, monkeyp
         realm = str(current)
     result = Handler()._realm_archive({"path": str(current)})
     assert result["ok"] and Handler.realm == str(other)
-    assert records == [{"name": "Other", "path": str(other)}]
+    assert routes.realm_registry.load() == [{"name": "Other", "path": str(other)}]
     assert current.exists() and (current / "realm.json").exists()
     assert seen == [("forget", str(current)), ("remember", str(other))]
 
@@ -162,13 +163,14 @@ def test_archive_last_realm_opens_welcome_without_touching_files(tmp_path, monke
     current.mkdir()
     (current / "realm.json").write_text('{}', encoding="utf-8")
     records = [{"name": "Current", "path": str(current)}]
-    monkeypatch.setattr(routes, "_reg_load", lambda: records)
-    monkeypatch.setattr(routes, "_reg_save", lambda rows: records.__setitem__(slice(None), rows))
+    monkeypatch.setattr(routes.realm_registry, "path", lambda: tmp_path / "registry.json")
+    with routes.realm_registry.edit() as rows:
+        rows[:] = records
     monkeypatch.setattr(routes.activerealm, "forget", lambda path: None)
     class Handler(routes.RealmRoutes):
         realm = str(current)
     result = Handler()._realm_archive({"path": str(current)})
-    assert result["ok"] and Handler.realm == "" and records == []
+    assert result["ok"] and Handler.realm == "" and routes.realm_registry.load() == []
     assert (current / "realm.json").exists()
 
 
@@ -192,8 +194,9 @@ def test_delete_active_realm_switches_only_after_confirm_and_restores_on_failure
         path.mkdir()
         (path / "realm.json").write_text('{}', encoding="utf-8")
     records = [{"name": p.name, "path": str(p)} for p in (current, other)]
-    monkeypatch.setattr(routes, "_reg_load", lambda: records)
-    monkeypatch.setattr(routes, "_reg_save", lambda rows: records.__setitem__(slice(None), rows))
+    monkeypatch.setattr(routes.realm_registry, "path", lambda: tmp_path / "registry.json")
+    with routes.realm_registry.edit() as rows:
+        rows[:] = records
     monkeypatch.setattr(routes.activerealm, "forget", lambda path: None)
     monkeypatch.setattr(routes.activerealm, "remember", lambda path: None)
     class Handler(routes.RealmRoutes):
@@ -207,10 +210,10 @@ def test_delete_active_realm_switches_only_after_confirm_and_restores_on_failure
     assert calls == []
     assert not Handler()._realm_delete({"path": str(current), "confirm": "Current"})["ok"]
     assert calls == [(str(current), str(other))]
-    assert Handler.realm == str(current) and len(records) == 2
+    assert Handler.realm == str(current) and len(routes.realm_registry.load()) == 2
     monkeypatch.setattr(realmops, "delete", lambda path, current_realm=None:
                         {"ok": True, "recycled": True} if current_realm == str(other)
                         else {"ok": False, "error": "still selected"})
     result = Handler()._realm_delete({"path": str(current), "confirm": "Current"})
     assert result["ok"] and Handler.realm == str(other)
-    assert records == [{"name": "Other", "path": str(other)}]
+    assert routes.realm_registry.load() == [{"name": "Other", "path": str(other)}]

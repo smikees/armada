@@ -184,7 +184,7 @@ class ServedRealm:
         deadline = time.time() + 15
         while time.time() < deadline:
             try:
-                urllib.request.urlopen(self.base + "/", timeout=0.5)
+                urllib.request.urlopen(urllib.request.Request(self.base + "/", headers=self.auth_headers()), timeout=0.5)
                 return self
             except Exception:
                 time.sleep(0.1)
@@ -220,19 +220,22 @@ class ServedRealm:
         shutil.rmtree(self._home, ignore_errors=True)
         return False
 
+    def auth_headers(self):
+        return {"Authorization": "Bearer " + self._httpd.auth.token} if self._httpd else {}
+
     def get(self, path: str) -> str:
         from armada.request_context import RealmContext, bound_url, content_path
         from urllib.parse import urlsplit
         if content_path(urlsplit(path).path):
             path = bound_url(path, RealmContext.capture(self.realm))
-        with urllib.request.urlopen(self.base + path, timeout=10) as r:
+        with urllib.request.urlopen(urllib.request.Request(self.base + path, headers=self.auth_headers()), timeout=10) as r:
             return r.read().decode("utf-8")
 
     def post(self, path: str, obj: dict) -> dict:
         from armada.request_context import RealmContext
         data = json.dumps(obj).encode("utf-8")
         req = urllib.request.Request(self.base + path, data=data,
-                                     headers={"Content-Type": "application/json",
+                                     headers={**self.auth_headers(), "Content-Type": "application/json",
                                               "X-Armada-Realm": RealmContext.capture(self.realm).realm_id}, method="POST")
         with urllib.request.urlopen(req, timeout=10) as r:
             body = r.read().decode("utf-8")

@@ -153,13 +153,14 @@ def _entry(source: str, kind: str, cid: str, name: str, description: str = "", *
 
 
 def _known_realms() -> list:
-    """Realm folders from ARMADA's own registry. Read directly rather than through serve, which
-    would drag the whole web layer into a module the daily job imports."""
+    """Read the domain registry without importing the HTTP layer."""
+    from .. import realm_registry
     try:
-        items = json.loads((util.data_dir() / "realms.json").read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError):
+        items = realm_registry.load()
+    except util.StateError:
+        log.warning('Realm registry unavailable; original file preserved')
         return []
-    return [str(i.get("path")) for i in items if isinstance(i, dict) and i.get("path")]
+    return [record["path"] for record in items]
 
 
 PROVENANCE_FILE = "armada.json"

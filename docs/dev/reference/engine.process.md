@@ -24,9 +24,13 @@ Cancellation handle passed to existing on_proc callers; kill requests owned clea
 
 A disconnected observer must not abandon the child or prevent terminal persistence.
 
-### `supervise(args, *, prompt, on_line, timeout, cwd=None, env=None, on_proc=None)`
+### `supervise(args, *, prompt, on_line, timeout, cwd=None, env=None, on_proc=None, raw_output=False)`
 
 Run one owned process; on_line receives complete lines and may reject malformed output.
+
+### `supervise_command(args, *, timeout, cwd=None, env=None, on_proc=None)`
+
+Own a noninteractive command without parsing a provider protocol.
 
 ### `supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_proc=None)`
 

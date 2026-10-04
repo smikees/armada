@@ -10,7 +10,7 @@ dist/
 *.spec
 prototype-output/
 ARMADA.vbs
-# the Resend sending key (5.6) — written by the build / copied on a dev machine, never committed
+# Legacy copies of the revoked beta key must never be committed or packaged.
 armada/support_key.txt
 
 pw_err.txt

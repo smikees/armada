@@ -16,7 +16,7 @@ from armada import serve
 from armada.request_context import RealmContext
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def srv(tmp_path_factory):
     realm = build_fixture(tmp_path_factory.mktemp("hostguard") / "realm")
     with ServedRealm(realm) as s:
@@ -25,7 +25,7 @@ def srv(tmp_path_factory):
 
 def _req(srv, method, path, host, origin=None, body=None):
     c = http.client.HTTPConnection("127.0.0.1", srv.port, timeout=10)
-    headers = {"Host": host, "X-Armada-Realm": RealmContext.capture(srv.realm).realm_id}
+    headers = {**srv.auth_headers(), "Host": host, "X-Armada-Realm": RealmContext.capture(srv.realm).realm_id}
     if origin:
         headers["Origin"] = origin
     data = None

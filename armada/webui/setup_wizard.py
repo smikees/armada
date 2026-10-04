@@ -247,7 +247,7 @@ def _cap_rows(template: str, realm_root=None) -> str:
 
 def _saved_start(realm, realm_root, owner: str) -> str:
     """Earlier steps remain reachable after creation without resubmitting a new realm."""
-    from ..routes._shared import _reg_load
+    from ..realm_registry import load as _reg_load
     intro, welcome, checks = _opening_panes()
     others = [r for r in _reg_load() if r.get('path') and Path(r['path']).resolve() != Path(realm_root).resolve()]
     home = _pane("home", _say("home", "intro"),

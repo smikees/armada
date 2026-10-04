@@ -127,7 +127,7 @@ def test_the_keepalive_skips_when_the_signin_is_already_fresh(tmp_path, monkeypa
     far = int((time.time() + 20 * 3600) * 1000)
     (c / ".credentials.json").write_text(json.dumps({"claudeAiOauth": {"expiresAt": far}}),
                                          encoding="utf-8")
-    monkeypatch.setattr("subprocess.run", lambda *a, **k: ran.append(a) or None)
+    monkeypatch.setattr("armada.engine.process.supervise_command", lambda *a, **k: ran.append(a) or None)
     r = S._job_usage_keepalive(tmp_path)
     assert r["ok"] and "nothing to do" in r["detail"]
     assert not ran, "spent a call it did not need"

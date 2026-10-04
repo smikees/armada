@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 import urllib.request
+import urllib.parse
 from . import brand
 from .util import swallowed
 log = logging.getLogger(__name__)
@@ -212,7 +213,9 @@ def _server_matches(url: str, realm: str) -> bool:
     """Recognize the same realm without asking the dashboard to render."""
     from .request_context import RealmContext
     try:
-        with urllib.request.urlopen(url + "api/instance", timeout=0.5) as response:
+        from . import local_auth
+        request = urllib.request.Request(url + "api/instance", headers=local_auth.headers(urllib.parse.urlsplit(url).port or 8756))
+        with urllib.request.urlopen(request, timeout=0.5) as response:
             info = json.load(response)
         return (isinstance(info, dict) and info.get("app") == "ARMADA"
                 and info.get("realm_id") == RealmContext.capture(realm).realm_id)
@@ -555,7 +558,8 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
                 return
             if not _quitting:
                 navigating.set()
-                main.load_url(url)
+                from .local_auth import browser_url
+                main.load_url(browser_url(url))
                 threading.Thread(target=_autostart_scheduler, daemon=True).start()
         elif not _quitting:
             err["startup_failed"] = True

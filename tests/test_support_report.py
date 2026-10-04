@@ -1,8 +1,4 @@
-"""Report an issue (launch plan 5.6). The network is never touched here: support._post is replaced.
-
-What these hold: nothing secret leaves in a report; what's sent is exactly what was shown; nothing
-the person wrote is lost when sending fails; the key is never in the repo.
-"""
+"""Reports send their approved content through the relay without a client mail key."""
 import json
 import subprocess
 from pathlib import Path
@@ -26,23 +22,6 @@ def home(tmp_path, monkeypatch):
     (logs / "scheduler.log").write_text("2026-09-24 09:00 INFO tick\n", encoding="utf-8")
     monkeypatch.setattr(support, "_previews", {})
     return tmp_path
-
-
-class _Post:
-    def __init__(self, status=200, body='{"id":"x"}'):
-        self.status, self.body, self.calls = status, body, []
-
-    def __call__(self, payload, key, timeout=20):
-        self.calls.append((payload, key))
-        return self.status, self.body
-
-
-@pytest.fixture
-def post(monkeypatch):
-    p = _Post()
-    monkeypatch.setattr(support, "_post", p)
-    monkeypatch.setattr(support, "key", lambda: "re_testkey_notreal_0000")
-    return p
 
 
 # --- redaction -----------------------------------------------------------------------------------
@@ -73,70 +52,85 @@ def test_the_report_carries_what_triage_needs(home):
         assert want in r["text"], want
 
 
-# --- preview, then send exactly that ----------------------------------------------------------------
+# --- in-app sending through a credential-free relay ---
 
-def test_send_sends_the_previewed_text_even_if_the_logs_moved_on(home, post):
+@pytest.fixture
+def post(monkeypatch):
+    calls = []
+    monkeypatch.setattr(support, "_post", lambda payload: calls.append(payload) or True)
+    return calls
+
+
+def test_send_preserves_the_preview_even_if_logs_change(home, post):
     pv = support.preview("", message="x")
     (util.data_dir() / "logs" / "armada.log").write_text("something new\n", encoding="utf-8")
     assert support.send(pv["token"]) == {"ok": True}
-    payload, _ = post.calls[0]
-    assert payload["text"] == pv["text"] and "something new" not in payload["text"]
-    assert payload["to"] == ["armada@stamih.com"] and "reports@armada.stamih.com" in payload["from"]
+    assert post[0]["text"] == pv["text"]
+    assert set(post[0]) == {"id", "subject", "text", "reply_to"}
+    assert len(post[0]["id"]) == 32
 
 
-def test_a_token_sends_once(home, post):
-    pv = support.preview("", message="x")
-    assert support.send(pv["token"])["ok"]
-    r = support.send(pv["token"])
-    assert r["ok"] is False and "expired" in r["error"] and len(post.calls) == 1
+def test_successful_preview_is_consumed_once(home, post):
+    token = support.preview("", message="x")["token"]
+    assert support.send(token)["ok"]
+    assert "expired" in support.send(token)["error"]
+    assert len(post) == 1
 
 
-def test_reply_to_only_when_given(home, post):
-    support.send(support.preview("", message="x", email="me@home.net")["token"])
-    support.send(support.preview("", message="y")["token"])
-    assert post.calls[0][0]["reply_to"] == "me@home.net" and "reply_to" not in post.calls[1][0]
+def test_uncertain_delivery_saves_content_and_retries_the_same_id(home, monkeypatch):
+    calls = []
+    def delivery(payload):
+        calls.append(payload)
+        if len(calls) == 1:
+            raise OSError("connection lost")
+        return True
+    monkeypatch.setattr(support, "_post", delivery)
+    token = support.preview("", message="do not lose me")["token"]
+    result = support.send(token)
+    assert not result["ok"] and "do not lose me" in Path(result["saved"]).read_text(encoding="utf-8")
+    assert support.send(token)["ok"]
+    assert calls[0] == calls[1]
 
 
-def test_a_failed_send_saves_the_report_and_says_where(home, post):
-    post.status, post.body = 403, '{"message":"forbidden"}'
-    pv = support.preview("", message="please don't lose this")
-    r = support.send(pv["token"])
-    assert r["ok"] is False and "armada@stamih.com" in r["error"]
-    saved = Path(r["saved"])
-    assert saved.is_file() and "please don't lose this" in saved.read_text(encoding="utf-8")
+def test_failed_local_save_still_preserves_retry(home, monkeypatch):
+    monkeypatch.setattr(support, "_save_unsent", lambda _: None)
+    monkeypatch.setattr(support, "_post", lambda _: False)
+    token = support.preview("", message="x")["token"]
+    assert support.send(token)["saved"] == ""
+    assert token in support._previews
 
 
-def test_no_key_means_saved_not_sent(home, monkeypatch):
-    monkeypatch.setattr(support, "key", lambda: "")
-    r = support.send(support.preview("", message="x")["token"])
-    assert r["ok"] is False and "no sending key" in r["error"] and Path(r["saved"]).is_file()
+def test_expired_preview_is_not_sent(home, post, monkeypatch):
+    token = support.preview("", message="x")["token"]
+    monkeypatch.setattr(support.time, "time", lambda: support._previews[token]["at"] + support._PREVIEW_TTL + 1)
+    assert support.send(token)["ok"] is False and post == []
 
 
-def test_the_hourly_limit_holds(home, post):
-    for _ in range(support.PER_HOUR):
-        assert support.send(support.preview("", message="x")["token"])["ok"]
-    r = support.send(support.preview("", message="x")["token"])
-    assert r["ok"] is False and len(post.calls) == support.PER_HOUR and Path(r["saved"]).is_file()
+def test_relay_request_cannot_carry_a_distributed_mail_key(home, monkeypatch):
+    from unittest.mock import MagicMock
+    monkeypatch.setenv("ARMADA_RESEND_KEY", "re_do_not_send_this")
+    opener = MagicMock()
+    response = opener.open.return_value.__enter__.return_value
+    response.status = 200
+    response.read.return_value = b'{"ok":true}'
+    monkeypatch.setattr(support.urllib.request, "build_opener", lambda *_: opener)
+    assert support.send(support.preview("", message="x")["token"])["ok"]
+    request = opener.open.call_args.args[0]
+    assert request.full_url == "https://armada.stamih.com/api/report.php"
+    assert not request.has_header("Authorization")
+    assert b"re_do_not_send_this" not in request.data
 
 
-# --- the key never enters the repo -------------------------------------------------------------------
-
-def test_the_key_file_is_ignored_and_untracked():
-    root = Path(support.__file__).resolve().parents[1]
-    assert "armada/support_key.txt" in (root / ".gitignore").read_text(encoding="utf-8")
-    tracked = subprocess.run(["git", "ls-files", "armada/support_key.txt"], cwd=root,
-                             capture_output=True, text=True).stdout.strip()
-    assert tracked == ""
+def test_report_redirects_are_refused():
+    import urllib.error
+    req = support.urllib.request.Request(support.ENDPOINT)
+    with pytest.raises(urllib.error.HTTPError):
+        support._NoRedirect().redirect_request(req, None, 307, "redirect", {}, "https://untrusted.example/")
 
 
-def test_key_accepts_only_a_resend_key(monkeypatch, tmp_path):
-    monkeypatch.setattr(support, "KEY_FILE", tmp_path / "k.txt")
-    monkeypatch.delenv("ARMADA_RESEND_KEY", raising=False)
-    assert support.key() == ""
-    (tmp_path / "k.txt").write_text("not-a-key\n", encoding="utf-8")
-    assert support.key() == ""
-    (tmp_path / "k.txt").write_text("re_abc123\n", encoding="utf-8")
-    assert support.key() == "re_abc123"
+def test_report_size_is_bounded_before_network():
+    with pytest.raises(ValueError):
+        support._post({"text": "x" * 65537})
 
 
 # --- wiring ------------------------------------------------------------------------------------------

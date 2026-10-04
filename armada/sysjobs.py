@@ -147,7 +147,7 @@ def _job_usage_keepalive(realm_root) -> dict:
     switch it off.
     """
     import json as _json
-    import subprocess
+    from .engine.process import supervise_command
     import time as _time
     from .engine.claude import ClaudeEngine
     creds = Path.home() / ".claude" / ".credentials.json"
@@ -170,15 +170,14 @@ def _job_usage_keepalive(realm_root) -> dict:
     if not launcher:
         return {"ok": False, "detail": "Claude Code isn't on PATH"}
     try:
-        r = subprocess.run(launcher + ["-p", "Reply with exactly: ok", "--max-turns", "1",
-                                       "--output-format", "json"],
-                           capture_output=True, text=True, timeout=120)
+        r = supervise_command(launcher + ["-p", "Reply with exactly: ok", "--max-turns", "1",
+                                             "--output-format", "json"], timeout=120)
     except Exception as e:  # noqa
         swallowed(log, '_job_usage_keepalive: failed; error returned to the caller')
         return {"ok": False, "detail": f"keepalive call failed: {str(e)[:100]}"}
-    _record_keepalive(realm_root, r.stdout, r.returncode == 0)
-    if r.returncode != 0:
-        return {"ok": False, "detail": (r.stderr or "non-zero exit").strip()[:140]}
+    _record_keepalive(realm_root, r.stdout, r.returncode == 0 and not r.error)
+    if r.returncode != 0 or r.error:
+        return {"ok": False, "detail": (r.error or r.stderr or "non-zero exit").strip()[:140]}
     after = _expiry()
     if after > before:
         hrs = (after - before) / 3600_000

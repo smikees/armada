@@ -1,31 +1,13 @@
-"""Report an issue (launch plan 5.6, ADR-005).
+"""Send exactly the approved, redacted report through ARMADA's public relay.
 
-The beta's one feedback path: the support icon beside the settings gear opens a short form; ARMADA
-assembles a report — the person's words, the page they were on, the version, and (if they agree) the
-last lines of its logs with anything that looks like a secret removed — **shows them the whole
-report**, and only when they press Send does it email it to the beta inbox.
-
-Three rules shape this module:
-
-- **What's sent is exactly what was shown.** `preview()` builds the text and hands back a token;
-  `send()` sends the text stored under that token, not a rebuild. Logs move on in the seconds between
-  the two, and "we showed you one thing and sent another" is the worst thing a report button can do.
-- **Nothing secret leaves.** Log lines pass through `redact()`: API keys, bearer and OAuth tokens,
-  Telegram bot tokens, long secret-shaped strings, email addresses other than the one the person
-  typed, and the Windows user name in paths.
-- **The key can only send.** The Resend key is a sending-only key restricted to armada.stamih.com
-  (ADR-005: fine for five invited users; a relay before a public release). It lives in
-  `armada/support_key.txt`, which is git-ignored and written by the build; it is never in the repo.
-
-Sending is a network call, so it happens only on the POST from the Send button — never while a page
-renders.
+Only the server holds the mail credential. A failed or uncertain send retains the preview
+and saves a local copy; retries use one stable idempotency ID.
 """
 from __future__ import annotations
 
 import datetime as _dt
 import json
 import logging
-import os
 import platform
 import re
 import secrets
@@ -42,13 +24,10 @@ from .util import swallowed
 log = logging.getLogger(__name__)
 
 TO = "armada@stamih.com"
-FROM = f"{brand.NAME} reports <reports@armada.stamih.com>"
-ENDPOINT = "https://api.resend.com/emails"
-KEY_FILE = Path(__file__).resolve().parent / "support_key.txt"
+ENDPOINT = "https://armada.stamih.com/api/report.php"
 
 MAX_MESSAGE = 8000
 LOG_LINES = 40                 # per log file
-PER_HOUR = 5                   # sends per install per hour — the free tier is 100/day, shared
 _PREVIEW_TTL = 30 * 60
 
 _previews: dict = {}           # token -> {"text", "subject", "reply_to", "at"}
@@ -149,42 +128,18 @@ def preview(realm_root: str, **kw) -> dict:
         now = time.time()
         for t in [t for t, v in _previews.items() if now - v["at"] > _PREVIEW_TTL]:
             _previews.pop(t, None)
-        _previews[token] = {**rep, "at": now}
+        _previews[token] = {**rep, "id": secrets.token_hex(16), "at": now}
     return {"ok": True, "token": token, "subject": rep["subject"], "text": rep["text"]}
 
 
 # --- sending ---------------------------------------------------------------------------------
-
-def key() -> str:
-    """The sending key: ARMADA_RESEND_KEY (for a developer), else the file the build writes."""
-    k = (os.environ.get("ARMADA_RESEND_KEY") or "").strip()
-    if not k:
-        try:
-            k = KEY_FILE.read_text(encoding="utf-8").strip()
-        except OSError:
-            k = ""
-    return k if k.startswith("re_") else ""
-
-
-def _sent_log() -> Path:
-    return util.data_dir() / "support_sent.json"
-
-
-def _recent_sends() -> list:
-    try:
-        stamps = json.loads(_sent_log().read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        stamps = []
-    now = time.time()
-    return [t for t in stamps if isinstance(t, (int, float)) and now - t < 3600]
-
 
 def _save_unsent(rep: dict) -> Path | None:
     """Keep a report that couldn't be sent, so nothing the person wrote is lost."""
     try:
         d = util.data_dir() / "reports"
         d.mkdir(parents=True, exist_ok=True)
-        p = d / f"report-{_dt.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+        p = d / f"report-{_dt.datetime.now().strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}.txt"
         util.write_text_atomic(p, f"Subject: {rep['subject']}\n\n{rep['text']}\n")
         return p
     except OSError:
@@ -192,54 +147,44 @@ def _save_unsent(rep: dict) -> Path | None:
         return None
 
 
-def _post(payload: dict, k: str, timeout: int = 20) -> tuple:
-    req = urllib.request.Request(ENDPOINT, data=json.dumps(payload).encode("utf-8"), method="POST",
-                                 headers={"Authorization": f"Bearer {k}",
-                                          "Content-Type": "application/json",
-                                          "User-Agent": f"{brand.NAME}-support"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, r.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", "replace")
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "Report relay redirect refused", headers, fp)
+
+
+def _post(payload: dict) -> bool:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    if len(body) > 65536:
+        raise ValueError("Report too large for the relay")
+    request = urllib.request.Request(ENDPOINT, data=body, method="POST",
+        headers={"Content-Type": "application/json", "User-Agent": f"{brand.NAME}-support"})
+    with urllib.request.build_opener(_NoRedirect()).open(request, timeout=20) as response:
+        return 200 <= response.status < 300 and json.loads(response.read(4096)).get("ok") is True
 
 
 def send(token: str) -> dict:
-    """Send the previewed report. On any failure the report is saved locally and the person is told
-    where, and to email it themselves — the words they took the trouble to write are never lost."""
+    """Send the approved snapshot, preserving the same ID across uncertain-delivery retries."""
     with _lock:
-        rep = _previews.pop(str(token or ""), None)
-    if not rep:
-        return {"ok": False, "error": "That preview has expired — review the report again, then send."}
-    recent = _recent_sends()
-    if len(recent) >= PER_HOUR:
-        saved = _save_unsent(rep)
-        return {"ok": False, "saved": str(saved or ""),
-                "error": f"That's {PER_HOUR} reports in the last hour — thank you. This one is saved"
-                         + (f" at {saved}" if saved else "") + f"; send it to {TO} or try again later."}
-    k = key()
-    if not k:
-        saved = _save_unsent(rep)
-        return {"ok": False, "saved": str(saved or ""),
-                "error": "This build can't send reports (no sending key). Your report is saved"
-                         + (f" at {saved}" if saved else "") + f" — please email it to {TO}."}
-    payload = {"from": FROM, "to": [TO], "subject": rep["subject"], "text": rep["text"]}
-    if rep.get("reply_to"):
-        payload["reply_to"] = rep["reply_to"]
+        rep = _previews.get(str(token or ""))
+        if not rep or time.time() - rep["at"] > _PREVIEW_TTL:
+            return {"ok": False, "error": "That preview has expired — review the report again."}
+        if rep.get("sending"):
+            return {"ok": False, "error": "This report is already being sent."}
+        rep["sending"] = True
+    ok = False
     try:
-        status, body = _post(payload, k)
-    except (OSError, ValueError) as e:
-        status, body = 0, str(e)
-    if 200 <= status < 300:
-        try:
-            util.write_json_atomic(_sent_log(), recent + [time.time()])
-        except OSError:
-            swallowed(log, "send: could not record the send time")
-        log.info("support report sent (%s)", rep["subject"][:60])
+        ok = _post({name: rep[name] for name in ("id", "subject", "text", "reply_to")})
+    except (OSError, ValueError, TypeError, AttributeError):
+        ok = False
+    finally:
+        with _lock:
+            rep["sending"] = False
+            if ok:
+                _previews.pop(token, None)
+    if ok:
         return {"ok": True}
-    log.error("support report not sent: HTTP %s %s", status, redact(body)[:300])
     saved = _save_unsent(rep)
     return {"ok": False, "saved": str(saved or ""),
-            "error": "Couldn't send the report" + (f" (the mail service said {status})" if status else
-                                                   " (no connection)")
-                     + ". It's saved" + (f" at {saved}" if saved else "") + f" — please email it to {TO}."}
+            "error": "Couldn't confirm delivery. You can retry this report safely. "
+                     + (f"A copy is saved at {saved}; you can also email it to {TO}." if saved else
+                        "Your preview is still available; try again.")}

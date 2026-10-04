@@ -30,7 +30,7 @@ def srv(monkeypatch):
 def _status(srv, method, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(srv.base + path, data=data, method=method,
-                                 headers={"Content-Type": "application/json"})
+                                 headers={**srv.auth_headers(), "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return r.status, r.read().decode("utf-8")
@@ -125,7 +125,7 @@ def test_switching_into_the_new_realm_leaves_welcome_mode(srv, tmp_path):
 
 
 def test_known_realms_are_offered_when_none_was_remembered(srv, tmp_path):
-    from armada.routes._shared import _reg_ensure
+    from armada.realm_registry import ensure as _reg_ensure
     srv.post("/api/set-approot", {"root": str(tmp_path / "ARMADA"), "create": True})
     a = srv.post("/api/first-realm", {"name": "Alpha"})["path"]
     _reg_ensure(a, "Alpha")
@@ -478,7 +478,7 @@ def test_setup_folder_moves_existing_realm_and_remembers_destination(srv, tmp_pa
 
 def test_setup_folder_same_path_advances_to_naming_and_other_realms_remain_visible(srv, tmp_path):
     from armada import setupflow
-    from armada.routes._shared import _reg_ensure
+    from armada.realm_registry import ensure as _reg_ensure
     root = _wizard_realm(srv, tmp_path)
     _reg_ensure(tmp_path / 'ARMADA' / 'Existing', 'Existing')
     html = srv.get('/setup')

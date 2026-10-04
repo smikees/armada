@@ -33,6 +33,16 @@ internal static class ArmadaLauncher
         }
 
         string[] argv = Environment.GetCommandLineArgs();
+        // Recover before Python imports the replaceable armada package. Preserve -c and
+        // other runtime probes; old shortcuts using '-m armada' keep working unchanged.
+        if (args.Length >= 2 && args[0] == "-m" && args[1] == "armada")
+        {
+            string[] recovered = new string[argv.Length - 1];
+            recovered[0] = argv[0];
+            recovered[1] = Path.Combine(Path.GetDirectoryName(runtime), "armada_bootstrap.py");
+            Array.Copy(argv, 3, recovered, 2, argv.Length - 3);
+            argv = recovered;
+        }
         IntPtr values = IntPtr.Zero;
         IntPtr[] strings = new IntPtr[argv.Length];
         try

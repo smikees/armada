@@ -49,9 +49,11 @@ def test_serve_refuses_to_start_over_a_live_server(monkeypatch):
         serve.serve("D:\\nope", 8756)
 
 
-def test_serve_waits_out_a_restart_handover(monkeypatch):
+def test_serve_waits_out_a_restart_handover(monkeypatch, tmp_path):
     """During Update & Restart the outgoing process may still hold the port for a moment. That's a
     handover, not a duplicate — serve() must wait rather than refuse (the bug that broke restart)."""
+    from armada import local_auth
+    monkeypatch.setattr(local_auth.util, "data_dir", lambda: tmp_path / "data")
     calls = {"n": 0}
 
     def owner(p=8756):
@@ -74,13 +76,15 @@ def test_port_owner_detects_a_free_port():
 def test_instance_probe_identifies_realm_without_rendering_dashboard(tmp_path, monkeypatch):
     monkeypatch.setattr(serve.Handler, "realm", str(tmp_path))
     monkeypatch.setattr(serve.Handler, "_route_get", lambda self: (_ for _ in ()).throw(RuntimeError("broken dashboard")))
+    from armada import local_auth
+    monkeypatch.setattr(local_auth.util, "data_dir", lambda: tmp_path / "data")
     server = serve._Server(("127.0.0.1", 0), serve.Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     url = f"http://127.0.0.1:{server.server_port}/"
     try:
         with pytest.raises(urllib.error.HTTPError) as error:
-            urllib.request.urlopen(url, timeout=2)
+            urllib.request.urlopen(urllib.request.Request(url, headers=local_auth.headers(server.server_port)), timeout=2)
         assert error.value.code == 500
         assert app._server_matches(url, str(tmp_path))
         assert not app._server_matches(url, str(tmp_path / "other"))

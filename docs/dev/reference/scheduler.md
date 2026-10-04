@@ -71,6 +71,11 @@ The (hour, minute) fire times of `expr` on `day` — O(hours×minutes), not a 14
 
 -> (weekday_set, hour, minute) or None for manual/unparseable.
 
+### class `TimezoneError`
+
+A configured realm clock must never silently become the machine clock.
+
+
 ### `_tz(realm_cfg: dict)`
 
 —

@@ -224,7 +224,7 @@ def test_apply_swaps_the_folder_and_keeps_the_old_one(inst):
     assert updater.apply_staged() == "1.1.0"
     assert '"1.1.0"' in (inst / "armada" / "__init__.py").read_text()
     assert '"1.0.0"' in (inst / "armada.previous" / "__init__.py").read_text()
-    assert (inst / "armada" / "support_key.txt").read_text() == "re_local"      # carried over
+    assert not (inst / "armada" / "support_key.txt").exists()  # never carry a distributed credential
     assert not (inst / "armada" / updater._STAGED_INFO).exists()
     assert not (inst / "armada.staged").exists()
     assert updater.state()["applied"] == "1.1.0"
@@ -232,15 +232,15 @@ def test_apply_swaps_the_folder_and_keeps_the_old_one(inst):
 
 def test_a_failed_swap_leaves_the_live_folder_in_place(inst, monkeypatch):
     updater.check(fetch=_release("1.1.0"))
-    real = util._replace_retrying
+    real = updater.bootstrap.replace
     calls = []
 
     def flaky(src, dst, attempts=12):
         calls.append((src, dst))
-        if len(calls) == 2:
+        if src == updater.STAGED and dst == updater.PKG:
             raise PermissionError(32, "in use")
-        return real(src, dst, attempts=1)
-    monkeypatch.setattr(util, "_replace_retrying", flaky)
+        return real(src, dst)
+    monkeypatch.setattr(updater.bootstrap, "replace", flaky)
     assert updater.apply_staged() == ""
     assert '"1.0.0"' in (inst / "armada" / "__init__.py").read_text()
     assert updater.staged_version() == "1.1.0"                                  # still waiting
@@ -267,7 +267,7 @@ def test_the_scheduler_applies_when_quiet_and_restarts(inst, monkeypatch):
     assert updater.scheduler_pass() is False                                    # automatic off
     appconfig.save({updater.AUTO_KEY: True})
     assert updater.scheduler_pass() is True
-    assert '"1.1.0"' in (inst / "armada" / "__init__.py").read_text()
+    assert '"1.0.0"' in (inst / "armada" / "__init__.py").read_text(), "replacement happens after restart"
 
 
 def test_restart_to_update_from_the_window(inst, monkeypatch):
@@ -275,18 +275,20 @@ def test_restart_to_update_from_the_window(inst, monkeypatch):
     monkeypatch.setattr(updater, "scheduler_running", lambda: True)
     r = updater.request_apply()
     assert r["waiting"] and updater.apply_requested()
-    # the scheduler honours the request even with the window open, then restarts the window
+    # The scheduler asks the idle window to restart before either process replaces files.
     monkeypatch.setattr(updater, "window_open", lambda port=8756: True)
     restarted = []
-    monkeypatch.setattr(updater, "_restart_window", lambda port=8756: restarted.append(1))
+    monkeypatch.setattr(updater, "_restart_window", lambda port=8756: restarted.append(1) or True)
     assert updater.scheduler_pass() is True and restarted == [1]
-    assert not updater.apply_requested()
+    assert updater.apply_requested()
+    assert '"1.0.0"' in (inst / "armada" / "__init__.py").read_text()
 
 
-def test_restart_to_update_without_a_scheduler_applies_in_the_window(inst):
+def test_restart_to_update_without_a_scheduler_defers_until_restart(inst):
     updater.check(fetch=_release("1.1.0"))
     r = updater.request_apply()
-    assert r["applied"] == "1.1.0"
+    assert r["restart"] and not r["waiting"] and updater.apply_requested()
+    assert '"1.0.0"' in (inst / "armada" / "__init__.py").read_text()
 
 
 def test_a_process_left_on_replaced_code_restarts(inst):

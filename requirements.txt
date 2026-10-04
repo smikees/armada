@@ -12,3 +12,6 @@ proxy-tools==0.1.0
 pycparser==3.0
 pythonnet==3.1.0
 typing-extensions==4.16.0
+
+# IANA timezone database: Windows has no system zoneinfo database.
+tzdata==2026.5

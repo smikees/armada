@@ -26,14 +26,11 @@ signing key too, which lives offline in MATCAP-private and never in the reposito
 
 **When it's applied.** Downloading and checking happen in the background (a system job in the
 scheduler, or Settings → Check for updates). The verified folder waits beside the live one as
-`armada.staged\`. It replaces the live folder only when exactly one ARMADA process would be
-running the old code, so no process ever runs half old, half new:
-
-- at start-up (`boot()`), before anything else is imported — the window when the scheduler isn't
-  running, the scheduler when the window isn't open;
-- by the scheduler between passes, when the window isn't open and nothing is mid-reply;
-- when the owner clicks *Restart to update* (the scheduler, if running, is asked to do it at its
-  next quiet moment and to restart the window after; otherwise the window does it itself).
+`armada.staged\`. Applying it requires a restart through the stable bootstrap outside this
+package. The bootstrap owns a durable journal and an installation lock, recovers any interrupted
+swap before importing ARMADA, and waits for existing process leases to close. The scheduler asks
+the window to restart only at a quiet point; new work is refused once a restart is requested.
+No running HTTP worker replaces the package it has imported.
 
 The old folder is kept as `armada.previous\` until the next update, so a bad release can be rolled
 back by hand. The data folder and realms are never touched; the realm migration (2.8) runs on the
@@ -150,7 +147,7 @@ Ask GitHub for the newest release; if it's newer and fits this runtime, download
 
 ### `apply_staged()`
 
-Swap armada.staged in as the live package. Returns the version now installed, or "" when there was nothing to apply or the swap couldn't happen (tried again later; the live copy is untouched).
+Apply under the stable bootstrap's lock and journal; ordinary callers restart first.
 
 ### `code_on_disk()`
 
@@ -158,7 +155,7 @@ The version of the package folder as it is on disk now — which differs from __
 
 ### `request_apply()`
 
-*Restart to update*, from the window. Returns {"applied": v} when this process swapped the folder itself (then the caller restarts), or {"waiting": True} when the scheduler will.
+Quiesce admission, then restart through the bootstrap; never swap under the HTTP worker.
 
 ### `apply_requested()`
 
@@ -166,7 +163,7 @@ The version of the package folder as it is on disk now — which differs from __
 
 ### `boot(mode: str)`
 
-At process start, before the app is imported: apply a staged update if this is the only ARMADA process that could be running the old code. True when it applied (the caller re-execs).
+Compatibility hook for legacy callers; normal installed launches use armada_bootstrap.py.
 
 ### `scheduler_pass(telegram_busy: bool=False)`
 
@@ -175,6 +172,10 @@ Called by the scheduler after each pass. True means "restart this process now": 
 ### `_restart_window(port: int=8756)`
 
 After applying an update the owner asked for, restart the window's server onto the new code.
+
+### `launch_arguments(*args)`
+
+—
 
 ### `reexec()`
 

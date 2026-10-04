@@ -1,5 +1,12 @@
 # ADR-009 — Installer: a private Python runtime in a per-user Inno Setup installer
 
+**2026-10-04 amendment:** the unsigned-beta assumption below proved incorrect on machines with
+Smart App Control: Windows blocks Setup's extracted temporary executable with error 4551.
+The 0.99.75 build requires publisher signing for public distribution, including Inno's temporary
+self-copy and uninstaller and all unsigned native payload components. Private local builds remain
+available with an explicit flag. A trusted signing account and protected-machine validation are
+still pending; Ed25519 update-manifest signing does not satisfy this Windows requirement.
+
 **2026-09-30 amendment:** installed shortcuts now run `python\ARMADA.exe`. A small windowless
 C# host calls the bundled CPython DLL in the same process and forwards the existing CLI arguments.
 Its executable metadata and icon identify both the native window and background scheduler as

@@ -1187,6 +1187,8 @@ Listed so we never have to work out what comes next.
 
 ## Where things stand *(update this block as we go)*
 
+October 4: version 0.99.75 is installed on Mihai's machine, preserving the realm registry, settings and active realm; the scheduler and authenticated API were verified after restart. The public-readiness refactoring is tracked in [the original review](dev/PUBLIC_READINESS_REVIEW_2026-10-03.md). R1–R6 are implemented and verified: the live report relay, authenticated local API, recoverable updates, command-tree ownership, timezone data/validation and strict registry persistence. The final isolated suite passed 3,020 tests with five skips, and 23 PHP assertions passed without network. R7's release gates and Windows CI are implemented. Public installer publication remains blocked by the missing publisher-signing account and clean-VM GUI acceptance (Microsoft's WebView2 installer fails in Sandbox). Error 4551 reported on another machine confirms the unsigned installer's Application Control limitation; signing support now includes Inno's temporary executable and native dependencies. The website still offers 0.99.74. Source version 0.99.75 includes these changes; no launch acceptance checkbox changes.
+
 October 3 release: v0.99.74 collects the three-engine integration, job result and
 retry behavior, standalone desktop lifecycle, provider discovery, setup and UI changes since
 v0.99.73. README, GitHub metadata and release documentation are up to date.

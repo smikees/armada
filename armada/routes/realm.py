@@ -10,7 +10,9 @@ from pathlib import Path
 from .. import activerealm, reader, realmformat, render, scheduler, util, brand
 from ..util import safe_seg
 from . import _shared
-from ._shared import _reg_load, _reg_save, _reg_rename, _reg_ensure, _realm_json
+from ._shared import _realm_json
+from .. import realm_registry
+from ..realm_registry import load as _reg_load, ensure as _reg_ensure
 from ..util import swallowed
 
 log = logging.getLogger("armada.serve")
@@ -211,7 +213,7 @@ class RealmRoutes:
         if not rj.exists():
             return {"ok": False, "error": "no realm.json"}
         try:
-            with util.file_lock(rj):
+            with realm_registry.edit() as registered, util.file_lock(rj):
                 cfg = json.loads(rj.read_text(encoding="utf-8-sig"))
                 if isinstance(body.get("providers"), list):
                     # Keep at least one engine selected — a realm with none can't run anything,
@@ -229,7 +231,7 @@ class RealmRoutes:
                     # The switcher and the menu read the registry, not realm.json. Renaming in one
                     # place and not the other is how the same realm comes to have two names on one
                     # screen.
-                    _reg_rename(self.realm, cfg["name"])
+                    realm_registry.rename_in(registered, self.realm, cfg["name"])
                 if "default_verbosity" in body:
                     from .. import verbosity as _verbosity
                     v = _verbosity.normalise(body.get("default_verbosity"))
@@ -241,6 +243,8 @@ class RealmRoutes:
                     cfg["timezone"] = (body.get("timezone") or "").strip()
                     if not cfg["timezone"]:
                         cfg.pop("timezone", None)      # blank = follow the OS timezone
+                    from ..scheduler import _tz
+                    _tz(cfg)
                 for k in ("provider", "default_model", "default_effort", "default_fallback_model"):
                     if body.get(k):
                         cfg[k] = body[k]
@@ -321,8 +325,7 @@ class RealmRoutes:
             return {"ok": False, "error": "no path"}
         target = str(Path(path).resolve())
         from ..request_context import SELECTION_LOCK
-        with SELECTION_LOCK:
-            items = _reg_load()
+        with SELECTION_LOCK, realm_registry.edit() as items:
             kept = [i for i in items if str(Path(i.get("path", "")).resolve()) != target]
             if len(kept) == len(items):
                 return {"ok": False, "error": "That realm isn't in the list."}
@@ -333,7 +336,7 @@ class RealmRoutes:
             active = target == str(Path(type(self).realm).resolve()) if type(self).realm else False
             fallback = next((str(Path(i["path"]).resolve()) for i in kept
                              if activerealm.is_realm(i.get("path", ""))), "") if active else ""
-            _reg_save(kept)
+            items[:] = kept
             activerealm.forget(target)
             if active:
                 type(self).realm = fallback
@@ -521,12 +524,13 @@ class RealmRoutes:
         if template not in TEMPLATES:
             return {'ok': False, 'error': 'Choose a realm type.'}
         try:
-            agents = self._wizard_agents(template, body)
-            result = setupteam.update(self.realm, body, agents or [])
-        except (ValueError, TypeError) as exc:
+            with realm_registry.edit() as records:
+                agents = self._wizard_agents(template, body)
+                result = setupteam.update(self.realm, body, agents or [])
+                if result.get('ok'):
+                    realm_registry.rename_in(records, self.realm, ' '.join(str(body.get('name') or '').split())[:60])
+        except (OSError, ValueError, TypeError) as exc:
             return {'ok': False, 'error': str(exc)}
-        if result.get('ok'):
-            _reg_rename(self.realm, ' '.join(str(body.get('name') or '').split())[:60])
         return result
 
     def _setup_capability(self, body: dict) -> dict:
@@ -597,8 +601,7 @@ class RealmRoutes:
         from .. import execution
         from ..request_context import SELECTION_LOCK, RealmContext
         target = str(p.resolve())
-        with execution.RUNS_LOCK, SELECTION_LOCK:
-            items = _reg_load()
+        with execution.RUNS_LOCK, SELECTION_LOCK, realm_registry.edit() as items:
             kept = [i for i in items if str(Path(i.get("path", "")).resolve()) != target]
             if len(kept) == len(items):
                 return {"ok": False, "error": "That realm isn't in the list."}
@@ -617,7 +620,7 @@ class RealmRoutes:
                 if active:
                     type(self).realm = target
                 return r
-            _reg_save(kept)
+            items[:] = kept
             activerealm.forget(target)
             if active and fallback:
                 activerealm.remember(fallback)

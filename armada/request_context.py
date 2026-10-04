@@ -50,7 +50,7 @@ class RealmContext:
             known = _known.get(identity)
         if known and (Path(known.root) / "realm.json").is_file():
             return known
-        from .routes._shared import _reg_load
+        from .realm_registry import load as _reg_load
         for record in _reg_load():
             if record.get("path") and (Path(record["path"]) / "realm.json").is_file():
                 candidate = cls.capture(record["path"])

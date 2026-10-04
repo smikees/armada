@@ -114,12 +114,11 @@ def every() -> list[str]:
 
 def _registered() -> list[str]:
     """Paths from ~/.armada/realms.json that still exist as realms."""
-    import json
-    p = util.data_dir() / "realms.json"
+    from . import realm_registry
     try:
-        items = json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else []
-    except Exception:  # noqa — a corrupt registry is not a reason to fail to start
-        swallowed(log, '_registered: failed; returning a fallback')
+        items = realm_registry.load()
+    except util.StateError:
+        swallowed(log, '_registered: registry unavailable; original file preserved')
         return []
     out = []
     for i in items:

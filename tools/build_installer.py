@@ -14,7 +14,7 @@ Runs on Windows (the build machine), with `uv` and Inno Setup 7 installed. What 
    (`uv pip install --target …`): prebuilt wheels for every package with compiled or .NET parts,
    so nothing is compiled at build time.
 3. Copies the committed `armada/` package (git ls-files — no local caches or keys), plus the
-   Report-an-issue send key (`armada/support_key.txt`, gitignored, send-only), `LICENSE`,
+   `LICENSE`,
    `THIRD_PARTY_NOTICES.md`, the icon, and every bundled package's own licence files under
    `licenses/`. Refuses to build if the bundled package versions differ from the notices' table.
 4. Writes `installed.json`, the marker that makes the updater (5.4) treat this as an installed copy,
@@ -23,7 +23,7 @@ Runs on Windows (the build machine), with `uv` and Inno Setup 7 installed. What 
    and serves the welcome page from a throwaway home folder), then compiles `installer/armada.iss`
    with Inno Setup into `dist/ARMADA-Setup-<version>.exe`.
 
-The installer is unsigned for the beta (ADR-009 §5): SmartScreen says "unrecognised app" once.
+Public builds require Authenticode signing. --allow-unsigned is for private local testing only.
 """
 from __future__ import annotations
 
@@ -197,15 +197,12 @@ def stage(ver: str) -> Path:
     say("ARMADA (committed files only)")
     files = [f for f in _git("ls-files", "--", "armada").splitlines() if f]
     for f in files:
+        if Path(f).name == "support_key.txt":
+            raise RuntimeError("A support credential must never enter an installer")
         dest = STAGE / f
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / f, dest)
-    key = ROOT / "armada" / "support_key.txt"
-    if key.exists():
-        shutil.copy2(key, STAGE / "armada" / "support_key.txt")
-    else:
-        say("WARNING: armada/support_key.txt missing — Report an issue will save reports locally instead of sending")
-    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md", "armada_bootstrap.py"):
         shutil.copy2(ROOT / name, STAGE / name)
     shutil.copy2(ROOT / "armada" / "webui" / "static" / "armada.ico", STAGE / "armada.ico")
     _build_branded_launcher(py)
@@ -284,6 +281,8 @@ def smoke(stage_dir: Path, ver: str) -> None:
         r = subprocess.run([str(py), "-c",
                             "import sys, armada, webview, clr_loader, pythonnet, bottle; "
                             "from armada import updater, ed25519, app, serve; "
+                            "from zoneinfo import ZoneInfo; from datetime import datetime; "
+                            "assert datetime(2026,10,3,12,tzinfo=ZoneInfo('UTC')).astimezone(ZoneInfo('America/New_York')).hour == 8; "
                             "print(armada.__version__, updater.installed(), sys.flags.isolated or sys.flags.no_user_site, sep='|')"],
                            cwd=home, env=env, capture_output=True, text=True, timeout=120)
         if r.returncode != 0:
@@ -301,14 +300,17 @@ def smoke(stage_dir: Path, ver: str) -> None:
             sys.exit("smoke: branded ARMADA.exe could not host the private Python runtime")
         say("smoke: the server answers with the welcome page (no realm yet)")
         port = _free_port()
-        p = subprocess.Popen([str(py), "-m", "armada", "serve", "--port", str(port)], cwd=home, env=env,
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        p = subprocess.Popen([str(branded), "-m", "armada", "serve", "--port", str(port)], cwd=home, env=env,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, creationflags=0x08000000)
         try:
             body = ""
             for _ in range(60):
                 time.sleep(0.5)
                 try:
-                    with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=3) as resp:
+                    auth = json.loads((Path(home)/'.armada'/'local-auth'/f'{port}.json').read_text(encoding='utf-8'))
+                    request = urllib.request.Request(f"http://127.0.0.1:{port}/",
+                        headers={'Authorization':'Bearer '+auth['token']})
+                    with urllib.request.urlopen(request, timeout=3) as resp:
                         body = resp.read().decode("utf-8", "replace")
                     break
                 except OSError:
@@ -322,6 +324,8 @@ def smoke(stage_dir: Path, ver: str) -> None:
             if p.poll() is None:
                 p.kill()
                 p.communicate(timeout=15)       # let it let go of its log file before cleanup
+    from installer_probe import recovery
+    recovery(stage_dir)
     say("smoke: ok")
 
 
@@ -335,7 +339,11 @@ def _iscc() -> Path:
     sys.exit("Inno Setup's compiler (ISCC.exe) wasn't found — install Inno Setup 7 (winget install --id JRSoftware.InnoSetup.7 -e)")
 
 
-def compile_installer(stage_dir: Path, ver: str) -> Path:
+def compile_installer(stage_dir: Path, ver: str, *, allow_unsigned: bool = False) -> Path:
+    from tools import sign_windows
+    config = None if allow_unsigned else sign_windows.configuration()
+    if config:
+        sign_windows.sign_payload(stage_dir, config)
     DIST.mkdir(exist_ok=True)
     iscc = _iscc()
     say(f"compiling with {iscc}")
@@ -345,6 +353,9 @@ def compile_installer(stage_dir: Path, ver: str) -> Path:
     # Setup reports as "EndUpdateResource failed" / "output file appears to be in use".
     work = Path(tempfile.mkdtemp(prefix="armada-iscc-"))
     cmd = [str(iscc), "/Q", f"/DAppVersion={ver}", f"/DStage={stage_dir}", f"/DRedist={redist}", f"/O{work}", str(ISS)]
+    if config:
+        signing = sign_windows.inno_command(Path(sys.executable), ROOT / 'tools' / 'sign_windows.py')
+        cmd[1:1] = ['/DSignWindows', f'/SArmadaSigning={signing}']
     for attempt in range(3):
         # "EndUpdateResource failed" is Inno Setup's known clash with an antivirus scanning the new
         # .exe as it's written (Defender does it here); it passes on a second go.
@@ -359,6 +370,8 @@ def compile_installer(stage_dir: Path, ver: str) -> Path:
     else:
         sys.exit("Inno Setup couldn't compile the installer")
     out = DIST / f"ARMADA-Setup-{ver}.exe"
+    if config:
+        sign_windows.require_valid(sign_windows.signatures([work / out.name])[0], publisher=config['publisher'])
     shutil.copy2(work / out.name, out)
     shutil.rmtree(work, ignore_errors=True)
     digest = hashlib.sha256(out.read_bytes()).hexdigest()
@@ -370,16 +383,20 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--stage-only", action="store_true", help="stage and smoke-test, don't compile")
     ap.add_argument("--no-smoke", action="store_true")
+    ap.add_argument("--allow-unsigned", action="store_true", help="private local build only; cannot publish")
     a = ap.parse_args()
     if os.name != "nt":
         sys.exit("the installer is built on Windows")
+    if not a.allow_unsigned:
+        from tools.sign_windows import configuration
+        configuration()  # Fail before staging/downloading if public signing is unavailable.
     ver = _version()
     print(f"ARMADA installer v{ver}")
     st = stage(ver)
     if not a.no_smoke:
         smoke(st, ver)
     if not a.stage_only:
-        compile_installer(st, ver)
+        compile_installer(st, ver, allow_unsigned=a.allow_unsigned)
 
 
 if __name__ == "__main__":

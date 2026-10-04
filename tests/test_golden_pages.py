@@ -19,9 +19,9 @@ GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 REGOLD = bool(os.environ.get("ARMADA_REGOLD"))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def served(tmp_path_factory):
-    realm = g.build_fixture(tmp_path_factory.mktemp("realm"))
+    realm = g.build_fixture(tmp_path_factory.mktemp("pages") / "realm0")
     with g.ServedRealm(realm) as srv:
         yield srv
 

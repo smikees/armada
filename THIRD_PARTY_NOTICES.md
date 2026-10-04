@@ -25,6 +25,7 @@ The installer ships a Python runtime and these packages (Windows beta).
 | proxy-tools | 0.1.0 | BSD-2-Clause | https://github.com/jtushman/proxy_tools |
 | cffi | 2.1.1 | MIT-0 | https://cffi.readthedocs.io |
 | pycparser | 3.0 | BSD-3-Clause | https://github.com/eliben/pycparser |
+| tzdata | 2026.5 | Apache-2.0 (package); public domain (IANA data) | https://github.com/python/tzdata |
 | typing-extensions | 4.16.0 | PSF-2.0 | https://github.com/python/typing_extensions |
 
 The versions are the ones the beta is built and tested with. The installer build

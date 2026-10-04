@@ -10,7 +10,7 @@ from armada.request_context import RealmContext
 from tests.golden_support import ServedRealm, build_fixture
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def srv(tmp_path_factory):
     root = tmp_path_factory.mktemp("asset-boundary")
     realm = Path(build_fixture(root / "realm"))
@@ -34,7 +34,7 @@ def srv(tmp_path_factory):
 def request(server, path, headers=None):
     connection = http.client.HTTPConnection("127.0.0.1", server.port, timeout=5)
     try:
-        connection.request("GET", path, headers={"X-Armada-Realm": RealmContext.capture(server.realm).realm_id, **(headers or {})})
+        connection.request("GET", path, headers={**server.auth_headers(), "X-Armada-Realm": RealmContext.capture(server.realm).realm_id, **(headers or {})})
         response = connection.getresponse()
         return response.status, dict(response.getheaders()), response.read()
     finally:

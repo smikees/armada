@@ -255,12 +255,12 @@ def test_future_realm_browses_but_http_changes_are_refused(tmp_path):
     with ServedRealm(str(root)) as server:
         conn = http.client.HTTPConnection("127.0.0.1", server.port, timeout=10)
         try:
-            conn.request("GET", "/agent/captain/threads")
+            conn.request("GET", "/agent/captain/threads", headers=server.auth_headers())
             response = conn.getresponse()
             assert response.status == 200
             response.read()
             conn.request("POST", "/api/save-agent", json.dumps({"agent":"captain", "display":"changed"}),
-                         {"Content-Type":"application/json", "X-Armada-Realm": RealmContext.capture(root).realm_id})
+                         {**server.auth_headers(), "Content-Type":"application/json", "X-Armada-Realm": RealmContext.capture(root).realm_id})
             response = conn.getresponse()
             assert response.status == 409
             assert "read-only" in json.loads(response.read())["error"]

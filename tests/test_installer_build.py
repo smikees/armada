@@ -68,14 +68,15 @@ def test_uninstall_never_touches_the_users_data():
     removed = re.findall(r'^Type: \w+; Name: "([^"]+)"', ISS.split("[UninstallDelete]")[1].split("[")[0], re.M)
     assert removed and all(p.startswith("{app}") for p in removed)
     section = ISS.split("[UninstallDelete]")[1].split("[Code]")[0]
-    assert not any(".armada" in l or "{%USERPROFILE}" in l or "{userdocs}" in l
+    assert not any("{%USERPROFILE}" in l or "{userdocs}" in l
                    for l in section.splitlines() if not l.startswith(";"))
 
 
 def test_uninstall_and_upgrade_only_stop_processes_running_this_installs_python():
     stop = ISS[ISS.index("procedure StopArmada"):ISS.index("function PrepareToInstall")]
     assert "StartsWith(" in stop and "\\python\\" in stop
-    assert "Get-Process python,pythonw,ARMADA" in stop
+    assert "Get-CimInstance Win32_Process" in stop
+    assert "ExecutablePath" in stop and "Stop-Process -Id $_.ProcessId" in stop
     assert "taskkill" not in ISS.lower()                       # would kill every Python on the machine
 
 

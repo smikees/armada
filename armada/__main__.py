@@ -7,12 +7,11 @@ if len(sys.argv) > 1 and sys.argv[1] == "app":
     if relaunch_if_needed(sys.argv[1:]):
         sys.exit(0)
 
-# An update downloaded and checked in the background (5.4) is put in place here, before the app is
-# imported, when this is the only ARMADA process that could be running the old code. Then start
-# again on the new code. See updater.boot.
-if len(sys.argv) > 1 and sys.argv[1] in ("app", "schedule"):
+# Explicit `python -m armada` commands also acquire a process lease. Normal installed shortcuts
+# enter through the stable bootstrap directly, which can recover even when this package is absent.
+if "armada_bootstrap" not in sys.modules or not getattr(sys.modules["armada_bootstrap"], "_leases", {}):
     from . import updater
-    if updater.boot(sys.argv[1]):
+    if updater.installed():
         updater.reexec()
 
 from .cli import main

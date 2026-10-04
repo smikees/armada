@@ -85,8 +85,9 @@ def start() -> dict:
     if time.monotonic() - _last_spawn < _SPAWN_GRACE:
         return {"ok": True, "starting": True}
     _stop_marker(os.getpid()).unlink(missing_ok=True)
-    cmd =[_python_for_background(), "-m", "armada", "schedule", "--engine", "auto",
-          "--app-owner", str(os.getpid())]
+    from .updater import launch_arguments
+    cmd = [_python_for_background(), *launch_arguments("schedule", "--engine", "auto",
+                                                       "--app-owner", str(os.getpid()))]
     flags = 0
     if os.name == "nt":
         DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW = 0x8, 0x200, 0x08000000
