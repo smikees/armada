@@ -1,7 +1,7 @@
-# ARMADA 0.99.77 candidate verification
+# ARMADA 0.99.77 release verification
 
 Follow-up to the owner's 0.99.76 report: Gemini still denied the approved realm
-folder, and a terminal still appeared briefly while idle. Publication is pending.
+folder, and a terminal still appeared briefly while idle. Published as the next maintenance beta; compatible installed copies can update in-app.
 
 ## Gemini: reproduced and corrected
 
@@ -37,7 +37,13 @@ This is a policy-mapping error, independent of the user's folder name.
 
 - Focused Gemini, background, process lifecycle and system-memory checks: 121 passed.
 - Scheduler-service and notification checks: 46 passed.
-- Full isolated suite, release CI and package verification: pending.
+- Full isolated release-gate suite: 3,065 passed, five skipped.
+- Exact-commit Windows CI passed on Python 3.12.10 and current 3.12; PHP relay passed.
+  https://github.com/smikees/armada/actions/runs/37211097161
+- Packaged imports/startup, timezone support and all five launcher recovery checks passed.
+- Public update manifest signature, runtime compatibility, ZIP size/hash and installer hash verified.
+- Source commit: `271bc57e469f0bfb3d5f93dc48cedd7c9b94fddd`.
+- Installer SHA-256: `8bc111f5d2a3ae874579037a1cdb188798081dcb520e7e173f3a90d0729fe650`.
 - No live user realm, scheduled job or global CLI policy was modified.
 
 ## Distribution
@@ -48,3 +54,9 @@ no-fee distribution. Trusted publisher signing and clean-Sandbox GUI acceptance 
 still unverified. This follow-up does not fix Application Control error 4551 or the
 previous Sandbox WebView2 prerequisite failure. Standard release gates and launch
 acceptance checkboxes are unchanged; any manual distribution is recorded separately.
+
+Published manually as a continuation of the requested unsigned maintenance beta,
+with signing and clean-Sandbox limitations retained in the release notes. The
+standard public gate was not represented as passed. The later metadata commit
+changes documentation and website links only. Landing-page-only FTPS publication
+retains a backup and does not touch the report relay.

@@ -162,10 +162,11 @@ Never commit build outputs or signing credentials.
 
 ## Release boundaries
 
-The current published installer (0.99.76) lacks Authenticode signatures and can fail with error 4551
+The current published installer (0.99.77) lacks Authenticode signatures and can fail with error 4551
 on protected machines. Version 0.99.75 used the explicit one-release exception below; 0.99.76 continues the owner's
 requested unsigned beta distribution as a recorded maintenance-release deviation
-([verification record](RELEASE_0_99_76.md)).
+([0.99.76 verification](RELEASE_0_99_76.md)); 0.99.77 follows the same recorded
+maintenance distribution ([0.99.77 verification](RELEASE_0_99_77.md)).
 The standard public build path requires publisher signing; the account is not yet configured.
 Update manifests are Ed25519-signed; these are separate guarantees.
 Test clean-machine installation using the sandbox procedure
