@@ -1,7 +1,7 @@
-# ARMADA 0.99.76 candidate verification
+# ARMADA 0.99.76 release verification
 
-This candidate addresses new-team model selection, unattended Windows probes and
-Gemini's missing task-folder context. Public publication is pending.
+This release addresses new-team model selection, unattended Windows probes and
+Gemini's missing task-folder context. Published as the next unsigned beta; 0.99.75 users can update in-app.
 
 ## Behavior
 
@@ -29,11 +29,32 @@ Gemini's missing task-folder context. Public publication is pending.
 - Golden HTML review: the provider-default option, new changelog and settings help
   text account for the changes; no unrelated page-layout change.
 - Final isolated default suite: 3,055 passed, five skipped (386.37 seconds).
-- Package checks: pending.
+- Exact source-commit Windows CI (Python 3.12.10 and current 3.12) and PHP relay: passed.
+  https://github.com/smikees/armada/actions/runs/37208052615
+- Packaged imports, server startup, timezone support and native-launcher recovery at all
+  five interruption points passed. Update signature, ZIP contents, size and SHA-256 verified.
+- Source commit: `188f116d36c704a93a7ab53c377044f2f491a225`.
+- Installer SHA-256: `a1100592ad461f255c0e036949e0b59193d841f6c8cbe24a0af3410424f3106c`.
+- Runtime remains `py3.12-abe4061a3fa70426`, compatible with 0.99.75.
 
 ## Distribution
 
-This candidate does not change publisher signing. Version 0.99.75's unsigned public
-publication was a one-release exception. The normal public gate still requires
-publisher signing and clean-VM GUI acceptance. Any local unsigned installer is a
-private test candidate, not an Application Control fix.
+This maintenance release continues the owner's requested no-fee unsigned-beta
+distribution and request for fixes in a new version. The installer remains unsigned
+by a Windows publisher; Application Control error 4551 is not fixed. Its update
+manifest is Ed25519-signed, a separate guarantee. Trusted publisher signing and
+clean-Sandbox GUI acceptance remain unverified; the previous WebView2 prerequisite
+failure (0x80040902) remains unresolved. No general release-gate or acceptance
+checkbox is changed. These limitations are retained in the release notes and website.
+
+The standard publisher still requires signing and Sandbox acceptance. The existing
+unsigned beta distribution was continued manually for this maintenance release after
+isolated tests, exact-commit CI and package verification; this is recorded as a
+release-specific deviation, not a successful standard-gate run.
+
+Published assets reference the tested source commit above; the later documentation
+commit records distribution without changing the packaged application. Only the
+website landing page is replaced, with backup; the report relay stays unchanged.
+
+Public latest-release downloads were retrieved and their manifest signature, version,
+runtime, ZIP size/hash and installer hash verified. The live website links to 0.99.76.

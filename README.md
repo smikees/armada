@@ -24,13 +24,12 @@ see what each one is being told before it answers.
 > **Status: beta, Windows only.** ARMADA is in a small invited beta. Expect rough edges — and
 > please report them.
 
-**Next version in preparation: 0.99.76** — connected-engine defaults, hidden background checks, and correct Gemini working-folder context.
-
-**Current release: [v0.99.75 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.75).**
-[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.75/ARMADA-Setup-0.99.75.exe)
+**Current release: [v0.99.76 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.76).**
+[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.76/ARMADA-Setup-0.99.76.exe)
 or browse [all releases](https://github.com/smikees/armada/releases).
 Upgrading from 0.99.74 or earlier requires running this full installer once; it updates the
 bundled runtime while preserving realms and settings.
+From 0.99.75, use Settings → Check for updates → Restart to update; no reinstall is needed.
 
 ## Before you give an agent tools
 
@@ -45,14 +44,14 @@ services you've connected. Read [Staying safe](armada/docs/user/safety.md) first
   offers installation and login actions. Model access and quotas depend on your provider account.
 
 The beta is installed with `ARMADA-Setup-<version>.exe` (per user, no admin rights needed; it
-brings its own Python). The published 0.99.75 installer is unsigned: Windows may show a
+brings its own Python). The published 0.99.76 installer is unsigned: Windows may show a
 SmartScreen warning. Windows Smart App Control
 or an organization's Application Control policy can block its extracted temporary executable
 with error 4551. This is not the ordinary SmartScreen warning; it has no "Run anyway" override.
 This beta does not fix that restriction; publisher signing remains pending. Keep Windows protections enabled.
-Installation and launch were verified on the developer's machine. Clean Windows Sandbox GUI
+Packaged startup and update-recovery checks passed on the developer's machine. Clean Windows Sandbox GUI
 acceptance remains open because Microsoft's WebView2 prerequisite installer failed there;
-see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.75).
+see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.76).
 The installer is built with
 `tools/build_installer.py` ([ADR-009](docs/adr/ADR-009-installer.md)).
 
