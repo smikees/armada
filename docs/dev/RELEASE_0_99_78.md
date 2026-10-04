@@ -26,11 +26,17 @@ transition; later restarts use the fix. No realm rename is required.
   with spaces in the installation and realm paths, apostrophes and Unicode.
 - Native replacement tests cover empty arguments, embedded quotes and trailing
   backslashes. A separate test preserves raw POSIX arguments.
+- A separate probe using the packaged ARMADA.exe preserved arguments with spaces
+  in the actual executable, bootstrap and existing realm paths, plus Unicode.
 - Focused restart, desktop lifetime, bootstrap recovery and updater tests passed.
 - The first full run exposed a test-fixture race: a child-process test read its
   receipt after file creation but before JSON was written. Receipts now publish
   by atomic rename; process-cleanup assertions are unchanged.
-- Full isolated suite, Windows CI and packaging validation: pending.
+- Full isolated release gate: 3,071 passed, five skipped.
+- Exact-commit Windows CI passed on Python 3.12.10 and current 3.12, plus PHP relay:
+  https://github.com/smikees/armada/actions/runs/37214285022
+- Package imports/startup and all five native interrupted-update recovery checks passed.
+- Public latest-release signature, source commit, ZIP size/hash and installer hash verified.
 - No live user realm, scheduled job or global CLI policy was modified.
 
 ## Distribution
@@ -41,3 +47,12 @@ the owner's existing no-fee maintenance distribution. Authenticode signing and
 clean-Sandbox GUI acceptance remain unverified; this release does not address
 Application Control error 4551 or the earlier WebView2 prerequisite failure.
 Standard public release gates remain unchanged and are not represented as passed.
+
+The installer and update bundle are built from commit
+`2fe528cdad06b3e98390ae2290c66063daf51f03`; subsequent metadata edits affect only
+documentation and the website download links. Installer SHA-256:
+`2d11715101852fe3d7e1e6be3a06bd120741367c08cb324ae16a68ecacacb9aa`.
+
+Published as the latest GitHub release using the recorded unsigned maintenance
+distribution. The website's index.html download links were updated separately
+with a remote backup; the report relay was not changed.
