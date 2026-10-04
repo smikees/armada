@@ -39,13 +39,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         </div>
         <aside class="download" aria-labelledby="download-title">
           <h2 id="download-title">ARMADA for Windows</h2>
-          <p class="release">Version 0.99.74 <span class="beta">Beta</span></p>
-          <a class="button" href="https://github.com/smikees/armada/releases/download/v0.99.74/ARMADA-Setup-0.99.74.exe">
+          <p class="release">Version 0.99.75 <span class="beta">Beta</span></p>
+          <a class="button" href="https://github.com/smikees/armada/releases/download/v0.99.75/ARMADA-Setup-0.99.75.exe">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5"/></svg>
             Download installer
           </a>
           <p class="requirements">Windows 10 or 11 · Installed for your user</p>
-          <a class="release-link" href="https://github.com/smikees/armada/releases/tag/v0.99.74">Read the release notes <span aria-hidden="true">→</span></a>
+          <p class="requirements"><strong>Unsigned beta.</strong> Windows may show a warning.
+            Smart App Control or organization policies can block installation (error 4551).</p>
+          <a class="release-link" href="https://github.com/smikees/armada/releases/tag/v0.99.75">Read the release notes <span aria-hidden="true">→</span></a>
         </aside>
       </section>
 
@@ -84,12 +86,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <p>Install ARMADA and follow Alexander through setup. He helps check your CLI connections,
           choose a folder and appoint your first agents. ARMADA runs independently of the provider
           desktop apps.</p>
+        <p>Upgrading from an earlier beta? Run this installer once to update the bundled runtime.
+          Your realms and settings are preserved.</p>
         <a href="https://github.com/smikees/armada/blob/main/armada/docs/user/getting-started.md">Read the setup guide <span aria-hidden="true">→</span></a>
       </section>
 
       <div class="beta-note">
         <p><strong>About this beta.</strong> The Windows installer is not yet code-signed, so Windows
-          may show a SmartScreen warning. Download only from this project’s GitHub releases.
+          may show a SmartScreen warning. Application Control can block it without a
+          “Run anyway” option. Download only from this project’s GitHub releases.
           Provider access, quotas and connector support depend on your account and chosen engine.</p>
       </div>
     </main>

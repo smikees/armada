@@ -158,9 +158,31 @@ Never commit build outputs or signing credentials.
 
 ## Release boundaries
 
-The last published installer (0.99.74) lacks Authenticode signatures and can fail with error 4551
-on protected machines. Public builds now require publisher signing; the account is not yet
-configured. Update manifests are Ed25519-signed; these are separate guarantees.
+The current published installer (0.99.75) lacks Authenticode signatures and can fail with error 4551
+on protected machines. It was published under the explicit one-release exception below.
+The standard public build path requires publisher signing; the account is not yet configured.
+Update manifests are Ed25519-signed; these are separate guarantees.
 Test clean-machine installation using the sandbox procedure
 above when changing packaging, launcher or runtime dependencies. Do not restart a user's running
 app merely to publish a release. Announcements and website deployment need their own authorization.
+
+### 2026-10-04: owner-authorized unsigned 0.99.75 publication
+
+Mihai explicitly requested publication of an unsigned version on the website after discussing
+the Application Control limitation. This supersedes the signing and clean-Sandbox GUI gates
+for this release only; the enforced publisher and future release procedure remain unchanged.
+
+The existing private candidate was promoted without rebuilding: installer SHA-256
+`a6968f9d98419ebb367f43b607330bf465dd1028e0586e020cc8dee49dc5672b`.
+All application, packaging and launcher inputs match public commit
+`c2be69684220c7a72ee10261a93ba8196510ef9a`. The isolated suite passed 3,020 tests with five skips;
+23 PHP assertions and [exact-commit Windows/PHP CI](https://github.com/smikees/armada/actions/runs/37197850193)
+passed. Local installation and launch preserved realms/settings, and the compiled launcher
+passed all five recovery interruption points. The update manifest was rebuilt and verified
+against the public commit using the existing Ed25519 key. No report credential ships in either payload.
+
+[Release v0.99.75](https://github.com/smikees/armada/releases/tag/v0.99.75) and the website explicitly
+label the installer unsigned. The release notes record both error 4551 and the unresolved
+WebView2 prerequisite failure in Windows Sandbox. Neither trusted signing nor clean-VM GUI
+acceptance is marked passed. Older installations need this full installer once. Website
+publication replaces only its backed-up landing page; the report relay is unchanged.
