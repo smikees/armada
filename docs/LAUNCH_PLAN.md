@@ -12,10 +12,10 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.82** adds browser-verified startup, crash-safe startup rollback,
-strict Windows-account instance ownership, restart continuity and a mandatory
-packaged upgrade gate. [Verification](dev/RELEASE_0_99_82.md) records release checks
-and the one-time installer boundary; clean-Sandbox GUI acceptance remains open.
+Version **0.99.83** prevents saved update results from advertising a version already
+installed. [Verification](dev/RELEASE_0_99_83.md) records the regression and release
+checks. It retains 0.99.82's browser-verified startup, rollback and strict account
+ownership; clean-Sandbox GUI acceptance remains open.
 
 ## Implemented foundations
 

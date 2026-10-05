@@ -2,14 +2,13 @@
 
 ## Current release verification
 
-v0.99.82 (2026-10-05), Windows: **3,139 passed, five skipped** in the final isolated suite.
-Exact-source Windows/PHP CI also passed. The staged branded runtime passed 16 real WebView2
-multi-window session checks, five interrupted-update recovery probes and 28 real-page/restart
-checks through a signed-asset packaged update. [Release verification](RELEASE_0_99_82.md)
-records the checks and their installer-transition limits. The settings snapshot change is
-the new changelog entry; the documentation snapshot also reflects the update guidance.
-Use a working Python 3.12+ virtual environment; on this development machine it is `.venv-codex`.
-Older baseline counts below are historical, not an allowance for a new release to have failures.
+v0.99.83 (2026-10-05) fixes stale update availability after installation.
+The targeted updater/progress/hardening suite passed 76 checks; the mandatory
+release publisher verifies the final isolated suite, exact-source Windows CI and
+real native browser/upgrade gates before publication.
+[Release verification](RELEASE_0_99_83.md) records the regression and boundaries.
+The prior 0.99.82 final suite passed 3,139 tests with five skips.
+Use Python 3.12+; this development machine uses .venv-codex.
 
 ## Running
 

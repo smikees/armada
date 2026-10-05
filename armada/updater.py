@@ -608,13 +608,19 @@ def reexec() -> None:
 def status() -> dict:
     """For the window: what the updater knows, without touching the network."""
     st = state()
+    staged = staged_version()
+    # A full installer keeps the account's update history. Its last check may describe the
+    # release we are already running; it cannot advertise an update until the next check.
+    if st.get('status') in {'available', 'staged', 'needs-installer'} and not newer(st.get('latest', ''), __version__):
+        st = {**st, 'status': 'staged' if staged else 'current', 'detail': ''}
     try:
         error = json.loads((ROOT / bootstrap.ERROR).read_text(encoding="utf-8"))['error']
         st = {**st, 'status': 'error', 'detail': 'Update was not applied: ' + str(error)}
     except (OSError, ValueError, KeyError, TypeError):
         pass
     return {"installed": installed(), "version": __version__, "auto": auto_enabled(),
-            "staged": staged_version(), "status": st.get("status", ""), "latest": st.get("latest", ""),
+            "staged": staged, "newer": newer(staged or st.get('latest', ''), __version__),
+            "status": st.get("status", ""), "latest": st.get("latest", ""),
             "checked": st.get("checked", ""), "detail": st.get("detail", ""),
             "applied": st.get("applied", ""), "requested": apply_requested(),
             **progress(),

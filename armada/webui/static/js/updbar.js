@@ -15,6 +15,9 @@
     if(d.phase==='error'&&!d.staged){
       el.innerHTML='<div class="mc-banner mc-banner-info" role="alert"><span>Restart needs attention. '+esc(d.message)+'</span></div>';return;
     }
+    // Saved availability belongs to an earlier check, possibly before this installer ran.
+    // The server compares the candidate with the running version on every status request.
+    if(d.newer!==true){ el.innerHTML=""; return; }
     if(d.staged){
       el.innerHTML='<div class="mc-banner mc-banner-info" role="status">'+
         '<span class="mc-banner-msg">ARMADA v'+esc(d.staged)+' is ready.</span>'+

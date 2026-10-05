@@ -339,6 +339,50 @@ def test_routes_bar_and_switch_are_wired():
     assert 'id="mc-updbar"' in Path(layout.__file__).read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize('saved_status', ['available', 'staged', 'needs-installer'])
+@pytest.mark.parametrize('latest', ['1.0.0', '0.9.9', '', 'invalid'])
+def test_status_does_not_advertise_an_installed_or_invalid_cached_release(inst, saved_status, latest):
+    updater._save(status=saved_status, latest=latest, checked='before-install', detail='Old availability')
+    before = updater._state_path().read_bytes()
+    status = updater.status()
+    assert status['version'] == '1.0.0'
+    assert status['status'] == 'current' and status['newer'] is False
+    assert status['staged'] == '' and status['detail'] == ''
+    assert status['checked'] == 'before-install'
+    assert updater._state_path().read_bytes() == before  # Rendering does not rewrite check history.
+
+
+def test_status_keeps_a_newer_installer_available(inst):
+    updater._save(status='needs-installer', latest='1.1.0')
+    status = updater.status()
+    assert status['newer'] is True and status['status'] == 'needs-installer'
+
+
+def test_status_keeps_a_verified_newer_stage_available(inst):
+    updater.check(fetch=_release('1.1.0'))
+    updater._save(status='needs-installer', latest='1.0.0')
+    status = updater.status()
+    assert status['newer'] is True and status['status'] == 'staged'
+    assert status['staged'] == '1.1.0'
+
+
+def test_status_preserves_operational_errors_for_an_installed_release(inst):
+    updater._save(status='error', latest='1.0.0', detail='Network unavailable')
+    status = updater.status()
+    assert status['newer'] is False and status['status'] == 'error'
+    assert status['detail'] == 'Network unavailable'
+    (inst / updater.bootstrap.ERROR).write_text(json.dumps({'error': 'Recovery failed'}))
+    assert updater.status()['detail'] == 'Update was not applied: Recovery failed'
+
+
+def test_update_banner_uses_current_availability_and_clears_stale_notices():
+    import shutil
+    node = shutil.which('node')
+    if not node:
+        pytest.skip('Node required for update banner checks')
+    subprocess.run([node, str(Path(__file__).with_name('updbar_harness.js'))], check=True)
+
+
 def test_the_real_public_key_is_a_valid_point():
     assert ed25519._decompress(updater.PUBLIC_KEY) is not None
 
