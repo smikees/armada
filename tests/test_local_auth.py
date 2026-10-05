@@ -99,3 +99,20 @@ def test_browser_url_uses_fragment_not_query(server):
     url = local_auth.browser_url(f"http://127.0.0.1:{server.server_port}/")
     assert url.endswith("/auth#" + server.auth.token)
     assert "?" not in url
+
+
+def test_public_auth_navigation_can_recover_a_refusal_page_without_relaxing_data_guard(server):
+    headers = {'Sec-Fetch-Site': 'cross-site'}
+    assert request(server, '/auth', headers=headers)[0] == 200
+    assert request(server, '/settings', headers=headers)[0] == 403
+    assert request(server, '/api/instance', headers=headers)[0] == 403
+    assert request(server, '/auth', 'POST', headers)[0] == 401
+
+
+def test_native_navigation_uses_private_fragment_and_rejects_external_destinations(server):
+    url = local_auth.browser_url(f'http://127.0.0.1:{server.server_port}/', '/settings?tab=app')
+    assert url.endswith('&next=%2Fsettings%3Ftab%3Dapp')
+    assert '?tab=' not in url
+    for path in ('https://example.com', '//example.com', '/\\example.com'):
+        with pytest.raises(ValueError):
+            local_auth.browser_url(f'http://127.0.0.1:{server.server_port}/', path)

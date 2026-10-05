@@ -176,7 +176,8 @@ def show_main(*, href: str = "", report: str = "") -> bool:
     _main_window.show()
     _main_window.restore()
     if href:
-        _main_window.load_url(_app_url.rstrip("/") + href)
+        from .local_auth import browser_url
+        _main_window.load_url(browser_url(_app_url, href))
     elif report:
         _main_window.evaluate_js("window.mcSupportOpen({message:" + json.dumps(report[:6000]) + "})")
     return True
@@ -513,7 +514,11 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
             except Exception:
                 log.debug('Could not confirm a painted startup frame', exc_info=True)
             if navigating.is_set():
+                if not main.evaluate_js("!!document.querySelector('link[href*=\"/static/brand.css\"]')"):
+                    return  # Auth/bootstrap and refusal pages are not a ready desktop.
                 loader.ready()
+                from . import instance
+                instance.desktop_ready()
             else:
                 painted.set()
     main.events.loaded += _page_loaded

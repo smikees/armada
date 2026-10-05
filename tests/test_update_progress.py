@@ -52,3 +52,12 @@ def test_restart_uses_registered_port(monkeypatch):
     monkeypatch.setattr(updater.urllib.request, 'urlopen', lambda request, **kw: requests.append(request.full_url) or Response())
     assert updater._restart_window()
     assert requests == ['http://127.0.0.1:8890/restart']
+
+
+def test_postpone_reopens_admission_but_preserves_staged_release(inst):
+    updater.check(fetch=_release())
+    updater.request_apply()
+    assert updater.apply_requested()
+    assert updater.cancel_apply()['ok']
+    assert not updater.apply_requested()
+    assert updater.staged_version() == '1.1.0'

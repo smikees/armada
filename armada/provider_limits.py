@@ -5,12 +5,15 @@ import logging
 import copy
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 
 from . import providers
 
 TTL = 300.0
+FAILURE_TTL = 30.0
 DEADLINE = 55.0
+SESSION_ID = uuid.uuid4().hex
 _lock = threading.RLock()
 _entries: dict[tuple, '_Entry'] = {}
 
@@ -28,7 +31,23 @@ class _Entry:
 def _probe(provider, realm):
     if provider == 'claude':
         from . import usage_api
-        return usage_api.fetch(realm)
+        data = usage_api.fetch(realm, force=True)
+        if realm and (data.get('reason') or data.get('stale_reason')) == 'token-expired':
+            from . import sysjobs, util
+            # Let the CLI own token rotation, respecting the enabled upkeep job.
+            # One account-wide attempt per five minutes, even with several realms.
+            try:
+                target = util.data_dir() / 'usage-renewal.json'
+                with util.file_lock(target, timeout=0):
+                    previous = util.read_json_state(target, default=dict)
+                    if time.time()-float(previous.get('at', 0)) >= TTL:
+                        util.write_json_atomic(target, {'at': time.time()})
+                        result = sysjobs.run_one(realm, 'usage-keepalive', urgent=True)
+                        if result.get('ok'):
+                            data = usage_api.fetch(realm, force=True)
+            except util.FileLockTimeout:
+                pass  # Another realm is already renewing this account's token.
+        return data
     if provider == 'codex':
         from . import codex_usage
         return codex_usage.fetch()
@@ -82,7 +101,8 @@ def read(provider: str, realm=None, force: bool = False) -> dict:
         if entry and entry.finished is None and now-entry.started >= DEADLINE:
             _failure(entry, 'timeout', 'Usage check timed out. The next check will retry.', now)
         busy = bool(entry and entry.worker and entry.worker.is_alive())
-        if not entry or (entry.finished is not None and (force or now-entry.finished >= TTL) and not busy):
+        ttl = TTL if entry and entry.data.get('available') and not entry.data.get('stale') else FAILURE_TTL
+        if not entry or (entry.finished is not None and (force or now-entry.finished >= ttl) and not busy):
             old = entry
             entry = _Entry(now, good=copy.deepcopy(old.good) if old else {}, good_at=old.good_at if old else 0)
             _entries[key] = entry

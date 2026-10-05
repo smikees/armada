@@ -18,6 +18,31 @@ from armada import usage_api
 _JS = Path(__file__).resolve().parents[1] / "armada" / "webui" / "static" / "js" / "usage.js"
 
 
+def test_browser_limits_cache_is_scoped_to_launch_and_retries_stale_early():
+    if not shutil.which('node'):
+        pytest.skip('node not available')
+    script = r'''
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(process.argv[1],'utf8');
+const store=new Map(),header={dataset:{appSession:'first'}}; let now=100000;
+const context={window:{},Date:{now:()=>now},document:{getElementById:()=>header},
+sessionStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)}};
+vm.runInNewContext(source.slice(0,source.indexOf('function uKey'))+
+'globalThis.cache={get:cacheGet,set:cacheSet};})();',context);
+context.cache.set('mc_uc_lim_v3',{available:true,weekly:{pct:20}});
+now+=40000;
+assert.equal(context.cache.get('mc_uc_lim_v3',300000).weekly.pct,20);
+header.dataset.appSession='second';
+assert.equal(context.cache.get('mc_uc_lim_v3',Infinity),null);
+context.cache.set('mc_uc_lim_v3',{available:true,stale:true,weekly:{pct:20}});
+now+=31000;
+assert.equal(context.cache.get('mc_uc_lim_v3',300000),null);
+assert.equal(context.cache.get('mc_uc_lim_v3',Infinity).weekly.pct,20);
+'''
+    result = subprocess.run(['node','-e',script,str(_JS)], capture_output=True,text=True,timeout=10)
+    assert result.returncode == 0, result.stderr
+
+
 def _reasons_emitted_by_source() -> set:
     """Every reason string the module can actually return — read from the source, so a newly added
     reason fails this suite until someone writes the owner-facing line for it."""

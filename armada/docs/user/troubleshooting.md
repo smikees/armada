@@ -33,6 +33,17 @@ keeps the last reading during refresh. Hover the bar for its age or error. Some
 accounts do not report every window. Check that provider's engine status before
 reconnecting; a missing number does not by itself mean a login problem.
 
+Restarting ARMADA starts a fresh limits check rather than reusing the browser's
+previous session. Successful readings stay cached for five minutes; failed or
+stale checks retry after about 30 seconds. A connected CLI means sign-in is
+available, not that the separate usage request succeeded.
+
+If Claude's usage token has expired, ARMADA asks the enabled **Keep the usage
+figures live** system job to make a small CLI request so Claude renews its own token,
+then reads the limits again. This consumes a small amount of Claude quota. Switching
+that job off also disables this renewal. Network or provider failures keep the
+last reading visibly marked as old, with the error in its tooltip.
+
 ## An update says it is waiting
 
 The banner identifies active work across all realms, scheduler shutdown, or an
@@ -40,6 +51,12 @@ activity-record error. An idle scheduler does not count as a running job. New ta
 pause while an update is requested. Keep active work running until it finishes.
 If an older version has multiple windows open, finish the work, fully quit ARMADA
 from the tray and reopen it once. Current versions prevent duplicate desktop instances.
+
+From v0.99.80, a restart monitor checks that the updated desktop and required
+scheduler returned. If startup fails, it shows the specific error and log location.
+If the app is still open with an update paused, **Postpone update** resumes jobs
+and leaves the download ready. When upgrading from an older version, its older
+restart implementation is still used for that first update.
 
 ## I added a realm from another computer and nothing runs
 

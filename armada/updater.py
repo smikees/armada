@@ -440,10 +440,28 @@ def pending_work() -> list:
                     pass
             except util.FileLockTimeout:
                 blockers.append({'kind': 'task', 'label': f'System: {jid}'})
+    if installed():
+        from . import restart
+        permitted = {os.getpid()}
+        from . import instance
+        owner = instance.current().get('pid')
+        if owner:
+            permitted.add(int(owner))
+        try:
+            permitted.add(int(_scheduler_pid_path().read_text().strip()))
+        except (OSError, ValueError):
+            pass
+        blockers.extend(restart.lease_blockers(ROOT, permitted))
     return blockers
 
 
 def progress() -> dict:
+    from . import restart
+    handover = restart.state()
+    if (handover.get('phase') == 'error' and handover.get('root') == str(ROOT.resolve())
+            and handover.get('version') == (staged_version() or __version__)):
+        return {'phase': 'error', 'message': handover.get('message', 'Restart failed'), 'blockers': [],
+                'startup_log': handover.get('startup_log', '')}
     if not apply_requested():
         return {'phase': 'ready', 'message': 'It installs the next time ARMADA starts, or now:', 'blockers': []}
     try:
@@ -460,6 +478,16 @@ def progress() -> dict:
     return {'phase': 'restarting', 'message': 'Restarting to install the update…', 'blockers': []}
 
 
+def cancel_apply() -> dict:
+    from .serve import RESTARTING, _RESTART_LOCK
+    with _RESTART_LOCK, admission_lock():
+        if RESTARTING.is_set():
+            return {'ok': False, 'error': 'Restart has already begun.'}
+        _request_path().unlink(missing_ok=True)
+        (util.data_dir() / 'restart-status.json').unlink(missing_ok=True)
+    return {'ok': True, 'message': 'Update postponed. Scheduled jobs can run again.'}
+
+
 def request_apply() -> dict:
     """Quiesce admission, then restart through the bootstrap; never swap under the HTTP worker."""
     from . import execution
@@ -467,6 +495,7 @@ def request_apply() -> dict:
         v = staged_version()
         if not v: return {"ok": False, "error": "no update is waiting"}
         util.write_text_atomic(_request_path(), v)
+        (util.data_dir() / 'restart-status.json').unlink(missing_ok=True)
     state = progress()
     return {"ok": True, "waiting": state['phase'] != 'restarting', "restart": True, "version": v, **state}
 

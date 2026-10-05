@@ -117,11 +117,11 @@ Everything the System tab needs: definition + live state, newest-relevant first.
 
 —
 
-### `run_one(realm_root, jid: str, manual: bool=False)`
+### `run_one(realm_root, jid: str, manual: bool=False, urgent: bool=False)`
 
 Exclusively claim a due system job; manual=True explicitly permits an operator retry.
 
-### `_run_locked(realm_root, jid, manual)`
+### `_run_locked(realm_root, jid, manual, urgent=False)`
 
 —
 

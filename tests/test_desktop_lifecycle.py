@@ -99,10 +99,11 @@ class DesktopLifecycleTests(unittest.TestCase):
     def test_alexander_cards_open_local_pages_in_main_window(self):
         main = Mock()
         with patch.object(app, "_main_window", main), \
-             patch.object(app, "_app_url", "http://127.0.0.1:8756/"):
+             patch.object(app, "_app_url", "http://127.0.0.1:8756/"), \
+             patch('armada.local_auth.headers', return_value={'Authorization':'Bearer '+('a'*43)}):
             self.assertFalse(app.show_main(href="https://elsewhere.example"))
             self.assertTrue(app.show_main(href="/settings?tab=app"))
-        main.load_url.assert_called_once_with("http://127.0.0.1:8756/settings?tab=app")
+        main.load_url.assert_called_once_with('http://127.0.0.1:8756/auth#'+('a'*43)+'&next=%2Fsettings%3Ftab%3Dapp')
 
 
 if __name__ == "__main__":

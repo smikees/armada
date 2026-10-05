@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 import secrets
 import threading
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, quote
 
 from . import util
 
@@ -67,13 +67,16 @@ def headers(port: int) -> dict:
     return {}
 
 
-def browser_url(url: str) -> str:
+def browser_url(url: str, destination: str = '') -> str:
     parsed = urlsplit(url)
     token = headers(parsed.port or 8756).get("Authorization", "").removeprefix("Bearer ")
     if not token:
         raise OSError("ARMADA's private local session is unavailable; reopen the app")
     # The token is a fragment: never a request path, query string, or Referer.
-    return f"{parsed.scheme}://{parsed.netloc}/auth#{token}"
+    if destination and (not destination.startswith('/') or destination.startswith('//') or '\\' in destination):
+        raise ValueError('Local navigation required')
+    suffix = '&next=' + quote(destination, safe='') if destination else ''
+    return f"{parsed.scheme}://{parsed.netloc}/auth#{token}{suffix}"
 
 
 class Session:
@@ -125,7 +128,9 @@ BOOTSTRAP_HTML = '''<!doctype html><html><head><meta charset="utf-8">
 <meta name="referrer" content="no-referrer"><title>Open ARMADA</title></head>
 <body><p id="state">Opening ARMADA…</p><script>
 (async function(){
-  const token=location.hash.slice(1);
+  const fragment=location.hash.slice(1).split('&');
+  const token=fragment[0];
+  const destination=new URLSearchParams(fragment.slice(1).join('&')).get('next')||'/';
   history.replaceState(null,'','/auth');
   if(!/^[A-Za-z0-9_-]{43}$/.test(token)){
     document.getElementById('state').textContent='Open ARMADA from its desktop shortcut or private launch file.';
@@ -134,7 +139,7 @@ BOOTSTRAP_HTML = '''<!doctype html><html><head><meta charset="utf-8">
   try{
     const result=await fetch('/auth',{method:'POST',headers:{Authorization:'Bearer '+token}});
     if(!result.ok)throw new Error();
-    location.replace('/');
+    location.replace(destination.startsWith('/')&&!destination.startsWith('//')&&!destination.includes('\\\\')?destination:'/');
   }catch(e){document.getElementById('state').textContent='This session expired. Reopen ARMADA.';}
 })();
 </script></body></html>'''

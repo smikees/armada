@@ -262,6 +262,7 @@ _SUBS = [
 
 
 def normalize(html: str, realm: str = "") -> str:
+    html = re.sub(r'data-app-session="[a-f0-9]+"', 'data-app-session="APP_SESSION"', html)
     # The fixture realm lives in a random temp dir, so any absolute realm path embedded in the
     # page (e.g. Settings' data-flow note) is volatile — blank it in every slash/escaping form.
     if realm:

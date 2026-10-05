@@ -15,8 +15,11 @@ function htok(n){n=+n||0;if(n>=1e6)return (n/1e6).toFixed(1)+"M";if(n>=1e3)retur
 // after CACHE_TTL, after which the next load refetches. Manual refresh + the 30-min tick force a miss.
 const CACHE_TTL=30000;   // ms — "a matter of seconds" window where content stays put
 const LIMITS_TTL=300000;
-function cacheGet(k,ttl=CACHE_TTL){try{const o=JSON.parse(sessionStorage.getItem(k));if(o&&(Date.now()-o.t)<ttl)return o.d;}catch(e){}return null;}
-function cacheSet(k,d){try{sessionStorage.setItem(k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
+function limitsKey(k){return /^mc_uc_.*lim_v3$/.test(k)?k+'_'+(document.getElementById('mc-hdr-limits')?.dataset.appSession||''):k;}
+function cacheGet(k,ttl=CACHE_TTL){try{const o=JSON.parse(sessionStorage.getItem(limitsKey(k)));
+  if(ttl!==Infinity&&/^mc_uc_.*lim_v3$/.test(k)&&o&&(!o.d.available||o.d.stale))ttl=Math.min(ttl,30000);
+  if(o&&(Date.now()-o.t)<ttl)return o.d;}catch(e){}return null;}
+function cacheSet(k,d){try{sessionStorage.setItem(limitsKey(k),JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
 function uKey(mode,win,by){return "mc_uc_u_v2_"+mode+"_"+win+"_"+(by||"agents");}
 async function fetchUsage(mode,win,by,force){const k=uKey(mode,win,by);
   if(!force){const c=cacheGet(k);if(c)return c;}
@@ -263,7 +266,7 @@ function init(){
   window.addEventListener("pageshow",e=>{if(e.persisted)refreshAll();});
   window.addEventListener("focus",()=>refreshAll());
   setInterval(()=>{if(!document.hidden)refreshAll(true);},1800000);   // auto-refresh every 30 min (forces a fresh fetch)
-  setInterval(()=>{if(!document.hidden)renderHeaderLimits();},LIMITS_TTL);
+  setInterval(()=>{if(!document.hidden)renderHeaderLimits();},30000);
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
 })();

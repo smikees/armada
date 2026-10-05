@@ -116,6 +116,12 @@ def publish_port(port):
         util.write_json_atomic(_path(), _owner)
 
 
+def desktop_ready():
+    if _owner is not None:
+        _owner['desktop_ready'] = True
+        util.write_json_atomic(_path(), _owner)
+
+
 def watch_activation(callback):
     """Bring a tray-hidden window back when a second launch requests activation."""
     stop = threading.Event()

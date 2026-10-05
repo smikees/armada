@@ -12,6 +12,9 @@
   function paint(d){
     const el=document.getElementById(BAR); if(!el) return;
     if(!d || !d.installed){ el.innerHTML=""; return; }
+    if(d.phase==='error'&&!d.staged){
+      el.innerHTML='<div class="mc-banner mc-banner-info" role="alert"><span>Restart needs attention. '+esc(d.message)+'</span></div>';return;
+    }
     if(d.staged){
       el.innerHTML='<div class="mc-banner mc-banner-info" role="status">'+
         '<span class="mc-banner-msg">ARMADA v'+esc(d.staged)+' is ready.</span>'+
@@ -19,7 +22,7 @@
           (d.requested ? 'Preparing update…' : 'It installs the next time ARMADA starts, or now:'))+'</span>'+
         '<span class="mc-banner-act"><button class="btn btn-sm" id="mc-updbar-btn" '+
         (d.requested?'disabled ':'')+'onclick="mcUpdateNow(this,document.getElementById(\'mc-updbar-sub\'))">'+
-        'Restart to update</button></span></div>';
+        'Restart to update</button>'+(d.requested&&d.phase!=='restarting'?'<button class="btn btn-sm" onclick="mcUpdateCancel(this)">Postpone update</button>':'')+'</span></div>';
       return;
     }
     if(d.status==='needs-installer' && d.latest){
@@ -37,6 +40,12 @@
     catch(e){ return null; }
   }
   window.mcUpdCheck=check;
+  window.mcUpdateCancel=async function(btn){
+    btn.disabled=true;
+    try{const d=await(await fetch('/api/update-cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
+      if(!d.ok)throw Error(d.error);await check();
+    }catch(e){btn.disabled=false;document.getElementById('mc-updbar-sub').textContent=e.message;}
+  };
 
   // Put the waiting version in place and come back on it. Used by this bar and by Settings.
   // The window and scheduler restart when idle. The stable launcher then replaces the package

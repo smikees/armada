@@ -210,7 +210,7 @@ def _AGE_NOTE(age: float) -> str:  # noqa: N802 — small formatter, kept beside
     return f"{h}h old" if h < 48 else f"{h // 24}d old"
 
 
-def fetch(realm_root=None) -> dict:
+def fetch(realm_root=None, force=False) -> dict:
     """Cached (60s) real usage: {available, session:{pct,...}, weekly:{...}, age_sec, stale} or
     {available:False, reason, message}.
 
@@ -218,7 +218,7 @@ def fetch(realm_root=None) -> dict:
     agent runs — the last good reading is served with its age rather than nothing at all.
     """
     now = time.time()
-    if _CACHE["data"] is not None and (now - _CACHE["at"]) < _TTL:
+    if not force and _CACHE["data"] is not None and (now - _CACHE["at"]) < _TTL:
         return _CACHE["data"]
     data = _normalise(_fetch_live())
     if data.get("available"):

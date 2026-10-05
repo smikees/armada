@@ -81,6 +81,24 @@ def test_a_switched_off_job_does_not_run_even_by_hand(realm):
     assert sysjobs.run_one(realm, "prune-history", manual=True)["ok"] is True
 
 
+def test_urgent_token_renewal_honors_off_and_uncertain_attempts(realm):
+    sysjobs.set_enabled(realm, 'usage-keepalive', False)
+    assert sysjobs.run_one(realm, 'usage-keepalive', urgent=True)['reason'] == 'disabled'
+    sysjobs.set_enabled(realm, 'usage-keepalive', True)
+    st = sysjobs.state(realm)
+    st['usage-keepalive']['attempt'] = {'attempt_id':'unfinished','state':'claimed','owner_pid':99999999,
+                                       'started':dt.datetime.now().astimezone().isoformat()}
+    sysjobs._save(realm, st)
+    result = sysjobs.run_one(realm, 'usage-keepalive', urgent=True)
+    assert result['reason'] == 'uncertain-attempt'
+    assert sysjobs.state(realm)['usage-keepalive']['attempt']['attempt_id'] == 'unfinished'
+
+
+def test_urgent_flag_cannot_bypass_other_system_job_cadence(realm):
+    assert sysjobs.run_one(realm, 'prune-history')['ok']
+    assert sysjobs.run_one(realm, 'prune-history', urgent=True)['reason'] == 'not-due'
+
+
 def test_retired_realm_can_disable_its_app_update_without_disabling_the_machine(realm):
     from armada import appconfig, util
 

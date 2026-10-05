@@ -171,7 +171,7 @@ def _job_usage_keepalive(realm_root) -> dict:
         return {"ok": False, "detail": "Claude Code isn't on PATH"}
     try:
         r = supervise_command(launcher + ["-p", "Reply with exactly: ok", "--max-turns", "1",
-                                             "--output-format", "json"], timeout=120)
+                                             "--output-format", "json"], timeout=35)
     except Exception as e:  # noqa
         swallowed(log, '_job_usage_keepalive: failed; error returned to the caller')
         return {"ok": False, "detail": f"keepalive call failed: {str(e)[:100]}"}
@@ -184,7 +184,7 @@ def _job_usage_keepalive(realm_root) -> dict:
         # Now that the token is good, take a real usage reading and bank it for the header.
         try:
             from . import usage_api
-            usage_api.fetch(realm_root)
+            usage_api.fetch(realm_root, force=True)
         except Exception:  # noqa
             swallowed(log, '_job_usage_keepalive: failed; ignored')
         return {"ok": True, "detail": f"sign-in renewed (+{hrs:.0f}h)"}
@@ -508,7 +508,7 @@ def _normalize(jid, result):
                         {"ok": "Completed.", "skipped": "No work performed.", "error": "Job failed."}[status]))
 
 
-def run_one(realm_root, jid: str, manual: bool = False) -> dict:
+def run_one(realm_root, jid: str, manual: bool = False, urgent: bool = False) -> dict:
     """Exclusively claim a due system job; manual=True explicitly permits an operator retry.
 
     The per-job OS lock covers execution. The durable claim survives process death, so a
@@ -519,7 +519,7 @@ def run_one(realm_root, jid: str, manual: bool = False) -> dict:
     try:
         util.assert_realm_writable(_state_path(realm_root))
         with util.file_lock(Path(realm_root) / ".scheduler" / "system" / f"{jid}.json", timeout=.05):
-            return _run_locked(realm_root, jid, manual)
+            return _run_locked(realm_root, jid, manual, urgent)
     except util.FileLockTimeout:
         return _outcome(jid, "skipped", "already-running", "This system job is already running.")
     except Exception as exc:
@@ -527,7 +527,7 @@ def run_one(realm_root, jid: str, manual: bool = False) -> dict:
         return _outcome(jid, "error", "state-error", str(exc))
 
 
-def _run_locked(realm_root, jid, manual):
+def _run_locked(realm_root, jid, manual, urgent=False):
     j = _BY_ID[jid]
     _validate_state(util.read_json_state(_state_path(realm_root), default=dict))
     # Off means off, including from Run now. It used to mean "off on a schedule, but still runnable
@@ -558,7 +558,7 @@ def _run_locked(realm_root, jid, manual):
             # Keep evidence of the uncertain run when the owner explicitly asks to retry.
             entry["interrupted_attempts"] = [*entry.get("interrupted_attempts", []), previous][-_HISTORY_MAX:]
             attempt["retry_of"] = previous["attempt_id"]
-        elif not manual and not _entry_due(j, entry, _clock.now()):
+        elif not manual and not (urgent and jid == 'usage-keepalive') and not _entry_due(j, entry, _clock.now()):
             return _outcome(jid, "skipped", "not-due", "This job is not due yet.")
         entry["attempt"] = attempt
         util.write_json_atomic(_state_path(realm_root), st)

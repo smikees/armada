@@ -1,38 +1,10 @@
 # Settings
 
-Three tabs: the realm you're in, you, and the app on this computer.
+Three tabs, from left to right: **App**, **Realm**, **User**. App opens first unless
+a link or your remembered tab selects another.
 Use the Save and Cancel buttons beside each tab's settings. Cancel discards changes you have not
 saved. Provider sign-in, Telegram connection, avatar uploads, and other command buttons apply when
 you use them.
-
-## Realm
-
-- **Realm** — its name, icon, timezone, and the **workspace** folder its agents work in.
-- **Model defaults** — the default model, thinking and verbosity for agents that don't set
-  their own. **Set for all agents** confirms the selected combination, then saves it as the
-  realm defaults and applies it to every current agent, including the coordinator. Capabilities
-  and any job-specific model overrides stay as configured.
-- **Agent-to-agent communication** — defaults for the [Inbox](inbox.md).
-- **Notifications** — which events notify you (job failed, approval needed, …) and on which
-  channel (desktop, Telegram); whether this realm may notify you while you're in another one.
-- **Export** — a `.zip` of the realm next to its folder. Files that hold keys or passwords
-  (`.mcp.json`, `.env`, key files) are left out, and the message says which.
-- **Archive / Delete** — archive switches off all agent and system jobs, hides the realm from ARMADA,
-  and retains its folder and history. Adding it back leaves its jobs off until you enable them. Delete
-  moves the folder to the Recycle Bin. If you archive or delete the realm you are viewing, ARMADA
-  opens another registered realm, or the welcome screen if none remain. Delete asks you to type
-  the realm folder's name and waits for its active tasks to finish.
-
-New teams choose their initial model from the engines connected during setup, using
-that ARMADA release's preferences. If your provider offers models the release does
-not recognize, ARMADA uses the provider's default. Agents inherit this realm default
-until you choose their own model. Alexander's model is independent. Updating ARMADA
-does not replace models you have already chosen.
-
-## User
-
-**Your profile** — your name and a few facts. Agents know them through System memory.
-Your avatar replaces "You" in threads.
 
 ## App
 
@@ -71,6 +43,35 @@ Your avatar replaces "You" in threads.
   Choose **Automatic (default)** in either dropdown to restore its default behavior.
   An explicit model stays selected when its provider disconnects; reconnect or choose Automatic.
 
+## Realm
+
+- **Realm** — its name, icon, timezone, and the **workspace** folder its agents work in.
+- **Model defaults** — the default model, thinking and verbosity for agents that don't set
+  their own. **Set for all agents** confirms the selected combination, then saves it as the
+  realm defaults and applies it to every current agent, including the coordinator. Capabilities
+  and any job-specific model overrides stay as configured.
+- **Agent-to-agent communication** — defaults for the [Inbox](inbox.md).
+- **Notifications** — which events notify you (job failed, approval needed, …) and on which
+  channel (desktop, Telegram); whether this realm may notify you while you're in another one.
+- **Export** — a `.zip` of the realm next to its folder. Files that hold keys or passwords
+  (`.mcp.json`, `.env`, key files) are left out, and the message says which.
+- **Archive / Delete** — archive switches off all agent and system jobs, hides the realm from ARMADA,
+  and retains its folder and history. Adding it back leaves its jobs off until you enable them. Delete
+  moves the folder to the Recycle Bin. If you archive or delete the realm you are viewing, ARMADA
+  opens another registered realm, or the welcome screen if none remain. Delete asks you to type
+  the realm folder's name and waits for its active tasks to finish.
+
+New teams choose their initial model from the engines connected during setup, using
+that ARMADA release's preferences. If your provider offers models the release does
+not recognize, ARMADA uses the provider's default. Agents inherit this realm default
+until you choose their own model. Alexander's model is independent. Updating ARMADA
+does not replace models you have already chosen.
+
+## User
+
+**Your profile** — your name and a few facts. Agents know them through System memory.
+Your avatar replaces "You" in threads.
+
 ## Restarting and updating
 
 Only one ARMADA desktop/server instance can run under your Windows account. Opening it
@@ -81,3 +82,13 @@ not create another app instance. The scheduler is an internal background process
 realms. The banner distinguishes active conversations/jobs from scheduler shutdown and
 restart. An idle scheduler is not a running job. If an activity record cannot be read,
 the update explains the error rather than claiming that a job is running.
+
+An older copy still holding the installation open is shown with its process ID.
+**Postpone update** resumes task admissions and starts the scheduler if needed;
+the downloaded update stays ready for later.
+
+Before closing, ARMADA starts an independent restart monitor and waits for its
+acknowledgement. The monitor waits for the old app to exit, launches the checked
+update, and verifies the new version, loaded desktop and scheduler (when autostart
+is enabled). A startup failure has a specific message and a saved startup log.
+It does not force-close running jobs or claim success merely because a process started.

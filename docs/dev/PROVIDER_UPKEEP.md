@@ -13,6 +13,17 @@ made for pending model work and never by page rendering. Mock execution requires
 Auth is advisory admission: a session can expire after the check, in which case the ordinary
 CLI turn outcome records the failure.
 
+## Limits freshness (v0.99.80)
+
+Header limits caches carry a per-server launch ID. A restart cannot replay a prior browser
+session's stale result. Successful provider reads cache for five minutes; stale/unavailable
+reads retry after 30 seconds. The lower Claude usage cache supports an explicit fresh read.
+An expired Claude usage token requests the enabled `usage-keepalive` job with `urgent=True`:
+only this job may bypass cadence, while disabled, authentication, lifecycle, admission and
+uncertain-attempt gates remain enforced. A persistent account-wide lock/cooldown limits renewal
+attempts to one per five minutes across realms. Claude CLI owns token rotation; ARMADA does not
+write OAuth credentials. The supervised renewal has a 35-second execution deadline.
+
 Inbox tasks are screened before authentication and claimed only after authentication.
 Unavailable recipients keep their pending mail and do not advance recipient cadence.
 Other recipients continue, including in mixed-provider batches. Process now has the same

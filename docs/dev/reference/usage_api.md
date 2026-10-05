@@ -69,6 +69,6 @@ A remembered reading, labelled honestly. The percentages are real but old, and t
 
 —
 
-### `fetch(realm_root=None)`
+### `fetch(realm_root=None, force=False)`
 
 Cached (60s) real usage: {available, session:{pct,...}, weekly:{...}, age_sec, stale} or {available:False, reason, message}.

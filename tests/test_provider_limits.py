@@ -93,3 +93,32 @@ def test_failed_refresh_retains_last_good_and_disconnect_wins(monkeypatch):
     monkeypatch.setattr(limits.providers, 'allowed', lambda p: False)
     data = limits.read('codex')
     assert data['reason'] == 'disconnected' and not data['connected'] and not data['available']
+
+
+def test_stale_result_retries_before_five_minute_success_cache(monkeypatch):
+    probe = Mock(return_value={'available': False, 'reason': 'fetch-failed', 'message': 'Temporary failure'})
+    monkeypatch.setattr(limits, '_probe', probe)
+    limits.read('claude')
+    finish('claude')
+    entry = limits._entries[('claude', 'None')]
+    entry.finished -= limits.FAILURE_TTL + 1
+    probe.return_value = {'available': True, 'weekly': {'pct': 20}}
+    limits.read('claude')
+    assert finish('claude')['weekly']['pct'] == 20
+    assert probe.call_count == 2
+
+
+def test_expired_token_renews_through_enabled_upkeep_then_refetches(monkeypatch, tmp_path):
+    from armada import usage_api, sysjobs
+    fetch = Mock(side_effect=[{'available':False, 'reason':'token-expired'},
+                             {'available':True, 'weekly':{'pct':20}}])
+    monkeypatch.setattr(usage_api, 'fetch', fetch)
+    renew = Mock(return_value={'ok':True})
+    monkeypatch.setattr(sysjobs, 'run_one', renew)
+    assert limits._probe('claude', tmp_path)['weekly']['pct'] == 20
+    renew.assert_called_once_with(tmp_path, 'usage-keepalive', urgent=True)
+    fetch.assert_called_with(tmp_path, force=True)
+    fetch.side_effect = None
+    fetch.return_value = {'available':False, 'reason':'token-expired'}
+    limits._probe('claude', tmp_path)
+    assert renew.call_count == 1  # Account-wide cooldown survives another request.

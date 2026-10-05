@@ -169,6 +169,10 @@ Live work across all realms; an idle scheduler and stale receipts are not work.
 
 —
 
+### `cancel_apply()`
+
+—
+
 ### `request_apply()`
 
 Quiesce admission, then restart through the bootstrap; never swap under the HTTP worker.

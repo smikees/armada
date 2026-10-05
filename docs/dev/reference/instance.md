@@ -30,6 +30,10 @@ Kernel-held lifetime lock: simultaneous launches and crashes cannot steal owners
 
 —
 
+### `desktop_ready()`
+
+—
+
 ### `watch_activation(callback)`
 
 Bring a tray-hidden window back when a second launch requests activation.

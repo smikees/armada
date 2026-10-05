@@ -82,6 +82,8 @@
 | [`recommended`](recommended.md) | Starter capabilities with explicit upstream sources and connection requirements. |
 | [`render`](render.md) | ARMADA cockpit renderer — Realm model -> self-contained cockpit.html. |
 | [`request_context`](request_context.md) | Immutable request/run destinations; the selected realm is only an admission-time default. |
+| [`restart`](restart.md) | Prepare a monitored desktop handover before the old process releases its server. |
+| [`restart_worker`](restart_worker.md) | Standalone update supervisor, copied outside the package before replacement. |
 | [`routes.__init__`](routes.__init__.md) | Handler mixins for `armada serve` (Phase 2, 2.3), grouped by area. |
 | [`routes._shared`](routes._shared.md) | Shared helpers for the route mixins in armada/routes/. |
 | [`routes.agents`](routes.agents.md) | Agents, their threads and chat. |

@@ -63,7 +63,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             if len(set(supplied)) > 1:
                 raise RealmMismatch("Conflicting realm identities; reload the page.")
             identity = supplied[0] if supplied else None
-            global_post = path in {"/restart", "/update", *self._WELCOME_POST}
+            global_post = path in {"/restart", "/update", "/api/update-cancel", *self._WELCOME_POST}
             requires_identity = (mutation and not global_post) or content_path(path) or path == "/api/chat-stop"
             if requires_identity and not identity:
                 raise RealmMismatch("This request needs a realm identity. Reload the page and retry.")
@@ -182,6 +182,10 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
 
     def _cross_site(self) -> bool:
         sfs = (self.headers.get("Sec-Fetch-Site") or "").lower()
+        # This public page contains no secret or realm data. Authentication still
+        # requires a bearer token from the owner-only launch file on its POST.
+        if urllib.parse.urlparse(self.path).path == '/auth':
+            return False
         return self._REFUSE_CROSS_SITE and sfs in ("cross-site", "same-site") \
             and not urllib.parse.urlparse(self.path).path.startswith("/static/")
 
@@ -216,7 +220,10 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         if route == "/api/instance":
             # Startup must be able to identify a live ARMADA server even when its
             # dashboard cannot render (for example, a damaged realm/job file).
-            self._json(200, {"app": "ARMADA", "realm_id": RealmContext.capture(type(self).realm).realm_id})
+            from . import __version__, instance
+            self._json(200, {"app": "ARMADA", "version": __version__,
+                            "desktop_ready": bool(instance.current().get('desktop_ready')),
+                            "realm_id": RealmContext.capture(type(self).realm).realm_id})
             return
         try:
             self._bind_request()
@@ -410,6 +417,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/auth-login": "_auth_login", "/api/scheduler-start": "_scheduler_start",
         "/api/provider-action": "_provider_action", "/api/alexander-settings": "_save_alexander_settings",
         "/api/update-auto": "_update_auto",
+        "/api/update-cancel": "_cancel_update",
         "/api/tray-setting": "_tray_setting",
         "/api/setup-step": "_setup_step", "/api/setup-capability": "_setup_capability",
         "/api/setup-finish": "_setup_finish", "/api/setup-team": "_setup_team", "/api/setup-folder": "_setup_folder",
@@ -448,10 +456,10 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
 
     def _route_post(self):
         path = urllib.parse.urlparse(self.path).path
-        if not self.realm and path != "/restart":
+        if not self.realm and path not in {"/restart", "/api/update-cancel"}:
             self._route_welcome_post(path)
             return
-        if self.realm and path not in {"/restart", "/update", "/api/realm-export", "/api/realm-preflight",
+        if self.realm and path not in {"/restart", "/update", "/api/update-cancel", "/api/realm-export", "/api/realm-preflight",
                                        "/api/dryrun", "/api/render-md", "/api/new-realm"}:
             util.assert_realm_writable(Path(self.realm) / "realm.json")
         if path == "/api/chat-stream":                      # streams its own response, not JSON
@@ -471,6 +479,10 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
                 self._json(400, {"error": str(e)})
             return
         if path == "/restart":                               # reply first, then re-exec off-thread
+            from . import updater
+            if updater.installed() and updater.pending_work():
+                self._json(409, {'ok': False, 'error': 'Finish current work and close older ARMADA windows before restarting.'})
+                return
             self._json(200, {"ok": True, "msg": "restarting"})
             threading.Thread(target=self._restart, daemon=True).start()
             return
@@ -550,6 +562,13 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         from . import updater
         self._json(200, updater.status())
 
+    def _cancel_update(self, body):
+        from . import updater, schedsvc
+        result = updater.cancel_apply()
+        if result.get('ok') and self.realm:
+            threading.Thread(target=lambda: schedsvc.ensure_running(self.realm), daemon=True).start()
+        return result
+
     def _update_auto(self, body: dict) -> dict:
         from . import updater
         return updater.set_auto(bool(body.get("on")))
@@ -569,9 +588,29 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             return {"ok": False, "out": f"no git remote / {e}"}
 
     def _restart(self):
+        from . import updater
+        monitored = (updater.installed() and updater.MARKER.is_file() and
+                     updater.apply_requested() and _launch_mode() == 'app')
+        plan = None
         with _RESTART_LOCK:
             if RESTARTING.is_set():
                 return
+            if monitored:
+                from . import restart, schedsvc, setupflow
+                with updater.admission_lock():
+                    if not updater.apply_requested() or updater.pending_work() or updater.scheduler_running():
+                        return
+                    try:
+                        required = bool(self.realm and schedsvc.autostart_enabled() and
+                                        not setupflow.needs_setup(self.realm))
+                        plan = restart.begin(updater.ROOT, self.realm, self.server.server_address[1],
+                                             updater.staged_version() or updater.code_on_disk(), required)
+                    except Exception as exc:
+                        log.exception('Could not prepare monitored restart; keeping ARMADA open')
+                        state = restart.state()
+                        util.write_json_atomic(util.data_dir() / 'restart-status.json',
+                                               {**state, 'phase': 'error', 'message': str(exc)})
+                        return
             RESTARTING.set()
         time.sleep(0.4)
         # Tell the main thread first: closing the socket below makes its serve_forever() raise, and
@@ -599,6 +638,11 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         # trace at all (seen once, 2026-09-24). Say what's about to run; the new process's own
         # start-up failures are logged by cli.
         log.info("restart: re-executing %s", argv)
+        if plan is not None:
+            # No work remains; OS exit releases all leases and the desktop mutex.
+            # The acknowledged supervisor then starts and verifies our successor.
+            logging.shutdown()
+            os._exit(0)
         try:
             from .desktop_launch import replace_process
             replace_process(sys.executable, argv)

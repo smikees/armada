@@ -890,15 +890,16 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
             f'<div style="border-bottom:1px solid var(--color-divider);margin-bottom:16px">'
             # The same tabs as Capabilities' (DESIGN_SYSTEM §12, UI audit TB1).
             f'<div role="tablist">'
-            f'<button type="button" role="tab" id="st-tab-realm" class="mc-captab" aria-selected="true" onclick="mcSetTab(\'realm\')">Realm settings</button>'
+            f'<button type="button" role="tab" id="st-tab-app" class="mc-captab" aria-selected="true" onclick="mcSetTab(\'app\')">App settings</button>'
+            f'<button type="button" role="tab" id="st-tab-realm" class="mc-captab" aria-selected="false" onclick="mcSetTab(\'realm\')">Realm settings</button>'
             f'<button type="button" role="tab" id="st-tab-user" class="mc-captab" aria-selected="false" onclick="mcSetTab(\'user\')">User settings</button>'
-            f'<button type="button" role="tab" id="st-tab-app" class="mc-captab" aria-selected="false" onclick="mcSetTab(\'app\')">App settings</button></div></div>'
-            f'<div id="st-realm-pane"><div class="mc-settings-pane"><div class="mc-settings-main">{realm_tab}</div>'
+            f'</div></div>'
+            f'<div id="st-realm-pane" style="display:none"><div class="mc-settings-pane"><div class="mc-settings-main">{realm_tab}</div>'
             f'{_settings_actions("realm", "Save changes to this realm.")}</div></div>'
             f'<div id="st-user-pane" style="display:none"><div class="mc-settings-pane">'
             f'<div class="mc-settings-main">{user_tab}</div>'
             f'{_settings_actions("user", "Saved to this realm and your agents’ core memory.")}</div></div>'
-            f'<div id="st-app-pane" style="display:none"><div class="mc-settings-pane">'
+            f'<div id="st-app-pane"><div class="mc-settings-pane">'
             f'<div class="mc-settings-main">{app_tab}</div>'
             f'{_settings_actions("app", "Save app preferences here. Provider and Telegram connections apply when you use their buttons.")}'
             f'</div></div></div>'
@@ -1518,6 +1519,7 @@ def _initial_header_limits(codex_enabled: bool) -> str:
 
 def render_dashboard(realm, realm_root, dark: bool = False) -> str:
     from ..engine import enabled_providers
+    from .. import provider_limits
     has_codex = "codex" in enabled_providers(realm_root)
     realm_root = Path(realm_root)
     today = clock.today()
@@ -1607,7 +1609,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
   {_overview_kpis(realm, realm_root)}
   <!-- Three providers share the same 62px as the KPIs; fetching limits cannot grow the header. -->
   <div id="mc-hdr-limits" style="display:flex;flex-direction:column;justify-content:flex-start;
-   height:62px;overflow:hidden" data-codex-enabled="{str(has_codex).lower()}">
+   height:62px;overflow:hidden" data-codex-enabled="{str(has_codex).lower()}" data-app-session="{provider_limits.SESSION_ID}">
    {_initial_header_limits(has_codex)}</div>
   <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">
    <button id="mc-addwidget" class="btn btn-secondary" onclick="mcAddWidget()">{addicon}&nbsp;Manage widgets</button></div>

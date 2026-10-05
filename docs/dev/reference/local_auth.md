@@ -18,7 +18,7 @@ guards remain necessary: cookies are scoped to hosts, not TCP ports.
 
 Internal clients must possess the owning user's per-server credential.
 
-### `browser_url(url: str)`
+### `browser_url(url: str, destination: str='')`
 
 —
 
