@@ -300,7 +300,10 @@ def smoke(stage_dir: Path, ver: str) -> None:
             sys.exit("smoke: branded ARMADA.exe could not host the private Python runtime")
         say("smoke: the server answers with the welcome page (no realm yet)")
         port = _free_port()
-        p = subprocess.Popen([str(branded), "-m", "armada", "serve", "--port", str(port)], cwd=home, env=env,
+        isolated_server = ("from pathlib import Path; from armada import instance; "
+                           "instance._account_directory=lambda:Path.home()/'.armada'; "
+                           "from armada.cli import main; raise SystemExit(main(['serve','--port',__import__('sys').argv[1]]))")
+        p = subprocess.Popen([str(branded), "-c", isolated_server, str(port)], cwd=home, env=env,
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, creationflags=0x08000000)
         try:
             body = ""
