@@ -87,6 +87,12 @@ def child(successor=None):
     os.environ['ARMADA_NO_EXTERNAL_NOTIFY'] = '1'
     os.environ['ARMADA_DATA_DIR'] = str(home/'.armada')
     sys.path.insert(0, str(root))
+    if successor:
+        # Normal bootstrap replacement must happen before injecting test adapters;
+        # importing the old package first would keep it cached after the file swap.
+        import runpy
+        api = runpy.run_path(str(root/'armada_bootstrap.py'))
+        api['apply'](root)
     import webview
     from armada import app, appconfig, desktop_launch, providers, auth, updater, tray
     from armada import instance
@@ -143,7 +149,12 @@ def child(successor=None):
             else: raise AssertionError('Actual app page did not load')
             expected = config['after'] if successor else config['before']
             info = js(window,"fetch('/api/instance').then(r=>r.json())")
-            check('correct installed version',info['version']==expected)
+            deadline = time.monotonic()+15
+            while not info.get('desktop_ready') and time.monotonic()<deadline:
+                time.sleep(.2)
+                info = js(window,"fetch('/api/instance').then(r=>r.json())")
+            check('initial browser startup acknowledged',info.get('desktop_ready'))
+            check(f"correct installed version: {info.get('version')} (expected {expected})",info['version']==expected)
             for route in ('/settings','/docs','/agent/captain/threads','/alexander'):
                 response = js(window,'fetch('+json.dumps(route)+').then(async r=>({status:r.status,body:await r.text()}))')
                 check('authenticated real page '+route,response['status']==200 and '/static/brand.css' in response['body'])

@@ -132,7 +132,8 @@ def run(output: Path, *, source_root: str = '', legacy: bool = False) -> int:
                         deadline = time.monotonic() + 10
                         while not companion.evaluate_js('received') and time.monotonic() < deadline:
                             time.sleep(.1)
-                        check('payload arrives exactly once', companion.evaluate_js('received') ==
+                        result['received'] = companion.evaluate_js('received')
+                        check('payload arrives exactly once: '+repr(result['received']), result['received'] ==
                               [{'message': 'Test payload', 'item': None, 'page': ''}])
                     companion.destroy()
                     windows.remove(companion)

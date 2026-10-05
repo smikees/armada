@@ -69,12 +69,26 @@ def _webview_options():
     return dict(private_mode=False, storage_path=str(desktop_storage()))
 
 
+def _browser_result(window, script, timeout=10):
+    """pywebview resolves a JavaScript Promise through its callback, not its return value."""
+    done = threading.Event()
+    values = []
+    def received(value):
+        values.append(value)
+        done.set()
+    window.evaluate_js(script, callback=received)
+    if not done.wait(timeout):
+        raise OSError('The browser did not complete its authenticated startup request')
+    return values[0]
+
+
 def _deliver_alexander(window, payload):
     """Deliver once the companion page is ready, across its auth redirect too."""
     if not payload or not payload.get('message'):
         return
     lock = threading.Lock()
     delivered = False
+    stop = threading.Event()
 
     def ready():
         nonlocal delivered
@@ -90,11 +104,23 @@ def _deliver_alexander(window, payload):
                 return  # The browser/bridge may still be initializing.
             if sent is True:
                 delivered = True
+                stop.set()
                 window.events.loaded -= ready
 
     window.events.loaded += ready
+    closed = getattr(window.events, 'closed', None)
+    if closed is not None:
+        closed += lambda:stop.set()
     if window.events.loaded.is_set():
         ready()
+    def retry_receiver():
+        deadline = time.monotonic()+15
+        while not stop.wait(.15):
+            if window.events.loaded.is_set(): ready()
+            if time.monotonic() >= deadline:
+                log.warning('Alexander did not initialize its request receiver within 15 seconds')
+                return
+    threading.Thread(target=retry_receiver, daemon=True).start()
 
 
 def _alexander_bounds(main, area, width=520, height=720, gap=10):
@@ -605,7 +631,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                 from . import __version__, updater
                 if not main.evaluate_js("typeof window.mcIcon === 'function'"):
                     return  # Shared UI code must initialize, as well as the HTML shell.
-                proof = main.evaluate_js("fetch('/api/instance',{credentials:'same-origin'}).then(async r=>({status:r.status,data:await r.json()}))")
+                proof = _browser_result(main,"fetch('/api/instance',{credentials:'same-origin'}).then(async r=>({status:r.status,data:await r.json()}))")
                 if (not isinstance(proof, dict) or proof.get('status') != 200 or
                         proof.get('data', {}).get('nonce') != instance.current().get('nonce') or
                         proof.get('data', {}).get('version') != __version__):

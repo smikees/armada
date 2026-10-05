@@ -42,6 +42,14 @@ def test_browser_commit_checks_exact_package(installation):
     assert b.version(root/'armada') == '1.1.0'
 
 
+def test_startup_uses_the_async_browser_result_instead_of_a_promise_handle():
+    class Browser:
+        def evaluate_js(self, script, callback):
+            callback({'status':200,'data':{'nonce':'current'}})
+            return {}  # pywebview's immediate Promise handle is not the response.
+    assert app._browser_result(Browser(), 'fetch()') == {'status':200,'data':{'nonce':'current'}}
+
+
 @pytest.mark.parametrize('point', ['journal', 'failed_moved', 'previous_moved'])
 def test_rollback_recovers_after_each_interruption(installation, monkeypatch, point):
     root = installation

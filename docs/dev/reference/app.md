@@ -22,6 +22,10 @@ Small local restart state; keep tokens and arbitrary form fields out of it.
 
 All app windows share an owner-only browser profile.
 
+### `_browser_result(window, script, timeout=10)`
+
+pywebview resolves a JavaScript Promise through its callback, not its return value.
+
 ### `_deliver_alexander(window, payload)`
 
 Deliver once the companion page is ready, across its auth redirect too.

@@ -108,10 +108,12 @@ def test_native_splash_exists_before_waiting_for_server(ready):
             for callback in self.callbacks: callback()
     window = Mock(events=MagicMock())
     window.events.loaded = Event()
-    def browser_proof(script):
+    def browser_proof(script, callback=None):
         if script.startswith("fetch('/api/instance'"):
             from armada import __version__, instance
-            return {'status':200,'data':{'version':__version__,'nonce':instance.current().get('nonce')}}
+            value = {'status':200,'data':{'version':__version__,'nonce':instance.current().get('nonce')}}
+            if callback: callback(value)
+            return value
         return True
     window.evaluate_js.side_effect = browser_proof
     webview = Mock(create_window=Mock(return_value=window))
