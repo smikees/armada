@@ -85,6 +85,8 @@ def verify(plan):
 def launch_successor(plan, plan_path):
     argv = [plan['executable'], str(Path(__file__).resolve()), '--launch', str(plan_path)]
     if os.name == 'nt':
+        # The embedded runtime's ._pth isolates sys.path, including script folders.
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
         from desktop_launch import spawn
         spawn(argv, plan['root'])
     else:

@@ -96,6 +96,26 @@ def test_status_commit_retries_a_brief_windows_sharing_violation(tmp_path, monke
     assert json.loads(Path(plan['status']).read_text())['phase'] == 'complete'
 
 
+@pytest.mark.skipif(os.name != 'nt', reason='Windows desktop helper import')
+def test_copied_launcher_resolves_its_helper_in_an_isolated_runtime(tmp_path):
+    """Embedded Python excludes the script directory; copied siblings must be added explicitly."""
+    copied = tmp_path/'restart_worker.py'
+    shutil.copy2(worker.__file__, copied)
+    receipt = tmp_path/'launched.json'
+    (tmp_path/'desktop_launch.py').write_text(
+        'import json\nfrom pathlib import Path\n'
+        f'def spawn(argv, cwd): Path({str(receipt)!r}).write_text(json.dumps(argv))\n')
+    wrapper = tmp_path/'invoke.py'
+    wrapper.write_text('import runpy\n' +
+        f"runpy.run_path({str(copied)!r})['launch_successor'](" +
+        repr({'executable':sys._base_executable, 'root':str(tmp_path)}) +
+        f", {str(tmp_path/'plan.json')!r})\n")
+    result = subprocess.run([sys._base_executable,'-I',str(wrapper)],capture_output=True,text=True,
+                            timeout=15, **process_options())
+    assert result.returncode == 0, result.stderr
+    assert json.loads(receipt.read_text())[1:] == [str(copied),'--launch',str(tmp_path/'plan.json')]
+
+
 def test_monitor_failure_leaves_current_app_alive(tmp_path, monkeypatch):
     from armada import util
     monkeypatch.setattr(util, 'data_dir', lambda: tmp_path)
