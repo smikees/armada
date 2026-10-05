@@ -146,8 +146,9 @@ signatures and rejects invalid ones. Inno Setup invokes the same signing helper 
 Uninstall. Every new signature must validate, match the configured publisher and carry a
 timestamp. Test the signed result on a clean Windows installation with Smart App Control enabled;
 signature inspection alone does not establish compliance with every managed enterprise policy.
-Private local builds can use `tools/build_installer.py --allow-unsigned`; the publish script has
-no such override. `tools/sign_windows.py` has been tested with a simulated signer; end-to-end
+Private local builds can use `tools/build_installer.py --allow-unsigned`; authorized maintenance
+publication uses the explicit unified-gate exception documented below. `tools/sign_windows.py`
+has been tested with a simulated signer; end-to-end
 trusted signing remains pending the publisher account.
 
 The stable bootstrap ships outside the replaceable package. Its protocol and dependencies form
@@ -219,3 +220,6 @@ and exercises a compatible production API update. This does not certify the full
 installer transition on a clean PC. See [the reliability contract](UPDATE_RELIABILITY.md).
 The saved release evidence binds installer/package hashes, source commit and the
 specific native upgrade run. Both publication paths abort on changed source.
+If CI is still running after the local gate, publication waits up to fifteen minutes
+for that exact push commit. A completed failure or missing successful result aborts
+publication; an earlier commit cannot satisfy this requirement.

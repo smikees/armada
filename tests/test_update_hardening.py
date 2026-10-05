@@ -124,6 +124,16 @@ def test_work_admission_stays_paused_until_browser_commit(inst):
     assert updater.admission_paused()
 
 
+def test_system_job_cannot_dispatch_before_browser_commit(inst, tmp_path, monkeypatch):
+    from armada import sysjobs
+    realm=tmp_path/'realm';realm.mkdir()
+    (realm/'realm.json').write_text('{"schema_version":2}')
+    b.atomic_json(updater.ROOT/b.HEALTH, {'version':'1.1.0'})
+    monkeypatch.setitem(sysjobs._BY_ID['prune-history'],'run',lambda *a:pytest.fail('Unhealthy startup dispatched work'))
+    result=sysjobs.run_one(realm,'prune-history',manual=True)
+    assert result['status']=='skipped' and result['reason']=='update-pending'
+
+
 def test_transient_network_error_retries_but_invalid_transport_does_not(monkeypatch):
     import urllib.error
     attempts = []

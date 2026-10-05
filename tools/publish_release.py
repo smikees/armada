@@ -20,6 +20,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +57,23 @@ def installer_command(python, *, maintenance_unsigned=False):
     return [python, 'tools/build_installer.py', *(['--allow-unsigned'] if maintenance_unsigned else [])]
 
 
+def wait_for_ci(sha, timeout=900):
+    """Allow CI to finish after the local gate; never substitute another source run."""
+    deadline = time.monotonic() + timeout
+    while True:
+        result = json.loads(_run(GH, 'api', '-X', 'GET',
+            f'repos/{REPO}/actions/workflows/windows-ci.yml/runs', '-f', f'head_sha={sha}', '-f', 'per_page=20'))
+        runs = [r for r in result.get('workflow_runs', [])
+                if r.get('head_sha') == sha and r.get('event') == 'push']
+        if any(r.get('status') == 'completed' and r.get('conclusion') == 'success' for r in runs):
+            return
+        if runs and all(r.get('status') == 'completed' for r in runs):
+            sys.exit('Windows CI failed for this exact release commit')
+        if time.monotonic() >= deadline:
+            sys.exit('Windows CI has not passed for this exact release commit within 15 minutes')
+        time.sleep(min(10, max(0, deadline-time.monotonic())))
+
+
 def main(argv=()) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--maintenance-unsigned', action='store_true',
@@ -70,12 +88,7 @@ def main(argv=()) -> None:
     sha = _run("git", "rev-parse", "HEAD")
     if sha != _run("git", "rev-parse", "origin/main"):
         sys.exit("HEAD isn't origin/main — push first")
-    runs = json.loads(_run(GH, 'api', '-X', 'GET',
-        f'repos/{REPO}/actions/workflows/windows-ci.yml/runs', '-f', f'head_sha={sha}', '-f', 'per_page=20'))
-    if not any(run.get('head_sha') == sha and run.get('event') == 'push'
-               and run.get('status') == 'completed' and run.get('conclusion') == 'success'
-               for run in runs.get('workflow_runs', [])):
-        sys.exit('Windows CI has not passed for this exact release commit')
+    wait_for_ci(sha)
     if subprocess.run([GH, "release", "view", f"v{ver}", "--repo", REPO], cwd=ROOT,
                       capture_output=True).returncode == 0:
         sys.exit(f"v{ver} is already released")

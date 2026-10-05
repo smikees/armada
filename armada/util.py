@@ -276,6 +276,11 @@ def file_lock(target, timeout: float = 5.0, poll: float = 0.05, *, validate_stat
         created = False
     acquired = False
     deadline = time.monotonic() + max(0, timeout)
+    # A creator may be descheduled between O_EXCL and publishing the marker.
+    # Short nonblocking job admission must not diagnose that ordinary race as
+    # damaged state. Keep a bounded initialization budget; never enter without
+    # the marker or replace an abandoned file.
+    initialization_deadline = time.monotonic() + max(1.0, timeout)
     try:
         while True:
             try:
@@ -299,15 +304,15 @@ def file_lock(target, timeout: float = 5.0, poll: float = 0.05, *, validate_stat
             acquired = False
             # A newly-created file may be waiting for its creator to take the OS lock.
             # Wait for initialization, but never steal an unmarked legacy/crashed lock.
-            if marker or time.monotonic() >= deadline:
+            if marker or time.monotonic() >= initialization_deadline:
                 raise StateError(f"Unrecognized lock for {target.name}. Stop all Armada writers before recovering an old or interrupted lock file.")
             # Do not reacquire an empty lock: that can starve its creator until both short
             # scheduler deadlines expire, leaving the file permanently uninitialized. Wait
             # for publication without owning the byte range, then validate under the lock.
             while os.fstat(fd).st_size == 0:
-                if time.monotonic() >= deadline:
+                if time.monotonic() >= initialization_deadline:
                     raise StateError(f"Unrecognized lock for {target.name}. Stop all Armada writers before recovering an old or interrupted lock file.")
-                time.sleep(max(0.001, min(poll, deadline - time.monotonic())))
+                time.sleep(max(0.001, min(poll, initialization_deadline - time.monotonic())))
         if validate_state:
             # Error transcripts may still be recorded when realm.json is broken. The broken
             # source itself is protected below; a future schema is always read-only.

@@ -328,7 +328,7 @@ print(json.dumps(sysjobs.run_one(root, 'prune-history')), flush=True)
         first = [proc.stdout.readline().strip() for proc in procs]
         assert first.count("dispatch") == 1
         result = json.loads(next(r for r in first if r != "dispatch"))
-        assert result["status"] == "skipped", result
+        assert result["status"] == "skipped", result.get("error") or result
         (realm / "finish").touch()
         for proc in procs:
             _, err = proc.communicate(timeout=15)

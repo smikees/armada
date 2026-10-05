@@ -542,7 +542,7 @@ def _run_locked(realm_root, jid, manual, urgent=False):
                "started": _clock.now().isoformat(timespec="seconds")}
     from . import realmops, updater
     with updater.admission_lock(), realmops.lifecycle_lock(realm_root), util.file_lock(_state_path(realm_root)):
-        if updater.installed() and updater.apply_requested():
+        if updater.installed() and updater.admission_paused():
             return _outcome(jid, 'skipped', 'update-pending', 'ARMADA is restarting to update.')
         realmops.assert_active(realm_root)
         st = util.read_json_state(_state_path(realm_root), default=dict)

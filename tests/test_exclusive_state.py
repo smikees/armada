@@ -161,6 +161,34 @@ def test_waiter_leaves_empty_lock_available_for_its_creator(tmp_path, monkeypatc
         worker.join(3)
 
 
+def test_short_job_deadline_allows_delayed_lock_initialization(tmp_path):
+    """A descheduled creator stays exclusive; contention is skipped, not damaged state."""
+    target = tmp_path/'fresh.json'
+    lock = target.with_name('.'+target.name+'.lock')
+    fd = os.open(lock, os.O_RDWR|os.O_CREAT|os.O_EXCL|getattr(os,'O_BINARY',0), 0o600)
+    outcomes=[]
+    def waiter():
+        try:
+            with util.file_lock(target, timeout=.05, poll=.001):
+                outcomes.append('entered')
+        except Exception as exc:
+            outcomes.append(exc)
+    worker=threading.Thread(target=waiter)
+    worker.start()
+    try:
+        import time
+        time.sleep(.15)  # A real scheduling delay beyond the normal job-admission budget.
+        util._os_lock(fd)
+        os.write(fd,util._LOCK_MAGIC)
+        os.fsync(fd)
+        worker.join(2)
+        assert len(outcomes)==1 and isinstance(outcomes[0],util.FileLockTimeout), outcomes
+    finally:
+        util._os_lock(fd,release=True)
+        os.close(fd)
+        worker.join(2)
+
+
 @pytest.mark.parametrize("raw", ['{', '[]', '{"x":1,"x":2}', '{"schema_version":99}',
     '{"schema_version":true}', '{"schema_version":"unknown"}'])
 def test_bad_or_future_state_is_preserved_without_calling_mutator(tmp_path, raw):

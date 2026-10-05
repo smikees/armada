@@ -74,4 +74,19 @@ def test_publish_refuses_absent_stale_failed_or_pr_only_ci(monkeypatch, ci):
         if 'api' in args: return json.dumps({'workflow_runs':ci})
         pytest.fail('Publishing must not be reached')
     monkeypatch.setattr(publish_release, '_run', fake_run)
-    with pytest.raises(SystemExit, match='Windows CI has not passed'): publish_release.main()
+    wait=publish_release.wait_for_ci
+    monkeypatch.setattr(publish_release,'wait_for_ci',lambda sha:wait(sha,timeout=0))
+    with pytest.raises(SystemExit, match='Windows CI'): publish_release.main()
+
+
+def test_publish_waits_for_pending_exact_source_ci(monkeypatch):
+    responses=iter(['in_progress','completed'])
+    def read(*args):
+        status=next(responses)
+        return json.dumps({'workflow_runs':[{'head_sha':'current','event':'push',
+            'status':status,'conclusion':'success' if status=='completed' else None}]})
+    sleeps=[]
+    monkeypatch.setattr(publish_release,'_run',read)
+    monkeypatch.setattr(publish_release.time,'sleep',sleeps.append)
+    publish_release.wait_for_ci('current')
+    assert len(sleeps)==1

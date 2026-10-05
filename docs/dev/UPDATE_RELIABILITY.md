@@ -5,6 +5,9 @@ independent of realm, installation path, port, ARMADA_DATA_DIR, HOME and USERPRO
 Native library launches claim the same guard as the CLI. A second launch requests
 activation and exits; companion windows belong to that owner. Test tooling explicitly
 patches the account directory inside an isolated child; production has no override.
+Fresh kernel lock initialization has a bounded one-second grace period for a
+descheduled creator; contenders cannot enter without its marker. Interrupted or
+unrecognized lock files are preserved and refused.
 
 The updater verifies signed version, runtime, minimum bootstrap protocol, size and
 SHA-256 before staging. Staging checks the expanded package budget and available
