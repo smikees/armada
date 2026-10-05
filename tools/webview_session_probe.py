@@ -116,8 +116,21 @@ def run(output: Path, *, source_root: str = '', legacy: bool = False) -> int:
                         companion = webview.create_window('Alexander session probe', url + 'alexander', hidden=True)
                     else:
                         create = webview.create_window
+                        dropped = []
+                        acknowledged = []
                         def hidden(*args, **kwargs):
-                            return create(*args, **dict(kwargs, hidden=True))
+                            window=create(*args, **dict(kwargs, hidden=True))
+                            evaluate=window.evaluate_js
+                            def uncertain(script,*args,**kwargs):
+                                value=evaluate(script,*args,**kwargs)
+                                if '__mcAlexDeliveryIds' in script and value is True:
+                                    acknowledged.append(True)
+                                    if not dropped:
+                                        dropped.append(True)
+                                        return None  # Real JS ran; simulate loss of its native acknowledgement.
+                                return value
+                            window.evaluate_js=uncertain
+                            return window
                         with patch.object(app, '_main_window', main), patch.object(app, '_app_url', url), \
                              patch.object(app, '_alex_window', None), patch.object(webview, 'create_window', hidden):
                             check('production companion opener succeeds', app.open_alexander({'message': 'Test payload'}))
@@ -130,11 +143,12 @@ def run(output: Path, *, source_root: str = '', legacy: bool = False) -> int:
                     check(f'main Usage survives companion {index + 1}', statuses['main'] == 200)
                     if not legacy:
                         deadline = time.monotonic() + 10
-                        while not companion.evaluate_js('received') and time.monotonic() < deadline:
+                        while (not companion.evaluate_js('received') or len(acknowledged)<2) and time.monotonic() < deadline:
                             time.sleep(.1)
                         result['received'] = companion.evaluate_js('received')
                         check('payload arrives exactly once: '+repr(result['received']), result['received'] ==
                               [{'message': 'Test payload', 'item': None, 'page': ''}])
+                        check('lost delivery acknowledgement does not duplicate a request', bool(dropped) and len(acknowledged)>=2)
                     companion.destroy()
                     windows.remove(companion)
                     check('main Usage survives companion close', usage(main)['status'] == 200)

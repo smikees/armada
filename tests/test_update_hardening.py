@@ -154,6 +154,18 @@ def test_restart_state_discards_malformed_bounds_and_auth_paths(tmp_path, monkey
     assert app.window_state() == {'height':700,'route':'/settings'}
 
 
+@pytest.mark.skipif(shutil.which('node') is None, reason='Node required for browser delivery check')
+def test_companion_delivery_is_idempotent_after_lost_acknowledgement():
+    script=app._alexander_delivery_script({'message':'Help'},'request-one')
+    other=app._alexander_delivery_script({'message':'Help'},'request-two')
+    harness='const window={};const calls=[];const script='+json.dumps(script)+';'
+    harness+="if(eval(script)!==false)throw Error('Receiver absent');window.mcAlexReceive=p=>calls.push(p);"
+    harness+="if(eval(script)!==true||eval(script)!==true)throw Error('Acknowledgement');"
+    harness+='eval('+json.dumps(other)+');if(calls.length!==2)throw Error(JSON.stringify(calls));'
+    result=subprocess.run([shutil.which('node')],input=harness,text=True,capture_output=True)
+    assert result.returncode==0,result.stderr
+
+
 def test_cleanup_retains_current_monitor_and_skips_linked_folders(tmp_path, monkeypatch):
     monkeypatch.setattr(util, 'data_dir', lambda:tmp_path)
     for i in range(8):

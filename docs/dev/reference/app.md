@@ -26,6 +26,10 @@ All app windows share an owner-only browser profile.
 
 pywebview resolves a JavaScript Promise through its callback, not its return value.
 
+### `_alexander_delivery_script(payload, request_id)`
+
+The browser remembers delivery even if native evaluation loses its acknowledgement.
+
 ### `_deliver_alexander(window, payload)`
 
 Deliver once the companion page is ready, across its auth redirect too.

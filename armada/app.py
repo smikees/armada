@@ -18,6 +18,7 @@ import threading
 import time
 import urllib.request
 import urllib.parse
+import uuid
 from . import brand
 from .util import swallowed
 log = logging.getLogger(__name__)
@@ -82,6 +83,16 @@ def _browser_result(window, script, timeout=10):
     return values[0]
 
 
+def _alexander_delivery_script(payload, request_id):
+    """The browser remembers delivery even if native evaluation loses its acknowledgement."""
+    return ("(()=>{const id="+json.dumps(request_id)+";"
+            "const ids=window.__mcAlexDeliveryIds||(window.__mcAlexDeliveryIds=new Set());"
+            "if(ids.has(id))return true;"
+            "if(typeof window.mcAlexReceive!=='function')return false;"
+            "window.mcAlexReceive("+json.dumps(payload,ensure_ascii=False)+");"
+            "ids.add(id);return true;})()")
+
+
 def _deliver_alexander(window, payload):
     """Deliver once the companion page is ready, across its auth redirect too."""
     if not payload or not payload.get('message'):
@@ -89,6 +100,7 @@ def _deliver_alexander(window, payload):
     lock = threading.Lock()
     delivered = False
     stop = threading.Event()
+    script = _alexander_delivery_script(payload, uuid.uuid4().hex)
 
     def ready():
         nonlocal delivered
@@ -96,9 +108,7 @@ def _deliver_alexander(window, payload):
             if delivered:
                 return
             try:
-                sent = window.evaluate_js(
-                    "typeof window.mcAlexReceive === 'function' && "
-                    "(window.mcAlexReceive(" + json.dumps(payload, ensure_ascii=False) + "), true)")
+                sent = window.evaluate_js(script)
             except Exception:
                 log.debug('Alexander receiver is not ready yet', exc_info=True)
                 return  # The browser/bridge may still be initializing.
