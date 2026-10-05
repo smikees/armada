@@ -27,8 +27,18 @@ are App, Realm, User; App is initially selected; links and the remembered tab ca
 
 Focused checks: 89 passed, including real child-process bootstrap handover, native lease release,
 expected-version/desktop/scheduler readiness, failed monitor launch, per-launch browser cache,
-stale retry intervals and system-job admission. Full-suite and published asset results are
-recorded below after release verification.
+stale retry intervals and system-job admission. Final focused lifecycle/reference checks: 138 passed.
+
+Full isolated suite on the final source: **3,105 passed, five skipped**. Packaged startup and
+all five native interrupted-update recovery checks passed. A separate probe using the actual
+branded embedded runtime verified copied-helper resolution despite its isolated module path.
+Local manifest signature, source commit, ZIP size/hash and runtime compatibility were verified.
+Release-owned model preferences and the live-catalogue/provider-default fallback were reviewed;
+existing explicit model choices remain unchanged.
+
+[Exact-commit Windows/PHP CI](https://github.com/smikees/armada/actions/runs/37300845363)
+passed on Python 3.12.10 and current 3.12, plus the PHP relay checks. The public latest-release
+manifest signature, source commit, ZIP size/hash and installer hash were verified after publication.
 
 ## Distribution boundaries
 
@@ -39,3 +49,15 @@ This is an owner-authorized unsigned maintenance beta. Authenticode and clean-Sa
 acceptance remain unverified; Windows Application Control error 4551 is not resolved. Existing
 public acceptance gates remain open. No live realm, scheduled job or running desktop was changed
 to publish this release.
+
+## Published metadata
+
+Release: [v0.99.80](https://github.com/smikees/armada/releases/tag/v0.99.80).
+Installer and update source: `f13ea4bbde4b1b1fe6a88767228ca66cc72e0a61`.
+Runtime: `py3.12-abe4061a3fa70426`. Subsequent metadata edits change documentation only.
+Installer SHA-256: `5c55cdf739901d7c7fb74eea3938b6337c8102392eb92c97f14b1e888d7ab285`.
+Update ZIP SHA-256: `03a8cb0df5bd1658ea7f107431643f2bd99e60112b526b2139b344554d951718`.
+
+The website index was updated through certificate-validated FTPS, with its previous copy backed
+up; the report relay and other files were unchanged. Live HTTPS version and download links were
+verified. GitHub About metadata was reviewed and continues to describe equal provider choices.
