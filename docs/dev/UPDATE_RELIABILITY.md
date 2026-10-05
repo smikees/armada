@@ -21,6 +21,8 @@ cookie, matching version and process nonce. Only then is health committed and th
 owned scheduler started. Provider connectivity, quotas and findings are not startup
 health conditions. A local refusal during initial navigation gets one explicit
 reauthentication attempt; authentication errors are not silently hidden.
+The monitor follows the successor's owned endpoint if the original port became
+occupied, using its new protected credential and checking the instance nonce.
 
 On unacknowledged startup failure, the monitor asks that successor to exit. It waits
 for its kernel-held leases and restores the verified previous code through another
@@ -47,6 +49,9 @@ The native upgrade gate uses the current installed runtime/bootstrap: protocol 2
 one-time installer transition is separate from a compatible code update. Its real
 Settings, Documentation, Usage, companion and thread checks use browser cookies.
 Evidence is tied to signed package hashes and source commit, not an earlier run.
+The source commit is captured before local validation and checked again afterwards;
+changes during validation invalidate that run. Companion request IDs prevent a
+lost native acknowledgement from sending the same support request twice.
 
 The protocol change requires a full installer from 0.99.81 and earlier. Existing
 clients recognize the changed runtime tag and direct users to the installer. A

@@ -90,3 +90,16 @@ def test_publish_waits_for_pending_exact_source_ci(monkeypatch):
     monkeypatch.setattr(publish_release.time,'sleep',sleeps.append)
     publish_release.wait_for_ci('current')
     assert len(sleeps)==1
+
+
+def test_publish_rejects_a_commit_changed_during_the_local_gate(monkeypatch):
+    changed=[]
+    monkeypatch.setitem(sys.modules,'release_gate',release_gate)
+    monkeypatch.setattr(release_gate,'run',lambda:changed.append(True))
+    def read(*args,**kw):
+        if args[:2]==('git','status'):return ''
+        if args[:2]==('git','rev-parse'):return 'new' if changed else 'original'
+        pytest.fail('Release must stop before fetching CI or building artifacts')
+    monkeypatch.setattr(publish_release,'_run',read)
+    with pytest.raises(SystemExit,match='Source changed during the local gate'):
+        publish_release.main()

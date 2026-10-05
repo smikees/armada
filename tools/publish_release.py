@@ -82,10 +82,12 @@ def main(argv=()) -> None:
     from armada import __version__ as ver
     if _run("git", "status", "--porcelain"):
         sys.exit("uncommitted changes — a release is a commit")
+    sha = _run("git", "rev-parse", "HEAD")
     from release_gate import run as run_gate
     run_gate()
+    if _run('git','rev-parse','HEAD') != sha or _run('git','status','--porcelain'):
+        sys.exit('Source changed during the local gate; validate the new commit again')
     _run("git", "fetch", "--quiet", "origin")
-    sha = _run("git", "rev-parse", "HEAD")
     if sha != _run("git", "rev-parse", "origin/main"):
         sys.exit("HEAD isn't origin/main — push first")
     wait_for_ci(sha)

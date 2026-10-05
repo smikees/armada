@@ -66,6 +66,39 @@ def test_handover_verifies_version_desktop_and_scheduler(tmp_path, monkeypatch):
     assert not worker.verify(plan), 'An old instance cannot prove successful restart.'
 
 
+@pytest.mark.parametrize('port_changed',[False,True])
+def test_monitor_follows_the_successor_to_a_new_port_and_checks_its_nonce(tmp_path,port_changed):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    requests=[]
+    nonce=['current-owner']
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(self.path)
+            if self.headers.get('Authorization')!='Bearer successor-token':
+                self.send_response(401);self.end_headers();return
+            data=({'version':'1.2.3','desktop_ready':True,'nonce':nonce[0]}
+                  if self.path=='/api/instance' else {'running':True})
+            self.send_response(200);self.end_headers();self.wfile.write(json.dumps(data).encode())
+        def log_message(self,*args): pass
+    server=HTTPServer(('127.0.0.1',0),Handler)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    port=server.server_port
+    marker=tmp_path/'instance.json'
+    data=tmp_path/'successor-profile';(data/'local-auth').mkdir(parents=True)
+    marker.write_text(json.dumps({'pid':os.getpid(),'port':port,'nonce':'current-owner','data_dir':str(data)}))
+    (data/'local-auth'/f'{port}.json').write_text(json.dumps({'token':'successor-token'}))
+    old_port=1 if port_changed else port
+    plan={'instance':str(marker),'owner_pid':0,'port':old_port,'auth':str(tmp_path/'old-profile'/f'{old_port}.json'),
+          'version':'1.2.3','scheduler_required':True}
+    try:
+        assert worker.verify(plan)
+        assert requests==['/api/instance','/api/scheduler-status']
+        nonce[0]='another-owner'
+        assert 'another instance' in worker.readiness_error(plan)
+    finally:
+        server.shutdown();server.server_close();thread.join(2)
+
+
 def test_invalid_old_restart_record_does_not_block_future_progress(tmp_path, monkeypatch):
     from armada import util
     monkeypatch.setattr(util, 'data_dir', lambda: tmp_path)

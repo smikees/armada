@@ -63,17 +63,38 @@ def reading(plan, route):
         return json.load(response)
 
 
+def successor_endpoint(plan, owner=None):
+    """Follow a live successor when it had to move away from a newly occupied port."""
+    owner = owner or json.loads(Path(plan['instance']).read_text(encoding='utf-8'))
+    if owner.get('pid') == plan['owner_pid'] or not alive(owner.get('pid', 0)):
+        raise OSError('The replacement desktop has not acquired instance ownership.')
+    port = owner.get('port')
+    if port is None:
+        return plan  # Older ownership records/test runtimes omit the endpoint.
+    if type(port) is not int or not 0 < port < 65536:
+        raise ValueError('The replacement desktop recorded an invalid server port.')
+    auth = Path(plan['auth'])
+    if owner.get('data_dir'):
+        auth = Path(owner['data_dir'])/'local-auth'/f'{port}.json'
+    elif port != plan.get('port'):
+        auth = auth.with_name(str(port)+'.json')
+    return {**plan, 'port':port, 'auth':str(auth)}
+
+
 def readiness_error(plan):
     """Reject stale servers, error pages and a desktop whose scheduler never came back."""
     owner = json.loads(Path(plan['instance']).read_text(encoding='utf-8'))
     if owner.get('pid') == plan['owner_pid'] or not alive(owner.get('pid', 0)):
         return 'The replacement desktop has not acquired instance ownership.'
-    data = reading(plan, 'api/instance')
+    endpoint = successor_endpoint(plan, owner)
+    data = reading(endpoint, 'api/instance')
+    if data.get('nonce') and data['nonce'] != owner.get('nonce'):
+        return 'The readiness response belongs to another instance.'
     if data.get('version') != plan['version']:
         return f"Expected version {plan['version']}; the server reports {data.get('version', 'unknown')}."
     if not data.get('desktop_ready'):
         return 'The replacement desktop has not loaded its app page.'
-    if plan['scheduler_required'] and not reading(plan, 'api/scheduler-status').get('running'):
+    if plan['scheduler_required'] and not reading(endpoint, 'api/scheduler-status').get('running'):
         return 'The required scheduler has not started.'
     return ''
 
@@ -108,8 +129,9 @@ def recover_failure(plan, plan_path, reason, timeout=30):
     record(plan, 'recovering', 'Startup failed; restoring the previous verified version.', error=reason)
     # Ask only this successor to exit. Never kill a desktop or a running job.
     try:
-        auth = json.loads(Path(plan['auth']).read_text(encoding='utf-8'))
-        request = urllib.request.Request(f"http://127.0.0.1:{plan['port']}/api/startup-abort",
+        endpoint = successor_endpoint(plan)
+        auth = json.loads(Path(endpoint['auth']).read_text(encoding='utf-8'))
+        request = urllib.request.Request(f"http://127.0.0.1:{endpoint['port']}/api/startup-abort",
             data=json.dumps({'version':plan['version']}).encode(),
             headers={'Authorization':'Bearer '+auth['token'], 'Content-Type':'application/json'})
         with urllib.request.urlopen(request, timeout=2): pass

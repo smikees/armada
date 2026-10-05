@@ -17,6 +17,10 @@ It verifies the successor's version, painted desktop and required scheduler.
 
 —
 
+### `successor_endpoint(plan, owner=None)`
+
+Follow a live successor when it had to move away from a newly occupied port.
+
 ### `readiness_error(plan)`
 
 Reject stale servers, error pages and a desktop whose scheduler never came back.
