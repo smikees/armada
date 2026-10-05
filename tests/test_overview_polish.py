@@ -121,6 +121,8 @@ def test_native_splash_exists_before_waiting_for_server(ready):
         return ready
     def start(callback, **kwargs):
         assert 'role="progressbar"' in webview.create_window.call_args.kwargs['html']
+        assert kwargs['private_mode'] is False
+        assert Path(kwargs['storage_path']).name == 'webview'
         window.events.loaded.emit()
         loader.ready.assert_not_called()
         callback()

@@ -2,9 +2,10 @@
 
 ## Current release verification
 
-v0.99.74 (2026-10-03), Windows: **2,923 passed, 2 skipped** across the full suite.
-All 41 changed JavaScript files passed `node --check`. Page snapshots were reviewed and updated
-for the three-engine UI, job model/status columns, provider controls and other requested changes.
+v0.99.81 (2026-10-05), Windows: **3,111 passed, five skipped** in the final isolated suite.
+The staged branded runtime additionally passed 14 real WebView2 multi-window session checks
+and five interrupted-update recovery probes. [Release verification](RELEASE_0_99_81.md)
+records the checks and their limits. The settings snapshot change is the new changelog entry.
 Use a working Python 3.12+ virtual environment; on this development machine it is `.venv-codex`.
 Older baseline counts below are historical, not an allowance for a new release to have failures.
 
@@ -19,9 +20,9 @@ cd D:\Work\Development\MATCAP
 
 Python 3.12+. `-p no:cacheprovider` keeps `.pytest_cache` out of the tree.
 
-**Know your baseline before you change anything.** A handful of tests fail for reasons that have
-nothing to do with your change — path handling that is Windows- or Linux-specific, and two golden
-pages that drift (below). Record the failing set on a clean tree, then compare:
+**Know your baseline before you change anything.** Record the results on a clean tree to identify
+regressions, then run the isolated release gate with the final changes. A baseline failure is
+still a failure to investigate; it does not allow publishing with a failing required gate:
 
 ```powershell
 .venv\Scripts\python -m pytest -q -p no:cacheprovider 2>&1 | Select-String "^FAILED" | Sort-Object > $env:TEMP\baseline.txt
@@ -64,6 +65,15 @@ through a real server (`golden_support.ServedRealm`) and compares every page byt
 
 ## Guard tests — the invariants, enforced
 
+Installer staging also runs `tools/webview_session_probe.py` with the staged runtime and actual
+Windows WebView2. It uses hidden windows and synthetic HTTP fixtures in a temporary data folder.
+It requires authenticated Usage before, during and after two Alexander open/close cycles, one-time
+support payload delivery after the authentication redirect, and refusal of credential-free login.
+This gate caught the shared-cookie deletion that HTTP tests supplying Cookie headers missed.
+`tests/test_overview_polish.py` additionally ensures production startup applies the shared profile.
+Do not replace this installer gate with mocked HTTP or mocked-window checks. It does not exercise
+provider accounts, real jobs or full clean-machine installer acceptance.
+
 | Test | Keeps true |
 |---|---|
 | `test_exception_logging.py` | no broad `except` swallows silently (2.5) |
@@ -88,5 +98,6 @@ When one of these fails, the fix is almost never to change the test.
   (`test_realm_write_locking.py`) rather than re-creating the race.
 - **Anything that reads the clock:** `clock.freeze(...)`, never monkeypatching `datetime`.
 - **Anything that would call Claude:** pass `engine="mock"` or a fake engine; no test spends tokens.
-- **Static JS:** `node --check` for syntax; assert on the file's text for patterns (see
-  `test_threat_model_fixes.py`) — there is no JS test runner.
+- **Static JS:** `node --check` for syntax; Node-powered harnesses can verify behavior with a
+  minimal fake DOM (see `test_overview_polish.py`). Use actual browser checks when behavior depends
+  on browser cookies, navigation or the native window lifecycle.
