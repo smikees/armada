@@ -55,6 +55,15 @@ def _path(port: int) -> Path:
     return util.data_dir() / "local-auth" / f"{int(port)}.json"
 
 
+def desktop_storage() -> Path:
+    """WebView cookies contain credentials; keep the profile in the protected tree."""
+    folder = _private_directory() / 'webview'
+    if folder.is_symlink() or (hasattr(folder, 'is_junction') and folder.is_junction()):
+        raise OSError('The desktop browser profile must not be a link')
+    folder.mkdir(exist_ok=True)
+    return folder
+
+
 def headers(port: int) -> dict:
     """Internal clients must possess the owning user's per-server credential."""
     try:

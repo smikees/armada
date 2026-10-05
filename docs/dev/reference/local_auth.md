@@ -14,6 +14,10 @@ guards remain necessary: cookies are scoped to hosts, not TCP ports.
 
 —
 
+### `desktop_storage()`
+
+WebView cookies contain credentials; keep the profile in the protected tree.
+
 ### `headers(port: int)`
 
 Internal clients must possess the owning user's per-server credential.

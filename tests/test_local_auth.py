@@ -54,6 +54,22 @@ def test_bootstrap_is_public_but_contains_no_secret(server):
     assert json.loads(request(server, "/health")[2]) == {"app": "ARMADA"}
 
 
+def test_desktop_profile_is_inside_private_auth_tree(tmp_path, monkeypatch):
+    monkeypatch.setattr(local_auth.util, 'data_dir', lambda: tmp_path)
+    profile = local_auth.desktop_storage()
+    assert profile == tmp_path / 'local-auth' / 'webview'
+    assert profile.is_dir()
+    assert local_auth.desktop_storage() == profile
+
+
+def test_desktop_profile_refuses_link(tmp_path, monkeypatch):
+    monkeypatch.setattr(local_auth, '_private_directory', lambda: tmp_path)
+    # Model link detection without requiring Windows symlink privileges.
+    monkeypatch.setattr(type(tmp_path), 'is_symlink', lambda path: path.name == 'webview')
+    with pytest.raises(OSError, match='must not be a link'):
+        local_auth.desktop_storage()
+
+
 def test_browser_exchange_and_internal_client_authenticate(server):
     auth = local_auth.headers(server.server_port)
     status, headers, _ = request(server, "/auth", "POST", auth)

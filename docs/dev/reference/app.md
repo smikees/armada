@@ -10,6 +10,14 @@ the dashboard — is unchanged, because it's the same server underneath.
 `webview` is imported lazily inside run(), so the stdlib `armada serve` path stays
 dependency-free; only `armada app` needs pywebview installed.
 
+### `_webview_options()`
+
+All app windows share an owner-only browser profile.
+
+### `_deliver_alexander(window, payload)`
+
+Deliver once the companion page is ready, across its auth redirect too.
+
 ### `_alexander_bounds(main, area, width=520, height=720, gap=10)`
 
 Place a companion beside the main window, within this monitor's working area.

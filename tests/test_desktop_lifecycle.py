@@ -54,10 +54,13 @@ class DesktopLifecycleTests(unittest.TestCase):
              patch.object(app, "_alex_window", None), \
              patch.object(app, "_app_url", "http://127.0.0.1:8756/"), \
              patch.dict("sys.modules", {"webview": webview}), \
+             patch('armada.local_auth.headers', return_value={'Authorization': 'Bearer '+('a'*43)}), \
              patch.object(app.threading, "Thread"):
             self.assertTrue(app.open_alexander())
             self.assertTrue(app.open_alexander())
         self.assertEqual(webview.create_window.call_count, 1)
+        self.assertEqual(webview.create_window.call_args.args[1],
+                         'http://127.0.0.1:8756/auth#'+('a'*43)+'&next=%2Falexander')
         window.show.assert_called_once()
         options = webview.create_window.call_args.kwargs
         self.assertTrue(options["frameless"])
@@ -77,6 +80,36 @@ class DesktopLifecycleTests(unittest.TestCase):
         original.destroy.assert_called_once()
         replacement.destroy.assert_not_called()
         main.destroy.assert_not_called()
+
+    def test_companion_payload_waits_through_auth_redirect_and_is_delivered_once(self):
+        class Event:
+            def __init__(self): self.callbacks = []
+            def __iadd__(self, callback):
+                self.callbacks.append(callback)
+                return self
+            def __isub__(self, callback):
+                self.callbacks.remove(callback)
+                return self
+            def is_set(self): return True
+            def emit(self):
+                for callback in list(self.callbacks): callback()
+        event = Event()
+        window = Mock(events=Mock(loaded=event))
+        window.evaluate_js.side_effect = [False, False, True]
+        app._deliver_alexander(window, {'message': 'Help'})
+        self.assertEqual(len(event.callbacks), 1)  # initial document is not the companion
+        event.emit()  # auth bootstrap
+        self.assertEqual(len(event.callbacks), 1)
+        event.emit()  # authenticated page
+        event.emit()  # later navigation cannot resend
+        self.assertEqual(len(event.callbacks), 0)
+        self.assertEqual(window.evaluate_js.call_count, 3)
+
+    def test_webview_uses_shared_protected_profile_without_per_window_cookie_deletion(self):
+        from pathlib import Path
+        with patch('armada.local_auth.desktop_storage', return_value=Path('private-profile')):
+            self.assertEqual(app._webview_options(),
+                             {'private_mode': False, 'storage_path': 'private-profile'})
 
     def test_companion_region_tracks_actual_client_size_and_dpi(self):
         path, old = Mock(), Mock()

@@ -28,6 +28,45 @@ _quitting = False
 _app_url = ""
 
 
+def _webview_options():
+    """All app windows share an owner-only browser profile.
+
+    pywebview's default private mode deletes the profile's cookies whenever a
+    new WebView2 window initializes, invalidating the already-open cockpit.
+    Session tokens still rotate with each server and each window bootstraps them.
+    """
+    from .local_auth import desktop_storage
+    return dict(private_mode=False, storage_path=str(desktop_storage()))
+
+
+def _deliver_alexander(window, payload):
+    """Deliver once the companion page is ready, across its auth redirect too."""
+    if not payload or not payload.get('message'):
+        return
+    lock = threading.Lock()
+    delivered = False
+
+    def ready():
+        nonlocal delivered
+        with lock:
+            if delivered:
+                return
+            try:
+                sent = window.evaluate_js(
+                    "typeof window.mcAlexReceive === 'function' && "
+                    "(window.mcAlexReceive(" + json.dumps(payload, ensure_ascii=False) + "), true)")
+            except Exception:
+                log.debug('Alexander receiver is not ready yet', exc_info=True)
+                return  # The browser/bridge may still be initializing.
+            if sent is True:
+                delivered = True
+                window.events.loaded -= ready
+
+    window.events.loaded += ready
+    if window.events.loaded.is_set():
+        ready()
+
+
 def _alexander_bounds(main, area, width=520, height=720, gap=10):
     """Place a companion beside the main window, within this monitor's working area."""
     mx, my, mw, mh = main
@@ -117,9 +156,6 @@ def open_alexander(request: dict | None = None) -> bool:
     payload = {"message": str(request.get("message") or "")[:6000],
                "item": request.get("item") if isinstance(request.get("item"), dict) else None,
                "page": str(request.get("page") or "")[:300]} if isinstance(request, dict) else None
-    def deliver(window):
-        if payload and payload["message"]:
-            window.evaluate_js("window.mcAlexReceive(" + json.dumps(payload, ensure_ascii=False) + ")")
     with _window_lock:
         if _alex_window is not None:
             try:
@@ -129,14 +165,15 @@ def open_alexander(request: dict | None = None) -> bool:
                 if "x" in bounds:
                     _alex_window.resize(bounds["width"], bounds["height"])
                     _alex_window.move(bounds["x"], bounds["y"])
-                deliver(_alex_window)
+                _deliver_alexander(_alex_window, payload)
                 return True
             except Exception:
                 logging.getLogger(__name__).exception('Reopening Alexander failed')
                 _alex_window = None
         try:
             api = _AlexanderCompanionAPI()
-            w = webview.create_window("Alexander — ARMADA", _app_url + "alexander",
+            from .local_auth import browser_url
+            w = webview.create_window("Alexander — ARMADA", browser_url(_app_url, '/alexander'),
                                       **_alexander_position(), min_size=(400, 500), text_select=True,
                                       frameless=True, transparent=True, easy_drag=False, js_api=api)
             api._window = w
@@ -144,14 +181,7 @@ def open_alexander(request: dict | None = None) -> bool:
             w.events.loaded += lambda: _shape_alexander(w)
             w.events.resized += lambda *args: _shape_alexander(w)
             w.events.closed += lambda: _clear_alexander(w)
-            if payload and payload["message"]:
-                if w.events.loaded.is_set():
-                    deliver(w)
-                else:
-                    def on_loaded():
-                        w.events.loaded -= on_loaded
-                        deliver(w)
-                    w.events.loaded += on_loaded
+            _deliver_alexander(w, payload)
             threading.Thread(target=_apply_window_icon, daemon=True).start()
             return True
         except Exception:
@@ -577,9 +607,9 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
             _quit_windows(main)
     try:
         try:
-            webview.start(_start_main, icon=str(ico))
+            webview.start(_start_main, icon=str(ico), **_webview_options())
         except TypeError:
-            webview.start(_start_main)
+            webview.start(_start_main, **_webview_options())
     finally:
         activation_stop.set()
         _quitting = True

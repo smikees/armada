@@ -326,6 +326,8 @@ def smoke(stage_dir: Path, ver: str) -> None:
                 p.communicate(timeout=15)       # let it let go of its log file before cleanup
     from installer_probe import recovery
     recovery(stage_dir)
+    from webview_session_probe import verify
+    verify(stage_dir)
     say("smoke: ok")
 
 

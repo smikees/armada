@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.80. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.81. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -38,6 +38,11 @@ UI seed catalogue as proof that a specific model is still supported.
    text for search) — expected.
 4. Full suite with the release changes in place. Record the result and any platform-only checks
    that remain unverified. Do not publish an installer while required checks fail.
+5. Installer staging runs the mandatory hidden WebView2 session gate using the branded embedded
+   runtime. It opens, closes and reopens Alexander through the production opener, verifies
+   one-time support payload delivery after authentication and checks that cockpit Usage remains
+   authenticated. Synthetic HTTP data and an isolated data folder keep live realms and providers
+   out of this test. Unit tests with supplied Cookie headers cannot replace this browser gate.
 
 ## 4. Commit
 
@@ -161,7 +166,7 @@ Never commit build outputs or signing credentials.
 
 ## Release boundaries
 
-The current published installer (0.99.80) lacks Authenticode signatures and can fail with error 4551
+The current published installer (0.99.81) lacks Authenticode signatures and can fail with error 4551
 on protected machines. Version 0.99.75 used the explicit one-release exception below; 0.99.76 continues the owner's
 requested unsigned beta distribution as a recorded maintenance-release deviation
 ([0.99.76 verification](RELEASE_0_99_76.md)); 0.99.77 follows the same recorded
@@ -195,3 +200,6 @@ label the installer unsigned. The release notes record both error 4551 and the u
 WebView2 prerequisite failure in Windows Sandbox. Neither trusted signing nor clean-VM GUI
 acceptance is marked passed. Older installations need this full installer once. Website
 publication replaces only its backed-up landing page; the report relay is unchanged.
+
+Version 0.99.81 keeps the same runtime and bootstrap, and adds a mandatory native multi-window
+WebView2 session gate to installer staging ([verification](RELEASE_0_99_81.md)).
