@@ -26,7 +26,7 @@ def installation(tmp_path):
         package = root/folder
         package.mkdir()
         (package/'__init__.py').write_text(f'__version__ = "{version}"\n')
-        (package/'__main__.py').write_text('import sys\nfrom pathlib import Path\nfrom armada import __version__\nPath(sys.argv[1]).write_text(__version__)\n')
+        (package/'__main__.py').write_text('import sys\nfrom pathlib import Path\nfrom armada import __version__\nimport armada_bootstrap as b\nb.confirm_health(Path.cwd(),__version__)\nPath(sys.argv[1]).write_text(__version__)\n')
     staged = root/'armada.staged'
     bootstrap.atomic_json(staged/'.staged.json',{'version':'1.1.0','files':bootstrap.inventory(staged)})
     return root

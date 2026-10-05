@@ -17,10 +17,12 @@ import sys
 import time
 import uuid
 
-PROTOCOL = 1
+PROTOCOL = 2
 JOURNAL = '.armada-update.json'
 REQUEST = '.armada-update-request.json'
 ERROR = '.armada-update-error.json'
+HEALTH = '.armada-update-health.json'
+QUARANTINE = '.armada-update-quarantine.json'
 _leases = {}
 
 
@@ -120,7 +122,7 @@ def atomic_json(path, data):
 
 
 def replace(source, target):
-    for attempt in range(12):
+    for attempt in range(8):
         try:
             os.replace(source, target)
             if os.name != 'nt':
@@ -129,8 +131,8 @@ def replace(source, target):
                 finally: os.close(fd)
             return
         except PermissionError:
-            if attempt == 11: raise
-            time.sleep(.05)
+            if attempt == 7: raise
+            time.sleep(min(.1 * 2**attempt, 1))
 
 
 def inventory(folder):
@@ -157,7 +159,9 @@ def _matches(folder, files):
     except OSError: return False
 
 
-def _finish(root):
+def _finish(root, state=None):
+    if state and not state.get('rollback'):
+        atomic_json(root/HEALTH, {**state, 'started':time.time()})
     (root/'armada'/'.staged.json').unlink(missing_ok=True)
     (root/JOURNAL).unlink(missing_ok=True)
     (root/REQUEST).unlink(missing_ok=True)
@@ -171,12 +175,29 @@ def recover_locked(root):
     if not journal.exists(): return ''
     if active_others(root): raise OSError('Recovery is waiting for another ARMADA process to exit')
     state = json.loads(journal.read_text(encoding='utf-8'))
-    if (not isinstance(state, dict) or state.get('format') != PROTOCOL
+    if (not isinstance(state, dict) or state.get('format') not in (1, PROTOCOL)
             or not isinstance(state.get('new_files'),dict) or not isinstance(state.get('old_files'),dict)):
         raise OSError('Invalid update journal; preserved for recovery')
     live, staged, previous = [root/name for name in ('armada','armada.staged','armada.previous')]
-    if _matches(live,state['new_files']):
+    if state.get('rollback'):
+        failed = root/'armada.failed'
+        if not _matches(live, state['new_files']):
+            source = previous if _matches(previous, state['new_files']) else staged
+            if not _matches(source, state['new_files']):
+                raise OSError('Rollback source changed; preserved for review')
+            if live.exists():
+                if not _matches(live, state['old_files']):
+                    raise OSError('Failed package changed; preserved for review')
+                replace(live, failed)
+            replace(source, live)
         _finish(root)
+        (root/HEALTH).unlink(missing_ok=True)
+        atomic_json(root/ERROR, {'error':state['reason'], 'rolled_back':state['version'],
+                                'failed_version':state['old_version']})
+        shutil.rmtree(failed, ignore_errors=True)
+        return state['version']
+    if _matches(live,state['new_files']):
+        _finish(root, state)
         return state['version']
     if _matches(live,state['old_files']):
         # Interrupted before the live rename, or ordinary failure rolled it back.
@@ -185,7 +206,7 @@ def recover_locked(root):
     if live.exists(): raise OSError('Live package differs from both journal snapshots; preserved for recovery')
     if _matches(staged,state['new_files']):
         replace(staged,live)
-        _finish(root)
+        _finish(root, state)
         return state['version']
     if _matches(previous,state['old_files']):
         replace(previous,live)
@@ -223,8 +244,43 @@ def apply_locked(root):
         raise
     state['phase']='new_live'
     atomic_json(root/JOURNAL,state)
-    _finish(root)
+    _finish(root, state)
     return state['version']
+
+
+def confirm_health(root, expected):
+    """Commit only the package whose real browser completed local startup checks."""
+    root = Path(root)
+    with install_lock(root):
+        path = root/HEALTH
+        if not path.exists(): return
+        state = json.loads(path.read_text(encoding='utf-8'))
+        if state['version'] != expected or not _matches(root/'armada', state['new_files']):
+            raise OSError('Startup acknowledgement does not match the installed package')
+        path.unlink()
+
+
+def rollback_locked(root, reason):
+    """Restore verified previous code using the same crash-safe journal; never restore user data."""
+    root = Path(root)
+    if active_others(root): raise OSError('Rollback is waiting for the failed desktop to close')
+    recover_locked(root)
+    path = root/HEALTH
+    if not path.exists(): return ''
+    state = json.loads(path.read_text(encoding='utf-8'))
+    if not _matches(root/'armada.previous', state['old_files']):
+        raise OSError('Previous package cannot be verified; automatic rollback refused')
+    # A version's startup migration must remain readable by the previous version.
+    atomic_json(root/QUARANTINE, {'version':state['version'], 'files':state['new_files'], 'reason':reason})
+    failed = root/'armada.failed'
+    if _linked(failed): raise OSError('Linked failed package refused')
+    if failed.exists(): shutil.rmtree(failed)
+    rollback = {'format':PROTOCOL, 'phase':'prepared', 'rollback':True, 'reason':reason,
+                'version':state['old_version'], 'old_version':state['version'],
+                'new_files':state['old_files'], 'old_files':state['new_files']}
+    atomic_json(root/JOURNAL, rollback)
+    recover_locked(root)
+    return state['old_version']
 
 
 def apply(root):
@@ -243,6 +299,10 @@ def main():
                 pending = (root/REQUEST).exists() or (root/JOURNAL).exists()
                 if not (others and pending):
                     recover_locked(root)
+                    if not others and (root/HEALTH).exists():
+                        health = json.loads((root/HEALTH).read_text(encoding='utf-8'))
+                        if health.get('attempted'):
+                            rollback_locked(root, 'The updated app exited before browser startup was acknowledged.')
                     if not others and (root/'armada.staged').exists() and not (root/ERROR).exists():
                         try: apply_locked(root)
                         except (OSError, ValueError) as exc:
@@ -251,6 +311,9 @@ def main():
                             if not version(root/'armada'): raise
                             atomic_json(root/ERROR, {'error':str(exc)[:500]})
                             (root/REQUEST).unlink(missing_ok=True)
+                    if not others and (root/HEALTH).exists():
+                        health = json.loads((root/HEALTH).read_text(encoding='utf-8'))
+                        atomic_json(root/HEALTH, {**health, 'attempted':True})
                     acquire_lease(root)
                     break
             if time.monotonic() >= deadline:

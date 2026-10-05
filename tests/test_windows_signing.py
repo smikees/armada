@@ -87,5 +87,6 @@ def test_inno_signing_includes_the_extracted_temporary_executable():
 
 
 def test_public_builder_never_requests_unsigned_output():
-    root = Path(__file__).resolve().parents[1]
-    assert '--allow-unsigned' not in (root/'tools'/'publish_release.py').read_text()
+    from tools.publish_release import installer_command
+    assert '--allow-unsigned' not in installer_command('python')
+    assert '--allow-unsigned' in installer_command('python', maintenance_unsigned=True)

@@ -28,6 +28,36 @@ _quitting = False
 _app_url = ""
 
 
+def window_state():
+    from . import util
+    try:
+        data = json.loads((util.data_dir() / 'desktop-state.json').read_text(encoding='utf-8'))
+        if not isinstance(data, dict): return {}
+        for key in ('x', 'y', 'width', 'height'):
+            if not isinstance(data.get(key), int): data.pop(key, None)
+        return data
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def save_window_state():
+    """Small local restart state; keep tokens and arbitrary form fields out of it."""
+    if _main_window is None: return
+    from . import util
+    try:
+        data = _main_window.evaluate_js("({route:location.pathname+location.search,realm:document.querySelector('meta[name=\"armada-realm\"]')?.content||'',draft:document.getElementById('mc-msg')?.value||''})")
+        if not isinstance(data, dict) or not str(data.get('route', '')).startswith('/'):
+            return
+        if data['route'].startswith(('/auth', '//')): return
+        data['draft'] = str(data.get('draft', ''))[:65536]
+        for key in ('x', 'y', 'width', 'height'):
+            value = getattr(_main_window, key, None)
+            if isinstance(value, int): data[key] = value
+        util.write_json_atomic(util.data_dir()/'desktop-state.json', data)
+    except Exception:
+        log.debug('Could not save desktop restart state', exc_info=True)
+
+
 def _webview_options():
     """All app windows share an owner-only browser profile.
 
@@ -419,6 +449,13 @@ def _startup_html() -> str:
 
 
 def run(realm: str, port: int = 8756, title: str = "") -> int:
+    """All native entry points claim the Windows user's shared instance first."""
+    from . import instance
+    with instance.claim('app', port) as primary:
+        return _run_owned(realm, port, title) if primary else 0
+
+
+def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     """Open ARMADA in a native window. Blocks until the window is closed."""
     global _main_window, _app_url, _quitting
     from .util import init_logging
@@ -531,13 +568,23 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
     # an already-open window, before it's relaunched with this flag.)
     # min width 1400: the cockpit's widest pages (Capabilities' list + sticky legend, the dashboard
     # widget grid) need it — below that the right-hand column wraps and the layout breaks up.
-    main = webview.create_window(title, html=_startup_html(), width=1440, height=860,
+    saved = window_state()
+    from .request_context import RealmContext
+    if saved.get('realm') != RealmContext.capture(realm).realm_id:
+        saved = {key:value for key,value in saved.items() if key in ('x','y','width','height')}
+    bounds = {key:saved[key] for key in ('x', 'y') if isinstance(saved.get(key), int)}
+    main = webview.create_window(title, html=_startup_html(), width=max(1400,min(3840,saved.get('width',1440))), height=max(700,min(2160,saved.get('height',860))),
+                                 **bounds,
                                  min_size=(1400, 700), text_select=True)
     from .startup_splash import LoadingPanel
     loader = LoadingPanel(main)
     painted = threading.Event()
     navigating = threading.Event()
+    browser_ready = threading.Event()
+    reauthenticated = False
+    navigation_fallback = False
     def _page_loaded():
+        nonlocal reauthenticated, navigation_fallback
         if not painted.is_set() or (navigating.is_set() and not loader.finished):
             try:
                 main.evaluate_js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))')
@@ -545,10 +592,33 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
                 log.debug('Could not confirm a painted startup frame', exc_info=True)
             if navigating.is_set():
                 if not main.evaluate_js("!!document.querySelector('link[href*=\"/static/brand.css\"]')"):
+                    if not reauthenticated and main.evaluate_js("document.body.innerText.includes('Open ARMADA to access this local session.')"):
+                        reauthenticated = True
+                        from .local_auth import browser_url
+                        main.load_url(browser_url(url))
+                    elif saved.get('route') and not navigation_fallback:
+                        navigation_fallback = True
+                        from .local_auth import browser_url
+                        main.load_url(browser_url(url))
                     return  # Auth/bootstrap and refusal pages are not a ready desktop.
-                loader.ready()
                 from . import instance
+                from . import __version__, updater
+                if not main.evaluate_js("typeof window.mcIcon === 'function'"):
+                    return  # Shared UI code must initialize, as well as the HTML shell.
+                proof = main.evaluate_js("fetch('/api/instance',{credentials:'same-origin'}).then(async r=>({status:r.status,data:await r.json()}))")
+                if (not isinstance(proof, dict) or proof.get('status') != 200 or
+                        proof.get('data', {}).get('nonce') != instance.current().get('nonce') or
+                        proof.get('data', {}).get('version') != __version__):
+                    return
+                if updater.installed():
+                    import armada_bootstrap as bootstrap
+                    bootstrap.confirm_health(updater.ROOT, __version__)
                 instance.desktop_ready()
+                browser_ready.set()
+                loader.ready()
+                if saved.get('draft') and main.evaluate_js('location.pathname+location.search') == saved.get('route'):
+                    main.evaluate_js("(()=>{const e=document.getElementById('mc-msg');if(e&&!e.value){e.value="+json.dumps(saved['draft'])+";e.dispatchEvent(new Event('input'));}})()")
+                threading.Thread(target=_autostart_scheduler, daemon=True).start()
             else:
                 painted.set()
     main.events.loaded += _page_loaded
@@ -561,6 +631,7 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
     tray_ready = tray.start()
 
     def _on_main_closing():
+        save_window_state()
         if not _quitting and tray_ready and appconfig.get("keep_in_tray", True) is not False:
             threading.Thread(target=main.hide, daemon=True).start()
             return False  # cancel close; the process, scheduler, and Telegram remain alive
@@ -598,8 +669,15 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
             if not _quitting:
                 navigating.set()
                 from .local_auth import browser_url
-                main.load_url(browser_url(url))
-                threading.Thread(target=_autostart_scheduler, daemon=True).start()
+                route = str(saved.get('route') or '/')
+                if not route.startswith('/') or route.startswith(('/auth','//')): route = '/'
+                main.load_url(browser_url(url, route))
+                def startup_deadline():
+                    if not browser_ready.wait(45) and not _quitting:
+                        err['startup_failed'] = True
+                        _fatal('ARMADA could not authenticate and initialize its local app window. See armada.log for the startup error.')
+                        _quit_windows(main)
+                threading.Thread(target=startup_deadline, daemon=True).start()
         elif not _quitting:
             err["startup_failed"] = True
             why = f"\n\n{type(err['e']).__name__}: {err['e']}" if err.get("e") else ""

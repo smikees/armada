@@ -10,6 +10,20 @@ import uuid
 from . import desktop_launch, util
 
 
+def cleanup(keep=5, days=30):
+    """Bound retained helper folders, excluding the currently active monitor."""
+    base = util.data_dir() / 'restart'
+    active = state()
+    folders = sorted((p for p in base.glob('*') if p.is_dir() and not p.is_symlink()
+                      and not (hasattr(p, 'is_junction') and p.is_junction())),
+                     key=lambda p:p.stat().st_mtime, reverse=True)
+    for index, path in enumerate(folders):
+        if path.name == active.get('nonce') and util.pid_alive(active.get('monitor_pid', 0)):
+            continue
+        if index >= keep or time.time()-path.stat().st_mtime > days*86400:
+            shutil.rmtree(path, ignore_errors=True)
+
+
 def lease_blockers(root, permitted):
     """Report kernel-held installation leases, excluding this app and its scheduler."""
     import armada_bootstrap as bootstrap
@@ -46,6 +60,9 @@ def state():
 
 def begin(root, realm, port, version, scheduler_required):
     """Start a lease-free supervisor and wait for its acknowledgement before shutdown."""
+    cleanup()
+    from . import app, instance
+    app.save_window_state()
     folder = util.data_dir() / 'restart' / uuid.uuid4().hex
     folder.mkdir(parents=True)
     worker = folder / 'restart_worker.py'
@@ -55,7 +72,7 @@ def begin(root, realm, port, version, scheduler_required):
             'version': version, 'owner_pid': os.getpid(), 'scheduler_required': scheduler_required,
             'status': str(util.data_dir() / 'restart-status.json'),
             'auth': str(util.data_dir() / 'local-auth' / f'{port}.json'),
-            'instance': str(util.data_dir() / 'desktop-instance.json'),
+            'instance': str(instance._path()),
             'executable': sys.executable, 'log': str(folder / 'startup.log'),
             'nonce': folder.name, 'started': time.time()}
     plan_path = folder / 'plan.json'

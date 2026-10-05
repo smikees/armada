@@ -10,6 +10,14 @@ the dashboard — is unchanged, because it's the same server underneath.
 `webview` is imported lazily inside run(), so the stdlib `armada serve` path stays
 dependency-free; only `armada app` needs pywebview installed.
 
+### `window_state()`
+
+—
+
+### `save_window_state()`
+
+Small local restart state; keep tokens and arbitrary form fields out of it.
+
 ### `_webview_options()`
 
 All app windows share an owner-only browser profile.
@@ -86,6 +94,10 @@ The installed WebView2 Runtime's version, or "" if there's none — Microsoft's 
 Self-contained loading view, available before the local server is ready.
 
 ### `run(realm: str, port: int=8756, title: str='')`
+
+All native entry points claim the Windows user's shared instance first.
+
+### `_run_owned(realm: str, port: int=8756, title: str='')`
 
 Open ARMADA in a native window. Blocks until the window is closed.
 

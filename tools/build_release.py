@@ -84,6 +84,7 @@ def build(key_path: Path, out_root: Path) -> Path:
         "format": 1, "app": "armada", "version": ver, "zip": zname,
         "size": len(blob), "sha256": hashlib.sha256(blob).hexdigest(),
         "runtime": updater.runtime_tag((ROOT / "requirements.txt").read_text(encoding="utf-8"), "3.12"),
+        "min_bootstrap": updater.bootstrap.PROTOCOL,
         "commit": _git("rev-parse", "HEAD").strip(),
         "published": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }

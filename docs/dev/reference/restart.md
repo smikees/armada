@@ -2,6 +2,10 @@
 
 Prepare a monitored desktop handover before the old process releases its server.
 
+### `cleanup(keep=5, days=30)`
+
+Bound retained helper folders, excluding the currently active monitor.
+
 ### `lease_blockers(root, permitted)`
 
 Report kernel-held installation leases, excluding this app and its scheduler.

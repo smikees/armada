@@ -94,6 +94,45 @@ def launch_successor(plan, plan_path):
         subprocess.Popen(argv, cwd=plan['root'], start_new_session=True, close_fds=True)
 
 
+def recover_failure(plan, plan_path, reason, timeout=30):
+    """Rollback only an unacknowledged package after all of its leases have closed."""
+    root = Path(plan['root'])
+    if not (root/'.armada-update-health.json').exists(): return False
+    record(plan, 'recovering', 'Startup failed; restoring the previous verified version.', error=reason)
+    # Ask only this successor to exit. Never kill a desktop or a running job.
+    try:
+        auth = json.loads(Path(plan['auth']).read_text(encoding='utf-8'))
+        request = urllib.request.Request(f"http://127.0.0.1:{plan['port']}/api/startup-abort",
+            data=json.dumps({'version':plan['version']}).encode(),
+            headers={'Authorization':'Bearer '+auth['token'], 'Content-Type':'application/json'})
+        with urllib.request.urlopen(request, timeout=2): pass
+    except (OSError, ValueError):
+        pass  # It may have already crashed before opening its server.
+    api = runpy.run_path(str(root/'armada_bootstrap.py'))
+    deadline = time.monotonic()+timeout
+    while time.monotonic() < deadline:
+        with api['install_lock'](root):
+            if not api['active_others'](root):
+                restored = api['rollback_locked'](root, reason)
+                break
+        time.sleep(.2)
+    else:
+        raise OSError('Failed startup is still using the installation; rollback postponed. '+reason)
+    if not restored: return False
+    recovered = {**plan, 'version':restored, 'owner_pid':0}
+    Path(plan_path).write_text(json.dumps(recovered), encoding='utf-8')
+    launch_successor(recovered, plan_path)
+    deadline = time.monotonic()+timeout
+    while time.monotonic() < deadline:
+        try:
+            if not readiness_error(recovered):
+                record(recovered, 'rolled_back', 'The previous version was restored after startup failed.', error=reason)
+                return True
+        except (OSError, ValueError, KeyError): pass
+        time.sleep(.5)
+    raise OSError('Previous code was restored, but its desktop did not become ready. '+reason)
+
+
 def supervise(plan, plan_path, timeout=150):
     record(plan, 'waiting_exit', 'Restart monitor ready; waiting for the old app to close.')
     deadline = time.monotonic() + timeout
@@ -145,6 +184,13 @@ def main():
                 supervise(plan, plan_path)
         except Exception as exc:
             log.exception('Desktop restart failed')
+            if not launch:
+                try:
+                    if recover_failure(plan, plan_path, str(exc)):
+                        return
+                except Exception as recovery:
+                    log.exception('Startup rollback failed; preserving both operational errors')
+                    exc = OSError(f'{exc}; recovery: {recovery}')
             try:
                 record(plan, 'error', str(exc), startup_log=plan['log'])
             except OSError:

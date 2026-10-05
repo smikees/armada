@@ -40,6 +40,8 @@ def _isolated_home(monkeypatch, tmp_path_factory):
         monkeypatch.delenv(variable,raising=False)
     from armada import usage_api
     monkeypatch.setattr(usage_api,'_CREDS',home/'.claude/.credentials.json')
+    from armada import instance
+    monkeypatch.setattr(instance, '_account_directory', lambda:home/'.armada')
 
 
 @pytest.fixture(autouse=True)

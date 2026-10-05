@@ -29,6 +29,10 @@ Reject stale servers, error pages and a desktop whose scheduler never came back.
 
 —
 
+### `recover_failure(plan, plan_path, reason, timeout=30)`
+
+Rollback only an unacknowledged package after all of its leases have closed.
+
 ### `supervise(plan, plan_path, timeout=150)`
 
 —

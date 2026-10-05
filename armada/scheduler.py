@@ -615,7 +615,7 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 restart = not app_owner  # the replacement desktop starts its own scheduler
                 break
             from . import updater
-            if updater.apply_requested():
+            if updater.admission_paused():
                 time.sleep(1)
                 continue
             from . import clock
@@ -643,7 +643,7 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 break
             for _ in range(max(5, interval)):
                 from . import updater
-                if updater.apply_requested():
+                if updater.admission_paused():
                     break
                 if app_owner and (not _util.pid_alive(app_owner) or
                                   (_util.data_dir() / f"scheduler-stop-{app_owner}").exists()):

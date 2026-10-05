@@ -222,6 +222,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             # dashboard cannot render (for example, a damaged realm/job file).
             from . import __version__, instance
             self._json(200, {"app": "ARMADA", "version": __version__,
+                            "nonce": instance.current().get('nonce'),
                             "desktop_ready": bool(instance.current().get('desktop_ready')),
                             "realm_id": RealmContext.capture(type(self).realm).realm_id})
             return
@@ -456,6 +457,19 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
 
     def _route_post(self):
         path = urllib.parse.urlparse(self.path).path
+        if path == '/api/startup-abort':
+            from . import __version__, app, updater
+            import armada_bootstrap as bootstrap
+            if (self._body().get('version') != __version__ or
+                    not (updater.ROOT/bootstrap.HEALTH).is_file()):
+                self._json(409, {'ok':False, 'error':'This is not an unacknowledged update startup.'})
+                return
+            self._json(200, {'ok':True})
+            def close_failed_start():
+                time.sleep(.2)
+                if app._main_window is not None: app._quit_windows(app._main_window)
+            threading.Thread(target=close_failed_start, daemon=True).start()
+            return
         if not self.realm and path not in {"/restart", "/api/update-cancel"}:
             self._route_welcome_post(path)
             return

@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0,sys.argv[1])
 from armada import instance,util
 util.data_dir=lambda:Path(sys.argv[2])
+instance._path=lambda:Path(sys.argv[2])/'desktop-instance.json'
 with instance.claim(sys.argv[3],int(sys.argv[4])) as primary:
     print('primary' if primary else 'existing',flush=True)
     if primary: sys.stdin.readline()

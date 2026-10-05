@@ -77,3 +77,10 @@ checked or downloaded until the owner uses Check for updates.
 - The first real end-to-end run is the clean-machine test (5.10), once the installer exists.
   Before then it's covered by `tests/test_updater.py` (34 tests, including the release builder's
   output going through the updater) and a Windows run of the folder swap on a temporary install.
+
+## 2026-10-05 superseding reliability note
+
+Version 0.99.82 uses bootstrap protocol 2, real browser startup acknowledgement,
+durable code rollback and release quarantine. Update signatures remain distinct
+from Windows publisher signatures. The current behavior, migration constraint and
+test boundaries are documented in [UPDATE_RELIABILITY.md](../dev/UPDATE_RELIABILITY.md).

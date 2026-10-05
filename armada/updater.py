@@ -50,6 +50,7 @@ import shutil
 import sys
 import time
 import urllib.request
+import urllib.error
 import zipfile
 import tempfile
 
@@ -208,10 +209,19 @@ def _fetch(url: str, limit: int) -> bytes:
     if not url.startswith("https://"):
         raise ValueError("updates are only fetched over HTTPS")
     req = urllib.request.Request(url, headers={"User-Agent": f"ARMADA/{__version__} (updater)"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        if not r.geturl().startswith("https://"):
-            raise ValueError("redirected off HTTPS")
-        data = r.read(limit + 1)
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                if not r.geturl().startswith("https://"):
+                    raise ValueError("redirected off HTTPS")
+                data = r.read(limit + 1)
+            break
+        except urllib.error.HTTPError as exc:
+            if attempt == 2 or exc.code not in (408,429,500,502,503,504): raise
+            time.sleep(.5 * 2**attempt)
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if attempt == 2: raise
+            time.sleep(.5 * 2**attempt)
     if len(data) > limit:
         raise ValueError("download larger than expected")
     return data
@@ -246,7 +256,8 @@ def verified_manifest(raw: bytes, sig_b64: bytes) -> dict:
           and m.get("zip") == f"armada-{m.get('version')}.zip"
           and re.fullmatch(r"[0-9a-f]{64}", str(m.get("sha256") or ""))
           and isinstance(m.get("size"), int) and 0 < m["size"] <= _MAX_ZIP
-          and isinstance(m.get("runtime"), str))
+          and isinstance(m.get("runtime"), str)
+          and type(m.get('min_bootstrap', 1)) is int and m.get('min_bootstrap', 1) > 0)
     if not ok:
         raise UpdateError("the release's manifest is incomplete")
     return m
@@ -292,6 +303,13 @@ def _stage(m: dict, blob: bytes) -> None:
     if len(blob) != m["size"] or hashlib.sha256(blob).hexdigest() != m["sha256"]:
         raise UpdateError("the download doesn't match the signed release (size or checksum)")
     with bootstrap.install_lock(ROOT):
+        with zipfile.ZipFile(__import__('io').BytesIO(blob)) as archive:
+            expanded = sum(member.file_size for member in _safe_members(archive))
+        if expanded > 200*1024*1024:
+            raise UpdateError('The expanded update exceeds the application package budget')
+        if shutil.disk_usage(ROOT).free < expanded + len(blob) + 16*1024*1024:
+            raise UpdateError('Not enough free disk space to stage the update safely')
+        cleanup_staging()
         # A slower download must not replace a newer verified stage from another checker.
         existing = staged_version()
         if existing and not newer(m["version"], existing):
@@ -340,7 +358,10 @@ def check(download: bool = True, fetch=None) -> dict:
             _save(checked=now, latest=latest, status="current", detail="")
             return {"ok": True, "installed": True, "newer": False, "latest": latest,
                     "detail": f"up to date (v{__version__})"}
-        if m["runtime"] != installed_runtime():
+        quarantine = ROOT/bootstrap.QUARANTINE
+        if quarantine.is_file() and json.loads(quarantine.read_text(encoding='utf-8')).get('version') == latest:
+            raise UpdateError(f'v{latest} failed startup on this computer and will not be installed again automatically')
+        if m["runtime"] != installed_runtime() or m.get('min_bootstrap', 1) > bootstrap.PROTOCOL:
             _save(checked=now, latest=latest, status="needs-installer", detail="")
             return {"ok": True, "installed": True, "newer": True, "latest": latest,
                     "needs_installer": True, "url": RELEASES_PAGE,
@@ -372,7 +393,7 @@ def check(download: bool = True, fetch=None) -> dict:
             return {"ok": True, "installed": True, "newer": False, "latest": "",
                     "detail": "no release published yet"}
         swallowed(log, "check: could not reach the release channel", level=logging.WARNING)
-        msg = f"couldn't reach GitHub ({type(e).__name__})"
+        msg = f"couldn't reach GitHub ({type(e).__name__}: {str(e)[:250]})"
         _save(checked=now, status="error", detail=msg)
         return {"ok": False, "installed": True, "newer": False, "error": msg, "detail": msg}
 
@@ -383,6 +404,14 @@ def check_due() -> bool:
     except (ValueError, OverflowError):
         return True
     return time.time() - last >= CHECK_EVERY
+
+
+def cleanup_staging(days=1):
+    """Called under the installation lock; never follow links or touch active stage/rollback data."""
+    for path in ROOT.glob('.armada-staging-*'):
+        if (path.is_dir() and not bootstrap._linked(path) and
+                time.time()-path.stat().st_mtime > days*86400):
+            shutil.rmtree(path, ignore_errors=True)
 
 
 # ---- applying -------------------------------------------------------------------------------------
@@ -502,6 +531,10 @@ def request_apply() -> dict:
 
 def apply_requested() -> bool:
     return _request_path().exists()
+
+
+def admission_paused() -> bool:
+    return apply_requested() or (ROOT/bootstrap.HEALTH).exists()
 
 
 def boot(mode: str) -> bool:

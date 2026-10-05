@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.81. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.82. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -166,7 +166,7 @@ Never commit build outputs or signing credentials.
 
 ## Release boundaries
 
-The current published installer (0.99.81) lacks Authenticode signatures and can fail with error 4551
+The current published installer (0.99.82) lacks Authenticode signatures and can fail with error 4551
 on protected machines. Version 0.99.75 used the explicit one-release exception below; 0.99.76 continues the owner's
 requested unsigned beta distribution as a recorded maintenance-release deviation
 ([0.99.76 verification](RELEASE_0_99_76.md)); 0.99.77 follows the same recorded
@@ -203,3 +203,19 @@ publication replaces only its backed-up landing page; the report relay is unchan
 
 Version 0.99.81 keeps the same runtime and bootstrap, and adds a mandatory native multi-window
 WebView2 session gate to installer staging ([verification](RELEASE_0_99_81.md)).
+
+### 2026-10-05: unified maintenance gate (0.99.82)
+
+The maintainer's continuing unsigned beta distribution uses
+`python tools/publish_release.py --maintenance-unsigned`. It keeps the exact-source
+local suite and Windows CI, mandatory installer native recovery/session checks and
+the signed-asset packaged upgrade gate. Only publisher signing and the clean-Sandbox
+acceptance boundary differ, and the release notes/evidence explicitly record them.
+Do not manually bypass this command to publish a maintenance release.
+
+Protocol 2 requires a full installer from 0.99.81 and earlier. The native upgrade
+gate starts the last published application payload in the current staged runtime
+and exercises a compatible production API update. This does not certify the full
+installer transition on a clean PC. See [the reliability contract](UPDATE_RELIABILITY.md).
+The saved release evidence binds installer/package hashes, source commit and the
+specific native upgrade run. Both publication paths abort on changed source.

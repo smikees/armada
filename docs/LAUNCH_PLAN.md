@@ -12,9 +12,10 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.81** fixes shared desktop session loss when opening Alexander,
-and adds a real WebView2 multi-window installer gate. [Verification](dev/RELEASE_0_99_81.md) records the release checks
-and distribution boundaries.
+Version **0.99.82** adds browser-verified startup, crash-safe startup rollback,
+strict Windows-account instance ownership, restart continuity and a mandatory
+packaged upgrade gate. [Verification](dev/RELEASE_0_99_82.md) records release checks
+and the one-time installer boundary; clean-Sandbox GUI acceptance remains open.
 
 ## Implemented foundations
 

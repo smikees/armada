@@ -149,6 +149,10 @@ Ask GitHub for the newest release; if it's newer and fits this runtime, download
 
 —
 
+### `cleanup_staging(days=1)`
+
+Called under the installation lock; never follow links or touch active stage/rollback data.
+
 ### `apply_staged()`
 
 Apply under the stable bootstrap's lock and journal; ordinary callers restart first.
@@ -178,6 +182,10 @@ Live work across all realms; an idle scheduler and stale receipts are not work.
 Quiesce admission, then restart through the bootstrap; never swap under the HTTP worker.
 
 ### `apply_requested()`
+
+—
+
+### `admission_paused()`
 
 —
 

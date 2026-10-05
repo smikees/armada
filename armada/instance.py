@@ -6,14 +6,40 @@ import os
 import threading
 import uuid
 import urllib.request
+from pathlib import Path
 
 from . import util
 
 _owner = None
 
 
+def _account_directory():
+    """Resolve the Windows token's profile, independent of environment/profile overrides."""
+    if os.name != 'nt': return Path.home() / '.armada'
+    import ctypes as c
+    from ctypes import wintypes as w
+    kernel = c.WinDLL('kernel32', use_last_error=True)
+    advapi = c.WinDLL('advapi32', use_last_error=True)
+    userenv = c.WinDLL('userenv', use_last_error=True)
+    kernel.GetCurrentProcess.restype = w.HANDLE
+    kernel.CloseHandle.argtypes = [w.HANDLE]
+    advapi.OpenProcessToken.argtypes = [w.HANDLE,w.DWORD,c.POINTER(w.HANDLE)]
+    userenv.GetUserProfileDirectoryW.argtypes = [w.HANDLE,w.LPWSTR,c.POINTER(w.DWORD)]
+    token = w.HANDLE()
+    if not advapi.OpenProcessToken(kernel.GetCurrentProcess(), 8, c.byref(token)):
+        raise c.WinError(c.get_last_error())
+    try:
+        size = w.DWORD(32768)
+        buffer = c.create_unicode_buffer(size.value)
+        if not userenv.GetUserProfileDirectoryW(token, buffer, c.byref(size)):
+            raise c.WinError(c.get_last_error())
+        return Path(buffer.value) / '.armada'
+    finally:
+        kernel.CloseHandle(token)
+
+
 def _path():
-    return util.data_dir() / 'desktop-instance.json'
+    return _account_directory() / 'desktop-instance.json'
 
 
 def current():
@@ -72,7 +98,7 @@ def _focus_pid(pid):
 
 def activate(info):
     if info.get('nonce'):
-        util.write_json_atomic(util.data_dir() / 'desktop-activate.json',
+        util.write_json_atomic(_path().with_name('desktop-activate.json'),
                                {'nonce': info['nonce'], 'request': uuid.uuid4().hex})
     try:
         _focus_pid(info.get('pid', 0))
@@ -100,7 +126,8 @@ def claim(role, port):
             activate(legacy)
             yield False
             return
-        _owner = {'pid': os.getpid(), 'port': port, 'role': role, 'nonce': uuid.uuid4().hex}
+        _owner = {'pid': os.getpid(), 'port': port, 'role': role, 'nonce': uuid.uuid4().hex,
+                  'data_dir':str(util.data_dir())}
         util.write_json_atomic(_path(), _owner)
         yield True
     finally:
@@ -130,7 +157,7 @@ def watch_activation(callback):
         seen = None
         while not stop.wait(.25):
             try:
-                data = json.loads((util.data_dir() / 'desktop-activate.json').read_text(encoding='utf-8'))
+                data = json.loads(_path().with_name('desktop-activate.json').read_text(encoding='utf-8'))
             except (OSError, ValueError):
                 continue
             if not isinstance(data, dict):

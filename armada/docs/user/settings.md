@@ -92,3 +92,17 @@ acknowledgement. The monitor waits for the old app to exit, launches the checked
 update, and verifies the new version, loaded desktop and scheduler (when autostart
 is enabled). A startup failure has a specific message and a saved startup log.
 It does not force-close running jobs or claim success merely because a process started.
+
+The restarted window must authenticate through its actual browser session before
+scheduled work resumes. If an updated package cannot start, ARMADA restores its
+verified previous code when it is safe to do so, preserves your realm data, and
+records the failure. The failed version is not installed again automatically.
+An unavailable provider or exhausted subscription does not trigger rollback.
+
+Restart preserves your page, thread, window placement and unsent text. Update
+preparation checks disk space and retries temporary download/file-lock errors.
+Old update helpers are cleaned up automatically; no extra background service is installed.
+
+Version 0.99.82 needs the full installer once when upgrading from 0.99.81 or earlier,
+to add startup recovery to the stable launcher. Your realms and settings are preserved.
+Later releases with a compatible runtime use **Restart to update**.

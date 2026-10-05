@@ -4,7 +4,7 @@
 
 | Module | What it is |
 |---|---|
-| [`__init__`](__init__.md) | ARMADA — a local, provider-agnostic app for building and running a personal team of AI agents through connected Claude, Codex and Gemini engines. |
+| [`__init__`](__init__.md) | ARMADA â€” a local, provider-agnostic app for building and running a personal team of AI agents through connected Claude, Codex and Gemini engines. |
 | [`__main__`](__main__.md) |  |
 | [`activerealm`](activerealm.md) | Which realm the app opens when nobody says — the last one you were actually in. |
 | [`addons`](addons.md) | Add-ons: the extension surface (Phase 2, 2.7 — ADR-002's homework) |

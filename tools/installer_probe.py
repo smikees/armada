@@ -32,7 +32,7 @@ root=Path.cwd()
 for name,v in [('armada','1.0.0'),('armada.staged','1.1.0')]:
  p=root/name;p.mkdir()
  (p/'__init__.py').write_text('__version__ = "'+v+'"\\n')
- (p/'__main__.py').write_text('from armada import __version__\\nfrom pathlib import Path\\nPath("proof.txt").write_text(__version__)\\n')
+ (p/'__main__.py').write_text('from armada import __version__\\nfrom pathlib import Path\\nimport armada_bootstrap as b\\nb.confirm_health(Path.cwd(),__version__)\\nPath("proof.txt").write_text(__version__)\\n')
 b.atomic_json(root/'armada.staged/.staged.json',{'version':'1.1.0','files':b.inventory(root/'armada.staged')})
 '''
             subprocess.run([str(host),'-c',prepare],cwd=root,env=env,check=True,timeout=30)

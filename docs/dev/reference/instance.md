@@ -2,6 +2,10 @@
 
 One desktop/server owner per OS account, independent of realm and install path.
 
+### `_account_directory()`
+
+Resolve the Windows token's profile, independent of environment/profile overrides.
+
 ### `_path()`
 
 —

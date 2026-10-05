@@ -1,4 +1,7 @@
 const _mi=document.getElementById('mc-msg');
+const mcDraftKey='armada-draft:'+(document.querySelector?.('meta[name="armada-realm"]')?.content||'')+':'+(window.location?.pathname||'')+(window.location?.search||'');
+function mcSaveDraft(){try{if(_mi&&_mi.value)localStorage.setItem(mcDraftKey,_mi.value.slice(0,65536));else localStorage.removeItem(mcDraftKey);}catch(e){}}
+if(_mi){try{_mi.value=localStorage.getItem(mcDraftKey)||'';}catch(e){} _mi.addEventListener('input',mcSaveDraft);window.addEventListener('pagehide',mcSaveDraft);}
 function mcAutosize(){if(!_mi)return;_mi.style.height='auto';const h=Math.min(260,Math.max(26,_mi.scrollHeight));_mi.style.height=h+'px';_mi.style.overflowY=_mi.scrollHeight>260?'auto':'hidden';}
 if(_mi){ mcAutosize();
   _mi.addEventListener('input',()=>{mcAutosize();mcSyncSend();});
@@ -376,7 +379,7 @@ function mcChat(agent,thread,forceText){
   // the "working…" gif trails the output — it sits BELOW the streamed reply as the agent thinks
   const working=mcAddChip(work,'<img src="/static/working.gif" width="34" height="34" style="display:block" alt="">','working on it…','');
   working.querySelector('.mc-step-l').style.animation='mc-pulse 1.4s ease-in-out infinite';
-  ta.value=''; mcAutosize(); mcClearAttach(); mcSyncSend(); box.scrollTop=box.scrollHeight;
+  ta.value=''; mcSaveDraft(); mcAutosize(); mcClearAttach(); mcSyncSend(); box.scrollTop=box.scrollHeight;
   const count=document.getElementById('mc-message-count');if(count)count.textContent=String((Number(count.textContent)||0)+1);
   // The user turn is written before the engine starts; refresh the compaction meter as soon as
   // that persisted state exists instead of waiting for the final answer.
