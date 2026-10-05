@@ -4,8 +4,9 @@
 
 v0.99.84 (2026-10-05) updates installer artwork. Four display scales were
 regenerated and checked for text fit, with visual review of the smallest and
-largest panels. The mandatory publisher validates the final isolated suite,
-exact-source Windows CI, native recovery/browser checks and packaged upgrade.
+largest panels. The final isolated suite passed **3,159 tests, 5 skipped** in
+416.19 seconds. Exact-source Windows/PHP CI, five native recovery cases,
+16 WebView2 session checks and 28 signed packaged upgrade checks passed.
 [Release verification](RELEASE_0_99_84.md) records the checks and boundaries.
 The prior 0.99.83 final suite passed 3,157 tests with five skips.
 

@@ -17,3 +17,14 @@ The [update review](UPDATE_RELIABILITY.md#remaining-improvements-reviewed-2026-1
 identifies further work; those recommendations are not implemented in this release.
 Continuing owner-authorized unsigned beta distribution retains the existing
 publisher-signing and clean-Sandbox acceptance boundaries.
+
+## Publication verification
+
+Published [v0.99.84](https://github.com/smikees/armada/releases/tag/v0.99.84)
+from source commit `1fbd45f9c7d1d23e936667e4d334c8d714295506`. The final isolated local suite passed
+**3,159 tests, 5 skipped**, in 416.19 seconds.
+[Exact-source Windows/PHP CI](https://github.com/smikees/armada/actions/runs/37353425810) passed.
+Installer staging passed all five native recovery cases and 16 real WebView2
+session checks; the signed-asset packaged 0.99.83-to-0.99.84 upgrade passed
+28 real-page/restart checks.
+Installer SHA-256: `992b590d5fb15924dfada3fe96826a03a35899e5bb59cfcc7c082b0c7f5f89b8`.
