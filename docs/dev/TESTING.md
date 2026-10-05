@@ -3,12 +3,13 @@
 ## Current release verification
 
 v0.99.83 (2026-10-05) fixes stale update availability after installation.
-The targeted updater/progress/hardening suite passed 76 checks; the mandatory
-release publisher verifies the final isolated suite, exact-source Windows CI and
-real native browser/upgrade gates before publication.
+The targeted updater/progress/hardening suite passed 76 checks. The final isolated
+local suite passed **3,157 tests, five skipped** in 439.80 seconds. Exact-source
+Windows/PHP CI, native recovery, real WebView2 sessions and the signed packaged
+0.99.82-to-0.99.83 upgrade also passed.
 [Release verification](RELEASE_0_99_83.md) records the regression and boundaries.
 The prior 0.99.82 final suite passed 3,139 tests with five skips.
-Use Python 3.12+; this development machine uses .venv-codex.
+Use Python 3.12+; this development machine uses `.venv-codex`.
 
 ## Running
 
