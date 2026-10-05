@@ -82,6 +82,13 @@ def verify(plan):
     return not readiness_error(plan)
 
 
+def ready_if_reachable(plan):
+    try:
+        return verify(plan)
+    except (OSError, ValueError, KeyError, TypeError):
+        return False  # Missing owner/auth files are normal while startup is incomplete.
+
+
 def launch_successor(plan, plan_path):
     argv = [plan['executable'], str(Path(__file__).resolve()), '--launch', str(plan_path)]
     if os.name == 'nt':
@@ -111,6 +118,7 @@ def recover_failure(plan, plan_path, reason, timeout=30):
     api = runpy.run_path(str(root/'armada_bootstrap.py'))
     deadline = time.monotonic()+timeout
     while time.monotonic() < deadline:
+        if not (root/'.armada-update-health.json').exists(): return False
         with api['install_lock'](root):
             if not api['active_others'](root):
                 restored = api['rollback_locked'](root, reason)
@@ -186,7 +194,13 @@ def main():
             log.exception('Desktop restart failed')
             if not launch:
                 try:
+                    if ready_if_reachable(plan):
+                        record(plan, 'complete', 'Update verified after delayed local startup.')
+                        return
                     if recover_failure(plan, plan_path, str(exc)):
+                        return
+                    if ready_if_reachable(plan):
+                        record(plan, 'complete', 'Update verified after delayed local startup.')
                         return
                 except Exception as recovery:
                     log.exception('Startup rollback failed; preserving both operational errors')

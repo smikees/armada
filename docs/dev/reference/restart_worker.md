@@ -25,6 +25,10 @@ Reject stale servers, error pages and a desktop whose scheduler never came back.
 
 —
 
+### `ready_if_reachable(plan)`
+
+—
+
 ### `launch_successor(plan, plan_path)`
 
 —

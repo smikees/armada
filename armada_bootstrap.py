@@ -226,6 +226,10 @@ def apply_locked(root):
     new_files = inventory(staged)
     if info.get('files') != new_files or info.get('version') != version(staged):
         raise OSError('The staged package changed after verification')
+    if (root/QUARANTINE).exists():
+        rejected = json.loads((root/QUARANTINE).read_text(encoding='utf-8'))
+        if rejected.get('version') == info['version']:
+            raise OSError('This version failed startup and is quarantined; use a newer release')
     if tuple(map(int, version(staged).split('.'))) <= tuple(map(int, version(live).split('.'))):
         raise OSError('The staged version must be newer than the installed version')
     state = {'format':PROTOCOL, 'phase':'prepared', 'version':version(staged),

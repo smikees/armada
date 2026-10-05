@@ -94,9 +94,10 @@ class DesktopLifecycleTests(unittest.TestCase):
             def emit(self):
                 for callback in list(self.callbacks): callback()
         event = Event()
-        window = Mock(events=Mock(loaded=event))
+        window = Mock(events=Mock(loaded=event, closed=Event()))
         window.evaluate_js.side_effect = [False, False, True]
-        app._deliver_alexander(window, {'message': 'Help'})
+        with patch.object(app.threading, 'Thread'):
+            app._deliver_alexander(window, {'message': 'Help'})
         self.assertEqual(len(event.callbacks), 1)  # initial document is not the companion
         event.emit()  # auth bootstrap
         self.assertEqual(len(event.callbacks), 1)

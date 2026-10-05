@@ -69,12 +69,36 @@ def verify(stage, previous, candidate, output):
         finally:
             # Never touch user processes: stop only children tagged with this probe's folder.
             marker = Path(scratch)/'home/.armada/desktop-instance.json'
+            status = Path(scratch)/'home/.armada/restart-status.json'
+            if status.exists():
+                state=json.loads(status.read_text())
+                if state.get('root')==str(root) and state.get('monitor_pid'):
+                    stop_owned(state['monitor_pid'],root)
             if marker.exists():
                 owner = json.loads(marker.read_text())
                 if owner.get('pid') != process.pid:
-                    subprocess.run(['taskkill','/PID',str(owner['pid']),'/T','/F'],capture_output=True,creationflags=0x08000000)
+                    stop_owned(owner['pid'],root)
             if process.poll() is None: process.kill()
             process.wait(timeout=10)
+
+
+def stop_owned(pid,root):
+    """Avoid PID reuse: stop only the runtime executable inside this probe's temporary install."""
+    import ctypes as c
+    from ctypes import wintypes as w
+    kernel=c.WinDLL('kernel32',use_last_error=True)
+    kernel.OpenProcess.argtypes=[w.DWORD,w.BOOL,w.DWORD]
+    kernel.OpenProcess.restype=w.HANDLE
+    kernel.QueryFullProcessImageNameW.argtypes=[w.HANDLE,w.DWORD,w.LPWSTR,c.POINTER(w.DWORD)]
+    kernel.CloseHandle.argtypes=[w.HANDLE]
+    handle=kernel.OpenProcess(0x1000,False,int(pid))
+    if not handle:return
+    try:
+        size=w.DWORD(32768);name=c.create_unicode_buffer(size.value)
+        if not kernel.QueryFullProcessImageNameW(handle,0,name,c.byref(size)):return
+        if Path(name.value).resolve()!=(root/'python/ARMADA.exe').resolve():return
+        subprocess.run(['taskkill','/PID',str(pid),'/T','/F'],capture_output=True,creationflags=0x08000000)
+    finally:kernel.CloseHandle(handle)
 
 
 def child(successor=None):

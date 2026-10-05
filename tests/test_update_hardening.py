@@ -1,6 +1,9 @@
 """Startup commit, crash-safe rollback, account scope and bounded resource use."""
 import json
 import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -84,6 +87,17 @@ def test_damaged_previous_version_is_not_restored(installation):
     assert b.version(root/'armada') == '1.1.0'
 
 
+def test_bootstrap_blocks_a_quarantined_version_even_with_an_older_updater(installation):
+    root=installation
+    saved=root.parent/'original-stage'
+    shutil.copytree(root/'armada.staged', saved)
+    b.apply(root)
+    with b.install_lock(root): b.rollback_locked(root, 'Startup failed')
+    shutil.copytree(saved, root/'armada.staged')
+    with pytest.raises(OSError, match='quarantined'): b.apply(root)
+    assert b.version(root/'armada') == '1.0.0'
+
+
 def test_low_disk_space_keeps_current_app_and_stage_intact(inst, monkeypatch):
     monkeypatch.setattr(updater.shutil, 'disk_usage', lambda root: type('Disk', (), {'free':1})())
     result = updater.check(fetch=_release())
@@ -139,3 +153,63 @@ def test_cleanup_retains_current_monitor_and_skips_linked_folders(tmp_path, monk
     util.write_json_atomic(tmp_path/'restart-status.json', {'nonce':'0','monitor_pid':os.getpid()})
     restart.cleanup(keep=2, days=999999)
     assert {p.name for p in (tmp_path/'restart').iterdir()} == {'0','6','7'}
+
+
+def test_restart_monitor_restores_and_verifies_previous_code(tmp_path, monkeypatch):
+    """Exercise the copied worker, real leases and HTTP readiness after startup rollback."""
+    from armada import restart_worker as worker
+    from armada.background import process_options
+    root, data = tmp_path/'install', tmp_path/'data'
+    root.mkdir(); data.mkdir()
+    shutil.copy2(b.__file__, root/'armada_bootstrap.py')
+    (root/'installed.json').write_text('{}')
+    (data/'realm-memory.md').write_text('Owner work after the update must survive')
+    script = '''
+import json,os,sys
+from pathlib import Path
+from http.server import BaseHTTPRequestHandler,HTTPServer
+from armada import __version__
+data=Path(sys.argv[2])
+class Handler(BaseHTTPRequestHandler):
+ def do_GET(self):
+  self.send_response(200);self.end_headers()
+  self.wfile.write(json.dumps({'version':__version__,'desktop_ready':True}).encode())
+ def log_message(self,*args):pass
+server=HTTPServer(('127.0.0.1',0),Handler)
+(data/'instance.json').write_text(json.dumps({'pid':os.getpid()}))
+(data/'auth.json').write_text(json.dumps({'token':'fixture','port':server.server_port}))
+server.serve_forever()
+'''
+    for name,version in [('armada','1.0.0'),('armada.staged','1.1.0')]:
+        folder=root/name;folder.mkdir()
+        (folder/'__init__.py').write_text(f'__version__ = "{version}"\n')
+        (folder/'__main__.py').write_text(script)
+    staged=root/'armada.staged'
+    b.atomic_json(staged/'.staged.json',{'version':'1.1.0','files':b.inventory(staged)})
+    b.apply(root)
+    copied=data/'restart_worker.py';shutil.copy2(worker.__file__,copied)
+    plan={'root':str(root),'realm':str(data),'port':0,'owner_pid':0,'version':'1.1.0',
+          'scheduler_required':False,'instance':str(data/'instance.json'),'auth':str(data/'auth.json'),
+          'status':str(data/'status.json'),'nonce':'rollback-test','executable':sys._base_executable,
+          'log':str(data/'startup.log')}
+    path=data/'plan.json';path.write_text(json.dumps(plan))
+    children=[]
+    def launch(plan,path):
+        children.append(subprocess.Popen([sys._base_executable,str(copied),'--launch',str(path)],
+                        cwd=root,**process_options()))
+    original=worker.reading
+    def reading(plan,route):
+        auth=json.loads(Path(plan['auth']).read_text())
+        return original({**plan,'port':auth['port']},route)
+    monkeypatch.setattr(worker,'launch_successor',launch)
+    monkeypatch.setattr(worker,'reading',reading)
+    try:
+        assert worker.recover_failure(plan,path,'Browser session failed',timeout=10)
+        assert b.version(root/'armada')=='1.0.0'
+        assert json.loads((data/'status.json').read_text())['phase']=='rolled_back'
+        assert json.loads((root/b.ERROR).read_text())['error']=='Browser session failed'
+        assert (data/'realm-memory.md').read_text()=='Owner work after the update must survive'
+    finally:
+        for child in children:
+            if child.poll() is None:child.kill()
+            child.wait(timeout=10)
