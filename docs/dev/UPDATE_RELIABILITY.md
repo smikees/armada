@@ -57,3 +57,39 @@ The protocol change requires a full installer from 0.99.81 and earlier. Existing
 clients recognize the changed runtime tag and direct users to the installer. A
 clean-machine installer rehearsal remains required for signed distribution; an
 explicit unsigned maintenance release records that unresolved acceptance boundary.
+
+## Remaining improvements (reviewed 2026-10-05)
+
+The existing lightweight updater already verifies signatures/hashes, serializes
+replacement, drains work, monitors restart, tests real browser sessions and can
+recover unacknowledged startup. The following gaps remain, in priority order:
+
+1. **Graceful full-installer handover.** `installer/armada.iss` currently calls
+   `StopArmada` from `PrepareToInstall`; it force-stops processes within the chosen
+   installation's Python directory. Scope is constrained, but active work is not
+   drained. The full installer should request authenticated cooperative shutdown,
+   wait for work and process leases to finish, and postpone installation when it
+   cannot safely close the app. It should never replace files while an owner is
+   still using them. This differs from the compatible in-app update path.
+   [Inno Setup guidance](https://jrsoftware.org/ishelp/topic_setup_closeapplications.htm)
+   explicitly warns that forced closure can lose unsaved work.
+2. **A single startup commit covering the required scheduler.** `app._page_loaded`
+   calls `confirm_health` after browser authentication, before starting the
+   scheduler. The monitor subsequently checks scheduler readiness, but by then
+   the health transaction has been removed. A required scheduler startup failure
+   can therefore be reported without remaining eligible for automatic startup
+   rollback. Keep rollback eligibility until both the browser and required
+   scheduler acknowledge readiness. Paused/autostart-disabled/setup cases should
+   remain deliberate exceptions; provider outages are not startup failures.
+3. **Full-installer interruption tests.** The production packaged upgrade gate
+   exercises app-payload replacement in the current runtime. Add real previous-
+   installer-to-candidate rehearsal on an ordinary Windows account, including
+   active work, antivirus file locks, sleep/resume, low disk space and interrupted
+   runtime replacement. Preserve the prior usable runtime until installation is
+   committed, with explicit recovery. Microsoft's
+   [rollback model](https://learn.microsoft.com/en-us/windows/win32/msi/rollback-installation)
+   is a useful behavior reference, not a proposal to migrate the app to MSI.
+
+These are review findings and proposed work, not shipped guarantees in 0.99.84.
+They can reuse the existing supervisor, leases and release tests. No persistent
+update service or additional client framework is necessary.

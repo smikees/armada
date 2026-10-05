@@ -32,7 +32,8 @@ PANEL_SIZES = [(202, 386), (269, 515), (336, 643), (430, 824)]
 MARK_SIZES = [58, 77, 97, 124]
 NAVY_TOP, NAVY_BOTTOM = (4, 23, 51), (8, 48, 106)          # --color-accent-900 → -700
 TEAL = (18, 163, 184)                                      # --color-accent-2
-TAGLINE = "Your standing team of minds"
+TAGLINE = "Create, empower and control your army of agents"
+TAGLINE_LINES = ("Create, empower and control", "your army of agents")
 
 
 def _svg(name: str, width: int) -> Image.Image:
@@ -68,9 +69,12 @@ def panel(w: int, h: int) -> Image.Image:
     img.alpha_composite(lock, ((W - lw) // 2, top))
     font = ImageFont.truetype(str(SRC / "BarlowCondensed-Medium.ttf"), size=int(W * 0.078))
     dd = ImageDraw.Draw(img)
-    tw = dd.textlength(TAGLINE.upper(), font=font)
-    dd.text(((W - tw) / 2, top + lock.height + H * 0.035), TAGLINE.upper(), font=font,
-            fill=(141, 216, 226))                          # --color-accent-2-300
+    y = top + lock.height + H * 0.035
+    for line in TAGLINE_LINES:
+        tw = dd.textlength(line, font=font)
+        dd.text(((W - tw) / 2, y), line, font=font,
+                fill=(141, 216, 226))                      # --color-accent-2-300
+        y += font.size * 1.35
     pill_font = ImageFont.truetype(str(SRC / "BarlowCondensed-SemiBold.ttf"), size=int(W * 0.06))
     label = "BETA"
     bw = dd.textlength(label, font=pill_font) + W * 0.07

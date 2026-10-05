@@ -12,10 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.83** prevents saved update results from advertising a version already
-installed. [Verification](dev/RELEASE_0_99_83.md) records the regression and release
-checks. It retains 0.99.82's browser-verified startup, rollback and strict account
-ownership; clean-Sandbox GUI acceptance remains open.
+Version **0.99.84** updates the installer's tagline below its logo at all display
+scales. [Verification](dev/RELEASE_0_99_84.md) records the release checks and a review
+of remaining update improvements. It retains 0.99.83's stale-banner fix and
+0.99.82's browser-verified startup and account ownership; clean-Sandbox GUI
+acceptance remains open.
 
 ## Implemented foundations
 
