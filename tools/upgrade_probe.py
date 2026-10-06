@@ -19,8 +19,30 @@ import threading
 import time
 import traceback
 import zipfile
+from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@contextmanager
+def probe_process(argv, cwd, env):
+    """Own every test descendant even when a restart detaches from its first parent."""
+    sys.path.insert(0, str(ROOT))
+    from armada.background import process_options
+    from armada.engine.windows_job import WindowsJob
+    tree = WindowsJob()
+    process = None
+    try:
+        process = subprocess.Popen(argv, cwd=cwd, env=env, **process_options(suspended=True))
+        tree.attach_and_resume(process)
+        yield process
+    finally:
+        try:
+            tree.close()  # Also closes restart monitors, successors and WebView descendants.
+        finally:
+            if process is not None:
+                if process.poll() is None: process.kill()  # Includes failed job assignment.
+                process.wait(timeout=10)
 
 
 def validate_assets(folder):
@@ -39,6 +61,7 @@ def verify(stage, previous, candidate, output):
     old, archive = validate_assets(previous)
     new, _ = validate_assets(candidate)
     if old['version'] == new['version']: raise RuntimeError('An upgrade must cross versions')
+    output.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix='armada-upgrade-', ignore_cleanup_errors=True) as scratch:
         root = Path(scratch)/'install'
         shutil.copytree(stage, root)
@@ -50,9 +73,8 @@ def verify(stage, previous, candidate, output):
             'before':old['version'], 'after':new['version']}), encoding='utf-8')
         env = {k:v for k,v in os.environ.items() if not k.startswith(('ARMADA_','PYTHON','VIRTUAL_ENV'))}
         env['ARMADA_UPGRADE_PROBE'] = str(config)
-        process = subprocess.Popen([str(root/'python/ARMADA.exe'),str(Path(__file__).resolve()),'--child'],
-            cwd=root, env=env, creationflags=0x08000000)
-        try:
+        env['ARMADA_NO_EXTERNAL_NOTIFY'] = '1'
+        with probe_process([str(root/'python/ARMADA.exe'),str(Path(__file__).resolve()),'--child'], root, env):
             deadline = time.monotonic()+180
             while time.monotonic() < deadline:
                 if output.exists():
@@ -61,44 +83,14 @@ def verify(stage, previous, candidate, output):
                     result['previous_sha256'] = old['sha256']
                     result['candidate_sha256'] = new['sha256']
                     result['commit'] = new['commit']
-                    output.write_text(json.dumps(result,indent=2),encoding='utf-8')
-                    print(f"Native upgrade: {len(result['checks'])} real-page/restart checks passed",flush=True)
-                    return result
+                    break
                 time.sleep(.5)
-            raise RuntimeError('Packaged upgrade gate timed out')
-        finally:
-            # Never touch user processes: stop only children tagged with this probe's folder.
-            marker = Path(scratch)/'home/.armada/desktop-instance.json'
-            status = Path(scratch)/'home/.armada/restart-status.json'
-            if status.exists():
-                state=json.loads(status.read_text())
-                if state.get('root')==str(root) and state.get('monitor_pid'):
-                    stop_owned(state['monitor_pid'],root)
-            if marker.exists():
-                owner = json.loads(marker.read_text())
-                if owner.get('pid') != process.pid:
-                    stop_owned(owner['pid'],root)
-            if process.poll() is None: process.kill()
-            process.wait(timeout=10)
-
-
-def stop_owned(pid,root):
-    """Avoid PID reuse: stop only the runtime executable inside this probe's temporary install."""
-    import ctypes as c
-    from ctypes import wintypes as w
-    kernel=c.WinDLL('kernel32',use_last_error=True)
-    kernel.OpenProcess.argtypes=[w.DWORD,w.BOOL,w.DWORD]
-    kernel.OpenProcess.restype=w.HANDLE
-    kernel.QueryFullProcessImageNameW.argtypes=[w.HANDLE,w.DWORD,w.LPWSTR,c.POINTER(w.DWORD)]
-    kernel.CloseHandle.argtypes=[w.HANDLE]
-    handle=kernel.OpenProcess(0x1000,False,int(pid))
-    if not handle:return
-    try:
-        size=w.DWORD(32768);name=c.create_unicode_buffer(size.value)
-        if not kernel.QueryFullProcessImageNameW(handle,0,name,c.byref(size)):return
-        if Path(name.value).resolve()!=(root/'python/ARMADA.exe').resolve():return
-        subprocess.run(['taskkill','/PID',str(pid),'/T','/F'],capture_output=True,creationflags=0x08000000)
-    finally:kernel.CloseHandle(handle)
+            else:
+                raise RuntimeError('Packaged upgrade gate timed out')
+        result['checks'].append('isolated probe process tree fully stopped')
+        output.write_text(json.dumps(result,indent=2),encoding='utf-8')
+        print(f"Native upgrade: {len(result['checks'])} real-page/restart/cleanup checks passed",flush=True)
+        return result
 
 
 def child(successor=None):

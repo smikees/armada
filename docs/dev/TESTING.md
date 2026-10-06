@@ -2,13 +2,12 @@
 
 ## Current release verification
 
-v0.99.84 (2026-10-05) updates installer artwork. Four display scales were
-regenerated and checked for text fit, with visual review of the smallest and
-largest panels. The final isolated suite passed **3,159 tests, 5 skipped** in
-416.19 seconds. Exact-source Windows/PHP CI, five native recovery cases,
-16 WebView2 session checks and 28 signed packaged upgrade checks passed.
-[Release verification](RELEASE_0_99_84.md) records the checks and boundaries.
-The prior 0.99.83 final suite passed 3,157 tests with five skips.
+v0.99.85 (2026-10-06) gives native upgrade probes kernel-owned process trees.
+Regression cases cover detached descendants after success and failure, missing
+status files, job-assignment failure, and muted test dialogs with preserved errors.
+The native upgrade gate now checks complete process-tree termination before
+accepting success. [Release verification](RELEASE_0_99_85.md) records the final gates.
+The prior 0.99.84 isolated suite passed 3,159 tests with five skips.
 
 ## Running
 

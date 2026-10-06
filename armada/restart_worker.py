@@ -16,6 +16,12 @@ import urllib.request
 log = logging.getLogger('armada.restart')
 
 
+def failure_dialog(message):
+    """Release probes retain failure logs without creating interactive desktop dialogs."""
+    if os.name == 'nt' and os.environ.get('ARMADA_NO_EXTERNAL_NOTIFY') != '1':
+        ctypes.windll.user32.MessageBoxW(None, message, 'ARMADA restart needs attention', 0x10)
+
+
 def alive(pid):
     if os.name == 'nt':
         from ctypes import wintypes
@@ -232,10 +238,7 @@ def main():
             except OSError:
                 log.exception('Could not persist restart failure; the startup log retains it')
             if not launch:
-                if os.name == 'nt':
-                    ctypes.windll.user32.MessageBoxW(None,
-                        f"{exc}\n\nDetails: {plan['log']}\nOpen ARMADA again from its shortcut.",
-                        'ARMADA restart needs attention', 0x10)
+                failure_dialog(f"{exc}\n\nDetails: {plan['log']}\nOpen ARMADA again from its shortcut.")
 
 
 if __name__ == '__main__':

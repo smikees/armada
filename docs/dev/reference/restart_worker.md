@@ -5,6 +5,10 @@ Standalone update supervisor, copied outside the package before replacement.
 Only standard-library code runs here; the supervisor holds no installation lease.
 It verifies the successor's version, painted desktop and required scheduler.
 
+### `failure_dialog(message)`
+
+Release probes retain failure logs without creating interactive desktop dialogs.
+
 ### `alive(pid)`
 
 —

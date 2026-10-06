@@ -58,6 +58,17 @@ clients recognize the changed runtime tag and direct users to the installer. A
 clean-machine installer rehearsal remains required for signed distribution; an
 explicit unsigned maintenance release records that unresolved acceptance boundary.
 
+## Isolated release-test cleanup (2026-10-06, 0.99.85)
+
+Failed upgrade rehearsals must not leave interactive restart helpers behind.
+The native upgrade gate owns its suspended initial process and all descendants
+in a kill-on-close Windows Job Object, independently of temporary status files
+and detached parent relationships. Cleanup verifies termination before recording
+successful release evidence. Isolated tests mute external failure dialogs while
+retaining exact errors and logs; production restart warnings remain visible.
+The desktop singleton applies to real app/server owners. The owned scheduler
+and a temporary restart monitor are separate processes, not extra app instances.
+
 ## Remaining improvements (reviewed 2026-10-05)
 
 The existing lightweight updater already verifies signatures/hashes, serializes

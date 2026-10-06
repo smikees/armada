@@ -4,6 +4,7 @@ E = html.escape
 
 
 _CHANGELOG = [
+    ('0.99.85', ['Fixed release tests leaving detached restart-error windows on the desktop, which could look like additional ARMADA instances. Test helpers now stay inside an isolated Windows process tree and are fully stopped before validation finishes. Test failures remain recorded without interactive notifications; normal app restart errors stay visible.']),
     ('0.99.84', ['The Windows installer now shows “Create, empower and control your army of agents” beneath the ARMADA logo, with a readable two-line layout at every supported display scale.']),
     ('0.99.83', ['Fixed the new-version banner appearing after that version was already installed. ARMADA now compares saved update results with the running version immediately, without waiting for another online check. Genuine newer releases and restart errors remain visible.']),
     ('0.99.82', ['Updates wait for a working authenticated app window before resuming scheduled work. If a new package cannot start, ARMADA restores its verified previous code and records the failure instead of repeatedly installing it.', 'One ARMADA instance is enforced across realms, installation folders and alternate data profiles. Restart preserves the selected page, window placement and unsent text. Update preparation retries temporary failures and checks disk space; old update helpers are cleaned up.', 'This release needs the full installer once to upgrade the recovery launcher. Your realms and settings are preserved; later compatible releases use the smaller in-app update.']),
