@@ -6,7 +6,10 @@ v0.99.85 (2026-10-06) gives native upgrade probes kernel-owned process trees.
 Regression cases cover detached descendants after success and failure, missing
 status files, job-assignment failure, and muted test dialogs with preserved errors.
 The native upgrade gate now checks complete process-tree termination before
-accepting success. [Release verification](RELEASE_0_99_85.md) records the final gates.
+accepting success. The final isolated suite passed **3,165 tests, 5 skipped** in
+424.00 seconds; exact-source Windows/PHP CI, five native recovery cases,
+16 WebView2 session checks and 29 packaged upgrade/cleanup checks passed.
+[Release verification](RELEASE_0_99_85.md) records the final gates.
 The prior 0.99.84 isolated suite passed 3,159 tests with five skips.
 
 ## Running
