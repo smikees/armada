@@ -351,7 +351,8 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
             received += len(value)
             if received > MAX_STDOUT:
                 raise ValueError("CLI stdout exceeded the 32 MiB turn limit")
-            message = json.loads(value)
+            from .raw_results import loads_event
+            message = loads_event(value)
             if not isinstance(message, dict):
                 raise ValueError("Malformed Codex app-server message")
             if on_message(message, send):

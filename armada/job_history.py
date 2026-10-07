@@ -137,7 +137,7 @@ def transcript(agent_dir, ev: dict) -> dict:
             pass
     if "output" in ev:
         return {"content": ev["output"], "events": ev.get("activity", []),
-                "outputs": ev.get("outputs", [])}
+                "outputs": ev.get("outputs", []), "tool_results": ev.get("tool_results", [])}
     from .threads import Thread
     try:
         thread = safe_seg(ev.get("thread") or "main", "thread")

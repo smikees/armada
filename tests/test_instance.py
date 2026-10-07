@@ -40,7 +40,7 @@ def test_second_launch_reuses_owner_across_ports_and_modes(tmp_path):
         assert other.returncode == 0, err
         assert out.strip() == 'existing'
         assert json.loads((tmp_path/'desktop-instance.json').read_text()) == before
-        assert json.loads((tmp_path/'desktop-activate.json').read_text())['nonce'] == before['nonce']
+        assert not (tmp_path/'desktop-activate.json').exists()
     finally:
         owner.communicate('\n', timeout=10)
 

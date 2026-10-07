@@ -22,17 +22,42 @@ Recognize authenticated older servers which predate the account-wide lock.
 
 —
 
-### `activate(info)`
+### class `ActivationError`
 
-—
+An existing process could not fulfill a desktop launch.
+
+
+### `activate(info, requested_role='app', timeout=10.0)`
+
+Ask the owner to show a window; never mistake an old headless server for one.
 
 ### `claim(role, port)`
 
 Kernel-held lifetime lock: simultaneous launches and crashes cannot steal ownership.
 
+### `_publish(**updates)`
+
+—
+
 ### `publish_port(port)`
 
 —
+
+### `server_ready()`
+
+—
+
+### `promote_to_desktop()`
+
+—
+
+### `keep_headless(error)`
+
+Keep serving after a failed GUI attempt; repeat launches explain the failure.
+
+### `owned_role()`
+
+Runtime role takes precedence over argv after a headless owner opens its UI.
 
 ### `desktop_ready()`
 

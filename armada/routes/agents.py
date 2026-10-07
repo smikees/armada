@@ -54,6 +54,30 @@ class AgentRoutes:
         except SystemExit as e:
             self._err_page(e, bare=True)
 
+    def _get_thread_window(self):
+        from ..webui.thread_window import render
+        q = self._query()
+        try:
+            self._send(200, render(self.realm, q.get("agent", ""), q.get("thread", "main")))
+        except util.StateError as exc:
+            from ..webui.thread_window import unavailable
+            self._send(404, unavailable(str(exc)))
+
+    def _open_thread_window(self, body):
+        from .. import app
+        from ..thread_windows import target
+        context, agent, _, route = target(self.realm, body.get("agent", ""), body.get("thread", "main"))
+        native = app.open_thread(context.root, agent.id, body.get("thread", "main"))
+        return {"ok": True, "native": native, "url": route}
+
+    def _get_thread_state(self):
+        from ..thread_windows import state
+        q = self._query()
+        try:
+            self._json(200, state(self.realm, q.get("agent", ""), q.get("thread", "main"), q.get("revision", "")))
+        except util.StateError as exc:
+            self._json(404, {"ok": False, "unavailable": True, "error": str(exc)})
+
     def _get_threads(self):
         q = self._query()
         self._json(200, self._threads_list(safe_seg(q.get("agent", ""), "agent")))

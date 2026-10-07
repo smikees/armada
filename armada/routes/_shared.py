@@ -133,7 +133,7 @@ def _job_detail(realm_root, agent_id, job_id, selected_run="") -> dict:
         html = (f'<div style="margin-bottom:10px;color:var(--text-dim)">'
                 f'<span style="color:{status.color(raw_status)}">{E(label)}</span>'
                 f' · {E(_fmt_ts(ev.get("ts", "")))}</div>' + result_html(ev, content) + html)
-    entries = [{k: ev.get(k) for k in ("ts", "status", "summary", "tokens", "result")} |
+    entries = [{k: ev.get(k) for k in ("ts", "status", "summary", "tokens", "result", "capture")} |
                {"id": str(ev.get("run_id") or ev.get("ts"))} for ev in runs]
     from .. import scheduler
     from ..webui.realmpages import _job_history_rows, _job_week_html

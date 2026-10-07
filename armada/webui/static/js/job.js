@@ -30,7 +30,11 @@ async function mcSaveJob(agent,job){
     prompt:document.getElementById('j-prompt').value,kind:document.getElementById('j-kind').value,
     thread:document.getElementById('j-thread').value,model:document.getElementById('j-model').value,
     effort:document.getElementById('j-effort').value,verbosity:document.getElementById('j-verbosity').value,cron:cron,allowed_skills:skills,
-    retries:Number(document.getElementById('j-onfail').value),budget:document.getElementById('j-budget').value};
+    retries:Number(document.getElementById('j-onfail').value),budget:document.getElementById('j-budget').value,
+    capture_tools:document.getElementById('j-capture-tools').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+    capture_dir:document.getElementById('j-capture-dir').value,
+    capture_keep_days:Number(document.getElementById('j-capture-keep').value),
+    require_capture:document.getElementById('j-require-capture').checked};
   const m=document.getElementById('j-savemsg'); m.textContent='saving…';
   try{const r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     m.textContent=r.ok?'saved ✓ · '+(r.path||''):'error: '+(r.error||'failed'); m.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';

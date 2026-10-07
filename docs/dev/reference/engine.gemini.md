@@ -39,4 +39,4 @@ A fresh project owns each run's grants; never edit the user's global policy.
 - `GeminiEngine._connectors(self, denied)` — —
 - `GeminiEngine._agent(self, system, allow_tools, denied)` — —
 - `GeminiEngine.run(self, system, prompt, **kwargs)` — —
-- `GeminiEngine.run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300, effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None, on_event=None, on_proc=None)` — —
+- `GeminiEngine.run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300, effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None, on_event=None, on_proc=None, env=None)` — —

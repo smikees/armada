@@ -1,3 +1,26 @@
+// Keep a browser fallback tied to the click so popup blockers do not discard it.
+async function mcOpenThreadWindow(event,agent,thread){
+  event.preventDefault();event.stopPropagation();
+  const button=event.currentTarget;
+  const name='armada-thread-'+encodeURIComponent(JSON.stringify([window.mcRealmId||'',agent,thread]));
+  const browser=window.pywebview?null:window.open('',name,'popup,width=520,height=720');
+  const blank=browser&&browser.location.href==='about:blank';
+  if(button)button.disabled=true;
+  try{
+    const response=await fetch('/api/open-thread-window',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,thread})});
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw new Error(result.error||'Could not open the thread window.');
+    if(result.native){if(blank)browser.close();return;}
+    const target=browser||window.open(result.url,name,'popup,width=520,height=720');
+    if(!target)throw new Error('Allow pop-up windows for ARMADA, then try again.');
+    if(blank)target.location.replace(result.url);
+    target.focus();
+  }catch(error){
+    if(blank)browser.close();
+    mcAlert(error.message||String(error));
+  }finally{if(button)button.disabled=false;}
+}
+
 function mcThreadMenu(e,btn){e.stopPropagation();const m=btn.parentNode.querySelector('.mc-thmenu');const open=m.style.display==='block';
   document.querySelectorAll('.mc-thmenu').forEach(x=>x.style.display='none');
   if(open){m.style.display='none';return;}

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import threading
+import time
 import uuid
 import urllib.request
 from pathlib import Path
@@ -11,6 +12,7 @@ from pathlib import Path
 from . import util
 
 _owner = None
+_state_lock = threading.RLock()
 
 
 def _account_directory():
@@ -72,7 +74,7 @@ def _legacy():
 
 def _focus_pid(pid):
     if os.name != 'nt':
-        return
+        return False
     import ctypes as c
     from ctypes import wintypes as w
     user = c.WinDLL('user32', use_last_error=True)
@@ -82,28 +84,66 @@ def _focus_pid(pid):
     user.SetForegroundWindow.argtypes = [w.HWND]
     callback_type = c.WINFUNCTYPE(w.BOOL, w.HWND, w.LPARAM)
     user.EnumWindows.argtypes = [callback_type, w.LPARAM]
+    found = False
     @callback_type
     def visit(hwnd, _):
+        nonlocal found
         owner = w.DWORD()
         user.GetWindowThreadProcessId(hwnd, c.byref(owner))
         title = c.create_unicode_buffer(256)
         user.GetWindowTextW(hwnd, title, 256)
         if owner.value == pid and title.value.startswith('ARMADA'):
+            found = True
             user.ShowWindow(hwnd, 9)
             user.SetForegroundWindow(hwnd)
             return False
         return True
     user.EnumWindows(visit, 0)
+    return found
 
 
-def activate(info):
+class ActivationError(RuntimeError):
+    """An existing process could not fulfill a desktop launch."""
+
+
+def activate(info, requested_role="app", timeout=10.0):
+    """Ask the owner to show a window; never mistake an old headless server for one."""
+    if requested_role != 'app':
+        return  # Do not open a window or overwrite another launch's pending request.
     if info.get('nonce'):
         util.write_json_atomic(_path().with_name('desktop-activate.json'),
-                               {'nonce': info['nonce'], 'request': uuid.uuid4().hex})
+                               {'nonce': info['nonce'], 'request': uuid.uuid4().hex,
+                                'role': requested_role})
     try:
-        _focus_pid(info.get('pid', 0))
+        if _focus_pid(info.get('pid', 0)):
+            return
     except OSError:
-        pass  # A foreground restriction must not allow a duplicate instance.
+        pass  # The owner's watcher can restore a window when Windows denies focus.
+    if info.get('role') == 'app':
+        return  # Its loading window / activation watcher owns startup reporting.
+    if info.get('desktop_error'):
+        raise ActivationError(
+            "ARMADA's background server is still running, but its desktop could not start.\n\n"
+            + str(info['desktop_error']) + "\n\nAfter its active jobs finish, stop the server "
+            "and reopen the installed ARMADA desktop. See armada.log for details.")
+    if info.get('activation_protocol') == 1:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            owner = current()
+            if owner.get('nonce') != info.get('nonce'):
+                break
+            if owner.get('role') == 'app':
+                return
+            time.sleep(.1)
+        raise ActivationError(
+            "The background ARMADA server did not open its desktop. "
+            "Wait for startup to finish and try opening ARMADA again. "
+            "If it still fails, check the ARMADA log.")
+    raise ActivationError(
+        f"ARMADA's desktop is blocked by an older background server (PID {info.get('pid', 'unknown')}).\n\n"
+        "After its active jobs finish, stop that 'armada serve' process and open ARMADA again. "
+        "If this happens after signing in to Windows, change the old startup task to launch "
+        "the installed ARMADA desktop instead of a separate server and scheduler.")
 
 
 @contextmanager
@@ -117,36 +157,58 @@ def claim(role, port):
     try:
         gate.__enter__()
     except util.FileLockTimeout:
-        activate(current())
+        activate(current(), role)
         yield False
         return
     try:
         legacy = _legacy()
         if legacy:
-            activate(legacy)
+            activate(legacy, role)
             yield False
             return
         _owner = {'pid': os.getpid(), 'port': port, 'role': role, 'nonce': uuid.uuid4().hex,
-                  'data_dir':str(util.data_dir())}
+                  'data_dir':str(util.data_dir()), 'activation_protocol': 1}
         util.write_json_atomic(_path(), _owner)
         yield True
     finally:
-        if _owner is not None:
-            _path().unlink(missing_ok=True)
-            _owner = None
+        with _state_lock:
+            if _owner is not None:
+                _path().unlink(missing_ok=True)
+                _owner = None
         gate.__exit__(None, None, None)
 
 
+def _publish(**updates):
+    with _state_lock:
+        if _owner is not None:
+            _owner.update(updates)
+            util.write_json_atomic(_path(), _owner)
+
+
 def publish_port(port):
-    if _owner is not None:
-        _owner['port'] = port
-        util.write_json_atomic(_path(), _owner)
+    _publish(port=port)
+
+
+def server_ready():
+    _publish(server_ready=True)
+
+
+def promote_to_desktop():
+    _publish(role='app')
+
+
+def keep_headless(error):
+    """Keep serving after a failed GUI attempt; repeat launches explain the failure."""
+    _publish(role='serve', desktop_ready=False, activation_protocol=0, desktop_error=str(error))
+
+
+def owned_role():
+    """Runtime role takes precedence over argv after a headless owner opens its UI."""
+    return (_owner or {}).get('role')
 
 
 def desktop_ready():
-    if _owner is not None:
-        _owner['desktop_ready'] = True
-        util.write_json_atomic(_path(), _owner)
+    _publish(desktop_ready=True)
 
 
 def watch_activation(callback):
@@ -163,7 +225,8 @@ def watch_activation(callback):
             if not isinstance(data, dict):
                 continue
             try:
-                if data.get('nonce') == nonce and data.get('request') != seen:
+                if (data.get('nonce') == nonce and data.get('request') != seen
+                        and data.get('role', 'app') == 'app'):
                     seen = data.get('request')
                     callback()
             except Exception:

@@ -165,6 +165,11 @@ class JobRoutes:
             else:
                 jc["schedule"] = "manual"
                 jc.pop("cron", None)
+            from ..tool_capture import KEYS, validate
+            for key in KEYS:
+                if key in body:
+                    jc[key] = body[key]
+            validate(jc, self.realm, job)
         try:
             util.mutate_json(p, change)
             return {"ok": True, "path": f"agents/{agent}/jobs/{job}.json"}

@@ -1,5 +1,36 @@
 # When something goes wrong
 
+## ARMADA does not open after signing in to Windows
+
+Use the installed ARMADA shortcut. A Windows login task should launch only that desktop;
+the desktop starts and supervises its scheduler. Old custom tasks that separately start
+`armada serve`, `armada schedule` and then `armada app` can leave a hidden server owning the
+single-instance lock. It may appear as Python in Task Manager.
+
+From v0.99.88, opening ARMADA asks a compatible background server to open its desktop in the
+same process. Its listener, authentication and ongoing work stay in place. If the window
+cannot start, the server keeps running and the next launch explains why. An older server
+without desktop activation shows a message with its process ID: finish active work before
+stopping it, then open the installed desktop. Update the old login task to avoid recurrence.
+
+Startup failures are recorded in `armada.log` and shown in a Windows error dialog when no
+window can open. Full quit saves window state off the UI thread; a stalled browser cannot
+hold that save open indefinitely.
+
+## Settings or another page shows an error
+
+From v0.99.88, page errors show **Try again**, **Return to ARMADA** and a diagnostic reference.
+Find that reference in `%USERPROFILE%\\.armada\\logs\\armada.log`. The log distinguishes a
+page exception, an expired local session and a stale realm selection. No report is sent
+automatically. For an expired session, reopen the installed ARMADA shortcut.
+
+A brief Windows configuration-access conflict is retried. If the configuration stays unreadable
+or is damaged, the page can use display defaults, but saving refuses to replace the existing file.
+Resolve the access problem or restore a valid backup before editing settings.
+
+The installed version and source code under development can differ. **Check for updates** gets
+published releases; it cannot install a feature that exists only in an unpublished checkout.
+
 ## Scheduler recovery
 
 Opening ARMADA, including after an update, starts its background scheduler automatically.

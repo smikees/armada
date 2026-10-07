@@ -91,7 +91,7 @@ class ActiveRun:
 
 def content_path(path):
     return path.startswith(("/section-raw/", "/section-asset/", "/avatar/")) or path in (
-        "/thread-file", "/realm-icon", "/user-avatar", "/embed/thread")
+        "/thread-file", "/realm-icon", "/user-avatar", "/embed/thread", "/thread-window")
 
 
 def bound_url(url, context, *, content=False):

@@ -231,13 +231,32 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<div><label style="{lbl}">Budget / run</label><input id="j-budget" value="{E(budget)}" placeholder="E.g. 10K token" style="{field}"></div></div>'
         )
 
+    from ..tool_capture import DEFAULT_DIR
+    capture_patterns = "\n".join(jc.get("capture_tools") or [])
+    capture_settings = (
+        f'<div class="mc-h-card" style="margin-top:20px">Capture tool results</div>'
+        f'<p style="font-size:12px;color:var(--text-muted)" id="j-capture-support">'
+        f'Claude Code, Codex CLI and Gemini support capture. Command jobs are unsupported.</p>'
+        f'<label for="j-capture-tools" style="{lbl}">Full tool name patterns (one per line)</label>'
+        f'<textarea id="j-capture-tools" rows="3" style="{field}" '
+        f'placeholder="mcp__*Interactive_Brokers*__get_*">{E(capture_patterns)}</textarea>'
+        f'<small>Leave empty to switch capture off. Matches are case-sensitive.</small>'
+        f'<label for="j-capture-dir" style="{lbl}">Folder relative to the realm workspace</label>'
+        f'<input id="j-capture-dir" value="{E(jc.get("capture_dir") or DEFAULT_DIR)}" style="{field}">'
+        f'<small>Folder placeholders: {{job}}, {{date}}, {{run}}. Use {{raw_dir}} in the prompt or '
+        f'ARMADA_RAW_DIR in a script. Results are available during the run.</small>'
+        f'<label for="j-capture-keep" style="{lbl}">Keep for days</label>'
+        f'<input id="j-capture-keep" type="number" min="1" max="36500" '
+        f'value="{E(str(jc.get("capture_keep_days", 30)))}" style="{field}">'
+        f'<label style="display:block;margin-top:12px;font-size:12px"><input id="j-require-capture" type="checkbox" '
+        f'{"checked" if jc.get("require_capture") else ""}> Fail the run if capture is incomplete</label>')
     execution = (
         f'<div class="mc-h-card" style="margin-bottom:6px">Model and output</div>'
         f'<p style="font-size:13px;color:var(--text-muted)">Inherit the agent’s settings, or choose a combination for this job.</p>'
         f'<label style="{lbl}">Model</label><select id="j-model" style="{field}">{model_opts}</select>'
         f'<label style="{lbl}">Effort</label><select id="j-effort" style="{field}">{effort_opts}</select>'
         f'<label style="{lbl}">Output verbosity</label><select id="j-verbosity" style="{field}">{verb_opts}</select>'
-        f'<p style="font-size:11.5px;color:var(--text-muted)">Verbosity controls how much the agent writes back. Run output and history are available in the Jobs list.</p>')
+        f'<p style="font-size:11.5px;color:var(--text-muted)">Verbosity controls how much the agent writes back. Run output and history are available in the Jobs list.</p>' + capture_settings)
 
     # Editing stays focused on definition and model choices; runs are launched in the list.
     actions = (

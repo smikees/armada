@@ -67,8 +67,11 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             requires_identity = (mutation and not global_post) or content_path(path) or path == "/api/chat-stop"
             if requires_identity and not identity:
                 raise RealmMismatch("This request needs a realm identity. Reload the page and retry.")
+            from .thread_windows import COMPANION_GET, COMPANION_POST
+            companion = (self.headers.get("X-Armada-Companion") == "thread"
+                         and path in (COMPANION_POST if mutation else COMPANION_GET))
             if identity and identity != current.realm_id:
-                if not mutation and (content_path(path) or path == "/api/chat-stop"):
+                if companion or (not mutation and (content_path(path) or path == "/api/chat-stop")):
                     current = RealmContext.resolve(identity, current)
                 else:
                     raise RealmMismatch("The selected realm changed. Reload the page before continuing.")
@@ -189,11 +192,34 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         return self._REFUSE_CROSS_SITE and sfs in ("cross-site", "same-site") \
             and not urllib.parse.urlparse(self.path).path.startswith("/static/")
 
+    def _document_request(self):
+        path = urllib.parse.urlsplit(self.path).path
+        return (self.command == "GET" and not getattr(self, "_CONTENT_ONLY", False)
+                and not path.startswith(("/api/", "/static/"))
+                and (self.headers.get("Sec-Fetch-Dest") == "document"
+                     or "text/html" in self.headers.get("Accept", "")))
+
+    def _recovery_page(self, status, message="", *, exception=False):
+        from uuid import uuid4
+        from .webui.recovery import page
+        reference = uuid4().hex[:12]
+        # Do not record query strings, cookies or credentials in navigation diagnostics.
+        route = urllib.parse.urlsplit(self.path).path
+        log.log(logging.ERROR if exception else logging.WARNING,
+                "GET %s failed (HTTP %s; reference %s)", route, status, reference,
+                exc_info=exception)
+        self.request_context = None  # Home must drop the stale realm identity.
+        self._send(status, page(status, reference, message),
+                   csp="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'")
+
     def _authenticated(self) -> bool:
         session = getattr(self.server, "auth", None)
         if session is not None and session.allows(self.headers):
             return True
-        self._json(401, {"ok": False, "error": "Open ARMADA to access this local session."})
+        if self._document_request():
+            self._recovery_page(401)
+        else:
+            self._json(401, {"ok": False, "error": "Open ARMADA to access this local session."})
         return False
 
     def do_GET(self):
@@ -230,13 +256,24 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             self._bind_request()
             self._route_get()
         except RealmMismatch as e:
-            self._json(409, {"ok": False, "error": str(e), "code": "realm_mismatch"})
+            if self._document_request():
+                self._recovery_page(409, str(e))
+            else:
+                self._json(409, {"ok": False, "error": str(e), "code": "realm_mismatch"})
         except util.UnsafeSegment as e:
-            self._send(400, f"bad request: {e}", "text/plain")
+            if self._document_request():
+                self._recovery_page(400)
+            else:
+                self._send(400, f"bad request: {e}", "text/plain")
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            log.debug("Browser disconnected from GET %s", route)
         except Exception:  # noqa — never crash the handler thread; log the traceback
-            log.exception("GET %s failed", self.path)
             try:
-                self._send(500, "internal error (see server log)", "text/plain")
+                if self._document_request():
+                    self._recovery_page(500, exception=True)
+                else:
+                    log.exception("GET %s failed", route)
+                    self._send(500, "internal error (see server log)", "text/plain")
             except Exception:  # noqa
                 log.debug('do_GET: failed; ignored', exc_info=True)
 
@@ -255,6 +292,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/agent-activity": "_get_agent_activity",
         "/api/thread-turns": "_get_thread_turns", "/api/thread-rail": "_get_thread_rail",
         "/api/thread-metrics": "_get_thread_metrics",
+        "/thread-window": "_get_thread_window", "/api/thread-state": "_get_thread_state",
         "/api/job-calendar": "_get_job_calendar", "/api/usage": "_get_usage",
         "/api/usage-limits": "_get_usage_limits", "/api/auth-status": "_get_auth_status",
         "/api/providers": "_get_providers",
@@ -426,6 +464,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/setup-finish": "_setup_finish", "/api/setup-team": "_setup_team", "/api/setup-folder": "_setup_folder",
         "/api/alexander-addon": "_alexander_addon", "/api/alexander-history": "_alexander_history",
         "/api/open-alexander": "_open_alexander_window",
+        "/api/open-thread-window": "_open_thread_window",
         "/api/alexander-main-action": "_alexander_main_action",
         "/api/support-preview": "_support_preview", "/api/support-send": "_support_send",
         "/api/notifications-read": "_notifications_read",
@@ -693,8 +732,13 @@ def _launch_mode() -> str:
     Update & Restart re-execs us, and it must come back the same way it went in. When `armada app`
     is running, serve.serve() is on a background thread of the app process — so re-execing a bare
     'serve' would silently swap the user's window for a headless server (the window just disappears
-    and never returns). sys.argv still carries the original subcommand, so trust it.
+    and never returns). A headless owner can open its desktop later, so prefer its runtime role;
+    argv is the fallback for older entry points and tests.
     """
+    from . import instance
+    role = instance.owned_role()
+    if role in ('app', 'serve'):
+        return role
     for a in sys.argv[1:]:
         if a in ("app", "serve"):
             return a
@@ -869,6 +913,7 @@ def serve(realm: str, port: int = 8756):
         log.info("ARMADA serving on :%s", httpd.server_port)
         _say(f"ARMADA app → http://127.0.0.1:{httpd.server_port}")
         _say(f"Open the private browser launch file: {httpd.auth.launch_file}")
+        instance.server_ready()
         _serve_until_done(httpd)
     finally:
         update_stop.set()

@@ -72,7 +72,7 @@ from .contracts import ProviderCapabilities, RunRequest, validate_request
 
 class CodexEngine(EngineAdapter):
     name = "codex"
-    capabilities = ProviderCapabilities(streaming=True, cancellation=True, tool_denials=True)
+    capabilities = ProviderCapabilities(streaming=True, cancellation=True, tool_denials=True, raw_tool_results=True)
 
     def __init__(self, binary="codex"):
         self.binary = binary
@@ -220,15 +220,15 @@ class CodexEngine(EngineAdapter):
 
     def run(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300,
             effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None,
-            verbosity=None):
+            verbosity=None, env=None):
         return self.run_stream(system, prompt, model=model, cwd=cwd, allow_tools=allow_tools,
                                timeout=timeout, effort=effort, fallback_model=fallback_model,
                                max_budget_usd=max_budget_usd, disallowed_tools=disallowed_tools,
-                               only_tools=only_tools, verbosity=verbosity)
+                               only_tools=only_tools, verbosity=verbosity, env=env)
 
     def run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300,
                    on_event=None, on_proc=None, effort=None, fallback_model=None,
-                   max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None):
+                   max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None, env=None):
         emit = lambda event: safe_emit(on_event, event)
         try:
             validate_request(self.name, self.capabilities, RunRequest(system, prompt,
@@ -255,7 +255,7 @@ class CodexEngine(EngineAdapter):
                       "\n\n# Agent request\n" + prompt)
         if (on_event is not None or (allow_tools and self.allowed_mcp_ids)) and self.app_server_streaming:
             return self._run_app_stream(launcher, system, prompt, model, cwd, allow_tools,
-                                        timeout, on_event, on_proc, effort, disallowed_tools, verbosity)
+                                        timeout, on_event, on_proc, effort, disallowed_tools, verbosity, env)
         # No-tool helper turns run outside the realm so project instructions cannot introduce
         # local hooks or capabilities. Model/context selection remains Armada's responsibility.
         temp = tempfile.TemporaryDirectory(prefix="armada-codex-") if not allow_tools else None
@@ -266,13 +266,16 @@ class CodexEngine(EngineAdapter):
             args = self._args(model, allow_tools, effort, disallowed_tools, cwd=run_cwd,
                               verbosity=verbosity)
             def accept(line):
-                event = json.loads(line)
+                from .raw_results import loads_event
+                event = loads_event(line)
                 if not isinstance(event, dict) or not isinstance(event.get("type"), str):
                     raise ValueError("Malformed Codex stream event")
                 state.accept(event)
+            if env and env.get("ARMADA_RAW_DIR"):
+                args = ["-c", "shell_environment_policy.set.ARMADA_RAW_DIR=" + json.dumps(env["ARMADA_RAW_DIR"])] + args
             process = supervise(launcher + args, prompt="# Armada agent instructions and memory\n" + system +
                                 "\n\n# Conversation and current request\n" + prompt, on_line=accept,
-                                timeout=timeout, cwd=run_cwd, on_proc=on_proc)
+                                timeout=timeout, cwd=run_cwd, env={**os.environ, **(env or {})}, on_proc=on_proc)
             error = process.error or state.error
             if not state.completed and not error:
                 error = "Codex ended before completing the turn."
@@ -298,7 +301,7 @@ class CodexEngine(EngineAdapter):
                         result.error = result.error or f"Codex temporary directory cleanup failed: {exc}"
 
     def _run_app_stream(self, launcher, system, prompt, model, cwd, allow_tools,
-                        timeout, on_event, on_proc, effort, disallowed_tools, verbosity=None):
+                        timeout, on_event, on_proc, effort, disallowed_tools, verbosity=None, env=None):
         """Stream actual Codex text deltas while keeping each Armada turn isolated and ephemeral."""
         emit = lambda event: safe_emit(on_event, event)
         temp = tempfile.TemporaryDirectory(prefix="armada-codex-") if not allow_tools else None
@@ -308,6 +311,8 @@ class CodexEngine(EngineAdapter):
         startup = ExitStack()
         try:
             args = _feature_args() + _verbosity_args(model, verbosity)
+            if env and env.get("ARMADA_RAW_DIR"):
+                args += ["-c", "shell_environment_policy.set.ARMADA_RAW_DIR=" + json.dumps(env["ARMADA_RAW_DIR"])]
             if not allow_tools:
                 for feature in ("shell_tool", "unified_exec", "image_generation", "view_image", "code_mode"):
                     args += ["-c", f"features.{feature}=false"]
@@ -388,7 +393,7 @@ class CodexEngine(EngineAdapter):
                     return False
                 return state.accept(message)
             process = supervise_rpc(launcher + ["app-server"] + args, start=start,
-                                    on_message=accept, timeout=timeout, cwd=run_cwd,
+                                    on_message=accept, timeout=timeout, cwd=run_cwd, env={**os.environ, **(env or {})},
                                     on_proc=on_proc)
             error = process.error or state.error
             if not state.completed and not error:
@@ -474,9 +479,13 @@ class _Stream:
                 if not completed:
                     self.emit({"kind": "tool", "name": name, "id": iid, "input": inp})
                 else:
-                    self.emit({"kind": "tool_result", "id": iid,
+                    from .raw_results import result_source
+                    field = "result" if itype == "mcp_tool_call" and item.get("result") is not None else (
+                        "error" if itype == "mcp_tool_call" else "aggregated_output")
+                    self.emit({"kind": "tool_result", "id": iid, "name": name, "input": inp,
+                               "raw_result": result_source(event, ("item", field)),
                                "content": str(item.get("aggregated_output") or item.get("result") or "")[:4000],
-                               "is_error": item.get("status") == "failed" or bool(item.get("exit_code"))})
+                               "is_error": item.get("status") == "failed" or bool(item.get("exit_code")) or bool(item.get("error")) or (isinstance(item.get("result"), dict) and bool(item["result"].get("isError")))})
 
 
 class _AppStream:
@@ -542,10 +551,14 @@ class _AppStream:
                 if not completed:
                     self.emit({"kind": "tool", "name": name, "id": iid, "input": inp})
                 else:
-                    self.emit({"kind": "tool_result", "id": iid,
+                    from .raw_results import result_source
+                    field = "result" if itype == "mcpToolCall" and item.get("result") is not None else (
+                        "error" if itype == "mcpToolCall" else "aggregatedOutput")
+                    self.emit({"kind": "tool_result", "id": iid, "name": name, "input": inp,
+                               "raw_result": result_source(message, ("params", "item", field)),
                                "content": str(item.get("aggregatedOutput") or item.get("result") or
                                               item.get("error") or "")[:4000],
-                               "is_error": item.get("status") == "failed" or bool(item.get("exitCode"))})
+                               "is_error": item.get("status") == "failed" or bool(item.get("exitCode")) or bool(item.get("error")) or (isinstance(item.get("result"), dict) and bool(item["result"].get("isError")))})
             elif itype == "fileChange" and completed and item.get("status") != "failed":
                 for index, change in enumerate(item.get("changes") or []):
                     if not isinstance(change, dict):

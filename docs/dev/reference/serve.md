@@ -22,6 +22,8 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 - `Handler._refuse_host(self)` — —
 - `Handler.log_message(self, *args)` — —
 - `Handler._cross_site(self)` — —
+- `Handler._document_request(self)` — —
+- `Handler._recovery_page(self, status, message='', *, exception=False)` — —
 - `Handler._authenticated(self)` — —
 - `Handler.do_GET(self)` — —
 - `Handler._route_welcome_get(self, path: str)` — —

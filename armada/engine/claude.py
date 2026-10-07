@@ -256,7 +256,7 @@ from .contracts import ProviderCapabilities, RunRequest, validate_request
 
 class ClaudeEngine(EngineAdapter):
     name = "claude"
-    capabilities = ProviderCapabilities(streaming=True, cancellation=True, budget=True, fallback=True, sealed_tools=True, tool_denials=True)
+    capabilities = ProviderCapabilities(streaming=True, cancellation=True, budget=True, fallback=True, sealed_tools=True, tool_denials=True, raw_tool_results=True)
 
     def __init__(self, binary: str = "claude"):
         self.binary = binary
@@ -415,7 +415,7 @@ class ClaudeEngine(EngineAdapter):
             cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = DEFAULT_TIMEOUT,
             effort: Optional[str] = None, fallback_model: Optional[str] = None,
             max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
-            only_tools: Optional[list] = None, verbosity: Optional[str] = None) -> RunResult:
+            only_tools: Optional[list] = None, verbosity: Optional[str] = None, env=None) -> RunResult:
         if model == 'claude:default':
             model = None
         try:
@@ -470,7 +470,7 @@ class ClaudeEngine(EngineAdapter):
             chunks.append(line)
         try:
             process = supervise(lp + args, prompt=prompt, on_line=collect, timeout=timeout,
-                                cwd=cwd, env=self._env())
+                                cwd=cwd, env={**self._env(), **(env or {})})
         finally:
             _drop_system_file(sys_file)
         raw = "".join(chunks)
@@ -495,7 +495,7 @@ class ClaudeEngine(EngineAdapter):
                    on_proc: Optional[Callable] = None, effort: Optional[str] = None,
                    fallback_model: Optional[str] = None,
                    max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
-                   only_tools: Optional[list] = None, verbosity: Optional[str] = None) -> RunResult:
+                   only_tools: Optional[list] = None, verbosity: Optional[str] = None, env=None) -> RunResult:
         """Run a turn in streaming mode, calling on_event(dict) for each intermediate step
         (thinking / tool use / tool result / text) as Claude Code emits them (stream-json NDJSON).
         Returns the final RunResult; malformed or missing terminal output fails the turn."""
@@ -541,13 +541,14 @@ class ClaudeEngine(EngineAdapter):
             args += ["--safe-mode", "--disallowedTools", _DENY, "--permission-prompts", "none"]
         state = _ClaudeStream(emit, model or "")
         def accept(line):
-            event = json.loads(line)
+            from .raw_results import loads_event
+            event = loads_event(line)
             if not isinstance(event, dict) or not isinstance(event.get("type"), str):
                 raise ValueError("Malformed Claude stream event")
             state.accept(event)
         try:
             process = supervise(lp + args, prompt=prompt, on_line=accept, timeout=timeout,
-                                cwd=cwd, env=self._env(), on_proc=on_proc)
+                                cwd=cwd, env={**self._env(), **(env or {})}, on_proc=on_proc)
         finally:
             _drop_system_file(sys_file)
         error = process.error or state.error
@@ -610,7 +611,7 @@ class _ClaudeStream:
             blocks = message.get("content", [])
             if not isinstance(blocks, list):
                 raise ValueError("Invalid Claude message content")
-            for block in blocks:
+            for block_index, block in enumerate(blocks):
                 bt = block.get("type")
                 if bt == "thinking":
                     self.emit({"kind": "thinking", "text": (block.get("thinking") or "").strip()})
@@ -626,7 +627,12 @@ class _ClaudeStream:
                     content = block.get("content")
                     if isinstance(content, list):
                         content = "\n".join(x.get("text", "") for x in content if isinstance(x, dict))
+                    from .raw_results import result_source
+                    # Claude exposes the MCP structured result outside the message content.
+                    path = ("tool_use_result",) if "tool_use_result" in event and len(blocks) == 1 else (
+                        "message", "content", block_index, "content")
                     self.emit({"kind": "tool_result", "id": block.get("tool_use_id", ""),
+                               "raw_result": result_source(event, path),
                                "content": str(content or "").strip()[:4000],
                                "is_error": bool(block.get("is_error"))})
             if kind == "assistant":

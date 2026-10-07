@@ -1224,6 +1224,12 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     report["result"] = job_results.evaluate(out, run_id=run_id, job=result_job,
         root=realm_root, started=t0, runtime_execution="cancelled" if cancelled else "timed_out" if timed_out else "completed" if ok else "failed",
         runtime_error=err if not ok else "", roots=grant.roots, checks=checks)
+    if job.get("capture_tools"):
+        from .tool_capture import ToolCapture
+        capture = ToolCapture(realm_root, job, job_id, run_id, "command", False, agent_id)
+        capture.finish()
+        capture.audit(report["result"])
+        report["capture"] = capture.report()
     report["status"] = job_results.status(report["result"])
     report["app_errors"] = report["result"]["app_errors"]
     report["summary"] = job_results.label(report["result"]) + (": " + tail if tail else "")

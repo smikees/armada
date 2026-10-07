@@ -28,6 +28,89 @@ On **Edit job**, model, effort and output verbosity each inherit from the agent 
 Choose an override to use a different combination for this job; choose **Inherit agent** to
 follow the agent's settings again. Command jobs run scripts and don't use these model settings.
 
+## Capture tool results to files
+
+In **Jobs → Edit job → Capture tool results**, enter one full tool-name glob per line.
+Capture is off when this list is empty. For example:
+
+```json
+{
+  "capture_tools": ["mcp__*Interactive_Brokers*__get_*"],
+  "capture_dir": "Finance\\data\\raw\\{date}\\{job}\\",
+  "require_capture": true,
+  "capture_keep_days": 30
+}
+```
+
+Patterns are case-sensitive and match the whole tool name (`*`, `?` and `[abc]` work).
+Only matching calls are saved. Capture does not grant tools or authorize trades.
+It writes locally and does not send a copy to another service.
+
+The folder is relative to **Settings → Realm → Workspace**, which must exist.
+The default is `Finance\data\raw\{date}\{job}\`. Folder placeholders are `{job}` (job ID),
+`{date}` (local date at run start) and `{run}` (unique run ID). Use `raw\{job}\{run}`
+for a separate folder per run. Shared folders use increasing sequence numbers;
+retries and simultaneous jobs cannot overwrite earlier captures. Absolute paths,
+traversal, Windows device names, symlinks and junctions are refused at save time
+and checked again during writes.
+
+Put **`{raw_dir}`** in the prompt to expose the absolute folder. Scripts launched
+by the agent inherit **`ARMADA_RAW_DIR`** from the engine process:
+
+```python
+import hashlib
+import json
+import os
+from pathlib import Path
+
+raw_dir = Path(os.environ["ARMADA_RAW_DIR"])
+rows = [json.loads(line) for line in
+        (raw_dir / "manifest.jsonl").read_text(encoding="utf-8").splitlines()]
+# In a shared folder, filter rows by the current run_id first.
+for row in rows:
+    received = (raw_dir / row["file"]).read_bytes()
+    assert hashlib.sha256(received).hexdigest() == row["sha256"]
+```
+
+Each matching call writes `<seq>-<tool>.json` and adds a line to `manifest.jsonl`
+as its result reaches ARMADA. Both use temporary files and atomic rename; the
+manifest only advertises completed payload writes. Entries record `seq`, `tool`,
+`arguments`, `started`, `finished`, `run_id`, `job_id`, `agent_id`, `is_error`,
+`byte_size`, `sha256`, `file` and `encoding`. Times are ISO 8601 with offsets;
+`started` is null if the CLI exposes only the completion. Sequence numbers are
+scoped to the folder and can have gaps after interrupted writes.
+
+The saved boundary is **what the CLI exposed to ARMADA**, before the short UI
+preview. JSON objects and arrays retain numeric spelling, whitespace and key
+order. Text is decoded once and written as UTF-8 without trimming or newline
+conversion. Every payload uses the `.json` extension; `encoding: "text"` may be
+arbitrary text rather than a JSON document. `is_error` describes the tool result,
+not capture failure. CLI-side transformations or truncation cannot be recovered.
+
+Claude captures the sibling `tool_use_result` for a single result when available,
+otherwise the result block's `content`. Codex captures the completed MCP item's
+`result` (or `error`). Gemini through Antigravity captures `tool_info.output` (or
+`error`), mapping its server/tool names to `mcp__server__tool`. All three current
+engines expose results. An engine without this ability, including a command job,
+reports capture as unsupported. Gemini's existing shell restrictions still apply.
+
+A later script or file tool in the same run can read completed files. The CLI and
+ARMADA consume the stream concurrently: briefly retry the manifest read if the
+immediately preceding result has not arrived yet. Do not retype missing raw data.
+
+**Run history** shows the count and manifest link. The run transcript separately
+retains complete matching payloads and hashes. A write error, missing result or
+unsupported engine produces **Capture incomplete** with the reason in the audit.
+Capture errors never interrupt execution. **Fail the run if capture is incomplete**
+(`require_capture: true`) marks the final result **Failed**; otherwise it is a warning.
+
+The existing **Prune old history** system job removes expired registered capture
+files and their manifest entries after `capture_keep_days` (default 30, minimum 1).
+It preserves other runs, unregistered files, modified files and active captures.
+Run transcripts follow normal run-history storage; capture-file retention does
+not delete them. If the workspace moves, old files remain untouched and retention
+reports that it could not validate their location.
+
 ## Things you'll do
 
 - **Filter** by owner, status or cadence, or search by name.

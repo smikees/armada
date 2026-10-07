@@ -37,9 +37,9 @@ Map Armada's four writing styles to Codex's three native verbosity levels.
 - `CodexEngine.start_login(self)` — —
 - `CodexEngine._mcp_args(self, allow_tools, denied, cwd=None)` — —
 - `CodexEngine._args(self, model, allow_tools, effort, denied, cwd=None, verbosity=None)` — —
-- `CodexEngine.run(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300, effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None)` — —
-- `CodexEngine.run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300, on_event=None, on_proc=None, effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None)` — —
-- `CodexEngine._run_app_stream(self, launcher, system, prompt, model, cwd, allow_tools, timeout, on_event, on_proc, effort, disallowed_tools, verbosity=None)` — Stream actual Codex text deltas while keeping each Armada turn isolated and ephemeral.
+- `CodexEngine.run(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300, effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None, env=None)` — —
+- `CodexEngine.run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300, on_event=None, on_proc=None, effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None, env=None)` — —
+- `CodexEngine._run_app_stream(self, launcher, system, prompt, model, cwd, allow_tools, timeout, on_event, on_proc, effort, disallowed_tools, verbosity=None, env=None)` — Stream actual Codex text deltas while keeping each Armada turn isolated and ephemeral.
 
 ### class `_Stream`
 

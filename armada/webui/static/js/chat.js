@@ -76,9 +76,10 @@ function mcSeenNow(force){
 // a still-default 'New Chat' thread was auto-named after the first reply: update the header + list in place
 function mcSetThreadTitle(thread,title){
   if(!title)return;
-  const h=document.getElementById('mc-cttitle'); if(h)h.textContent=title;
+  const h=document.getElementById('mc-cttitle'); if(h&&!h.dataset.editing)h.textContent=title;
+  if(document.querySelector('meta[name="armada-companion"]'))document.title=(document.getElementById('mc-turns')?.dataset.display||'Thread')+' · '+title+' — ARMADA';
   try{const sel='#mc-threadlist .mc-thread[data-slug="'+(window.CSS&&CSS.escape?CSS.escape(thread):thread)+'"] .mc-thtitle';
-    const it=document.querySelector(sel); if(it)it.textContent=title;}catch(e){}
+    const it=document.querySelector(sel); if(it&&!it.dataset.editing)it.textContent=title;}catch(e){}
 }
 if(document.getElementById('mc-turns')){requestAnimationFrame(mcScrollBottom);setTimeout(mcScrollBottom,120);}
 // After a reply lands, replace the just-streamed turns with the server's canonical render, so the
@@ -105,50 +106,26 @@ async function mcRefreshMetrics(agent,thread){
     const wrap=document.getElementById('mc-comp-wrap');if(wrap)wrap.title='History uses ~'+Math.floor(m.chars/4).toLocaleString()+' of the model\'s '+Math.floor(m.context_window/1000)+'K-token context window. At 100% the oldest turns are summarised to keep the thread lean.';
   }catch(e){}
 }
+function mcApplyTurns(box,html){
+  const bottom=box.scrollHeight-box.scrollTop-box.clientHeight<90,top=box.scrollTop;
+  const open=[...box.querySelectorAll('.mc-step-d')].map((el,i)=>el.style.display==='block'?i:-1).filter(i=>i>=0);
+  box.innerHTML=html;
+  const details=box.querySelectorAll('.mc-step-d');
+  open.forEach(i=>{if(details[i]){details[i].style.display='block';const arrow=details[i].parentNode.querySelector('.mc-step-c');if(arrow)arrow.textContent='▾';}});
+  mcMarkDone();if(bottom)mcScrollBottom();else box.scrollTop=top;
+}
 async function mcRefreshTurns(agent,thread){
-  const box=document.getElementById('mc-turns'); if(!box)return;
+  const box=document.getElementById('mc-turns');if(!box)return;
+  const generation=mcViewGeneration;
   try{
     const r=await fetch('/api/thread-turns?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread),{cache:'no-store'});
-    if(!r.ok)return; const html=await r.text();
-    if(html&&html.trim()){
-      const bottom=box.scrollHeight-box.scrollTop-box.clientHeight<90,top=box.scrollTop;
-      const open=[...box.querySelectorAll('.mc-step-d')].map((el,i)=>el.style.display==='block'?i:-1).filter(i=>i>=0);
-      box.innerHTML=html;
-      const details=box.querySelectorAll('.mc-step-d');open.forEach(i=>{if(details[i]){details[i].style.display='block';const arrow=details[i].parentNode.querySelector('.mc-step-c');if(arrow)arrow.textContent='▾';}});
-      mcMarkDone();if(bottom)mcScrollBottom();else box.scrollTop=top;
-      mcPendingWatch();mcRefreshMetrics(agent,thread);
-    }
+    if(!r.ok)return;const html=await r.text();
+    if(mcCtrl||generation!==mcViewGeneration||box.querySelector('textarea'))return;
+    mcApplyTurns(box,html);mcRefreshMetrics(agent,thread);
   }catch(e){}
 }
-// A turn that was already running when this page loaded belongs to a different tab's event
-// stream, so nothing here will ever be told it finished. The transcript renders "working on
-// it…" server-side; this is what eventually replaces it with the reply.
-//
-// Polling, not a second SSE connection: two streams for one turn is two things that can
-// disagree, and this one only has to notice a file on disk has grown. It stops the moment the
-// placeholder is gone, so an idle thread costs nothing.
-function mcPendingWatch(){
-  const box=document.getElementById('mc-turns'); if(!box)return;
-  const live=!!box.querySelector('.mc-pending');
-  if(!live){if(window._mcPend){clearTimeout(window._mcPend);window._mcPend=null;}return;}
-  if(window._mcPend)return;                       // already watching
-  const agent=box.dataset.agent,thread=box.dataset.thread;
-  const tick=function(){
-    window._mcPend=setTimeout(async function(){
-      window._mcPend=null;
-      if(document.hidden){mcPendingWatch();return;}   // don't poll a tab nobody is looking at
-      const b=document.getElementById('mc-turns');
-      if(!b||!b.querySelector('.mc-pending'))return;
-      await mcRefreshTurns(agent,thread);
-      mcPendingWatch();
-    },1200);
-  };
-  tick();
-}
-// chat.js is loaded at the end of the body, so DOMContentLoaded may already have fired.
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mcPendingWatch);
-else mcPendingWatch();
-document.addEventListener('visibilitychange',function(){if(!document.hidden)mcPendingWatch();});
+// The shared state observer in thread_sync.js also watches turns started elsewhere.
+function mcPendingWatch(){if(window.mcThreadSync)window.mcThreadSync();}
 // Right-click menu (Copy / Select All) for thread text. Bound at the DOCUMENT level in the CAPTURE
 // phase so it fires first and reliably suppresses any native WebView2 menu, and so it keeps working
 // after the transcript's innerHTML is swapped (mcRefreshTurns). Guarded to the transcript only.
@@ -238,7 +215,7 @@ document.addEventListener('click',e=>{const h=e.target.closest&&e.target.closest
 const MC_ACT={copy:window.mcIcon('copy',14), check:window.mcIcon('check',14),
  restart:window.mcIcon('refresh-cw',14), edit:window.mcIcon('edit',14)};
 // --- attachments + composer + menu ---
-let mcAttach=[], mcCtrl=null, mcTid=null, mcGen=false;
+let mcAttach=[], mcCtrl=null, mcTid=null, mcGen=false, mcViewGeneration=0;
 function mcBuildMessage(text){let m='';for(const f of mcAttach){if(f.text)m+='```'+f.name+'\n'+f.text+'\n```\n\n';}return (m+(text||'')).trim();}
 const MC_IMGICON=window.mcIcon('image',13,'opacity:.6');
 const MC_FILEICON=window.mcIcon('file',12,'opacity:.6');
@@ -341,6 +318,8 @@ function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-
   row.style.cssText='display:flex;align-items:center;gap:3px;margin-top:3px;justify-content:'+(role==='user'?'flex-end':'flex-start');row.innerHTML=h;
   turn.querySelector('.mc-body').parentNode.appendChild(row);}
 function mcChat(agent,thread,forceText){
+  if(mcGen)return;
+  mcViewGeneration++;
   const ta=document.getElementById('mc-msg'); const typed=(ta.value||'').trim();
   const text=(forceText!==undefined)?forceText:typed; if(!text&&!mcAttach.length) return;
   const box=document.getElementById('mc-turns'); if(!box) return;

@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.87. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.88. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -43,6 +43,14 @@ UI seed catalogue as proof that a specific model is still supported.
    one-time support payload delivery after authentication and checks that cockpit Usage remains
    authenticated. Synthetic HTTP data and an isolated data folder keep live realms and providers
    out of this test. Unit tests with supplied Cookie headers cannot replace this browser gate.
+
+For changes to startup, instance activation, error navigation or full quit, also run the native
+startup check before release:
+`python tools/startup_recovery_probe.py --output <result.json>` in the Windows pywebview
+environment. It must pass all checks, including production desktop readiness and native close.
+The default suite covers concurrent launches and failure preservation with a real child server;
+this native check covers behavior that mocked windows cannot verify. Retain its result with the
+release evidence. See [the startup incident](INCIDENT_2026_10_07_STARTUP.md).
 
 ## 4. Commit
 
@@ -167,7 +175,7 @@ Never commit build outputs or signing credentials.
 
 ## Release boundaries
 
-The current published installer (0.99.87) lacks Authenticode signatures and can fail with error 4551
+The maintenance beta installer lacks Authenticode signatures and can fail with error 4551
 on protected machines. Version 0.99.75 used the explicit one-release exception below; 0.99.76 continues the owner's
 requested unsigned beta distribution as a recorded maintenance-release deviation
 ([0.99.76 verification](RELEASE_0_99_76.md)); 0.99.77 follows the same recorded

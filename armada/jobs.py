@@ -134,6 +134,11 @@ def approve(realm_root, agent_id: str, slug: str) -> dict:
     if not ok:
         return {"ok": False, "error": "; ".join(errs)}
     jid = util.safe_seg(norm["id"], "job")            # validate() guarantees a safe kebab id
+    from .tool_capture import validate as validate_capture
+    try:
+        validate_capture(norm, realm_root, jid)
+    except (ValueError, OSError) as exc:
+        return {"ok": False, "error": str(exc)}
     dst = Path(realm_root) / "agents" / agent_id / "jobs" / f"{jid}.json"
     if dst.exists():
         return {"ok": False, "error": f"a job '{jid}' already exists — reject or rename the proposal"}

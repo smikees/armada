@@ -17,6 +17,7 @@
     if(!local(u))return nativeFetch(input,init);
     const options={...(init||{})}, headers=new Headers(options.headers||(request&&request.headers)||{});
     headers.set('X-Armada-Realm',realm);
+    if(document.querySelector('meta[name="armada-companion"][content="thread"]'))headers.set('X-Armada-Companion','thread');
     options.headers=headers;
     const response=await nativeFetch(input,options);
     if(response.status===409){

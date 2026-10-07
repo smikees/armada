@@ -209,7 +209,12 @@ def _record_keepalive(realm_root, stdout: str, ok: bool) -> None:
 def _job_prune_history(realm_root) -> dict:
     from . import notify
     removed = notify.prune(realm_root)
-    return {"ok": True, "detail": f"{removed} old notification(s) pruned" if removed else "nothing to prune"}
+    from .tool_capture import prune
+    captured = prune(realm_root)
+    detail = f"{removed} old notification(s), {captured['removed']} captured result(s) pruned"
+    if captured["errors"]:
+        detail += "; capture retention: " + "; ".join(captured["errors"])
+    return {"ok": not captured["errors"], "detail": detail}
 
 
 def _job_environment_context(realm_root) -> dict:

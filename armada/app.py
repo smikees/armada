@@ -24,6 +24,7 @@ from .util import swallowed
 log = logging.getLogger(__name__)
 _main_window = None
 _alex_window = None
+_thread_windows = {}
 _window_lock = threading.RLock()
 _quitting = False
 _app_url = ""
@@ -260,6 +261,51 @@ def _clear_alexander(window):
     with _window_lock:
         if _alex_window is window:
             _alex_window = None
+
+
+def open_thread(realm_root, agent: str, thread: str) -> bool:
+    """Open another view of one saved thread; reuse its realm-scoped native window."""
+    if not _main_window or not _app_url or _quitting:
+        return False
+    from .thread_windows import target
+    from .local_auth import browser_url
+    context, a, title, route = target(realm_root, agent, thread)
+    key = (context.realm_id, a.id, thread)
+    import webview
+    with _window_lock:
+        if _quitting:
+            return False
+        current = _thread_windows.get(key)
+        if current is not None:
+            try:
+                current.show()
+                current.restore()
+                return True
+            except Exception:
+                log.exception("Reopening thread window failed")
+                _thread_windows.pop(key, None)
+        try:
+            api = _AlexanderCompanionAPI()
+            window = webview.create_window(
+                f"{a.display} · {title} — ARMADA", browser_url(_app_url, route),
+                **_alexander_position(), min_size=(400, 500), text_select=True,
+                frameless=True, transparent=True, easy_drag=False, js_api=api)
+            api._window = window
+            _thread_windows[key] = window
+            window.events.loaded += lambda: _shape_alexander(window)
+            window.events.resized += lambda *args: _shape_alexander(window)
+            window.events.closed += lambda: _clear_thread_window(key, window)
+            threading.Thread(target=_apply_window_icon, daemon=True).start()
+            return True
+        except Exception:
+            log.exception("Could not open thread window")
+            return False
+
+
+def _clear_thread_window(key, window):
+    with _window_lock:
+        if _thread_windows.get(key) is window:
+            del _thread_windows[key]
 
 
 def show_main(*, href: str = "", report: str = "") -> bool:
@@ -617,7 +663,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                 log.debug('Could not confirm a painted startup frame', exc_info=True)
             if navigating.is_set():
                 if not main.evaluate_js("!!document.querySelector('link[href*=\"/static/brand.css\"]')"):
-                    if not reauthenticated and main.evaluate_js("document.body.innerText.includes('Open ARMADA to access this local session.')"):
+                    if not reauthenticated and main.evaluate_js("(document.body?.innerText||'').includes('Open ARMADA to access this local session.')"):
                         reauthenticated = True
                         from .local_auth import browser_url
                         main.load_url(browser_url(url))
@@ -652,13 +698,22 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     tray = Tray(lambda: (main.show(), main.restore()), lambda: _quit_windows(main))
     tray_ready = tray.start()
 
+    closing_pending, closing_allowed = threading.Event(), threading.Event()
+
     def _on_main_closing():
-        save_window_state()
+        # pywebview invokes this synchronously on the WinForms UI thread. Evaluating
+        # JavaScript here deadlocks that same thread. Cancel once, save off-thread,
+        # then request the final close. A broken browser cannot delay exit indefinitely.
+        if closing_allowed.is_set():
+            return True
         if not _quitting and tray_ready and appconfig.get("keep_in_tray", True) is not False:
+            threading.Thread(target=save_window_state, daemon=True).start()
             threading.Thread(target=main.hide, daemon=True).start()
-            return False  # cancel close; the process, scheduler, and Telegram remain alive
-        _quit_windows(main, close_main=False)
-        return True
+            return False
+        if not closing_pending.is_set():
+            closing_pending.set()
+            threading.Thread(target=_finish_close, args=(main, closing_allowed), daemon=True).start()
+        return False
 
     def _on_main_minimized():
         if tray_ready and appconfig.get("keep_in_tray", True) is not False:
@@ -725,17 +780,29 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     return 1 if err.get("startup_failed") else 0
 
 
+def _finish_close(main, allowed):
+    save = threading.Thread(target=save_window_state, daemon=True)
+    save.start()
+    save.join(timeout=2)
+    if save.is_alive():
+        log.warning("Browser did not save window state within two seconds; continuing to quit")
+    allowed.set()
+    _quit_windows(main)
+
+
 def _quit_windows(main, *, close_main=True):
     """Exit the GUI. An owner-bound scheduler stops when this process exits."""
     global _quitting
     _quitting = True
     with _window_lock:
-        alex = _alex_window
-    if alex is not None:
+        companions = list(_thread_windows.values())
+        if _alex_window is not None:
+            companions.append(_alex_window)
+    for companion in companions:
         try:
-            alex.destroy()
+            companion.destroy()
         except Exception:
-            log.debug("Alexander window already closed", exc_info=True)
+            log.debug("Companion window already closed", exc_info=True)
     if close_main:
         main.destroy()
 

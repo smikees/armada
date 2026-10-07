@@ -17,6 +17,9 @@ stays in serve.py, only the handler bodies moved.
 - `AgentRoutes._get_new_agent(self)` — —
 - `AgentRoutes._get_agent(self, path)` — —
 - `AgentRoutes._get_embed_thread(self)` — —
+- `AgentRoutes._get_thread_window(self)` — —
+- `AgentRoutes._open_thread_window(self, body)` — —
+- `AgentRoutes._get_thread_state(self)` — —
 - `AgentRoutes._get_threads(self)` — —
 - `AgentRoutes._get_proposals_count(self)` — —
 - `AgentRoutes._get_agent_activity(self)` — Live activity state per agent ({id: 'working'|'input'|'unseen'|'idle'}) so the dashboard can refresh the status dots without a full reload.

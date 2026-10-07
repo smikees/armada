@@ -34,6 +34,21 @@ Tabs across the top:
 - **Retire someone:** Configure, at the bottom (**Retire…**). Their folder is kept; you can
   reinstate them from **+ Appoint**. The coordinator can't be retired.
 
+## Separate thread windows
+
+Click the **Open thread in a separate window** icon beside any thread in the left-hand list.
+The window shows that thread's conversation and the same message, attachment, edit, restart,
+rename and Stop controls. Its header shows the agent's avatar and color crescent.
+
+Both views use the same saved conversation and refresh while open. Messages and reply progress
+started in either view appear in the other; unsent drafts stay local to each view. Opening an
+already-open thread brings its window forward. Closing the window does not delete the thread
+or cancel a running reply. Open it again from the same icon.
+
+A companion stays with its original realm when you switch the main app to another realm.
+If a thread is archived or deleted, its old window reports that it is unavailable.
+In browser mode this opens a separate browser window; allow pop-ups for ARMADA if asked.
+
 ## Conversation history
 
 Long conversations are compacted into a summary while recent exchanges stay in the thread.

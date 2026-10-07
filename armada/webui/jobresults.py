@@ -3,12 +3,25 @@ from ._base import E
 from .. import job_results
 
 
+def capture_html(event):
+    capture = event.get("capture")
+    if not capture:
+        return ""
+    count = int(capture.get("count", 0))
+    label = "Capture incomplete" if capture.get("status") == "incomplete" else "Captured results"
+    manifest = capture.get("manifest", "")
+    link = (f' · <a href="#" data-local-file="{E(manifest)}">manifest.jsonl</a>' if manifest else "")
+    return (f'<div class="mc-job-capture"><strong>{label}:</strong> {count} result(s){link}'
+            + ''.join(f'<div>{E(reason)}</div>' for reason in capture.get("errors", [])) + '</div>')
+
+
 def result_html(event: dict, content: dict) -> str:
+    captured = capture_html(event)
     result = event.get("result")
     if not isinstance(result, dict):
         markers = job_results.LEGACY.findall(content.get("raw_final_answer") or content.get("content") or "")
         legacy = markers[-1] if markers else str(event.get("status") or "unknown")
-        return (f'<div class="mc-job-result"><strong>Legacy result: {E(legacy)}</strong>'
+        return captured + (f'<div class="mc-job-result"><strong>Legacy result: {E(legacy)}</strong>'
                 '<div>Less detailed — execution, audit and delivery were not recorded independently. '
                 'SUCCESS does not establish a clear audit.</div>'
                 + (f'<div>Historical error: {E(str(event.get("summary") or ""))}</div>' if legacy == "FAILED" else "") + '</div>')
@@ -48,4 +61,4 @@ def result_html(event: dict, content: dict) -> str:
                     f'Original error: {E(event.get("original_summary") or "")}</div>')
     if result["audit_outcome"] in ("incomplete", "findings") or evidence.get("risk_gates"):
         rows.append('<div><strong>Completion does not mean the portfolio passed its checks. Unresolved risk gates remain in force.</strong></div>')
-    return '<div class="mc-job-result">' + ''.join(rows) + '</div>'
+    return captured + '<div class="mc-job-result">' + ''.join(rows) + '</div>'

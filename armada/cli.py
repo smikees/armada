@@ -288,7 +288,8 @@ def main(argv=None):
         from . import instance
         with instance.claim(args.cmd, args.port) as primary:
             if not primary:
-                print("ARMADA is already running; bringing its window forward.")
+                print("ARMADA is already running." if args.cmd == "serve" else
+                      "ARMADA is already running; opening its window.")
                 return 0
             # No folder on the command line means "open where I left off" — see activerealm. A
             # launcher (shortcut, .vbs, Start menu entry) is written once and then points at whatever
@@ -313,9 +314,8 @@ def main(argv=None):
             # start-up failure that isn't logged is invisible: the window or server just never appears.
             try:
                 if args.cmd == "serve":
-                    from .serve import serve
-                    serve(realm, args.port)
-                    return 0
+                    from .startup import serve_with_desktop
+                    return serve_with_desktop(realm, args.port)
                 from .app import run
                 return run(realm, args.port)
             except Exception:

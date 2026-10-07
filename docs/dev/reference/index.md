@@ -49,6 +49,7 @@
 | [`engine.mcp_runtime`](engine.mcp_runtime.md) | Live MCP startup evidence; saved OAuth credentials are not a connection test. |
 | [`engine.mock`](engine.mock.md) | Mock engine — lets the runner + telemetry be tested end-to-end offline, with no Claude Code and no tokens spent |
 | [`engine.process`](engine.process.md) | Owned CLI lifetime: bounded pipe draining, output-independent deadlines and tree cleanup. |
+| [`engine.raw_results`](engine.raw_results.md) | Keep a CLI JSON value's original spelling across normalized display events. |
 | [`engine.selection`](engine.selection.md) | Resolve the provider from the chosen model, keeping old Claude realms readable. |
 | [`engine.windows_job`](engine.windows_job.md) | Windows CLI process-tree ownership using documented Job Object and thread APIs. |
 | [`execution`](execution.md) | Own agent turns across HTTP, plain chat, jobs, inbox and Telegram. |
@@ -105,6 +106,7 @@
 | [`skills`](skills.md) | Skills/connectors provisioning (SPEC §6 / §14) — the manifest layer. |
 | [`starter_generic_profiles`](starter_generic_profiles.md) | Full, role-based starter profiles for Company and Ship setup rosters. |
 | [`starter_profiles`](starter_profiles.md) | Bundled starter profiles, separate from personal realms and copied only at creation. |
+| [`startup`](startup.md) | Desktop activation and startup failure reporting, including console-free launches. |
 | [`startup_splash`](startup_splash.md) | Loading artwork inside the main window, including while WebView2 starts. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
 | [`support`](support.md) | Send exactly the approved, redacted report through ARMADA's public relay. |
@@ -115,8 +117,10 @@
 | [`templates`](templates.md) | Realm templates (SPEC §3/§11): {theme} + starter agents over the neutral schema. |
 | [`thread_metadata`](thread_metadata.md) | Thread navigation state belongs to persistence, not to HTML renderers. |
 | [`thread_store`](thread_store.md) | Recoverable thread history mutations, serialized on the existing messages-file lock. |
+| [`thread_windows`](thread_windows.md) | Realm-bound destinations and shared state for independent thread views. |
 | [`threads`](threads.md) | Threads + compaction (SPEC §5). |
 | [`token_cost`](token_cost.md) | Approximate standard-text API equivalents; subscription charges are never inferred. |
+| [`tool_capture`](tool_capture.md) | Opt-in local tool-result capture, run audits and conservative retention. |
 | [`tray`](tray.md) | Windows notification-area icon for a hidden Armada window. |
 | [`updater`](updater.md) | Automatic updates for an installed ARMADA (launch plan 5.4, ADR-011). |
 | [`usage_api`](usage_api.md) | Read the real Claude subscription usage (session + weekly) that powers the Claude app's Usage view. |
@@ -142,8 +146,10 @@
 | [`webui.pages`](webui.pages.md) | ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3. |
 | [`webui.provider_settings`](webui.provider_settings.md) | Shared connection controls for setup and App Settings; no probes during rendering. |
 | [`webui.realmpages`](webui.realmpages.md) | Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts. |
+| [`webui.recovery`](webui.recovery.md) | A self-contained error screen: no realm/config reads, scripts or authenticated assets. |
 | [`webui.schedfmt`](webui.schedfmt.md) | Schedule / status / date-format helpers (carved from _core.py in Phase 3). |
 | [`webui.setup_wizard`](webui.setup_wizard.md) | The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide. |
+| [`webui.thread_window`](webui.thread_window.md) | The ordinary conversation pane in Alexander's independent window frame. |
 | [`webui.threadsview`](webui.threadsview.md) | Threads / chat rendering (Layer 2, carved from _core.py in Phase 3). |
 | [`webui.welcome`](webui.welcome.md) | The first-run page (launch plan 5.3): what the app shows when there is no realm to open. |
 | [`webui.widgets`](webui.widgets.md) | Dashboard widget renderers (Layer 2, carved from _core.py in Phase 3). |

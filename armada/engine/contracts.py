@@ -1,5 +1,5 @@
 """Provider-independent requests, events and enforceable execution capabilities."""
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import math
 import re
 from typing import Callable, Literal, Protocol, TypedDict
@@ -12,6 +12,9 @@ class RunEvent(TypedDict, total=False):
     id: str
     input: dict
     error: str
+    content: object
+    is_error: bool
+    raw_result: dict
 
 
 class CancellationHandle(Protocol):
@@ -33,6 +36,7 @@ class ProviderCapabilities:
     fallback: bool = False
     sealed_tools: bool = False
     tool_denials: bool = False
+    raw_tool_results: bool = False
 
 
 @dataclass(frozen=True)
@@ -56,9 +60,12 @@ class RunRequest:
     disallowed_tools: tuple[str, ...] = ()
     only_tools: tuple[str, ...] | None = None
     verbosity: str | None = None
+    env: dict[str, str] = field(default_factory=dict)
 
     def kwargs(self):
         out = asdict(self)
+        if not self.env:
+            out.pop("env")
         out["disallowed_tools"] = list(self.disallowed_tools)
         if self.verbosity is None:
             out.pop("verbosity")  # existing adapters need no new argument

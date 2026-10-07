@@ -105,3 +105,43 @@ When one of these fails, the fix is almost never to change the test.
 - **Static JS:** `node --check` for syntax; Node-powered harnesses can verify behavior with a
   minimal fake DOM (see `test_overview_polish.py`). Use actual browser checks when behavior depends
   on browser cookies, navigation or the native window lifecycle.
+
+
+## Thread companion windows
+
+`tests/test_thread_windows.py` covers native window reuse, close/reopen, distinct realm identities,
+shared transcript revisions, live progress, cancellation, invalid targets, and browser opening/sync
+races. Its Node harnesses verify that a background refresh preserves an inline edit and cannot
+overwrite a newly started local stream.
+
+On Windows, run `python tools/thread_window_probe.py --output <result.json>` using an environment
+with pywebview and WebView2. The probe creates a synthetic realm and hidden native windows, uses
+the production authentication and opening routes, and supplies deterministic replies without
+calling a provider. It checks both directions of messaging, live progress, Stop visibility,
+realm switching, one persisted turn per send, and close/reopen. It also saves screenshots at
+520×720 and 400×500, including dark mode. It never restarts the owner's app.
+
+Verified on 2026-10-07: all 21 native checks passed. The narrow and dark screenshots were reviewed.
+
+
+## Startup collision and error recovery
+
+`tests/test_startup_recovery.py` starts a real synthetic background server and races desktop
+activation requests against it. It verifies one owner, unchanged port/authentication, main-thread
+desktop opening and the runtime restart mode. Older/unresponsive owners report errors; failed
+window initialization preserves the server. It also covers early entrypoint failures and bounded
+state capture during full quit.
+
+`tests/test_recovery_pages.py` uses real HTTP to force Settings exceptions, expired sessions and
+stale realm identities. Document errors must offer recovery and a matching log reference without
+credentials/query strings; API contracts stay JSON. `tests/test_appconfig_recovery.py` verifies
+transient-read retries and refusal to overwrite unreadable or damaged configuration.
+
+Run `python tools/startup_recovery_probe.py --output <result.json>` in a Windows pywebview
+environment for production headless-to-desktop activation, authenticated recovery navigation,
+and real native close with persisted state. Its synthetic home, temporary account/data folder,
+disabled scheduler and disabled startup-registry migration keep the owner's app untouched.
+All eight native checks passed on 2026-10-07. The earlier synchronous close deadlock was reproduced
+by this probe before the fix; mocked windows alone did not detect it.
+
+See [the incident report](INCIDENT_2026_10_07_STARTUP.md) for confirmed evidence and remaining uncertainty.

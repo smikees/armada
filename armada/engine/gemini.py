@@ -71,7 +71,7 @@ def parse_models(text):
 class GeminiEngine(EngineAdapter):
     name = 'gemini'
     # The CLI injects an internal task tool, so strict sealed review turns are rejected.
-    capabilities = ProviderCapabilities(streaming=True,cancellation=True,tool_denials=True)
+    capabilities = ProviderCapabilities(streaming=True,cancellation=True,tool_denials=True,raw_tool_results=True)
     def __init__(self,binary='agy'):
         self.binary = binary
         self.allowed_mcp_ids = frozenset()
@@ -184,7 +184,7 @@ class GeminiEngine(EngineAdapter):
     def run(self,system,prompt,**kwargs): return self.run_stream(system,prompt,**kwargs)
     def run_stream(self,system,prompt,model=None,cwd=None,allow_tools=False,timeout=300,effort=None,
             fallback_model=None,max_budget_usd=None,disallowed_tools=None,only_tools=None,
-            verbosity=None,on_event=None,on_proc=None):
+            verbosity=None,on_event=None,on_proc=None,env=None):
         validate_request(self.name,self.capabilities,RunRequest(system,prompt,model=model,fallback_model=fallback_model,
             max_budget_usd=max_budget_usd,disallowed_tools=tuple(disallowed_tools or ()),only_tools=None if only_tools is None else tuple(only_tools)))
         if not self._launcher(): return RunResult(ok=False,error="Gemini's Antigravity CLI is not installed. Install it in Settings → App.")
@@ -200,7 +200,8 @@ class GeminiEngine(EngineAdapter):
         def line(raw):
             nonlocal terminal
             if not raw.strip(): return
-            item = json.loads(raw)
+            from .raw_results import loads_event, result_source
+            item = loads_event(raw)
             if not isinstance(item,dict): raise ValueError('Malformed Gemini stream event')
             kind = item.get('event')
             if kind=='init': safe_emit(on_event,{'kind':'start'})
@@ -210,8 +211,12 @@ class GeminiEngine(EngineAdapter):
                     chunks.append(text); safe_emit(on_event,{'kind':'text','text':text})
                 elif step.get('step_type')=='tool':
                     tid = str(step.get('step_index')); info = step.get('tool_info') or {}; name = step.get('tool_name') or info.get('name') or 'tool'
+                    original_params = info.get('parameters') or {}
+                    if name == 'call_mcp_tool' and original_params.get('ServerName') and original_params.get('ToolName'):
+                        name = 'mcp__' + original_params['ServerName'] + '__' + original_params['ToolName']
+                        original_params = original_params.get('Arguments', {})
                     if tid not in started:
-                        params = info.get('parameters') or {}
+                        params = original_params
                         canonical = next((alias for alias, original in _ALIASES.items() if original == name), name)
                         if name == 'multi_replace_file_content': canonical = 'MultiEdit'
                         target = params.get('TargetFile') or params.get('AbsolutePath') or params.get('DirectoryPath') or params.get('SearchDirectory')
@@ -219,8 +224,11 @@ class GeminiEngine(EngineAdapter):
                         if target and name in _FILE_TOOLS:
                             file_requests.append({'tool':name,'path':str(target)})
                         started.add(tid); safe_emit(on_event,{'kind':'tool','name':canonical,'id':tid,'input':params})
-                    if step.get('state')=='DONE' and tid not in finished:
-                        finished.add(tid); safe_emit(on_event,{'kind':'tool_result','id':tid,'content':info.get('output') or str(info.get('error') or ''),'is_error':bool(info.get('error'))})
+                    if step.get('state') in ('DONE', 'ERROR') and tid not in finished:
+                        field = 'output' if 'output' in info else 'error'
+                        finished.add(tid); safe_emit(on_event,{'kind':'tool_result','id':tid,'name':name,'input':original_params,
+                            'raw_result':result_source(item, ('step_update','tool_info',field)),
+                            'content':info.get('output') or str(info.get('error') or ''),'is_error':bool(info.get('error')) or step.get('state')=='ERROR'})
             elif kind=='result':
                 if terminal is not None: raise ValueError('Duplicate Gemini final result')
                 terminal = item.get('result')
@@ -258,7 +266,7 @@ class GeminiEngine(EngineAdapter):
             body = json.dumps({'event':'user','message':{'content':prompt}},ensure_ascii=False)
             servers = [entry['name'] for entry in self._connectors(disallowed_tools or [])] if allow_tools else []
             with scoped_project(roots if file_access else [],servers,allow_tools and self.network_access) as project:
-                result = supervise(args+['--project',project],prompt=body,on_line=line,timeout=timeout,cwd=folder,on_proc=on_proc)
+                result = supervise(args+['--project',project],prompt=body,on_line=line,timeout=timeout,cwd=folder,env={**os.environ, **(env or {})},on_proc=on_proc)
         stats = (terminal or {}).get('usage') or {}; cached = stats.get('cache_read_tokens') or 0; incoming = stats.get('input_tokens')
         # CLI input includes cached tokens; Armada's total adds cache reads separately.
         usage = Usage(input=max(0,incoming-cached) if isinstance(incoming,int) else None,output=stats.get('output_tokens'),cache_read=cached)

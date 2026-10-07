@@ -181,7 +181,7 @@ class TurnCoordinator:
         root, aid, thread = Path(context.realm.root), context.agent, context.thread
         agent_dir = root / "agents" / aid
         th = Thread(agent_dir, thread)
-        turn = cap = eng = None
+        turn = cap = eng = raw_capture = None
         partial = []
         activity_events = []
         last_checkpoint = 0.0
@@ -206,6 +206,10 @@ class TurnCoordinator:
 
         def _event(ev):
             nonlocal last_checkpoint, current_activity
+            if raw_capture is not None:
+                raw_capture.on_event(ev)
+            # Raw payloads stay in the job transcript, never the UI event stream or prompt history.
+            ev = {k: v for k, v in ev.items() if k != "raw_result"}
             if cap is not None:
                 cap.on_event(ev)
             kind = ev.get("kind")
@@ -251,6 +255,10 @@ class TurnCoordinator:
                 if not agent:
                     raise ValueError(f"no agent '{aid}'")
                 job = req.job or {}
+                if req.task and job.get("capture_tools"):
+                    from .tool_capture import ToolCapture
+                    raw_capture = ToolCapture(root, job, req.task, context.run_id, eng.name,
+                        getattr(eng, "capabilities", ProviderCapabilities()).raw_tool_results, aid)
                 if scheduled_job:
                     from . import job_access, job_results
                     grant = job_access.grant_for(root, aid, req.job) if req.job else job_access.Grant()
@@ -270,6 +278,15 @@ class TurnCoordinator:
                 validate_request(eng.name, getattr(eng, "capabilities", ProviderCapabilities()), request)
                 if req.task:
                     message = workspace.expand(req.message, root)
+                if raw_capture is not None:
+                    raw_dir = str(raw_capture.directory or "")
+                    message = message.replace("{raw_dir}", raw_dir)
+                    if raw_dir:
+                        request = replace(request, env={"ARMADA_RAW_DIR": raw_dir})
+                        message += ("\n\nARMADA saves matching tool results during this run in " + raw_dir
+                            + ". Read manifest.jsonl for file names and filter entries by run_id "
+                            + context.run_id + ". Scripts inherit ARMADA_RAW_DIR. Wait/retry briefly if the "
+                            "immediately preceding result has not yet appeared. Do not retype captured results.")
                 saved = r._save_images(agent_dir, thread, list(req.images))
                 attachments = [{"kind": "image", "name": s["name"], "file": s["file"]} for s in saved]
                 attachments += [{"kind": "file", "name": str(fn)} for fn in req.files if str(fn).strip()]
@@ -314,6 +331,8 @@ class TurnCoordinator:
                         log.exception("Turn capture cleanup failed")
                         result.ok = False
                         result.error = result.error or f"Turn cleanup failed: {exc}"
+            if raw_capture is not None:
+                raw_capture.finish()
             if turn is None:
                 turn = th.begin_turn(message, attachments=attachments or None)
             status = r._result_status(result)
@@ -329,9 +348,13 @@ class TurnCoordinator:
                 connector_errors = [f"Connector {row['server']}: {row['error']}" for row in result.raw.get("connector_runtime", [])
                                     if row.get("state") != "ready"]
                 job_result["app_errors"].extend(connector_errors)
+                if raw_capture is not None:
+                    raw_capture.audit(job_result)
                 status = job_results.status(job_result)
                 text = job_results.original_answer(raw_answer) or (
                     "Completed without a text reply." if result.ok else "No final answer was produced.")
+            if raw_capture is not None and raw_capture.errors and not scheduled_job:
+                status = "error" if raw_capture.required else ("warn" if result.ok else status)
             th.complete_turn(turn, text, status=status,
                              outputs=cap.outputs or None if cap else None,
                              caps=cap.caps or None if cap else None)
@@ -348,6 +371,8 @@ class TurnCoordinator:
                 "tokens": result.usage.as_dict(), "duration_s": round(time.monotonic() - started, 2),
                 "memory_boundary": cap.memory_report if cap else None,
                 "realm_id": context.realm.realm_id, "run_id": context.run_id}
+            if raw_capture is not None:
+                report["capture"] = raw_capture.report()
             if result.raw.get("connector_runtime"):
                 report["connector_runtime"] = result.raw["connector_runtime"]
             if job_result is not None:
@@ -359,6 +384,8 @@ class TurnCoordinator:
                 from .job_history import save_transcript
                 transcript = {"content": text, "events": activity_events,
                               "outputs": cap.outputs if cap else []}
+                if raw_capture is not None:
+                    transcript["tool_results"] = raw_capture.records
                 if scheduled_job:
                     transcript.update(raw_final_answer=raw_answer, app_errors=job_result["app_errors"])
                 try:
@@ -366,6 +393,8 @@ class TurnCoordinator:
                 except OSError:
                     log.exception("Could not save the job transcript; retaining it in the report")
                     report.update(output=text, activity=activity_events, outputs=transcript["outputs"])
+                    if raw_capture is not None:
+                        report["tool_results"] = raw_capture.records
                 report.update(turn=turn, effort=request.effort if 'request' in locals() else None,
                               verbosity=output_level if 'output_level' in locals() else None)
             if cap and cap.stray:

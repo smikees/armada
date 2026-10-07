@@ -578,6 +578,7 @@ _RUN_LOG_ROWS = 7
 
 
 def _job_history_rows(aid, runs):
+    from .jobresults import capture_html
     return "".join(
         f'<tr><td class="mono" style="font-size:11px"><button class="mc-job-runlink" '
         f'onclick="mcSelectJobRun(this,{_J(str(ev.get("run_id") or ev.get("ts")))})">'
@@ -585,7 +586,7 @@ def _job_history_rows(aid, runs):
         f'<td style="color:{status.color(ev.get("status", ""))};font-size:11.5px">'
         f'{E(job_results.label(ev["result"]) if ev.get("result") else str(ev.get("status", "")))}</td>'
         f'<td style="font-size:11.5px">{E(str(ev.get("summary", ""))[:200])}'
-        f'{_ask_alexander(aid, str(ev.get("task", "")), ev)}</td></tr>'
+        f'{capture_html(ev)}{_ask_alexander(aid, str(ev.get("task", "")), ev)}</td></tr>'
         for ev in list(runs)[-_RUN_LOG_ROWS:][::-1]) or (
         '<tr><td colspan="3" style="font-size:11.5px;color:var(--text-muted)">no runs yet</td></tr>')
 

@@ -61,6 +61,14 @@ Show Alexander in his own native window, reusing one that is already open.
 
 —
 
+### `open_thread(realm_root, agent: str, thread: str)`
+
+Open another view of one saved thread; reuse its realm-scoped native window.
+
+### `_clear_thread_window(key, window)`
+
+—
+
 ### `show_main(*, href: str='', report: str='')`
 
 Apply Alexander's navigation/report cards in the main cockpit window.
@@ -108,6 +116,10 @@ All native entry points claim the Windows user's shared instance first.
 ### `_run_owned(realm: str, port: int=8756, title: str='')`
 
 Open ARMADA in a native window. Blocks until the window is closed.
+
+### `_finish_close(main, allowed)`
+
+—
 
 ### `_quit_windows(main, *, close_main=True)`
 
