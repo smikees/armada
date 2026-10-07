@@ -39,3 +39,27 @@ checks also run in the mandatory signed-package upgrade gate.
 The existing unsigned beta publisher-signing and clean-Sandbox acceptance
 boundaries remain; this release does not claim to resolve them. Exact release
 evidence is retained under `build/`.
+
+## Published checks
+
+- Release source: `939e4eff55973613e42a7ed2cc6e13ce0ac3e260`.
+- Targeted preferences/settings/controller suite: 66 passed.
+- Isolated full Windows suite: 3,187 passed, five skipped (442.00 seconds on the
+  final publication run; the initial local run also passed).
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/37617329512)
+  passed. Its first attempt recorded a 15-second process timeout in the existing
+  artefact pagination Node harness on one runner; the other matrix runner passed.
+  Three direct local repeats passed, and the failed job passed when rerun with
+  identical source. Both attempts remain visible in CI; no gate was bypassed.
+- Staged native launcher: five interruption/recovery scenarios passed.
+- Real WebView2 authentication/session gate: 16 checks passed.
+- Signed-package upgrade from 0.99.85 to 0.99.86: 54 real-page, typography,
+  navigation, companion, restart and process-cleanup checks passed.
+- Published installer SHA-256:
+  `6c7f5042b31c4a78293dc6bacbba2a1a3c805983efd6270966b7f0bf609dc137`.
+- [Published release](https://github.com/smikees/armada/releases/tag/v0.99.86)
+  contains the installer and signed update assets. The unsigned-maintenance
+  installer exception and unverified clean-Sandbox boundary remain explicit.
+
+The installed user session was not restarted for publication. Isolated probe
+process trees were verified fully stopped.

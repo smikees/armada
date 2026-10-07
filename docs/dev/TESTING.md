@@ -8,7 +8,11 @@ unsaved previews, delayed refreshes and companion synchronization. The real pack
 upgrade gate checks computed CSS/inline/SVG typography, native zoom isolation, draft
 preservation and saved size across navigation and Alexander.
 [Release verification](RELEASE_0_99_86.md) records the final gates.
-The prior 0.99.85 isolated suite passed 3,165 tests with five skips.
+The published 0.99.86 isolated suite passed 3,187 tests with five skips. Exact-source
+Windows CI passed after rerunning an unrelated Node harness process timeout;
+the initial failure remains in the verification record. Staged native checks
+passed all five recovery scenarios, 16 browser-session checks and 54 packaged
+upgrade/typography/restart/cleanup checks.
 
 ## Running
 
