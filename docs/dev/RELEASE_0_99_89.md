@@ -28,7 +28,12 @@ installations use the signed package update. Publication does not restart the ru
 - Normal and narrow layouts were reviewed in light and dark mode. The mechanical design scan
   reported existing shared-stylesheet findings outside the changed rules.
 - Native startup/recovery probe: **8 checks passed**, including Settings recovery and clean close.
-- Final regression, exact-source CI and packaged upgrade results are recorded after publication.
+- Enforced full Windows regression suite: **3,306 passed, 5 skipped in 464.54 seconds**.
+- Exact-source Windows CI passed on Python 3.12.10 and current 3.12, with the relay check:
+  [run 37667201462](https://github.com/smikees/armada/actions/runs/37667201462).
+- Packaged launcher recovery: **5 interruption points passed**.
+- Packaged WebView2 session: **16 checks passed**.
+- Signed v0.99.88 → v0.99.89 upgrade rehearsal: **63 checks passed**.
 
 The native probe cancels its sizing loop without moving the owner’s cursor. Tests use synthetic
 realms and deterministic replies; no provider is called and no live realm is changed.
@@ -49,5 +54,19 @@ upgrade gate and recoverable update journal remain in place.
 
 ## Publication
 
-Pending the enforced release gate. Evidence will be retained under build/verification-0.99.89/,
-build/publish-0.99.89.log, build/release-evidence-0.99.89.json and build/upgrade-0.99.89.json.
+Published **2026-10-07T18:39:40Z** as the normal latest release:
+[ARMADA v0.99.89](https://github.com/smikees/armada/releases/tag/v0.99.89).
+
+- Source commit: 1fd7dba6e84f4190a0d32577cb574cb07ab23db3.
+- Installer: 20,415,448 bytes; SHA-256
+  35c11ce5874d236b88513e4d9a2df97b8c4082a0b2815f13b9bf2db203dab9cf.
+- Update archive: 5,474,800 bytes; SHA-256
+  73df5d37c0113e7bc2cc771e86a5167491a8a9a8f50fbce9b485c4025de2fdc2.
+- All four public asset sizes and digests match the built files. The public latest manifest's
+  Ed25519 signature and a fresh archive download were verified; updated native/UI files match
+  the release source byte for byte.
+- The installed v0.99.88 updater downloaded and staged v0.99.89. Desktop readiness and the
+  running instance identity were preserved; no restart was requested.
+
+Evidence is retained under build/verification-0.99.89/, build/publish-0.99.89.log,
+build/release-evidence-0.99.89.json and build/upgrade-0.99.89.json.
