@@ -30,7 +30,12 @@ compatible signed update without restarting the running desktop.
   or covering the owner’s windows.
 - Existing mechanical design-scan findings are outside the changed rules.
 - Native startup/recovery: **8 checks passed**, including Settings recovery and clean close.
-- Final regression, exact-source CI and packaged upgrade results are recorded after publication.
+- Enforced full Windows regression suite: **3,308 passed, 5 skipped in 464.85 seconds**.
+- Exact-source CI passed on Python 3.12.10 and current 3.12, with the relay check:
+  [run 37677302430](https://github.com/smikees/armada/actions/runs/37677302430).
+- Packaged launcher recovery: **5 interruption points passed**.
+- Packaged WebView2 session: **16 checks passed**.
+- Signed v0.99.89 → v0.99.90 upgrade rehearsal: **63 checks passed**.
 
 The probe uses synthetic realms and deterministic replies. The owner’s screenshots and
 personal conversation data are not included in the repository or release.
@@ -51,5 +56,19 @@ The packaged native upgrade gate and recoverable update journal remain mandatory
 
 ## Publication
 
-Pending the enforced release gate. Evidence will be retained under build/verification-0.99.90/,
-build/publish-0.99.90.log, build/release-evidence-0.99.90.json and build/upgrade-0.99.90.json.
+Published **2026-10-07T19:59:11Z** as the normal latest release:
+[ARMADA v0.99.90](https://github.com/smikees/armada/releases/tag/v0.99.90).
+
+- Source commit: 3c4056fc2fb01ea71034d83ce32215e9183d46eb.
+- Installer: 20,420,794 bytes; SHA-256
+  88948cdd13cfc033c3760fa7c23abfddbde20a4e1a5b6c0311692e1c42c8ee49.
+- Update archive: 5,475,949 bytes; SHA-256
+  c7f170e9ae6d5df1f74ac66afa5418d71f14cecfafed7324bc4e9c3d57353740.
+- Public asset sizes and digests match the built files. The public latest manifest’s Ed25519
+  signature and a fresh archive download were verified; the changed frame, app, renderer and
+  stylesheet match the source byte for byte.
+- The installed v0.99.89 updater downloaded and staged v0.99.90. The desktop stayed ready with
+  the same instance identity; no restart was requested.
+
+Evidence is retained under build/verification-0.99.90/, build/publish-0.99.90.log,
+build/release-evidence-0.99.90.json and build/upgrade-0.99.90.json.
