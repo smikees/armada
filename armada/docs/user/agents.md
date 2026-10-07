@@ -43,7 +43,9 @@ rename and Stop controls. Its compact header groups the agent, realm, thread nam
 information beside the agent’s avatar and color crescent. Messages use text names without avatars.
 
 Drag the bottom-right corner to resize the native window. You can also focus that grip with Tab
-and use the arrow keys. The window has a soft shadow, and keeps a minimum size for the composer.
+and use the arrow keys. The window has a broad, soft shadow, with subtle separation beneath the avatar and header.
+The avatar sits closer to the header to leave more vertical room for chat, and its activity dot
+is smaller. The window keeps a minimum size for the composer.
 
 Both views use the same saved conversation and refresh while open. Messages and reply progress
 started in either view appear in the other; unsent drafts stay local to each view. Opening an

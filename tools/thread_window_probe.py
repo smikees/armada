@@ -83,7 +83,7 @@ def run(output):
             raise AssertionError(label)
 
         def ready(window):
-            wait_for(lambda: window.events.loaded.is_set() and window.evaluate_js("!!document.getElementById('mc-turns')"),
+            wait_for(lambda: window.events.loaded.is_set() and window.evaluate_js("!!document.getElementById('mc-turns') && typeof window.mcThreadSync==='function'"),
                      "authenticated conversation loaded")
             # Background test windows must exercise the same polling as visible windows.
             window.evaluate_js("Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});window.mcThreadSync()")
@@ -122,6 +122,34 @@ def run(output):
                 raise AssertionError("screenshot: " + repr(errors))
             result.setdefault("screenshots", []).append(path)
 
+        def composite(window, name):
+            from System import Action
+            from System.Drawing import Bitmap, Color, Graphics, SolidBrush
+            from System.Drawing.Imaging import ImageFormat
+            from System.Drawing.Drawing2D import CombineMode
+            shadow = window._thread_shadow
+            path = output.with_name(name+".png")
+            def draw():
+                foreground = Bitmap(str(output.with_name("thread-window.png")))
+                canvas = Bitmap(shadow.bitmap.Width,shadow.bitmap.Height)
+                graphics = Graphics.FromImage(canvas)
+                region = window.native.Region.Clone()
+                brush = SolidBrush(window.native.BackColor)
+                try:
+                    graphics.Clear(Color.FromArgb(204,120,92))
+                    pad = round(shadow.PAD*float(window.native._scale))
+                    region.Translate(float(pad),float(pad))
+                    graphics.SetClip(region,CombineMode.Replace)
+                    graphics.FillRegion(brush,region)
+                    graphics.DrawImageUnscaled(foreground,pad,pad)
+                    graphics.ResetClip()
+                    graphics.DrawImageUnscaled(shadow.bitmap,0,0)
+                    canvas.Save(str(path),ImageFormat.Png)
+                finally:
+                    brush.Dispose();region.Dispose();graphics.Dispose();canvas.Dispose();foreground.Dispose()
+            window.native.Invoke(Action(draw))
+            result.setdefault("screenshots",[]).append(str(path))
+
         main = webview.create_window("Thread test", local_auth.browser_url(url, "/probe-main"), hidden=True,
                                      width=1200, height=800)
         windows.append(main)
@@ -153,7 +181,33 @@ def run(output):
                 check("native shadow has transparent conversation centre", shadow.bitmap.GetPixel(
                     shadow.bitmap.Width//2, shadow.bitmap.Height//2).A == 0)
                 check("native shadow has soft pixels below the panel", 0 < shadow.bitmap.GetPixel(
-                    shadow.bitmap.Width//2, shadow.bitmap.Height-round(27*float(companion.native._scale))).A < 100)
+                    shadow.bitmap.Width//2, shadow.bitmap.Height-round((shadow.PAD+3)*float(companion.native._scale))).A < 100)
+                scale = float(companion.native._scale)
+                # The supplied reference provides a useful numeric guard against a hard edge or clear seam.
+                panel_right = shadow.bitmap.Width-round((shadow.PAD+8)*scale)
+                panel_bottom = shadow.bitmap.Height-round((shadow.PAD+8)*scale)
+                side_y = shadow.bitmap.Height//2
+                centre_x = shadow.bitmap.Width//2
+                side_alpha = [shadow.bitmap.GetPixel(panel_right+round(d*scale), side_y).A/255
+                              for d in (1,8,16,32,48)]
+                bottom_alpha = [shadow.bitmap.GetPixel(centre_x,panel_bottom+round(d*scale)).A/255
+                                for d in (1,8,16,32,48,60)]
+                result["shadow_alpha"] = {"right":side_alpha,"bottom":bottom_alpha}
+                check("shadow meets the frame without a clear seam", side_alpha[0] > .12)
+                check("shadow follows reference side falloff", all(abs(a-b)<.045 for a,b in
+                    zip(side_alpha,(.167,.108,.059,.01,0))))
+                check("shadow follows reference bottom falloff", all(abs(a-b)<.045 for a,b in
+                    zip(bottom_alpha,(.304,.265,.220,.127,.054,.025))))
+                check("detached frame has no border", companion.evaluate_js(
+                    "getComputedStyle(document.querySelector('.mc-ax-panel')).borderRightWidth==='0px'"))
+                check("avatar protrudes only sixteen pixels above header", companion.evaluate_js(
+                    "Math.abs(document.querySelector('.mc-chat-heading').getBoundingClientRect().top-document.querySelector('.mc-ax-portrait').getBoundingClientRect().top-16)<1"))
+                check("close control has equal top and right insets", companion.evaluate_js(
+                    "(()=>{const p=document.querySelector('.mc-ax-panel').getBoundingClientRect(),x=document.querySelector('[data-thread-close]').getBoundingClientRect();return Math.abs((p.right-x.right)-(x.top-p.top))<1})()"))
+                check("detached status dot is smaller", companion.evaluate_js(
+                    "getComputedStyle(document.querySelector('.mc-ax-portrait .mc-actdot')).width==='14px'"))
+                check("avatar and header have subtle elevation", companion.evaluate_js(
+                    "['.mc-ax-portrait','.mc-chat-heading'].every(s=>getComputedStyle(document.querySelector(s)).boxShadow!=='none')"))
                 check("resize grip available", companion.evaluate_js(
                     "!document.querySelector('[data-thread-resize]').hidden"))
                 # Exercise the real Windows sizing loop without moving the user's cursor.
@@ -205,6 +259,7 @@ def run(output):
                 companion.evaluate_js("document.getElementById('mc-msg').value='Draft stays here';mcAutosize();mcSyncSend()")
                 screenshot(main, "thread-main")
                 screenshot(companion, "thread-window")
+                composite(companion, "thread-window-orange")
                 companion.resize(400, 500)
                 time.sleep(.4)
                 companion.evaluate_js("mcScrollBottom()")

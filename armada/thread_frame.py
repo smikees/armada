@@ -9,6 +9,7 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes as w
 import logging
+import math
 import sys
 
 log = logging.getLogger(__name__)
@@ -74,8 +75,63 @@ def attach(window):
         install()
 
 
+def _frame_path(width, height, scale, padding=0, spread=0, offset=0):
+    """One silhouette for native clipping and shadows; coordinates match brand.css."""
+    from System.Drawing import RectangleF
+    from System.Drawing.Drawing2D import GraphicsPath, FillMode
+    path = GraphicsPath(FillMode.Winding)
+    circle = 96 + 2*spread
+    if circle > 0:
+        path.AddEllipse(float((padding+8-spread)*scale), float((padding+8-spread+offset)*scale),
+                        float(circle*scale), float(circle*scale))
+    path.StartFigure()
+    left, top = 48-spread, 24-spread
+    right, bottom = width-8+spread, height-8+spread
+    diameter = max(0, 28+2*spread)
+    if diameter:
+        for x, y, angle in ((left, top, 180), (right-diameter, top, 270),
+                            (right-diameter, bottom-diameter, 0), (left, bottom-diameter, 90)):
+            path.AddArc(float((padding+x)*scale), float((padding+y+offset)*scale),
+                        float(diameter*scale), float(diameter*scale), float(angle), 90.)
+    else:
+        path.AddRectangle(RectangleF(float((padding+left)*scale), float((padding+top+offset)*scale),
+                                    float((right-left)*scale), float((bottom-top)*scale)))
+    path.CloseFigure()
+    return path
+
+
+def shape(window):
+    """Clip only the detached thread; Alexander retains his existing geometry."""
+    if sys.platform != "win32":
+        return
+    from System import Action
+    from System.Drawing import Region
+    native = window.native
+    def apply():
+        if native.IsDisposed:
+            return
+        scale = float(native._scale) or 1
+        # Stay inside WebView's antialiased CSS edge so the underlying white
+        # WinForms surface cannot show as a hairline around the transparent frame.
+        path = _frame_path(native.ClientSize.Width/scale, native.ClientSize.Height/scale, scale, spread=-.5)
+        try:
+            old = native.Region
+            native.Region = Region(path)
+            if old is not None:
+                old.Dispose()
+        finally:
+            path.Dispose()
+    if native.InvokeRequired:
+        native.Invoke(Action(apply))
+    else:
+        apply()
+
+
 class _Shadow:
-    PAD = 24
+    PAD = 96
+    # Fit to the supplied Windows reference on a plain orange background:
+    # a faint upper ambient edge plus a broad, downward shadow.
+    LAYERS = ((.08, 5.5, -12), (.32, 19.5, 26.5))
 
     def __init__(self, native):
         self.native = native
@@ -103,25 +159,8 @@ class _Shadow:
             self.close()
             raise
 
-    def _path(self, width, height, scale, spread=0, offset=0):
-        from System.Drawing.Drawing2D import GraphicsPath, FillMode
-        path = GraphicsPath(FillMode.Winding)
-        pad = self.PAD
-        def arc(x, y, diameter, angle):
-            path.AddArc(float((pad+x-spread)*scale), float((pad+y-spread+offset)*scale),
-                        float((diameter+2*spread)*scale), float((diameter+2*spread)*scale), float(angle), 90.)
-        path.AddEllipse(float((pad+8-spread)*scale), float((pad+8-spread+offset)*scale),
-                        float((96+2*spread)*scale), float((96+2*spread)*scale))
-        path.StartFigure()
-        left, top, right, bottom, diameter = 48, 40, width-8, height-8, 28
-        for x,y,angle in ((left,top,180),(right-diameter,top,270),
-                          (right-diameter,bottom-diameter,0),(left,bottom-diameter,90)):
-            arc(x,y,diameter,angle)
-        path.CloseFigure()
-        return path
-
     def _draw(self, width, height, scale):
-        from System.Drawing import Bitmap, Color, Graphics, SolidBrush
+        from System.Drawing import Bitmap, Color, Graphics, SolidBrush, Region
         from System.Drawing.Drawing2D import SmoothingMode, CompositingMode
         from System.Drawing.Imaging import PixelFormat
         bitmap = Bitmap(round((width+2*self.PAD)*scale), round((height+2*self.PAD)*scale),
@@ -129,26 +168,48 @@ class _Shadow:
         graphics = Graphics.FromImage(bitmap)
         try:
             graphics.Clear(Color.Transparent)
-            graphics.SmoothingMode = SmoothingMode.AntiAlias
-            # Overlapping translucent silhouettes create a soft edge with an 8px drop.
-            for spread in range(18, -1, -1):
-                path = self._path(width, height, scale, spread, 8)
-                brush = SolidBrush(Color.FromArgb(3 if spread > 8 else 5, 0, 0, 0))
+            for opacity, sigma, offset in self.LAYERS:
+                layer = Bitmap(bitmap.Width, bitmap.Height, PixelFormat.Format32bppPArgb)
+                painter = Graphics.FromImage(layer)
                 try:
-                    graphics.FillPath(brush, path)
+                    painter.Clear(Color.Transparent)
+                    painter.CompositingMode = CompositingMode.SourceCopy
+                    # Gaussian alpha already smooths the edge. SourceCopy plus GDI+
+                    # antialiasing would overwrite the previous contour with half-alpha seams.
+                    painter.SmoothingMode = getattr(SmoothingMode, "None")
+                    # Nested silhouettes assign a Gaussian alpha falloff, rather than
+                    # stacking uniform-opacity bands with a visible outer cutoff.
+                    last_alpha = -1
+                    reach = math.ceil(3*sigma)
+                    for spread in range(reach, -reach-1, -1):
+                        alpha = round(255*opacity*.5*math.erfc(spread/(math.sqrt(2)*sigma)))
+                        if alpha == last_alpha:
+                            continue
+                        last_alpha = alpha
+                        path = _frame_path(width, height, scale, self.PAD, spread, offset)
+                        brush = SolidBrush(Color.FromArgb(alpha, 0, 0, 0))
+                        try:
+                            painter.FillPath(brush, path)
+                        finally:
+                            brush.Dispose()
+                            path.Dispose()
+                    graphics.DrawImageUnscaled(layer, 0, 0)
                 finally:
-                    brush.Dispose()
-                    path.Dispose()
-            # No shadow pixels over the owner, including its portrait and crescent.
+                    painter.Dispose()
+                    layer.Dispose()
+            # Clear the *exact* owner region. Expanding this mask by even one pixel
+            # leaves a bright desktop-coloured seam between the frame and its shadow.
             graphics.CompositingMode = CompositingMode.SourceCopy
             graphics.SmoothingMode = getattr(SmoothingMode, "None")
-            path = self._path(width, height, scale, 1)
+            path = _frame_path(width, height, scale, self.PAD, spread=-.5)
+            region = Region(path)
+            path.Dispose()
             brush = SolidBrush(Color.Transparent)
             try:
-                graphics.FillPath(brush, path)
+                graphics.FillRegion(brush, region)
             finally:
                 brush.Dispose()
-                path.Dispose()
+                region.Dispose()
         except Exception:
             bitmap.Dispose()
             raise

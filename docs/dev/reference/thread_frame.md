@@ -18,12 +18,19 @@ Enter Windows' bottom-right sizing loop, including capture and minimum size.
 
 Install once, on the form's UI thread; a decorative failure never breaks chat.
 
+### `_frame_path(width, height, scale, padding=0, spread=0, offset=0)`
+
+One silhouette for native clipping and shadows; coordinates match brand.css.
+
+### `shape(window)`
+
+Clip only the detached thread; Alexander retains his existing geometry.
+
 ### class `_Shadow`
 
 —
 
 - `_Shadow.__init__(self, native)` — —
-- `_Shadow._path(self, width, height, scale, spread=0, offset=0)` — —
 - `_Shadow._draw(self, width, height, scale)` — —
 - `_Shadow.refresh(self)` — —
 - `_Shadow._upload(self, bitmap, left, top)` — —

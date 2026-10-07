@@ -17,10 +17,11 @@ def render(root, agent, thread):
     _clear_thread_unread(Path(context.root) / "agents" / a.id, thread)
     classes = "mc-ax-window-root" + (" armada-dark" if dark_default() else "")
     owner = str((appconfig.load().get("user") or {}).get("name") or "You")
+    realm_name = E(reader.read(context.root).name)
     heading = (
-        f'<div class="mc-ax-portrait">{_portrait(root, a, 88, dot=True)}</div>'
+        f'<div class="mc-ax-portrait">{_portrait(root, a, 88, dot=True, dot_grow=-5)}</div>'
         f'<div class="mc-thread-identity"><span class="mc-ax-name">{E(a.display)}</span>'
-        f'<span class="mc-ax-subtitle" title="{E(reader.read(context.root).name)}">{E(reader.read(context.root).name)}</span></div>'
+        f'<span class="mc-ax-subtitle" title="{realm_name}">{realm_name}</span></div>'
         f'<button type="button" class="mc-iconbtn" title="Close window" aria-label="Close window" data-thread-close>{_icon("x",16)}</button>'
     )
     return (

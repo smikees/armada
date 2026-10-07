@@ -189,8 +189,8 @@ class _ThreadCompanionAPI(_AlexanderCompanionAPI):
 
 
 def _shape_thread(window):
-    _shape_alexander(window)
-    from .thread_frame import attach
+    from .thread_frame import shape, attach
+    shape(window)
     attach(window)
 
 

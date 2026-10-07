@@ -12,11 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.89** refines detached thread windows with a compact header, text-only message
-attribution, a corner resize grip and a native soft shadow. Detach thread now lives in the
-thread’s three-dot menu. [Verification](dev/RELEASE_0_99_89.md) records native interaction and
-release checks. The capture, startup and recovery fixes from [0.99.88](dev/RELEASE_0_99_88.md)
-and the scheduler supervision from [0.99.87](dev/RELEASE_0_99_87.md) remain in place.
+Version **0.99.90** polishes detached thread windows with a wider Windows-style shadow,
+a seamless frame edge, a lower avatar profile, subtle header elevation and balanced close-button
+spacing. [Verification](dev/RELEASE_0_99_90.md) records the visual reference comparison and
+native checks. The detached conversation controls from [0.99.89](dev/RELEASE_0_99_89.md),
+capture and recovery work from [0.99.88](dev/RELEASE_0_99_88.md), and scheduler supervision
+from [0.99.87](dev/RELEASE_0_99_87.md) remain in place.
 Clean-Sandbox GUI acceptance remains open.
 
 ## Implemented foundations
