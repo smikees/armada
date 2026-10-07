@@ -314,7 +314,7 @@ class SettingsRoutes:
         from .. import schedsvc
         if schedsvc.status(self.realm)["running"]:
             return {"ok": True, "already": True}
-        return schedsvc.start()
+        return schedsvc.retry_start()
 
     def _notify_test(self, body: dict) -> dict:
         """Send a sample notification down ONE channel, so 'does this actually reach me?' can be

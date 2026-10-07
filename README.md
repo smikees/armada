@@ -24,8 +24,8 @@ see what each one is being told before it answers.
 > **Status: beta, Windows only.** ARMADA is in a small invited beta. Expect rough edges — and
 > please report them.
 
-**Current release: [v0.99.86 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.86).**
-[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.86/ARMADA-Setup-0.99.86.exe)
+**Current release: [v0.99.87 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.87).**
+[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.87/ARMADA-Setup-0.99.87.exe)
 or browse [all releases](https://github.com/smikees/armada/releases).
 Upgrading from 0.99.81 or earlier requires running this full installer once to add
 browser-verified startup recovery. It preserves realms and settings. Later compatible
@@ -45,14 +45,14 @@ services you've connected. Read [Staying safe](armada/docs/user/safety.md) first
   offers installation and login actions. Model access and quotas depend on your provider account.
 
 The beta is installed with `ARMADA-Setup-<version>.exe` (per user, no admin rights needed; it
-brings its own Python). The published 0.99.86 installer is unsigned: Windows may show a
+brings its own Python). The published 0.99.87 installer is unsigned: Windows may show a
 SmartScreen warning. Windows Smart App Control
 or an organization's Application Control policy can block its extracted temporary executable
 with error 4551. This is not the ordinary SmartScreen warning; it has no "Run anyway" override.
 This beta does not fix that restriction; publisher signing remains pending. Keep Windows protections enabled.
 Packaged startup and update-recovery checks passed on the developer's machine. Clean Windows Sandbox GUI
 acceptance remains open because Microsoft's WebView2 prerequisite installer failed there;
-see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.86).
+see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.87).
 The installer is built with
 `tools/build_installer.py` ([ADR-009](docs/adr/ADR-009-installer.md)).
 

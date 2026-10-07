@@ -33,6 +33,8 @@ def _hold_lock(r: Path, pid: int):
 @pytest.fixture(autouse=True)
 def _reset_spawn(monkeypatch):
     monkeypatch.setattr(schedsvc, "_last_spawn", 0.0)
+    monkeypatch.setattr(schedsvc, "_child", None)
+    monkeypatch.setattr(schedsvc, "_watchdog", None)
 
 
 class _Popen:

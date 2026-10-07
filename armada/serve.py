@@ -618,7 +618,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
                         return
                     try:
                         required = bool(self.realm and schedsvc.autostart_enabled() and
-                                        not setupflow.needs_setup(self.realm))
+                                        str(Path(self.realm).resolve()) in schedsvc.eligible_realms(self.realm))
                         plan = restart.begin(updater.ROOT, self.realm, self.server.server_address[1],
                                              updater.staged_version() or updater.code_on_disk(), required)
                     except Exception as exc:

@@ -11,6 +11,8 @@ import logging
 import os
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 from . import appconfig, util
@@ -46,8 +48,11 @@ def status(realm_root) -> dict:
     count of jobs that depend on it running."""
     from . import scheduler
     h = scheduler.lock_holder(realm_root)
+    recovery = _watchdog.snapshot(realm_root) if _watchdog else {'recovery': 'unmanaged', 'action_required': not bool(h)}
+    if h:
+        recovery.update(recovery='running', action_required=False, error='')
     return {"running": bool(h), "pid": (h or {}).get("pid"), "started": (h or {}).get("started"),
-            "scheduled": scheduled_jobs(realm_root)}
+            "scheduled": scheduled_jobs(realm_root), **recovery}
 
 
 def autostart_enabled() -> bool:
@@ -68,6 +73,9 @@ def _python_for_background() -> str:
 
 _last_spawn = 0.0
 _SPAWN_GRACE = 20.0   # seconds a just-started scheduler gets to claim its lock before we'd start another
+_launch_lock = threading.RLock()
+_child = None
+_watchdog = None
 
 
 def _stop_marker(pid: int) -> Path:
@@ -81,8 +89,17 @@ def start() -> dict:
     doesn't spawn a second process: a new scheduler takes a moment to claim its lock, and until it
     does the realm still reads as not running. `run_daemon` would refuse the duplicate anyway —
     this just avoids the pointless process."""
-    global _last_spawn
-    import time
+    with _launch_lock:
+        if _watchdog and _watchdog.stop.is_set():
+            return {"ok": False, "error": "ARMADA is closing."}
+        return _start_locked()
+
+
+def _start_locked() -> dict:
+    global _last_spawn, _child
+    # A live child may still be claiming newly registered realms. Never launch over it.
+    if _child and getattr(_child, 'poll', lambda: 0)() is None:
+        return {"ok": True, "starting": True, "pid": _child.pid}
     if time.monotonic() - _last_spawn < _SPAWN_GRACE:
         return {"ok": True, "starting": True}
     _stop_marker(os.getpid()).unlink(missing_ok=True)
@@ -102,13 +119,18 @@ def start() -> dict:
         swallowed(log, "start: could not launch the scheduler")
         return {"ok": False, "error": f"Couldn't start the scheduler: {e}"[:200]}
     _last_spawn = time.monotonic()
+    _child = p
     log.info("started the scheduler (pid %s)", p.pid)
     return {"ok": True, "starting": True, "pid": p.pid}
 
 
 def stop_for_app_exit() -> None:
     """Stop all schedulers attached to this app, including pre-tray legacy daemons."""
-    import time
+    if _watchdog:
+        _watchdog.stop.set()
+        # Serialize exit with an already admitted spawn before writing the stop marker.
+        with _launch_lock:
+            pass
     from . import activerealm, scheduler
     marker = _stop_marker(os.getpid())
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -152,4 +174,127 @@ def ensure_running(realm_root) -> dict:
         return {"ok": True, "already": True, **st}
     if not autostart_enabled():
         return {"ok": True, "skipped": "autostart off", **st}
+    return start()
+
+
+def eligible_realms(initial="") -> list[str]:
+    """Ready, unarchived realms, independent of which realm the window displays."""
+    from . import activerealm, realmops, setupflow
+    roots = activerealm.every()
+    if initial and activerealm.is_realm(initial):
+        roots = [initial, *roots]
+    return list(dict.fromkeys(str(Path(p).resolve()) for p in roots
+                             if not setupflow.needs_setup(p) and not realmops.archived(p)))
+
+
+def ready() -> bool:
+    """Update health requires a real scheduler lease in every eligible realm."""
+    if not autostart_enabled():
+        return True
+    roots = eligible_realms(_watchdog.initial if _watchdog else "")
+    from . import scheduler
+    return all(scheduler.lock_holder(root) for root in roots)
+
+
+class Supervisor:
+    """Bounded, window-independent recovery; lease acquisition proves readiness, not Popen."""
+    MAX_ATTEMPTS = 3
+
+    def __init__(self, initial=""):
+        self.initial = initial
+        self.stop = threading.Event()
+        self.lock = threading.RLock()
+        self.states = {}
+        self.errors = 0
+        self.error = ""
+
+    def snapshot(self, root):
+        with self.lock:
+            state = dict(self.states.get(str(Path(root).resolve()), {}))
+            if self.errors >= self.MAX_ATTEMPTS:
+                return {'recovery': 'failed', 'action_required': True, 'error': self.error}
+            phase = state.get('recovery', 'starting')
+            return {'recovery': phase, 'action_required': phase in ('failed', 'disabled'),
+                    'attempts': state.get('attempts', 0), 'error': state.get('error', '')}
+
+    def retry(self):
+        with self.lock:
+            self.states.clear()
+            self.errors = 0
+            self.error = ""
+
+    def step(self):
+        from . import scheduler, updater
+        now = time.monotonic()
+        roots = eligible_realms(self.initial)
+        with self.lock:
+            self.states = {str(Path(root).resolve()): self.states.get(str(Path(root).resolve()), {})
+                           for root in roots}
+            paused = updater.apply_requested() or self.stop.is_set()
+            missing = []
+            for root, state in self.states.items():
+                if scheduler.lock_holder(root):
+                    state.clear()
+                    state['recovery'] = 'running'
+                elif paused or not autostart_enabled():
+                    state.clear()
+                    state['recovery'] = 'paused' if paused else 'disabled'
+                else:
+                    if state.get('recovery') in ('running', 'paused', 'disabled'):
+                        state.clear()
+                    state.setdefault('recovery', 'starting')
+                    if now < state.get('next', 0) or state['recovery'] == 'failed':
+                        continue
+                    if state.get('attempts', 0) >= self.MAX_ATTEMPTS:
+                        state['recovery'] = 'failed'
+                        state['error'] = state.get('error') or self.failure_reason(root)
+                        log.error('Scheduler recovery exhausted: %s', state['error'])
+                    else:
+                        missing.append(state)
+            if missing and not self.stop.is_set():
+                result = start()
+                for state in missing:
+                    state.update(recovery='recovering', attempts=state.get('attempts', 0)+1,
+                                 next=now+_SPAWN_GRACE, error=result.get('error', ''))
+                    if not result['ok'] and state['attempts'] >= self.MAX_ATTEMPTS:
+                        state['recovery'] = 'failed'
+            self.errors = 0
+            self.error = ""
+
+    @staticmethod
+    def failure_reason(root):
+        code = getattr(_child, 'poll', lambda: None)() if _child else None
+        if code is not None:
+            return f'Scheduler process exited with code {code}; see scheduler.log.'
+        return f'The scheduler did not acquire its lease for {Path(root).name} after three recovery attempts; see scheduler.log.'
+
+    def run(self):
+        while not self.stop.is_set():
+            try:
+                self.step()
+            except Exception as exc:  # noqa — report failures without losing the recovery loop
+                with self.lock:
+                    self.errors += 1
+                    self.error = str(exc)
+                log.exception('Scheduler supervision failed')
+            with self.lock:
+                settled = self.errors >= self.MAX_ATTEMPTS or all(
+                    state.get('recovery') in ('running', 'failed', 'disabled', 'paused')
+                    for state in self.states.values())
+            self.stop.wait(15 if settled else 2)
+
+
+def watch(initial="") -> Supervisor:
+    """One background supervisor for the desktop lifetime, including time spent in the tray."""
+    global _watchdog
+    with _launch_lock:
+        if _watchdog is None or _watchdog.stop.is_set():
+            _watchdog = Supervisor(initial)
+            threading.Thread(target=_watchdog.run, name='scheduler-supervisor', daemon=True).start()
+        return _watchdog
+
+
+def retry_start() -> dict:
+    if _watchdog:
+        _watchdog.retry()
     return start()

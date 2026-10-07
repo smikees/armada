@@ -12,10 +12,10 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.86** adds a saved reference font size and Ctrl+/Ctrl−/Ctrl0 text-size
-shortcuts across the app and Alexander. [Verification](dev/RELEASE_0_99_86.md) covers
-live browser typography, draft preservation, persistence and window synchronization.
-The account-wide desktop guard and isolated release-test cleanup remain in force.
+Version **0.99.87** supervises scheduler startup and crash recovery across ready
+realms, keeps normal startup quiet, and gates update acknowledgement on real scheduler
+leases. [Verification](dev/RELEASE_0_99_87.md) includes a real background daemon,
+multi-realm ownership and forced scheduler exit in the native upgrade test.
 Clean-Sandbox GUI acceptance remains open.
 
 ## Implemented foundations

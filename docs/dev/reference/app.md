@@ -112,3 +112,7 @@ Open ARMADA in a native window. Blocks until the window is closed.
 ### `_quit_windows(main, *, close_main=True)`
 
 Exit the GUI. An owner-bound scheduler stops when this process exits.
+
+### `_confirm_startup_health(timeout=70)`
+
+A rendered desktop cannot acknowledge an update before its schedulers are ready.

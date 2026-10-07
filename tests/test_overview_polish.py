@@ -144,8 +144,9 @@ def test_native_splash_exists_before_waiting_for_server(ready):
          patch.object(app, '_fatal') as fatal, patch.object(app.threading, 'Thread'), \
          patch('armada.serve.port_owner', return_value=0), patch('armada.tray.Tray'), \
          patch('armada.startup_splash.LoadingPanel', return_value=loader) as loading_panel, \
-         patch('armada.schedsvc.stop_for_app_exit'):
+         patch('armada.schedsvc.stop_for_app_exit'), patch('armada.schedsvc.watch') as supervision:
         assert app.run('Test') == (0 if ready else 1)
+        supervision.assert_called_once_with('Test')
     assert order == ['wait']
     webview.create_window.assert_called_once()
     loading_panel.assert_called_once_with(window)

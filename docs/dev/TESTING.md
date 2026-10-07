@@ -2,17 +2,13 @@
 
 ## Current release verification
 
-v0.99.86 (2026-10-07) adds proportional reference text sizing and saved keyboard
-shortcuts. Controller tests cover repeats, serialized/coalesced saves, write failures,
-unsaved previews, delayed refreshes and companion synchronization. The real packaged
-upgrade gate checks computed CSS/inline/SVG typography, native zoom isolation, draft
-preservation and saved size across navigation and Alexander.
-[Release verification](RELEASE_0_99_86.md) records the final gates.
-The published 0.99.86 isolated suite passed 3,187 tests with five skips. Exact-source
-Windows CI passed after rerunning an unrelated Node harness process timeout;
-the initial failure remains in the verification record. Staged native checks
-passed all five recovery scenarios, 16 browser-session checks and 54 packaged
-upgrade/typography/restart/cleanup checks.
+v0.99.87 (2026-10-07) adds automatic scheduler supervision and quiet startup.
+Tests cover delayed leases, crashes, failed launches, bounded recovery, duplicate
+prevention, update shutdown, setup/archive exclusions, disabled autostart, and
+update health acknowledgement. The real packaged upgrade gate now enables an
+actual isolated scheduler, verifies multiple realm leases, and deliberately stops
+only its owned child to verify automatic recovery in a hidden desktop.
+[Release verification](RELEASE_0_99_87.md) records the final gates.
 
 ## Running
 

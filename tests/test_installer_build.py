@@ -61,7 +61,7 @@ def test_the_shortcut_carries_the_same_app_id_as_the_window():
 def test_installs_per_user_and_starts_the_scheduler_with_the_app():
     assert "PrivilegesRequired=lowest" in ISS
     assert re.search(r'ValueName: "ARMADA Scheduler"; Flags: deletevalue', ISS)
-    assert "schedsvc.ensure_running(root)" in (ROOT / "armada" / "app.py").read_text(encoding="utf-8")
+    assert "schedsvc.watch(realm)" in (ROOT / "armada" / "app.py").read_text(encoding="utf-8")
 
 
 def test_uninstall_never_touches_the_users_data():

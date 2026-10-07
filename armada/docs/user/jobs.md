@@ -69,7 +69,10 @@ a queued retry. Legacy “Retry ×3, then alert me” choices are interpreted as
 1. Is it switched on?
 2. Is the realm paused? (the banner above)
 3. Is ARMADA open or in the tray? Scheduled jobs stop after a full quit. Opening ARMADA starts
-   its scheduler; if it isn't running, a yellow bar under the menu offers **Start it**.
+   its scheduler automatically, including after an update. A background supervisor recovers
+   unexpected scheduler exits while the app is open or in the tray. Startup and recovery do not
+   show a warning. If three recovery attempts fail, a yellow bar shows the recorded reason and
+   offers **Retry**. Automatic startup being deliberately disabled is also shown explicitly.
 4. Open the job: its last run says what happened, including the error.
 
 More in [When something goes wrong](troubleshooting.md).

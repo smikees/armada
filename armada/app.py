@@ -586,19 +586,6 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                     err["e"] = e
             threading.Thread(target=_serve, daemon=True).start()
 
-    # Scheduled jobs are fired by a separate process bound to this app's lifetime, including
-    # while the window is hidden in the tray. Start it now if it isn't running. Off a thread: nothing here should delay the
-    # window, and ensure_running never raises.
-    def _autostart_scheduler():
-        try:
-            from . import activerealm, schedsvc
-            root = activerealm.resolve(realm)
-            if root:
-                r = schedsvc.ensure_running(root)
-                log.info("scheduler on launch: %s", r)
-        except Exception:  # noqa — the window matters more than the scheduler check
-            swallowed(log, "run: scheduler autostart failed; the in-app bar will offer it")
-
     # Window title stays "ARMADA" (realm-agnostic — it doesn't change when you switch realms).
     # text_select=True: pywebview disables document text selection by default (app-like), which
     # stopped you selecting/copying text out of thread messages. Enable it so the cockpit behaves
@@ -648,15 +635,12 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                         proof.get('data', {}).get('nonce') != instance.current().get('nonce') or
                         proof.get('data', {}).get('version') != __version__):
                     return
-                if updater.installed():
-                    import armada_bootstrap as bootstrap
-                    bootstrap.confirm_health(updater.ROOT, __version__)
                 instance.desktop_ready()
                 browser_ready.set()
                 loader.ready()
                 if saved.get('draft') and main.evaluate_js('location.pathname+location.search') == saved.get('route'):
                     main.evaluate_js("(()=>{const e=document.getElementById('mc-msg');if(e&&!e.value){e.value="+json.dumps(saved['draft'])+";e.dispatchEvent(new Event('input'));}})()")
-                threading.Thread(target=_autostart_scheduler, daemon=True).start()
+                threading.Thread(target=_confirm_startup_health, daemon=True).start()
             else:
                 painted.set()
     main.events.loaded += _page_loaded
@@ -692,6 +676,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
         _apply_window_icon()
         try:
             _prepare_server()
+            from . import schedsvc
+            schedsvc.watch(realm)
         except Exception as exc:
             logging.getLogger(__name__).exception('Desktop server startup failed')
             err['startup_failed'] = True
@@ -752,3 +738,25 @@ def _quit_windows(main, *, close_main=True):
             log.debug("Alexander window already closed", exc_info=True)
     if close_main:
         main.destroy()
+
+
+def _confirm_startup_health(timeout=70):
+    """A rendered desktop cannot acknowledge an update before its schedulers are ready."""
+    from . import updater, schedsvc, __version__
+    if not updater.installed():
+        return
+    import armada_bootstrap as bootstrap
+    if not (updater.ROOT / bootstrap.HEALTH).exists():
+        return
+    deadline = time.monotonic() + timeout
+    try:
+        while not _quitting:
+            if schedsvc.ready():
+                bootstrap.confirm_health(updater.ROOT, __version__)
+                return
+            if time.monotonic() >= deadline:
+                log.error('Update health was not acknowledged: scheduler recovery did not complete.')
+                return  # The independent restart monitor retains rollback/recovery responsibility.
+            time.sleep(.2)
+    except Exception:
+        log.exception('Could not confirm scheduler and desktop startup health')

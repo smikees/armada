@@ -102,6 +102,8 @@ def readiness_error(plan):
         return 'The replacement desktop has not loaded its app page.'
     if plan['scheduler_required'] and not reading(endpoint, 'api/scheduler-status').get('running'):
         return 'The required scheduler has not started.'
+    if plan.get('root') and (Path(plan['root'])/'.armada-update-health.json').exists():
+        return 'Desktop and scheduler startup health has not been acknowledged.'
     return ''
 
 

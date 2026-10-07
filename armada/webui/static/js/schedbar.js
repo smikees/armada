@@ -1,60 +1,50 @@
-// Scheduler banner (launch plan 5.5).
-//
-// Scheduled jobs are fired by a separate background process, so the window being open says nothing
-// about whether they'll run. When that process isn't running and this realm has jobs on a schedule,
-// say so under the nav on every page — the failure it prevents is "my jobs silently stopped".
-// Nothing to say when the realm has no scheduled jobs: a bar about nothing teaches people to ignore
-// bars.
+// Recovery belongs to the desktop supervisor, including while hidden in the tray.
+// The UI reports only failures that need the owner's action, not normal startup.
 (function(){
   const BAR='mc-schedbar';
-  let polling=null;
-
-  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
+  let timer=null,busy=false;
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function paint(d){
-    const el=document.getElementById(BAR); if(!el) return;
-    if(!d || d.running || !d.scheduled){ el.innerHTML=""; return; }
+    const el=document.getElementById(BAR);if(!el)return;
+    if(!d||d.running||!d.scheduled||d.action_required===false){el.innerHTML='';return;}
     const n=d.scheduled;
-    const msg="The scheduler isn't running — "+n+" scheduled job"+(n===1?"":"s")+" won't run until it is.";
-    el.innerHTML =
-      '<div class="mc-banner mc-banner-warn" role="status">'+
+    const prefix=d.recovery==='disabled'?'Automatic scheduler startup is turned off':
+      d.recovery==='failed'?"ARMADA couldn't restart the scheduler automatically":"The scheduler isn't running";
+    const msg=prefix+' — '+n+' scheduled job'+(n===1?'':'s')+" won't run until it is.";
+    el.innerHTML='<div class="mc-banner mc-banner-warn" role="status">'+
       '<span class="mc-banner-msg">'+esc(msg)+'</span>'+
-      '<span id="mc-schedmsg" class="mc-banner-sub"></span>'+
+      '<span id="mc-schedmsg" class="mc-banner-sub">'+esc(d.error||'')+'</span>'+
       '<span class="mc-banner-act"><button class="btn btn-sm" id="mc-schedbtn" '+
-      'onclick="mcSchedStart(this)">Start it</button></span></div>';
+      'onclick="mcSchedStart(this)">'+(d.recovery==='failed'?'Retry':'Start it')+'</button></span></div>';
   }
-
   async function check(){
+    if(busy)return null;
+    busy=true;
+    let reading=null;
     try{
-      const r=await(await fetch('/api/scheduler-status',{cache:'no-store'})).json();
-      paint(r);
-      return r;
-    }catch(e){ return null; }
+      const response=await fetch('/api/scheduler-status',{cache:'no-store'});
+      if(!response.ok)throw Error('Scheduler status unavailable.');
+      reading=await response.json();paint(reading);
+      return reading;
+    }catch(e){return null;}
+    finally{
+      busy=false;clearTimeout(timer);
+      const recovering=reading&&!reading.running&&reading.action_required===false&&reading.recovery!=='paused';
+      timer=setTimeout(()=>{if(!document.hidden)check();else timer=setTimeout(check,60000);},recovering?2000:60000);
+    }
   }
   window.mcSchedCheck=check;
-
   window.mcSchedStart=async function(btn){
-    const m=document.getElementById('mc-schedmsg');
-    if(btn) btn.disabled=true;
-    if(m) m.textContent='starting…';
+    const message=document.getElementById('mc-schedmsg');
+    if(btn)btn.disabled=true;
+    if(message)message.textContent='Starting…';
     try{
-      const r=await(await fetch('/api/scheduler-start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
-      if(!r.ok){ if(m) m.textContent=r.error||"Couldn't start the scheduler."; if(btn) btn.disabled=false; return; }
-      // A new scheduler takes a moment to claim its realms; poll briefly until it has.
-      const started=Date.now();
-      if(polling) clearInterval(polling);
-      polling=setInterval(async function(){
-        const s=await check();
-        if(s && s.running){ clearInterval(polling); polling=null; return; }
-        if(Date.now()-started>30000){ clearInterval(polling); polling=null;
-          const mm=document.getElementById('mc-schedmsg'), b=document.getElementById('mc-schedbtn');
-          if(mm) mm.textContent="It didn't start. See Help → Troubleshooting.";
-          if(b) b.disabled=false; }
-      },2000);
-    }catch(e){ if(m) m.textContent="Couldn't start the scheduler: "+e; if(btn) btn.disabled=false; }
+      const response=await fetch('/api/scheduler-start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw Error(result.error||"Couldn't start the scheduler.");
+      await check();
+    }catch(error){if(message)message.textContent=error.message;if(btn)btn.disabled=false;}
   };
-
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)check();});
   check();
-  setInterval(function(){ if(!document.hidden && !polling) check(); }, 60000);
-  document.addEventListener('visibilitychange',function(){ if(!document.hidden && !polling) check(); });
 })();

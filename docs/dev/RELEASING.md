@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.86. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.87. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -167,7 +167,7 @@ Never commit build outputs or signing credentials.
 
 ## Release boundaries
 
-The current published installer (0.99.86) lacks Authenticode signatures and can fail with error 4551
+The current published installer (0.99.87) lacks Authenticode signatures and can fail with error 4551
 on protected machines. Version 0.99.75 used the explicit one-release exception below; 0.99.76 continues the owner's
 requested unsigned beta distribution as a recorded maintenance-release deviation
 ([0.99.76 verification](RELEASE_0_99_76.md)); 0.99.77 follows the same recorded

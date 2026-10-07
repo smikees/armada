@@ -1,5 +1,21 @@
 # When something goes wrong
 
+## Scheduler recovery
+
+Opening ARMADA, including after an update, starts its background scheduler automatically.
+The app supervises all ready, unarchived realms even while hidden in the tray. It retries
+failed starts and unexpected exits without asking you. A process being launched is not proof
+that scheduling is ready: it must acquire the real realm leases. A startup warning appears
+only after three recovery attempts fail, with the recorded error and a **Retry** button.
+Use that button after addressing the stated cause; `scheduler.log` has more detail. If automatic
+startup was deliberately disabled, the banner says so and offers **Start it**.
+
+Updates are acknowledged as healthy after the app page and eligible schedulers are ready.
+Scheduled work stays paused until that acknowledgement. If readiness fails, the existing
+restart monitor keeps responsibility for recovery or rollback. Full quit still stops scheduling;
+normal close keeps it running in the tray when that setting is enabled. Recovery does not replay
+interrupted jobs with uncertain outcomes.
+
 The problems people actually run into, newest lessons first. If yours isn't here, the logs are in
 `%USERPROFILE%\.armada\logs\` — `armada.log` for the app, `scheduler.log` for scheduled jobs.
 

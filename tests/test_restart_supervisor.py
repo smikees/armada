@@ -66,6 +66,19 @@ def test_handover_verifies_version_desktop_and_scheduler(tmp_path, monkeypatch):
     assert not worker.verify(plan), 'An old instance cannot prove successful restart.'
 
 
+def test_handover_keeps_waiting_until_scheduler_health_is_acknowledged(tmp_path, monkeypatch):
+    marker=tmp_path/'instance.json'
+    marker.write_text(json.dumps({'pid':os.getpid()}))
+    plan={'instance':str(marker),'owner_pid':0,'version':'1.2.3','scheduler_required':True,'root':str(tmp_path)}
+    monkeypatch.setattr(worker,'reading',lambda plan,route:
+        {'version':'1.2.3','desktop_ready':True} if route=='api/instance' else {'running':True})
+    health=tmp_path/'.armada-update-health.json';health.write_text('{}')
+    assert not worker.verify(plan)
+    assert 'health' in worker.readiness_error(plan)
+    health.unlink()
+    assert worker.verify(plan)
+
+
 @pytest.mark.parametrize('port_changed',[False,True])
 def test_monitor_follows_the_successor_to_a_new_port_and_checks_its_nonce(tmp_path,port_changed):
     from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -194,6 +207,8 @@ class Handler(BaseHTTPRequestHandler):
 server = HTTPServer(('127.0.0.1', 0), Handler)
 (data/'instance.json').write_text(json.dumps({'pid':os.getpid()}))
 (data/'auth.json').write_text(json.dumps({'token':'test-secret', 'port':server.server_port}))
+import armada_bootstrap as b
+b.confirm_health(Path.cwd(), __version__)
 server.serve_forever()
 ''')
     staged = root/'armada.staged'

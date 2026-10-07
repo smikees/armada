@@ -174,12 +174,24 @@ def child(successor=None):
     app._fatal = lambda message:(_ for _ in ()).throw(RuntimeError(message))
     assets = Path(config['candidate'])
     updater._fetch = lambda url,limit:(assets/url.rsplit('/',1)[-1]).read_bytes()
-    appconfig.save({'auto_update':False,'scheduler_autostart':False,'keep_in_tray':False})
+    appconfig.save({'auto_update':False,'scheduler_autostart':True,'keep_in_tray':False})
     realm = home/'Test realm'
     (realm/'agents/captain').mkdir(parents=True,exist_ok=True)
     if not (realm/'realm.json').exists():
         (realm/'realm.json').write_text(json.dumps({'name':'Upgrade test','default_engine':'codex','members':['captain']}))
         (realm/'agents/captain/agent.json').write_text(json.dumps({'id':'captain','display':'Captain','coordinator':True}))
+    from armada import realm_registry, sysjobs
+    other = home/'Other ready realm'
+    other.mkdir(exist_ok=True)
+    (other/'realm.json').write_text('{"name":"Other ready realm","members":[]}')
+    for folder in (realm, other):
+        realm_registry.ensure(str(folder), folder.name)
+        # Real daemon/leases, but no provider, upkeep or external-delivery work.
+        for job in sysjobs.JOBS:
+            sysjobs.set_enabled(folder, job['id'], False)
+    jobs = realm/'agents/captain/jobs'
+    jobs.mkdir(exist_ok=True)
+    (jobs/'future.json').write_text(json.dumps({'id':'future','cron':'0 0 29 2 *','enabled':True}))
     # This shim is copied with the normal supervisor. It propagates only this
     # isolated probe environment and wraps its successor to reinject fake providers.
     shim = home/'desktop_launch.py'
@@ -218,6 +230,32 @@ def child(successor=None):
                 info = js(window,"fetch('/api/instance').then(r=>r.json())")
             check('initial browser startup acknowledged',info.get('desktop_ready'))
             check(f"correct installed version: {info.get('version')} (expected {expected})",info['version']==expected)
+            deadline = time.monotonic()+45
+            while time.monotonic()<deadline:
+                scheduler_status=js(window,"fetch('/api/scheduler-status').then(r=>r.json())")
+                if scheduler_status.get('running'):break
+                time.sleep(.2)
+            check('real scheduler automatically acquired the active realm',scheduler_status.get('running'))
+            from armada import scheduler, schedsvc
+            check('real scheduler acquired another registered realm',bool(scheduler.lock_holder(other)))
+            if successor or config.get('scheduler_recovery'):
+                check('normal startup has no scheduler warning',not window.evaluate_js(
+                    'document.getElementById("mc-schedbar").innerText').strip())
+                original_pid=scheduler_status['pid']
+                child_process=schedsvc._child
+                check('recovery test owns the actual scheduler child',child_process and child_process.pid==original_pid)
+                child_process.terminate()
+                child_process.wait(timeout=10)
+                scheduler_status=js(window,"fetch('/api/scheduler-status').then(r=>r.json())")
+                check('scheduler loss stays quiet during automatic recovery',not scheduler_status.get('action_required'))
+                deadline=time.monotonic()+45
+                while time.monotonic()<deadline:
+                    scheduler_status=js(window,"fetch('/api/scheduler-status').then(r=>r.json())")
+                    if scheduler_status.get('running') and scheduler_status['pid']!=original_pid:break
+                    time.sleep(.2)
+                check('hidden desktop automatically replaced a stopped scheduler',
+                      scheduler_status.get('running') and scheduler_status['pid']!=original_pid)
+                check('recovered scheduler owns every registered realm',bool(scheduler.lock_holder(other)))
             font_testing = bool(successor or config.get('font_only'))
             if font_testing: font_checks(window, js, check)
             for route in ('/settings','/docs','/agent/captain/threads','/alexander'):
@@ -266,7 +304,10 @@ def child(successor=None):
                 check('normal update request',js(window,"fetch('/update',{method:'POST'}).then(r=>r.json())").get('ok'))
                 return
             check('browser acknowledged installed startup',js(window,"fetch('/api/instance').then(r=>r.json())").get('desktop_ready'))
-            check('health transaction committed',not (root/'.armada-update-health.json').exists())
+            deadline=time.monotonic()+10
+            while (root/'.armada-update-health.json').exists() and time.monotonic()<deadline:time.sleep(.1)
+            check('health transaction committed only with the real scheduler ready',
+                  not (root/'.armada-update-health.json').exists() and schedsvc.ready())
             app.save_window_state()
             check('selected thread persists in restart state',app.window_state().get('route','').startswith('/agent/captain/threads'))
             deadline = time.monotonic()+15
