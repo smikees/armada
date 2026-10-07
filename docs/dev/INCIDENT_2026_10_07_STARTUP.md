@@ -109,3 +109,11 @@ This verified the launch script without interrupting the recovered app.
 The existing installed v0.99.87 was recovered by launcher repair. At incident closure, product hardening and both new
 features awaited v0.99.88 release validation and publication. A full reboot is a
 separate acceptance check; rerunning a login script against a live app is not equivalent to one.
+
+
+## Publication follow-up — 2026-10-07
+
+[v0.99.88 was published](https://github.com/smikees/armada/releases/tag/v0.99.88) after the full
+local/CI gates and 63 packaged upgrade checks passed. The recovered installed v0.99.87 desktop
+successfully recognized and staged the signed update without being restarted. The owner can now
+choose **Restart to update**. See [release evidence](RELEASE_0_99_88.md) for source and artifact hashes.
