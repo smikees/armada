@@ -49,6 +49,17 @@ The companion's close control can destroy only its own native window.
 - `_AlexanderCompanionAPI.__init__(self)` — —
 - `_AlexanderCompanionAPI.close_window(self)` — Close Alexander without closing the cockpit or losing saved conversation history.
 
+### class `_ThreadCompanionAPI`
+
+Only this detached thread can close or resize its own frame.
+
+- `_ThreadCompanionAPI.resize_window(self)` — —
+- `_ThreadCompanionAPI.resize_step(self, dx=0, dy=0)` — —
+
+### `_shape_thread(window)`
+
+—
+
 ### `_shape_alexander(window)`
 
 Clip the Windows form to the portrait and panel; transparent margins stay click-through.

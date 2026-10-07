@@ -12,12 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.88** adds direct capture of matching MCP tool results for jobs and
-separate, synchronized thread windows. It also fixes hidden-server desktop activation,
-adds recoverable page errors, protects unreadable configuration during saves and removes
-a native close deadlock. [Verification](dev/RELEASE_0_99_88.md) records the full regression
-gate, real connector-stream fixtures and native window checks. Scheduler supervision and
-update-health checks from [0.99.87](dev/RELEASE_0_99_87.md) remain in place.
+Version **0.99.89** refines detached thread windows with a compact header, text-only message
+attribution, a corner resize grip and a native soft shadow. Detach thread now lives in the
+thread’s three-dot menu. [Verification](dev/RELEASE_0_99_89.md) records native interaction and
+release checks. The capture, startup and recovery fixes from [0.99.88](dev/RELEASE_0_99_88.md)
+and the scheduler supervision from [0.99.87](dev/RELEASE_0_99_87.md) remain in place.
 Clean-Sandbox GUI acceptance remains open.
 
 ## Implemented foundations

@@ -973,17 +973,27 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-nav-action[aria-current="page"]::after{content:"";position:absolute;bottom:0;left:-5px;right:-5px;height:2px;background:var(--color-accent)}
 .mc-system-provider-version{font-size:12px;color:var(--text-muted)}
 
-/* Thread companions inherit Alexander's native frame geometry and the shared chat pane. */
-.mc-thread-popout{flex:none;color:var(--text-muted)}
-.mc-thread-popout:hover{color:var(--color-text);background:var(--text-7)}
-.mc-thread-popout:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
-.mc-thread-window .mc-ax-head{flex:none}
+/* Detached threads retain the shared conversation controls, with a compact native header. */
+.mc-thread-detach{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:inherit;padding:6px 10px;font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.mc-thread-detach svg{color:var(--text-dim);flex:none}
+.mc-thread-detach:hover{background:var(--text-7)}
+.mc-thread-detach:focus-visible,.mc-thread-resize:focus-visible{outline:2px solid var(--color-accent);outline-offset:-2px}
 .mc-thread-window.is-window .mc-ax-portrait{background:var(--color-bg)}
-.mc-thread-window.is-window .mc-ax-portrait img{width:100%;height:100%}
-.mc-thread-window .mc-ax-name{overflow-wrap:anywhere}
-.mc-thread-window .mc-ax-subtitle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mc-thread-window-content{flex:1;min-height:0;min-width:0;overflow:hidden;border-radius:0 0 14px 14px}
-.mc-thread-window .mc-chat-heading{flex-wrap:wrap;gap:3px 10px!important}
-.mc-thread-window .mc-chat-heading>span:last-child{white-space:normal!important}
-.mc-thread-window .mc-chat-heading #mc-cttitle{flex-basis:100%}
-.mc-thread-window [data-thread-close]{align-self:flex-start;flex:none}
+.mc-thread-window.is-window .mc-ax-portrait img{width:100%;height:100%;border-radius:50%}
+.mc-thread-window-content{flex:1;min-height:0;min-width:0}
+.mc-thread-window .mc-chat-center>div:last-child{overflow:hidden;border-radius:0 0 14px 14px}
+.mc-thread-window .mc-chat-heading{position:relative;display:grid!important;grid-template-columns:minmax(0,1fr) 28px;gap:3px 8px!important;padding:8px 12px 10px 68px!important;min-height:68px;flex:none;cursor:move;user-select:none}
+.mc-thread-window .mc-thread-identity{display:flex;align-items:baseline;gap:8px;min-width:0}
+.mc-thread-window.is-window .mc-ax-name{font-size:16px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-thread-window .mc-ax-subtitle{font-size:11px;line-height:1.25;margin:0;padding-left:8px;border-left:1px solid var(--color-divider);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-thread-window .mc-chat-heading #mc-cttitle{grid-column:1;grid-row:2;font-size:16px!important;line-height:1.3;user-select:text}
+.mc-thread-window .mc-chat-heading>span:last-child{grid-column:1/-1;grid-row:3;white-space:normal!important;line-height:1.5}
+.mc-thread-window #mc-comp-wrap{flex-wrap:wrap;gap:3px!important}
+.mc-thread-window [data-thread-close]{grid-column:2;grid-row:1/3;align-self:start;cursor:pointer}
+.mc-thread-window #mc-turns{padding:14px 16px 160px!important}
+.mc-thread-window #mc-turns>.mc-turn:is([data-role="assistant"],[data-role="user"],[data-role="pending"])>div:first-child>div:first-child{display:none!important}
+.mc-thread-window #mc-turns>.mc-turn[data-role="user"]>div:first-child>div:last-child{max-width:88%!important}
+.mc-thread-window #mc-turns>.mc-turn[data-role="user"]>div:first-child>div:last-child::before{content:var(--thread-owner,"You");display:block;text-align:right;font-size:11px;line-height:1.5;color:var(--text-muted);margin-bottom:2px}
+.mc-thread-resize{position:absolute;right:2px;bottom:2px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--text-muted);cursor:nwse-resize;touch-action:none}
+.mc-thread-resize[hidden]{display:none}
+.mc-thread-resize:hover{color:var(--color-text)}

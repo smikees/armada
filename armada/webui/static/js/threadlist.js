@@ -2,6 +2,7 @@
 async function mcOpenThreadWindow(event,agent,thread){
   event.preventDefault();event.stopPropagation();
   const button=event.currentTarget;
+  document.querySelectorAll('.mc-thmenu').forEach(menu=>menu.style.display='none');
   const name='armada-thread-'+encodeURIComponent(JSON.stringify([window.mcRealmId||'',agent,thread]));
   const browser=window.pywebview?null:window.open('',name,'popup,width=520,height=720');
   const blank=browser&&browser.location.href==='about:blank';

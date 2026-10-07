@@ -706,7 +706,7 @@ def _unanswered_turn(av: str, disp: str, partial: bool = False) -> str:
             f'{E(message)}</div></div></div></div>')
 
 
-def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = "") -> str:
+def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = "", detached: bool = False) -> str:
     """The center chat column: transcript + composer. Shared by the Threads tab and the
     dashboard thread widget (embedded via iframe) so both use the exact same chat UI/UX.
     In embed mode the header line is dropped — the widget box header carries that info.
@@ -742,7 +742,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
     _comp = (f' · <span id="mc-comp-wrap" title="{_comp_title}" style="display:inline-flex;align-items:center;gap:6px">'
              f'<span id="mc-comp-pct">{_pct}</span>% to compaction {_comp_bar}</span>')
     header = "" if embed else (
-        f'<div class="mc-chat-heading" style="padding:12px 20px 6px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--color-divider)">'
+        f'<div class="mc-chat-heading{" pywebview-drag-region" if detached else ""}" style="padding:12px 20px 6px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--color-divider)">'
         f'{lead}'
         f'<span id="mc-cttitle" ondblclick="mcThreadInlineRename(this,{_J(a.id)},{_J(selected)})" title="Double-click to rename" '
         f'style="display:inline-block;max-width:100%;min-width:0;font-family:var(--font-heading);font-weight:600;font-size:17px;'
@@ -831,6 +831,9 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
         items = ""
         if not is_main:
             items += menu_item("unpin" if pinned else "pin", n, "pin-off" if pinned else "pin", "Unpin" if pinned else "Pin", "P")
+        items += (f'<button type="button" class="mc-thread-detach" '
+                  f'onclick="mcOpenThreadWindow(event,{_J(a.id)},{_J(n)})">'
+                  f'{_icon("window-new",16)}<span>Detach thread</span></button>')
         items += menu_item("read" if unread else "unread", n, "mail-open" if unread else "mail",
                            "Mark as read" if unread else "Mark as unread", "U")
         items += (f'<a onclick="mcThreadRename(event,{_J(a.id)},{_J(n)},{_J(title)})" '
@@ -859,9 +862,6 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
             f'title="Double-click to rename" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{E(title)}</span>{pinmark}</div>'
             f'<div style="font-size:11px;color:var(--text-muted);'
             f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{sub}</div></div>'
-            f'<button type="button" class="mc-iconbtn mc-thread-popout" title="Open thread in a separate window" '
-            f'aria-label="Open {E(title)} in a separate window" '
-            f'onclick="mcOpenThreadWindow(event,{_J(a.id)},{_J(n)})">{_icon("window-new",18)}</button>'
             f'{dots}{menu}</div>')
     # archived threads → the modal opened by the always-visible "Archived" button
     archived_meta = meta.get("archived", {})

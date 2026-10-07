@@ -173,6 +173,27 @@ class _AlexanderCompanionAPI:
             self._window.destroy()
 
 
+class _ThreadCompanionAPI(_AlexanderCompanionAPI):
+    """Only this detached thread can close or resize its own frame."""
+
+    def resize_window(self):
+        from .thread_frame import begin_resize
+        return begin_resize(self._window) if self._window is not None else False
+
+    def resize_step(self, dx=0, dy=0):
+        if self._window is None:
+            return False
+        dx, dy = max(-40, min(40, int(dx))), max(-40, min(40, int(dy)))
+        self._window.resize(max(400, self._window.width + dx), max(500, self._window.height + dy))
+        return True
+
+
+def _shape_thread(window):
+    _shape_alexander(window)
+    from .thread_frame import attach
+    attach(window)
+
+
 def _shape_alexander(window):
     """Clip the Windows form to the portrait and panel; transparent margins stay click-through.
 
@@ -285,15 +306,15 @@ def open_thread(realm_root, agent: str, thread: str) -> bool:
                 log.exception("Reopening thread window failed")
                 _thread_windows.pop(key, None)
         try:
-            api = _AlexanderCompanionAPI()
+            api = _ThreadCompanionAPI()
             window = webview.create_window(
                 f"{a.display} · {title} — ARMADA", browser_url(_app_url, route),
                 **_alexander_position(), min_size=(400, 500), text_select=True,
                 frameless=True, transparent=True, easy_drag=False, js_api=api)
             api._window = window
             _thread_windows[key] = window
-            window.events.loaded += lambda: _shape_alexander(window)
-            window.events.resized += lambda *args: _shape_alexander(window)
+            window.events.loaded += lambda: _shape_thread(window)
+            window.events.resized += lambda *args: _shape_thread(window)
             window.events.closed += lambda: _clear_thread_window(key, window)
             threading.Thread(target=_apply_window_icon, daemon=True).start()
             return True

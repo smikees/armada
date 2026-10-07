@@ -137,13 +137,53 @@ def run(output):
         def exercise():
             try:
                 ready(main)
-                main.evaluate_js("document.querySelector('.mc-thread-popout').click()")
+                main.evaluate_js("document.querySelector('.mc-thdots').click();document.querySelector('.mc-thread-detach').click()")
                 companion = wait_for(lambda: next(iter(app._thread_windows.values()), None), "sidebar opens native companion")
                 ready(companion)
                 check("both views show the original transcript", "All hands accounted for." in text(main) and
                       "All hands accounted for." in text(companion))
                 check("color crescent is visible", companion.evaluate_js("!!document.querySelector('.mc-ax-portrait .mc-avdisc')"))
                 check("native frame shaped", companion.native.Region is not None)
+                from System import Action
+                from System.Drawing.Imaging import ImageFormat
+                shadow = wait_for(lambda: getattr(companion, "_thread_shadow", None), "native shadow attached")
+                check("native shadow owns an alpha window", bool(shadow.handle and shadow.bitmap))
+                shadow_path = str(output.with_name("thread-native-shadow.png"))
+                companion.native.Invoke(Action(lambda: shadow.bitmap.Save(shadow_path, ImageFormat.Png)))
+                check("native shadow has transparent conversation centre", shadow.bitmap.GetPixel(
+                    shadow.bitmap.Width//2, shadow.bitmap.Height//2).A == 0)
+                check("native shadow has soft pixels below the panel", 0 < shadow.bitmap.GetPixel(
+                    shadow.bitmap.Width//2, shadow.bitmap.Height-round(27*float(companion.native._scale))).A < 100)
+                check("resize grip available", companion.evaluate_js(
+                    "!document.querySelector('[data-thread-resize]').hidden"))
+                # Exercise the real Windows sizing loop without moving the user's cursor.
+                import ctypes
+                sizing = threading.Event()
+                def resize_began(*_):
+                    sizing.set()
+                companion.native.ResizeBegin += resize_began
+                companion.evaluate_js("document.querySelector('[data-thread-resize]').dispatchEvent(new PointerEvent('pointerdown',{button:0,bubbles:true}))")
+                entered = sizing.wait(3)
+                user, _ = __import__("armada.thread_frame", fromlist=["_api"])._api()
+                from ctypes import wintypes
+                user.PostMessageW.argtypes = [wintypes.HWND,wintypes.UINT,ctypes.c_size_t,ctypes.c_ssize_t]
+                hwnd = int(companion.native.Handle.ToInt64())
+                user.PostMessageW(hwnd, 0x001F, 0, 0)  # WM_CANCELMODE leaves the sizing loop.
+                user.PostMessageW(hwnd, 0x0202, 0, 0)  # WM_LBUTTONUP, no cursor manipulation.
+                check("drag grip enters Windows sizing loop", entered)
+                companion.native.ResizeBegin -= resize_began
+                before_width = companion.width
+                companion.evaluate_js("document.querySelector('[data-thread-resize]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))")
+                wait_for(lambda: companion.width == before_width+20, "resize grip changes native width")
+                wait_for(lambda: shadow.size[0] == companion.native.ClientSize.Width, "shadow follows native resize")
+                check("compact header includes thread title beside the portrait", companion.evaluate_js(
+                    "document.getElementById('mc-cttitle').getBoundingClientRect().top < 105 && document.querySelector('.mc-thread-identity').textContent.includes('Captain')"))
+                check("detached messages have no avatar columns", companion.evaluate_js(
+                    "Array.from(document.querySelectorAll('#mc-turns>.mc-turn:not([data-role=event])>div:first-child>div:first-child')).every(e=>getComputedStyle(e).display==='none')"))
+                check("owner attribution is retained as text", companion.evaluate_js(
+                    "getComputedStyle(document.querySelector('#mc-turns>.mc-turn[data-role=user]>div:first-child>div:last-child'),'::before').content.length>2"))
+                check("main view keeps its avatar columns", main.evaluate_js(
+                    "getComputedStyle(document.querySelector('#mc-turns>.mc-turn[data-role=assistant]>div:first-child>div:first-child')).display!=='none'"))
                 check("same thread reuses its window", app.open_thread(realm, "captain", "main") and len(app._thread_windows) == 1)
                 main.evaluate_js("document.getElementById('mc-msg').value='Synthetic question';mcChat('captain','main')")
                 wait_for(started.is_set, "sending invokes the shared transport")
@@ -171,10 +211,16 @@ def run(output):
                 screenshot(companion, "thread-window-narrow")
                 companion.evaluate_js("document.documentElement.classList.add('armada-dark')")
                 screenshot(companion, "thread-window-dark")
+                # Long labels must ellipsize without covering Close or creating overflow.
+                companion.evaluate_js("document.querySelector('.mc-ax-name').textContent='A very long synthetic agent name';document.querySelector('.mc-ax-subtitle').textContent='A very long realm name';document.getElementById('mc-cttitle').textContent='A very long thread name for responsive verification'")
+                check("long header labels stay inside the panel", companion.evaluate_js(
+                    "document.documentElement.scrollWidth<=innerWidth && document.querySelector('[data-thread-close]').getBoundingClientRect().right<innerWidth"))
+
                 check("narrow layout has no horizontal page overflow", companion.evaluate_js(
                     "document.documentElement.scrollWidth<=innerWidth"))
                 companion.evaluate_js("document.querySelector('[data-thread-close]').click()")
                 wait_for(lambda: not app._thread_windows, "close clears only the companion registry")
+                check("native shadow closes with its thread", shadow.handle is None and shadow.bitmap is None)
                 check("main remains authenticated after close", main.evaluate_js("!!document.getElementById('mc-turns')"))
                 check("closed window reopens", app.open_thread(realm, "captain", "main"))
                 reopened = next(iter(app._thread_windows.values()))

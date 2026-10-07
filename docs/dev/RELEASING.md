@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.88. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.89. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -43,6 +43,10 @@ UI seed catalogue as proof that a specific model is still supported.
    one-time support payload delivery after authentication and checks that cockpit Usage remains
    authenticated. Synthetic HTTP data and an isolated data folder keep live realms and providers
    out of this test. Unit tests with supplied Cookie headers cannot replace this browser gate.
+
+For detached thread frame changes, also run `python tools/thread_window_probe.py --output
+<result.json>` in the Windows pywebview environment. It checks the native sizing loop, shadow
+resources and lifecycle, compact layout and shared-thread behavior with synthetic data.
 
 For changes to startup, instance activation, error navigation or full quit, also run the native
 startup check before release:

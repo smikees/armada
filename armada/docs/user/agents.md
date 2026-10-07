@@ -36,14 +36,19 @@ Tabs across the top:
 
 ## Separate thread windows
 
-Click the **Open thread in a separate window** icon beside any thread in the left-hand list.
+Open a thread’s **three-dot menu** in the left-hand list and choose **Detach thread**, directly
+below **Pin** (or **Unpin**). For the main thread, which is always pinned, Detach thread is first.
 The window shows that thread's conversation and the same message, attachment, edit, restart,
-rename and Stop controls. Its header shows the agent's avatar and color crescent.
+rename and Stop controls. Its compact header groups the agent, realm, thread name and compaction
+information beside the agent’s avatar and color crescent. Messages use text names without avatars.
+
+Drag the bottom-right corner to resize the native window. You can also focus that grip with Tab
+and use the arrow keys. The window has a soft shadow, and keeps a minimum size for the composer.
 
 Both views use the same saved conversation and refresh while open. Messages and reply progress
 started in either view appear in the other; unsent drafts stay local to each view. Opening an
 already-open thread brings its window forward. Closing the window does not delete the thread
-or cancel a running reply. Open it again from the same icon.
+or cancel a running reply. Open it again from **Detach thread**.
 
 A companion stays with its original realm when you switch the main app to another realm.
 If a thread is archived or deleted, its old window reports that it is unavailable.

@@ -60,8 +60,12 @@ def test_every_thread_has_accessible_open_action(realm):
     Thread(Path(realm) / "agents/captain", "other").append("Question", "Answer")
     a = next(a for a in reader.read(realm).agents if a.id == "captain")
     rendered = threadsview._tab_threads(reader.read(realm), Path(realm), a, "main")
-    assert rendered.count('class="mc-iconbtn mc-thread-popout"') == 2
-    assert rendered.count('title="Open thread in a separate window"') == 2
+    assert rendered.count('class="mc-thread-detach"') == 2
+    assert rendered.count('>Detach thread</span>') == 2
+    assert "mc-thread-popout" not in rendered
+    other_menu = rendered.split('data-slug="other"', 1)[1].split('class="mc-thmenu"', 1)[1]
+    assert other_menu.index(">Pin</span>") < other_menu.index(">Detach thread</span>") < other_menu.index(">Mark as")
+
 
 
 @pytest.mark.parametrize("agent,thread", [("../captain", "main"), ("captain", "../main"),
@@ -162,6 +166,9 @@ def test_native_windows_reuse_close_reopen_and_separate_realms(realm, tmp_path, 
     window.show.assert_called_once(); window.restore.assert_called_once()
     assert options["frameless"] and options["transparent"] and not options["easy_drag"]
     assert "thread=main" in args[1] and RealmContext.capture(realm).realm_id in args[1]
+    window.width, window.height = 400, 500
+    assert options["js_api"].resize_step(-20, -20)
+    window.resize.assert_called_once_with(400, 500)
     options["js_api"].close_window()
     window.destroy.assert_called_once()
     key = (RealmContext.capture(realm).realm_id, "captain", "main")

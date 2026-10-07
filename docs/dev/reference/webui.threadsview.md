@@ -118,7 +118,7 @@ The agent is working on the message above, right now.
 
 The message above never got a reply and nothing is working on it.
 
-### `_chat_center(realm_root, a, selected: str, embed: bool=False, lead: str='')`
+### `_chat_center(realm_root, a, selected: str, embed: bool=False, lead: str='', detached: bool=False)`
 
 The center chat column: transcript + composer. Shared by the Threads tab and the dashboard thread widget (embedded via iframe) so both use the exact same chat UI/UX. In embed mode the header line is dropped — the widget box header carries that info. `lead` prepends HTML (e.g. an avatar + status dot) inside the header, before the title.
 
