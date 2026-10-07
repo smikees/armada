@@ -12,11 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.85** fixes release-test restart helpers escaping cleanup and leaving
-extra error windows on the desktop. [Verification](dev/RELEASE_0_99_85.md) records
-the process-tree cleanup regression checks. The account-wide desktop guard remains
-in force; the scheduler is an owned background process. Clean-Sandbox GUI
-acceptance remains open.
+Version **0.99.86** adds a saved reference font size and Ctrl+/Ctrl−/Ctrl0 text-size
+shortcuts across the app and Alexander. [Verification](dev/RELEASE_0_99_86.md) covers
+live browser typography, draft preservation, persistence and window synchronization.
+The account-wide desktop guard and isolated release-test cleanup remain in force.
+Clean-Sandbox GUI acceptance remains open.
 
 ## Implemented foundations
 

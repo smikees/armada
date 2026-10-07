@@ -15,10 +15,13 @@ function mcAppValues(){
   return {channels:{inapp:checked('st-ch-inapp'),desktop:checked('st-ch-desktop'),telegram:checked('st-ch-telegram')},
     mode:document.querySelector('input[name="mc-mode"]:checked')?.value||'system',
     theme:document.querySelector('.mc-themecard[data-selected="true"]')?.dataset.themeId||'',
-    fonts:fonts,tray:checked('st-keep-tray'),auto:checked('st-update-auto'),
+    fonts:fonts,fontSize:Number(byId('mc-font-size')?.value||13),tray:checked('st-keep-tray'),auto:checked('st-update-auto'),
     alexander:{model:byId('alexander-model')?.value||'',effort:byId('alexander-effort')?.value||'',verbosity:byId('alexander-verbosity')?.value||'standard'}};
 }
 const mcAppInitial=mcAppValues();
+window.addEventListener('armada-font-size',event=>{
+  if(event.detail.persisted)mcAppInitial.fontSize=event.detail.value;
+});
 // Preview on this page; the sticky Save persists it, and Cancel reloads the saved mode.
 function mcPreviewMode(mode){
   const dark=mode==='dark'||(mode==='system'&&!!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
@@ -65,6 +68,7 @@ async function mcSaveAppSettings(){
     for(const role of Object.keys(next.fonts)){
       if(next.fonts[role]!==old.fonts[role])await mcAppPost('/api/save-appearance',{font_role:role,font:next.fonts[role]});
     }
+    if(next.fontSize!==old.fontSize)await mcFontSize.save(next.fontSize);
     if(next.tray!==old.tray)await mcAppPost('/api/tray-setting',{on:next.tray});
     if(next.auto!==old.auto)await mcAppPost('/api/update-auto',{on:next.auto});
     if(mcAppAlexanderEdited){

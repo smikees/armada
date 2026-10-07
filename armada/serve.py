@@ -258,6 +258,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/job-calendar": "_get_job_calendar", "/api/usage": "_get_usage",
         "/api/usage-limits": "_get_usage_limits", "/api/auth-status": "_get_auth_status",
         "/api/providers": "_get_providers",
+        "/api/font-size": "_get_font_size",
         "/api/capability-connections": "_get_capability_connections",
         "/api/notifications": "_get_notifications", "/api/system-jobs": "_get_system_jobs",
         "/api/telegram-status": "_telegram_status", "/api/scheduler-status": "_get_scheduler_status",
@@ -279,9 +280,10 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     # (never a traceback from a handler reading realm files out of "").
     welcome_note = ""
     _WELCOME_GET = {"/api/pick-folder": "_get_pick_folder", "/api/auth-status": "_get_auth_status",
-                    "/api/providers": "_get_providers",
+                    "/api/providers": "_get_providers", "/api/font-size": "_get_font_size",
                     "/switch": "_get_switch"}
     _WELCOME_POST = {"/api/set-approot": "_set_approot", "/api/first-realm": "_first_realm",
+                     "/api/save-appearance": "_save_appearance",
                      "/api/new-realm": "_new_realm", "/api/auth-login": "_auth_login",
                      "/api/provider-action": "_provider_action",
                      "/api/install-claude": "_install_claude"}
@@ -474,7 +476,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
             self._route_welcome_post(path)
             return
         if self.realm and path not in {"/restart", "/update", "/api/update-cancel", "/api/realm-export", "/api/realm-preflight",
-                                       "/api/dryrun", "/api/render-md", "/api/new-realm"}:
+                                       "/api/dryrun", "/api/render-md", "/api/new-realm", "/api/save-appearance"}:
             util.assert_realm_writable(Path(self.realm) / "realm.json")
         if path == "/api/chat-stream":                      # streams its own response, not JSON
             self._chat_stream(self._body())

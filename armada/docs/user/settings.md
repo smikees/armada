@@ -34,6 +34,14 @@ you use them.
 - **Appearance** — light, dark, or your system's colour mode, and the colour theme.
   Colour mode previews immediately on the settings page. Save keeps your choice; Cancel restores
   the saved appearance.
+- **Appearance → Fonts** — choose separate font families for headings and body text, and a
+  **Reference size** from 10 to 26 px (default **13 px**). Headings and smaller labels scale
+  proportionally; icons and images keep their dimensions. The size selector previews immediately;
+  Save keeps it and Cancel restores the saved size.
+  **Ctrl+** (or **Ctrl=**) increases the reference by 1 px, **Ctrl−** decreases it by 1 px,
+  and **Ctrl0** restores 13 px without changing your font families. Numpad shortcuts also work.
+  Shortcuts save immediately, preserve conversation drafts and apply across realms and
+  Alexander's window. If a save fails, ARMADA explains the failure and restores the saved size.
 - **Advanced → Keep Armada open in the tray when closing the window** — on by default.
   Minimize or close the window to keep scheduled jobs running in the tray. Turn this off to
   make closing the window quit ARMADA and stop future scheduled runs until it opens again.

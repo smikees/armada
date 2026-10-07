@@ -20,6 +20,10 @@ _APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
+    def _get_font_size(self):
+        from .. import fonts
+        self._json(200, {'font_size':fonts.reference_size()})
+
     def _get_providers(self):
         from .. import providers, models
         from ..app import webview2_version
@@ -412,6 +416,9 @@ class SettingsRoutes:
         theme: both are properties of this machine."""
         from .. import appconfig, vtheme
         from ..webui import layout as _layout
+        if 'font_size' in body:
+            from .. import fonts
+            return fonts.save_size(body['font_size'])
         if body.get("font_role"):                  # Appearance → Fonts (temporary, v0.99.62)
             from .. import fonts
             return fonts.save(str(body.get("font_role")), str(body.get("font") or ""))

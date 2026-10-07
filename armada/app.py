@@ -550,6 +550,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
             try:
                 cw = sender.CoreWebView2
                 cw.Settings.AreDefaultContextMenusEnabled = True
+                # Ctrl+/−/0 belongs to Armada's reference text size, not WebView page zoom.
+                cw.Settings.IsZoomControlEnabled = False
                 cw.ContextMenuRequested += _strip_more_tools
                 _ctx_handlers.append(_strip_more_tools)
             except Exception:  # noqa — settings/event unavailable on this init path; ignore

@@ -11,6 +11,14 @@ Per machine, like the colour theme: stored in appconfig as `font_body` / `font_h
 defaults are the design's own (Barlow, Barlow Condensed) and emit nothing, so a page in the default
 fonts is byte-for-byte what it was before this setting existed.
 
+### `reference_size()`
+
+Reference text size in pixels; invalid saved preferences keep the design default.
+
+### `save_size(value)`
+
+Persist a validated whole-pixel reference without changing font families.
+
 ### `selected(role: str)`
 
 —

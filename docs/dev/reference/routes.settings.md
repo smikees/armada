@@ -10,6 +10,7 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `SettingsRoutes._get_font_size(self)` — —
 - `SettingsRoutes._get_providers(self)` — —
 - `SettingsRoutes._provider_action(self, body)` — —
 - `SettingsRoutes._save_alexander_settings(self, body)` — —

@@ -57,6 +57,53 @@ def validate_assets(folder):
     return manifest, package
 
 
+def font_checks(window, js, check):
+    """Exercise production typography and saved shortcuts in the actual desktop browser."""
+    check('reference font controller loaded',window.evaluate_js('typeof mcFontSize === "object"'))
+    js(window,"""Promise.resolve().then(()=>{
+      const probe=document.createElement('div');probe.id='font-probe';
+      probe.innerHTML='<p class="mc-md" id="font-body">Reference text</p>'+
+        '<span id="font-inline" style="font-size:10px">Small label</span>'+
+        '<textarea id="font-draft" style="font-size:13px;width:180px;height:60px">Unsaved draft</textarea>'+
+        '<svg id="font-icon" width="24" height="24"><text id="font-chart" font-size="9.5">1</text>'+
+        '<text id="font-chart-css" class="mc-md" font-size="9.5">2</text></svg>';
+      document.body.appendChild(probe);return true;
+    })""")
+    check('reference size saves through production API',js(window,'mcFontSize.save(18)')==18)
+    measured = window.evaluate_js("""({body:parseFloat(getComputedStyle(document.getElementById('font-body')).fontSize),
+      inline:parseFloat(getComputedStyle(document.getElementById('font-inline')).fontSize),
+      chart:parseFloat(getComputedStyle(document.getElementById('font-chart')).fontSize),
+      chartCSS:parseFloat(getComputedStyle(document.getElementById('font-chart-css')).fontSize),
+      icon:document.getElementById('font-icon').getBoundingClientRect().width,
+      draft:document.getElementById('font-draft').value})""")
+    check('stylesheet typography scales proportionally',abs(measured['body']-18)<.01)
+    check('inline typography scales proportionally',abs(measured['inline']-10*18/13)<.01)
+    check('SVG chart typography follows reference size',abs(measured['chart']-9.5*18/13)<.01)
+    check('SVG presentation attributes preserve stylesheet precedence',abs(measured['chartCSS']-18)<.01)
+    window.evaluate_js('document.getElementById("font-chart").setAttribute("font-size","11")')
+    check('dynamic SVG labels follow reference size',abs(window.evaluate_js(
+        'parseFloat(getComputedStyle(document.getElementById("font-chart")).fontSize)')-11*18/13)<.01)
+    check('icons retain original dimensions',measured['icon']==24)
+    check('font changes preserve an unsaved draft',measured['draft']=='Unsaved draft')
+    for key, code, expected in [('+','Equal',19),('-','Minus',18),('0','Digit0',13),('=','Equal',14)]:
+        event = json.dumps({'key':key,'code':code,'ctrlKey':True,'bubbles':True,'cancelable':True})
+        check('shortcut prevents native zoom '+key,window.evaluate_js(
+            '!document.dispatchEvent(new KeyboardEvent("keydown",'+event+'))'))
+        check('shortcut updates and persists reference '+key,
+              js(window,'mcFontSize.save(mcFontSize.get())')==expected)
+    from System import Func, Boolean
+    zoom_enabled = window.native.Invoke(Func[Boolean](lambda:
+        window.native.browser.webview.CoreWebView2.Settings.IsZoomControlEnabled))
+    check('WebView native zoom does not compete with text shortcuts',not zoom_enabled)
+    check('fresh streamed text receives current size',js(window,"""new Promise(resolve=>{
+      const text=document.createElement('p');text.style.fontSize='13px';
+      document.getElementById('font-probe').appendChild(text);
+      setTimeout(()=>resolve(Math.abs(parseFloat(getComputedStyle(text).fontSize)-14)<.01),0);
+    })"""))
+    js(window,'mcFontSize.save(18)')
+    window.evaluate_js('document.getElementById("font-probe").remove()')
+
+
 def verify(stage, previous, candidate, output):
     old, archive = validate_assets(previous)
     new, _ = validate_assets(candidate)
@@ -171,6 +218,8 @@ def child(successor=None):
                 info = js(window,"fetch('/api/instance').then(r=>r.json())")
             check('initial browser startup acknowledged',info.get('desktop_ready'))
             check(f"correct installed version: {info.get('version')} (expected {expected})",info['version']==expected)
+            font_testing = bool(successor or config.get('font_only'))
+            if font_testing: font_checks(window, js, check)
             for route in ('/settings','/docs','/agent/captain/threads','/alexander'):
                 response = js(window,'fetch('+json.dumps(route)+').then(async r=>({status:r.status,body:await r.text()}))')
                 check('authenticated real page '+route,response['status']==200 and '/static/brand.css' in response['body'])
@@ -182,6 +231,12 @@ def child(successor=None):
                     time.sleep(.2)
                 else: raise AssertionError('Real navigation failed: '+route)
                 check('actual navigation '+route,window.evaluate_js('location.pathname')==route)
+                if font_testing:
+                    check('reference font survives navigation '+route,window.evaluate_js('mcFontSize.get()')==18)
+                    if route=='/settings':
+                        check('settings reference control matches saved size',window.evaluate_js(
+                            'document.getElementById("mc-font-size").value')=='18')
+            if font_testing: js(window,'mcFontSize.save(13)')
             usage = js(window,"fetch('/api/usage').then(async r=>({status:r.status,data:await r.json()}))")
             check('actual Usage endpoint',usage['status']==200 and not usage['data'].get('error'))
             check('production Alexander opener',app.open_alexander())
@@ -191,7 +246,19 @@ def child(successor=None):
                 time.sleep(.2)
             else: raise AssertionError('Actual companion did not authenticate')
             check('Usage survives actual companion',js(window,"fetch('/api/usage').then(r=>r.status)")==200)
+            if font_testing:
+                js(window,'mcFontSize.save(18)')
+                deadline=time.monotonic()+5
+                while time.monotonic()<deadline and app._alex_window.evaluate_js('mcFontSize.get()')!=18: time.sleep(.05)
+                check('Alexander receives saved reference without reload',app._alex_window.evaluate_js('mcFontSize.get()')==18)
+                js(window,'mcFontSize.save(13)')
+                deadline=time.monotonic()+5
+                while time.monotonic()<deadline and app._alex_window.evaluate_js('mcFontSize.get()')!=13: time.sleep(.05)
+                check('Alexander receives default reset without reload',app._alex_window.evaluate_js('mcFontSize.get()')==13)
             app._alex_window.destroy()
+            if config.get('font_only'):
+                Path(config['output']).write_text(json.dumps({'ok':True,'checks':checks}),encoding='utf-8')
+                return
             if not successor:
                 (home/'pre-update-checks.json').write_text(json.dumps(checks),encoding='utf-8')
                 result = js(window,"fetch('/api/check-update').then(r=>r.json())")

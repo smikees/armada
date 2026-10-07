@@ -4,6 +4,7 @@ E = html.escape
 
 
 _CHANGELOG = [
+    ('0.99.86', ['New: Settings → App → Appearance → Fonts has a reference size beside the font families. Choose 10–26 px; the default is 13 px. Headings and smaller labels scale proportionally while icons and images retain their dimensions.', 'Ctrl+ (or Ctrl=) increases the reference by 1 px, Ctrl− decreases it, and Ctrl0 restores the default. Numpad shortcuts work too. Shortcuts save immediately and update Alexander and other Armada pages without reloading or losing a draft. The size selector previews changes; Save keeps them and Cancel restores the saved size.']),
     ('0.99.85', ['Fixed release tests leaving detached restart-error windows on the desktop, which could look like additional ARMADA instances. Test helpers now stay inside an isolated Windows process tree and are fully stopped before validation finishes. Test failures remain recorded without interactive notifications; normal app restart errors stay visible.']),
     ('0.99.84', ['The Windows installer now shows “Create, empower and control your army of agents” beneath the ARMADA logo, with a readable two-line layout at every supported display scale.']),
     ('0.99.83', ['Fixed the new-version banner appearing after that version was already installed. ARMADA now compares saved update results with the running version immediately, without waiting for another online check. Genuine newer releases and restart errors remain visible.']),

@@ -23,6 +23,26 @@ CHOICES = {                       # slug -> label (the label is the family name 
 }
 DEFAULTS = {"body": "barlow", "heading": "barlow-condensed"}
 KEYS = {"body": "font_body", "heading": "font_heading"}
+SIZE_DEFAULT = 13
+SIZE_MIN = 10
+SIZE_MAX = 26
+
+
+def reference_size() -> int:
+    """Reference text size in pixels; invalid saved preferences keep the design default."""
+    value = appconfig.get('font_size', SIZE_DEFAULT)
+    return value if type(value) is int and SIZE_MIN <= value <= SIZE_MAX else SIZE_DEFAULT
+
+
+def save_size(value) -> dict:
+    """Persist a validated whole-pixel reference without changing font families."""
+    if type(value) is not int or not SIZE_MIN <= value <= SIZE_MAX:
+        return {'ok':False, 'error':f'Font size must be a whole number from {SIZE_MIN} to {SIZE_MAX} px.'}
+    try:
+        appconfig.save({'font_size':value})
+    except OSError as exc:
+        return {'ok':False, 'error':str(exc)}
+    return {'ok':True, 'font_size':value}
 
 
 def selected(role: str) -> str:
@@ -40,6 +60,9 @@ def style() -> str:
     Declared on :root and .armada-dark alike, like every token the dark mode re-declares."""
     parts = [f"--font-{role}:{family(role, selected(role))}"
              for role in ("body", "heading") if selected(role) != DEFAULTS[role]]
+    size = reference_size()
+    if size != SIZE_DEFAULT:
+        parts += [f'--mc-font-reference:{size}', f'--mc-font-scale:{size / SIZE_DEFAULT:.8f}']
     return f"<style>:root,.armada-dark{{{';'.join(parts)}}}</style>" if parts else ""
 
 

@@ -917,6 +917,10 @@ def _font_picker() -> str:
     """Appearance → Fonts (temporary, v0.99.62; becomes part of themes/skins). A face applies the
     moment it's picked — loaded first, then swapped, so nothing flashes — and is saved per machine."""
     from .. import fonts
+    chosen_size = fonts.reference_size()
+    size_options = ''.join(f'<option value="{size}"{" selected" if size == chosen_size else ""}>'
+                           f'{size} px{" (default)" if size == fonts.SIZE_DEFAULT else ""}</option>'
+                           for size in range(fonts.SIZE_MIN, fonts.SIZE_MAX + 1))
     def sel(role, label):
         opts = "".join(f'<option value="{E(k)}"{" selected" if k == fonts.selected(role) else ""}>{E(v)}</option>'
                        for k, v in fonts.CHOICES.items())
@@ -928,7 +932,12 @@ def _font_picker() -> str:
             f'(trial — these will become part of themes)</span></label>'
             f'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
             f'{sel("heading", "Headings")}{sel("body", "Body text")}'
+            f'<label class="mc-fontsizepick"><span class="mc-hint">Reference size</span>'
+            f'<select id="mc-font-size" class="mc-field" onchange="mcFontSize.preview(Number(this.value))">'
+            f'{size_options}</select></label>'
             f'<span id="mc-font-msg" class="mc-hint"></span></div>'
+            f'<div class="mc-hint" style="margin-top:7px">Ctrl+ / Ctrl−: change by 1 px. Ctrl0: reset to '
+            f'{fonts.SIZE_DEFAULT} px. Shortcuts save immediately; headings and labels scale proportionally.</div>'
             f'<div class="mc-fontsample mc-frame"><div class="mc-h-card" style="margin:0 0 4px">'
             f'The quick brown fox · Overview · Jobs</div>'
             f'<div style="font-size:12.5px">Agents, memories and scheduled jobs — 0123456789. '

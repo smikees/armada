@@ -35,6 +35,8 @@ CSS_LINKS = (f'<link rel="stylesheet" href="/static/industry.css{CSSV}">'
              f'<link rel="stylesheet" href="/static/brand.css{CSSV}">'
              # the selectable font faces (v0.99.62); a face downloads only once something uses it
              f'<link rel="stylesheet" href="/static/fonts.css{CSSV}">'
+             # Synchronous: scale stylesheet rules and parsed inline text before first paint.
+             f'<script src="/static/js/font_size.js{CSSV}"></script>'
              # Every first-party surface, including setup, widget frames and Alexander.
              f'<script src="/static/js/scrollbars.js{CSSV}" defer></script>')
 
