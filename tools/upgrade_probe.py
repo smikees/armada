@@ -174,6 +174,13 @@ def child(successor=None):
     app._fatal = lambda message:(_ for _ in ()).throw(RuntimeError(message))
     assets = Path(config['candidate'])
     updater._fetch = lambda url,limit:(assets/url.rsplit('/',1)[-1]).read_bytes()
+    launch_arguments = updater.launch_arguments
+    # The Windows account guard intentionally ignores HOME overrides. The real test
+    # daemon needs the same isolated account boundary as its GUI, so it can contact
+    # that GUI for update shutdown rather than looking up the user's live instance.
+    updater.launch_arguments = lambda *args: (
+        [str(Path(__file__).resolve()), '--scheduler', *args[1:]]
+        if args and args[0] == 'schedule' else launch_arguments(*args))
     appconfig.save({'auto_update':False,'scheduler_autostart':True,'keep_in_tray':False})
     realm = home/'Test realm'
     (realm/'agents/captain').mkdir(parents=True,exist_ok=True)
@@ -345,7 +352,22 @@ def child(successor=None):
         runpy.run_path(str(entry),run_name='__main__')
 
 
+def isolated_scheduler_child():
+    """Real scheduler/bootstrap with only the native account lookup isolated."""
+    config=json.loads(Path(os.environ['ARMADA_UPGRADE_PROBE']).read_text())
+    root,home=Path(config['root']),Path(config['home'])
+    sys.path.insert(0,str(root))
+    from armada import instance
+    instance._account_directory=lambda:home/'.armada'
+    import runpy
+    sys.argv=[str(root/'armada_bootstrap.py'),'schedule',*sys.argv[2:]]
+    runpy.run_path(sys.argv[0],run_name='__main__')
+
+
 if __name__ == '__main__':
+    if sys.argv[1:2] == ['--scheduler']:
+        isolated_scheduler_child()
+        raise SystemExit(0)
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--child',action='store_true')
     parser.add_argument('--successor',type=Path)

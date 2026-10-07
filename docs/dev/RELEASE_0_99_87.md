@@ -36,5 +36,12 @@ Native tests use a real daemon with disabled upkeep and a never-due synthetic ag
 provider probes, personal realms and outbound notifications are isolated. The packaged
 upgrade gate exercises real scheduler startup and forced exit/recovery in hidden windows.
 
+Enabling the real daemon exposed a native test isolation gap: Windows account discovery
+intentionally ignores HOME overrides, so the GUI-only account override was insufficient
+for its scheduler child to find the isolated update endpoint. That gate timed out and
+blocked publication. The test now wraps the real daemon/bootstrap with the same explicit
+account override as the GUI, preserving the production account guard. The isolated native
+upgrade then passed all 63 checks; a regression test verifies that child boundary.
+
 The existing unsigned-maintenance installer and unverified clean-Sandbox acceptance
 boundaries remain. Exact publication evidence is retained under build/.

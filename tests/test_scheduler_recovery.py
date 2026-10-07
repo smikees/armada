@@ -200,3 +200,21 @@ def test_scheduler_banner_waits_for_automatic_recovery():
     result=subprocess.run([node,str(Path(__file__).with_name('scheduler_banner_harness.js'))],
                           capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr
+
+
+def test_native_probe_daemon_uses_its_isolated_account_record(tmp_path, monkeypatch):
+    import runpy,sys
+    from armada import instance
+    from tools import upgrade_probe
+    config=tmp_path/'probe.json'
+    config.write_text(json.dumps({'root':str(tmp_path/'install'),'home':str(tmp_path/'home')}))
+    monkeypatch.setenv('ARMADA_UPGRADE_PROBE',str(config))
+    monkeypatch.setattr(sys,'argv',['upgrade_probe.py','--scheduler','--engine','auto','--app-owner','42'])
+    monkeypatch.setattr(sys,'path',list(sys.path))
+    monkeypatch.setattr(instance,'_account_directory',instance._account_directory)
+    run=Mock();monkeypatch.setattr(runpy,'run_path',run)
+    upgrade_probe.isolated_scheduler_child()
+    assert instance._account_directory() == tmp_path/'home/.armada'
+    assert sys.argv == [str(tmp_path/'install/armada_bootstrap.py'),'schedule',
+                        '--engine','auto','--app-owner','42']
+    run.assert_called_once_with(str(tmp_path/'install/armada_bootstrap.py'),run_name='__main__')
