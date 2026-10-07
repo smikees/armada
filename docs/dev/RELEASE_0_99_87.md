@@ -45,3 +45,28 @@ upgrade then passed all 63 checks; a regression test verifies that child boundar
 
 The existing unsigned-maintenance installer and unverified clean-Sandbox acceptance
 boundaries remain. Exact publication evidence is retained under build/.
+
+## Published evidence
+
+- Source commit: `a10869231311c2a874468d77faa117b1dd0af1ba`.
+- Isolated full suite: **3,204 passed, 5 skipped in 461.09 seconds**.
+- Targeted scheduler, restart, installer, updater and overview regressions:
+  **141 passed in 7.92 seconds**.
+- [Windows CI for the published source](https://github.com/smikees/armada/actions/runs/37625889613): passed.
+- Native launcher recovery: all **5 interruption points** passed.
+- Native WebView2 session gate: **16 checks** passed.
+- Packaged 0.99.86 to 0.99.87 upgrade: **63 checks** passed, including actual
+  scheduler leases in two realms, quiet recovery after forced child exit, health
+  acknowledgement, authenticated navigation and complete test-process cleanup.
+- Installer SHA-256:
+  `fd05328b4e7c5edc2d2c67c80c9c9a7601c6c7c55acbb1e05f02c940eae6cdad`.
+- Update archive SHA-256:
+  `109999f16db0eb5550a62c80679b151f6b225c9732c97bb95f6c35b43845c132`.
+- [Published release](https://github.com/smikees/armada/releases/tag/v0.99.87)
+  includes the installer, update archive, signed manifest and manifest signature.
+- [Public website](https://armada.stamih.com/) returned HTTP 200 with the 0.99.87
+  version, installer URL and release-notes link after its authorized FTPS update.
+
+The installed user desktop was not restarted merely to publish this release.
+The installer remains an unsigned maintenance beta; clean Windows Sandbox
+installer acceptance remains unverified, as recorded by the release evidence.

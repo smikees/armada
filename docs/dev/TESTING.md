@@ -9,6 +9,9 @@ update health acknowledgement. The real packaged upgrade gate now enables an
 actual isolated scheduler, verifies multiple realm leases, and deliberately stops
 only its owned child to verify automatic recovery in a hidden desktop.
 [Release verification](RELEASE_0_99_87.md) records the final gates.
+The final isolated suite passed **3,204 tests with 5 skips**; the published source
+also passed Windows CI, all **5** native launcher interruption points, **16**
+WebView2 session checks and **63** real packaged upgrade checks.
 
 ## Running
 
