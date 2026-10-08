@@ -317,6 +317,10 @@ def test_inspector_chat_uses_the_managed_broker_and_records_its_review_files(rea
             self.managed_tools.call("write_draft", {"path": "review.md", "content": "Synthetic review"})
             return RunResult(ok=True, output="Review saved.")
     monkeypatch.setattr(runner, "_select_engine", lambda *args, **kw: Review())
+    def compact_without_actions(self, engine, **kwargs):
+        assert not getattr(engine, "managed_tools", None)
+        return False
+    monkeypatch.setattr("armada.threads.Thread.compact_if_needed", compact_without_actions)
     result = TurnCoordinator(TurnRequest(RunContext.capture(realm, "inspector", "main"), "Compare job models")).run()
     assert result["ok"]
     from armada.threads import Thread

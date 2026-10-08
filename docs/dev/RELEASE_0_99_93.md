@@ -45,6 +45,7 @@ inspector turn bound costs.
 - **22 synthetic tests** cover model selection, disabled jobs, independent output
   and production history, atomic writes, path safety, inspector self-authorization,
   revocation and turn expiration, artifact reads, command approval, cancellation,
+  inspector-free context compaction,
   cross-process Stop/liveness, retention, stdio MCP transport, provider configuration,
   raw result bytes/hashes and required/unsupported capture.
   The scoped stdio bridge is also exercised with Unicode file names and content;
