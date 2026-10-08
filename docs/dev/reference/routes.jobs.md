@@ -18,4 +18,7 @@ stays in serve.py, only the handler bodies moved.
 - `JobRoutes._job_enable(self, body: dict)` — Switch a job on or off. Off means the scheduler skips it; 'Run now' still works.
 - `JobRoutes._delete_job(self, body: dict)` — Delete a job file. The run history in agents/<id>/runs stays — it is a record of what actually happened, and removing it because the job was retired would falsify the telemetry.
 - `JobRoutes._save_job(self, body: dict)` — —
+- `JobRoutes._start_dry_run(self, body)` — —
+- `JobRoutes._stop_dry_run(self, body)` — —
+- `JobRoutes._get_dry_runs(self)` — —
 - `JobRoutes._run(self, body: dict)` — —

@@ -301,6 +301,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/notifications": "_get_notifications", "/api/system-jobs": "_get_system_jobs",
         "/api/telegram-status": "_telegram_status", "/api/scheduler-status": "_get_scheduler_status",
         "/api/update-status": "_get_update_status",
+        "/api/dry-runs": "_get_dry_runs",
         "/api/skill-content": "_get_skill_content",
         "/realm-icon": "_get_realm_icon", "/user-avatar": "_get_user_avatar",
         "/thread-file": "_get_thread_file", "/api/realm": "_get_realm", "/api/job": "_get_job_detail",
@@ -434,6 +435,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
     # Most POSTs are uniform: take the JSON body, return a dict that's sent as JSON. Path → method.
     _POST_JSON = {
         "/api/run": "_run", "/api/chat": "_chat", "/api/save-job": "_save_job",
+        "/api/dry-run": "_start_dry_run", "/api/dry-run-stop": "_stop_dry_run",
         "/api/job-proposal": "_job_proposal", "/api/save-agent": "_save_agent",
         "/api/render-md": "_render_md",
         "/api/job-enable": "_job_enable", "/api/delete-job": "_delete_job",

@@ -499,6 +499,10 @@ class AgentRoutes:
             # Locked: capabilities.py writes grants into this same file under the same lock (4.3 L4).
             with util.file_lock(aj):
                 ac = util.read_json_state(aj)
+                if "is_inspector" in body:
+                    from .. import inspection
+                    inspection.approve(self.realm, agent, body["is_inspector"])
+                    ac["is_inspector"] = body["is_inspector"]
                 if body.get("display"):
                     ac["display"] = body["display"]
                 for k in ("autonomy", "role", "leader", "inbox_frequency"):

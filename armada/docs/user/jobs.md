@@ -28,6 +28,75 @@ On **Edit job**, model, effort and output verbosity each inherit from the agent 
 Choose an override to use a different combination for this job; choose **Inherit agent** to
 follow the agent's settings again. Command jobs run scripts and don't use these model settings.
 
+## Dry runs
+
+Expand a job and choose **Dry run**, or open **Dry runs** on its **Edit job** page.
+Choose an available **Test model**, then **Start dry run**. This choice applies only
+to the test: the saved production model, schedule, enabled switch and production
+outputs stay unchanged. A switched-off job can still be tested. Unsaved editor
+changes are not included: save first to test a changed prompt.
+
+The separate **Dry-run history** shows the selected model, outcome, final answer
+and draft files. **Stop** stops the current dry run. Closing the page does not stop
+it; reopen the job to review its result. Dry runs use quota and their token usage
+is recorded, but they do not enter production job history or the calendar, consume
+scheduled slots, retry automatically, or send ARMADA job notifications.
+
+Model tests use **saved file inputs** from the realm, its workspace, and the job's
+owner-approved input folders. Enable production tool capture below to make exact
+connector responses available as inputs for model comparisons. Dry runs cannot
+refresh live connectors, publish, send messages, or use unrestricted shell tools.
+The agent uses ARMADA tools to read inputs and write temporary drafts; missing
+inputs and skipped steps must remain visible. This tests draft quality rather than
+end-to-end publication or the production tool chain.
+
+Each test has a unique folder inside the realm:
+`.armada/dry-runs/<agent>/<job>/<run-id>/`. Draft artifacts and `final-answer.md`
+live in its `output/` folder; `run.json`, `job.json` and `transcript.json` preserve
+the test identity, configuration and result. Tool capture, when configured, also
+stays in this temporary tree. `{dry_run_dir}` in the job prompt expands to the
+absolute draft folder. Scripts receive `ARMADA_DRY_RUN=1`, `ARMADA_DRY_RUN_DIR`
+and `ARMADA_RUN_ID`.
+
+Housekeeping removes the **whole completed test folder after seven days** by
+default. Set **Edit job → Dry-run settings → Keep dry runs for days** (1–365) to
+change retention for new runs; each existing test keeps its original retention.
+Active tests are never pruned. Copy a useful draft elsewhere before it expires.
+Interrupted tests are identified from their owned activity marker. Up to two dry
+runs can be active in a realm at once.
+
+**Command jobs** require a user-saved **Draft-only command** under Dry-run settings.
+The production command is never substituted automatically. The test command must
+already avoid sending, publishing and production writes, and write outputs into
+`ARMADA_DRY_RUN_DIR`. It starts in that folder; use an absolute script path or
+`{workspace}` to find inputs. Command arguments also support `{dry_run_dir}` and
+`{run}`. ARMADA does not sandbox arbitrary scripts: the user is authorizing that
+specific command's draft-only contract. Changing the command, its environment or
+its production definition requires saving it again. Command tests have no model
+selector because scripts do not use the job's model.
+
+## Inspector agents
+
+In **Agent → Configure → Advanced**, enable **Is inspector**, then **Save**.
+This authorizes the inspector on this machine. Moving/importing a realm does not
+carry this permission: save the setting on the new machine to authorize it there.
+An agent cannot authorize itself by editing `agent.json`.
+
+Inspector turns use scoped ARMADA tools to list any job in their realm, choose any
+available model, start a dry run, and review its output. They can read all agents'
+**recorded output artifacts**, including captured tool results, but cannot edit
+other agents' files, change production models or jobs, or trigger production runs.
+They write their own review artifacts in `agents/<inspector>/artifacts/`.
+Shell, live connectors and publishing tools are unavailable in inspector turns.
+Disabling the setting revokes their review tools immediately. Ordinary agents do
+not receive inspector tools.
+
+For example: “Compare the latest digest artifacts with a dry run using an available
+lower-cost model. Record any missing inputs and recommend whether I should change
+the production model.” An inspector may start at most four tests per conversation
+turn; it can poll an asynchronous test and return in a later turn to review it.
+Changing the production model remains a user action.
+
 ## Capture tool results to files
 
 In **Jobs → Edit job → Capture tool results**, enter one full tool-name glob per line.

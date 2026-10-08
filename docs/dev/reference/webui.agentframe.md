@@ -38,7 +38,7 @@ Agent-to-agent communication: one master switch with the two settings it governs
 
 Retire and Delete, ordered harmless-to-irreversible and described that way — the same shape as Manage this realm in Settings, because it is the same decision one level down.
 
-### `_agent_advanced_box(fallback_opts: str, maxbudget: str, field: str, lbl: str, manage: str='')`
+### `_agent_advanced_box(fallback_opts: str, maxbudget: str, field: str, lbl: str, manage: str='', inspector: bool=False)`
 
 Advanced, last on the page and with a heading you can actually see. It used to be a small uppercase line wedged between two field groups, which read as a label rather than a section.
 

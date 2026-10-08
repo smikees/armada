@@ -7,6 +7,7 @@ from .. import covenant
 from .. import memory, model, models, brand, status
 from ..verbosity import agent_level as _agent_verbosity
 from .. import clock, job_results
+from .dryruns import controls as dry_controls
 from .. import goals as goalsmod
 from ..icons import (ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR,
                      ICON_MISSED, _ICON_REFRESH)
@@ -684,13 +685,14 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
             # Run now is dead while the job is off. The switch says "this job does not run"; a live
             # button beside it that runs the job says otherwise, and one of the two has to be wrong.
             # Switching it back on is one click away, which is what the tooltip says.
-            f'<div style="margin:8px 0;display:flex;gap:8px;align-items:center">'
+            f'<div class="mc-job-actions" style="margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
             f'<button class="btn btn-primary btn-sm" style="'
             f''
             f'{"" if on else ";opacity:.45;cursor:not-allowed"}" '
             f'{"" if on else "disabled "}'
             f'title="{"Run this job now" if on else "This job is switched off — switch it on to run it"}" '
             f'onclick="mcRun({_J(a.id)},{_J(j.id)},\'auto\',this)">{_icon("play",12)}Run now</button>'
+            f'<button class="btn btn-secondary btn-sm" onclick="mcDryOpen(this)">Dry run</button>'
             f'<a href="/job/{E(a.id)}/{E(j.id)}" class="btn btn-secondary btn-sm" style="'
             f'text-decoration:none">{_icon("edit",12)}Edit job</a>'
             # Delete sits beside Edit, inside the expanded view: it belongs with the other things
@@ -711,7 +713,8 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
             f'<div class="mc-job-section-body">'
             f'<table class="table">'
             f'<thead><tr><th>When</th><th>Status</th><th>Summary</th></tr></thead>'
-            f'<tbody class="mc-job-history">{_job_history_rows(a.id, jruns)}</tbody></table></div></details></div>')
+            f'<tbody class="mc-job-history">{_job_history_rows(a.id, jruns)}</tbody></table></div></details>'
+            + dry_controls(a.id, j.id, jc) + '</div>')
     is_open = " open" if (open_job and j.id == open_job) else ""
     off_cls = "" if on else " mc-job-off"
     # Two sets of attributes: sort keys (what the column shows) and filter buckets (what the

@@ -211,10 +211,15 @@ def _job_prune_history(realm_root) -> dict:
     removed = notify.prune(realm_root)
     from .tool_capture import prune
     captured = prune(realm_root)
+    from . import dry_runs
+    drafts = dry_runs.prune(realm_root)
     detail = f"{removed} old notification(s), {captured['removed']} captured result(s) pruned"
     if captured["errors"]:
         detail += "; capture retention: " + "; ".join(captured["errors"])
-    return {"ok": not captured["errors"], "detail": detail}
+    detail += f", {drafts['removed']} dry run(s) pruned"
+    if drafts["errors"]:
+        detail += "; dry-run retention: " + "; ".join(drafts["errors"])
+    return {"ok": not (captured["errors"] or drafts["errors"]), "detail": detail}
 
 
 def _job_environment_context(realm_root) -> dict:

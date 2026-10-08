@@ -284,7 +284,7 @@ def _agent_manage_box(realm, a) -> str:
 
 
 def _agent_advanced_box(fallback_opts: str, maxbudget: str, field: str, lbl: str,
-                        manage: str = "") -> str:
+                        manage: str = "", inspector: bool = False) -> str:
     """Advanced, last on the page and with a heading you can actually see. It used to be a small
     uppercase line wedged between two field groups, which read as a label rather than a section.
 
@@ -302,7 +302,13 @@ def _agent_advanced_box(fallback_opts: str, maxbudget: str, field: str, lbl: str
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Switches to this model if the primary is overloaded or unavailable. Inherit = the realm default (or none).</div></div>'
             f'<div><label style="{lbl};margin-top:0">Max budget — USD per run</label><input id="c-maxbudget" type="number" min="0" step="0.01" value="{E(maxbudget)}" placeholder="inherit" style="{field}">'
             f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Hard spend ceiling for a single run. Blank = inherit the realm default; 0 = no cap.</div></div>'
-            f'</div>{manage}</details>'
+            f'</div><label style="display:flex;gap:8px;align-items:center;margin-top:18px;font-size:13px">'
+            f'<input id="c-inspector" type="checkbox" {"checked" if inspector else ""}> Is inspector</label>'
+            '<p style="font-size:12px;color:var(--text-muted);margin:5px 0">Can test any realm job with an available model '
+            'and read every agent’s recorded artifacts. Other agents’ files stay read-only. '
+            'Inspector turns use ARMADA review tools; shell, live connectors and publishing are unavailable. '
+            'Save to authorize access on this machine.</p>'
+            f'{manage}</details>'
             '<style>details[open] .mc-adv-caret svg{transform:rotate(90deg);transition:transform .15s}'
             '.mc-adv-caret svg{transition:transform .15s}summary::-webkit-details-marker{display:none}</style>'
             + _REVEAL_JS)
@@ -438,7 +444,7 @@ def _tab_configure(realm, realm_root, a) -> str:
             f' — honesty, loyalty, confidentiality and the limits on acting. Don\'t repeat any of it '
             f'here; it already applies. These are the rules that are {E(a.display)}\'s alone.</span></div>'
             f'{_a2a_box(a2a_on, freq_opts, accepts_opts, field, lbl)}'
-            f'{_agent_advanced_box(fallback_opts, maxbudget, field, lbl, _agent_manage_box(realm, a))}'
+            f'{_agent_advanced_box(fallback_opts, maxbudget, field, lbl, _agent_manage_box(realm, a), ac.get("is_inspector") is True)}'
             f'</div>'
             + _configure_actions(a)
             + f'</div>'

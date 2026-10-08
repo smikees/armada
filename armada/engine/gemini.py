@@ -137,6 +137,8 @@ class GeminiEngine(EngineAdapter):
         except (OSError,ValueError,subprocess.SubprocessError): pass
         return {'available':False,'message':'Gemini quota could not be read. Recheck the connection in App settings.'}
     def _connectors(self,denied):
+        if getattr(self, 'managed_tools', None):
+            return [{**self.managed_tools.server_config, 'name':'armada_managed'}]
         # Only provider-local configurations. Never transfer Claude/Codex credentials.
         try: inventory = json.loads((Path.home()/'.gemini/config/mcp_config.json').read_text(encoding='utf-8-sig')).get('mcpServers',{})
         except (OSError,ValueError): inventory = {}
@@ -170,6 +172,14 @@ class GeminiEngine(EngineAdapter):
                 if name not in _FILE_TOOLS+['search_web','read_url_content']:
                     raise ValueError(f'Gemini cannot enforce tool denial {tool}.')
                 selected = [t for t in selected if t!=name]
+        if getattr(self, 'managed_tools', None):
+            selected = []
+            system += ('\n\nARMADA managed MCP server: armada_managed. Use exactly this server name, '
+                       'not a guessed alias. Available tools and exact input schemas:\n' +
+                       json.dumps(self.managed_tools.tools(), ensure_ascii=False) +
+                       '\nCall these MCP tools directly. Do not look for them through resources. '
+                       'A refused production write is an expected result: report it and finish, '
+                       'do not try other servers or repeated variations. Return a final text answer.')
         config = {'name':'armada-turn','description':'Current Armada request with explicit tool and memory boundaries.',
             'mainAgent':True,'subagent':False,'inheritMcp':False,'inheritCustomizations':False,
             'excludeDefaultComponents':True,'commandExecutionPolicy':'off','tools':selected,

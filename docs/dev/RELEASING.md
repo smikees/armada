@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.92. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.93. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -58,6 +58,12 @@ environment. It must pass all checks, including production desktop readiness and
 The default suite covers concurrent launches and failure preservation with a real child server;
 this native check covers behavior that mocked windows cannot verify. Retain its result with the
 release evidence. See [the startup incident](INCIDENT_2026_10_07_STARTUP.md).
+
+For dry-run/inspector controls, also run `python tools/dry_run_probe.py --output <result.json>`
+in the Windows pywebview environment. It uses a synthetic job/engine and checks model selection,
+separate history, disabled production jobs, real owned cancellation, navigation recovery,
+narrow layout and user authorization of inspector access. Managed provider transport changes
+also require harmless actual CLI draft/refusal checks, never a real business publication.
 
 ## 4. Commit
 
@@ -252,3 +258,10 @@ The standing owner authorization for unsigned Windows beta maintenance publicati
 to this detached-conversation fix. All isolated, exact-source CI, native session and upgrade
 checks remain mandatory. Runtime compatibility is unchanged.
 See [release verification](RELEASE_0_99_92.md).
+
+### 2026-10-08: maintenance 0.99.93
+
+Draft-only job tests and inspector agents continue the standing owner-authorized unsigned
+Windows beta maintenance distribution. All isolated, exact-source CI, native session and
+upgrade checks remain mandatory. Runtime compatibility is unchanged.
+See [release verification](RELEASE_0_99_93.md).

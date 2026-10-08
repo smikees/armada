@@ -10,7 +10,7 @@ Case-sensitive, whole-name shell globs, independent of the host OS.
 
 Reject traversal, Windows aliases and reparse points before filesystem access.
 
-### `validate(job, realm_root, job_id, *, run_id='validation', date=None)`
+### `validate(job, realm_root, job_id, *, run_id='validation', date=None, workspace_root=None)`
 
 —
 
@@ -18,7 +18,7 @@ Reject traversal, Windows aliases and reparse points before filesystem access.
 
 Synchronous writes at result arrival; failures are audit data, never observer exceptions.
 
-- `ToolCapture.__init__(self, root, job, job_id, run_id, provider, supported, agent)` — —
+- `ToolCapture.__init__(self, root, job, job_id, run_id, provider, supported, agent, *, workspace_root=None, index_root=None)` — —
 - `ToolCapture.fail(self, reason)` — —
 - `ToolCapture._checked(self)` — —
 - `ToolCapture.on_event(self, event)` — —

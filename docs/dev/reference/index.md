@@ -36,6 +36,7 @@
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
 | [`desktop_launch`](desktop_launch.md) | Start the desktop app with Explorer's lifetime and unvirtualized user context. |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
+| [`dry_runs`](dry_runs.md) | Temporary draft jobs, with separate history, explicit models and owned cancellation. |
 | [`ed25519`](ed25519.md) | Ed25519 signatures (RFC 8032), in plain Python — for checking that an update came from us (5.4). |
 | [`engine.__init__`](engine.__init__.md) | Engine adapters — the provider seam |
 | [`engine.authentication`](engine.authentication.md) | Admission for background model work; cost alone never identifies a provider. |
@@ -58,6 +59,7 @@
 | [`goals`](goals.md) | Realm goals — the objectives agents actively advance (distinct from passive memory). |
 | [`icons`](icons.md) | Icon subsystem — the single source of every SVG the UI draws. |
 | [`inbox`](inbox.md) | Agent-to-agent delegation — an inbox per agent. |
+| [`inspection`](inspection.md) | Owner-approved inspector authority and registered, read-only artifact access. |
 | [`instance`](instance.md) | One desktop/server owner per OS account, independent of realm and install path. |
 | [`job_access`](job_access.md) | Machine-local, owner-approved access and completion checks for external jobs. |
 | [`job_history`](job_history.md) | Job transcripts live separately from owner conversations; old logs stay intact. |
@@ -65,6 +67,8 @@
 | [`job_retries`](job_retries.md) | Bounded job retries with durable attempt evidence and conservative replay rules. |
 | [`jobs`](jobs.md) | Agent-authored job proposals (pending owner approval). |
 | [`local_auth`](local_auth.md) | Per-server loopback credentials, bootstrapped through an owner-only local file. |
+| [`managed_mcp`](managed_mcp.md) | Small stdio MCP transport for a single, scoped ARMADA managed-tools invocation. |
+| [`managed_tools`](managed_tools.md) | Invocation-scoped MCP tools for draft jobs and read-only inspectors. |
 | [`memory`](memory.md) | Layered memory + always-on core assembly (SPEC §5). |
 | [`memory_boundary`](memory_boundary.md) | Non-destructive memory boundary: provider denials where available, observation everywhere. |
 | [`model`](model.md) | ARMADA domain model (neutral ontology). |
@@ -141,6 +145,7 @@
 | [`webui.catalogue`](webui.catalogue.md) | Catalogue tab rendering: search results, filters, the bring-a-link review report, and the info box (ADR-004) — everything that renders from CATALOGUE/registry d |
 | [`webui.changelog`](webui.changelog.md) | Changelog data + its modal renderer (carved out of _core.py in Phase 3). |
 | [`webui.consumption`](webui.consumption.md) | Token-consumption gradient + model-colour mapping (carved from _core.py in Phase 3). |
+| [`webui.dryruns`](webui.dryruns.md) | Inline draft-only job controls and review output, using existing Jobs styles. |
 | [`webui.goalsview`](webui.goalsview.md) | Goals rendering (realm goals page + agent goals tab) (Layer 2, Phase 3). |
 | [`webui.jobresults`](webui.jobresults.md) | Shared execution/audit/delivery evidence for realm and agent job outputs. |
 | [`webui.layout`](webui.layout.md) | Page chrome / layout (carved from _core.py in Phase 3). |

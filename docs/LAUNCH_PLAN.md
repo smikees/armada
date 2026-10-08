@@ -12,14 +12,15 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.92** unifies live conversation rendering across the cockpit, embedded view
-and detached window. Stop resolves the active conversation within its bound realm; a dropped
-transport cannot pretend the engine stopped. Occluded views continue observing canonical
-progress, metrics and completion. The release passed 3,343 isolated tests, exact-source
-Windows CI, 76 native conversation checks and 63 packaged upgrade checks. Fresh public assets
-are verified and 0.99.92 is staged in the running 0.99.91 app. The native regression exercises
-real coordinated cancellation and compares live and terminal transcript HTML across both views.
-[Verification](dev/RELEASE_0_99_92.md) records validation and publication evidence.
+Version **0.99.93** adds draft-only job tests with independent model selection, Stop,
+temporary artifacts and seven-day default retention. Inspector agents have owner-approved,
+scoped tools to test any realm job and read recorded artifacts without changing production.
+Model tests use saved inputs; script tests require explicit draft-only commands.
+The feature passed 22 synthetic isolation tests and 30 native Jobs browser checks, with
+actual scoped-tool calls from all three installed CLIs. The enforced release gate and
+exact-package upgrade checks remain mandatory before publication.
+[Verification](dev/RELEASE_0_99_93.md) records boundaries and validation evidence.
+The canonical detached-conversation rendering and cancellation fixes from 0.99.92 remain in place.
 The job, capture and recovery work from earlier releases remains in place.
 Clean-Sandbox GUI acceptance remains open.
 

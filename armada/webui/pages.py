@@ -257,6 +257,20 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<label style="{lbl}">Effort</label><select id="j-effort" style="{field}">{effort_opts}</select>'
         f'<label style="{lbl}">Output verbosity</label><select id="j-verbosity" style="{field}">{verb_opts}</select>'
         f'<p style="font-size:11.5px;color:var(--text-muted)">Verbosity controls how much the agent writes back. Run output and history are available in the Jobs list.</p>' + capture_settings)
+    from .dryruns import controls as dry_controls
+    dry_command = jc.get("dry_run_command") or ""
+    if isinstance(dry_command, list):
+        import subprocess
+        dry_command = subprocess.list2cmdline(dry_command)
+    execution += (f'<details class="mc-job-section"><summary>Dry-run settings</summary>'
+        f'<div class="mc-job-section-body"><label for="j-dry-keep" style="{lbl}">Keep dry runs for days</label>'
+        f'<input id="j-dry-keep" type="number" min="1" max="365" value="{E(str(jc.get("dry_run_keep_days", 7)))}" style="{field}">'
+        f'<label for="j-dry-command" style="{lbl}">Draft-only command (command jobs)</label>'
+        f'<textarea id="j-dry-command" rows="3" style="{field}">{E(dry_command)}</textarea>'
+        '<small>Save a command that never publishes, sends, or writes production files. It runs with '
+        'ARMADA_DRY_RUN=1 and ARMADA_DRY_RUN_DIR set; its working folder is the temporary output folder. '
+        'Supports {workspace}, {dry_run_dir} and {run}. ARMADA does not sandbox arbitrary scripts.</small></div></details>'
+        + dry_controls(a.id, job_id, jc))
 
     # Editing stays focused on definition and model choices; runs are launched in the list.
     actions = (

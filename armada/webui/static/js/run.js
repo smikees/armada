@@ -3,7 +3,7 @@ async function mcRun(agent,job,engine,btn){
   d.querySelector('.mc-job-output-pane').open=true;
   d.dataset.run=''; d.dataset.starting='1';
   out.textContent='Starting…'; msg.textContent='';
-  d.querySelectorAll('button').forEach(b=>b.disabled=true);
+  d.querySelectorAll('.mc-job-actions button:not([onclick^="mcDryOpen"])').forEach(b=>b.disabled=true);
   const poll=setInterval(()=>mcLoadJobOutput(d),700);
   try{ const r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({agent,job,engine})})).json();
@@ -12,7 +12,7 @@ async function mcRun(agent,job,engine,btn){
     if(!r.report)msg.textContent=r.output||'Unable to start the job.';
   }catch(e){ out.textContent='error: '+e; }
   finally{clearInterval(poll);delete d.dataset.starting;await mcLoadJobOutput(d);}
-  d.querySelectorAll('button').forEach(b=>b.disabled=false);
+  d.querySelectorAll('.mc-job-actions button:not([onclick^="mcDryOpen"])').forEach(b=>b.disabled=false);
   mcSetRunBtn(d.querySelector('.btn-primary'),!d.classList.contains('mc-job-off'));
 }
 

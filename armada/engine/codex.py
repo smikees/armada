@@ -322,12 +322,12 @@ class CodexEngine(EngineAdapter):
 
     def _args(self, model, allow_tools, effort, denied, cwd=None, verbosity=None):
         args = ["exec", "--json", "--color", "never", "--skip-git-repo-check", "--ephemeral",
-                "--sandbox", "workspace-write" if allow_tools else "read-only",
+                "--sandbox", "workspace-write" if allow_tools and not getattr(self, "managed_tools", None) else "read-only",
                 "-c", 'approval_policy="never"']
         # App/desktop tools and plugin servers do not share Armada's MCP grants. Keep these off
         # until they have an explicit transport; a Claude plugin grant is not a Codex app grant.
         args += _feature_args()
-        if not allow_tools:
+        if not allow_tools or getattr(self, "managed_tools", None):
             for feature in ("shell_tool", "unified_exec", "image_generation", "view_image", "code_mode"):
                 args += ["-c", f"features.{feature}=false"]
             args += ["-c", 'web_search="disabled"']
@@ -347,7 +347,11 @@ class CodexEngine(EngineAdapter):
                                  f"Choose one of: {', '.join(supported)}.")
             args += ["-c", "model_reasoning_effort=" + json.dumps(effort)]
         args += _verbosity_args(model, verbosity)
-        args += self._mcp_args(allow_tools, denied, cwd=cwd)
+        if getattr(self, "managed_tools", None):
+            from ..managed_tools import codex_args
+            args += codex_args(self, cwd=cwd)
+        else:
+            args += self._mcp_args(allow_tools, denied, cwd=cwd)
         return args + ["-"]
 
     def run(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300,
@@ -361,6 +365,8 @@ class CodexEngine(EngineAdapter):
     def run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300,
                    on_event=None, on_proc=None, effort=None, fallback_model=None,
                    max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None, env=None):
+        if getattr(self, "managed_tools", None):
+            env = {**(env or {}), **self.managed_tools.server_config["env"]}
         emit = lambda event: safe_emit(on_event, event)
         try:
             validate_request(self.name, self.capabilities, RunRequest(system, prompt,
@@ -445,11 +451,15 @@ class CodexEngine(EngineAdapter):
             args = _feature_args() + _verbosity_args(model, verbosity)
             if env and env.get("ARMADA_RAW_DIR"):
                 args += ["-c", "shell_environment_policy.set.ARMADA_RAW_DIR=" + json.dumps(env["ARMADA_RAW_DIR"])]
-            if not allow_tools:
+            if not allow_tools or getattr(self, "managed_tools", None):
                 for feature in ("shell_tool", "unified_exec", "image_generation", "view_image", "code_mode"):
                     args += ["-c", f"features.{feature}=false"]
                 args += ["-c", 'web_search="disabled"']
-            args += self._mcp_args(allow_tools, disallowed_tools, cwd=run_cwd)
+            if getattr(self, "managed_tools", None):
+                from ..managed_tools import codex_args
+                args += codex_args(self, cwd=run_cwd)
+            else:
+                args += self._mcp_args(allow_tools, disallowed_tools, cwd=run_cwd)
             state = _AppStream(emit, model_id(model) or "codex:default", cwd)
             readiness = []
             pending_servers = list(self._turn_mcp_ids)
@@ -466,7 +476,7 @@ class CodexEngine(EngineAdapter):
                 params = {"threadId": state.thread_id, "input": [{"type": "text", "text": full_prompt +
                           (readiness_prompt(readiness) if readiness else "")}], "approvalPolicy": "never",
                           "sandboxPolicy": {"type": "workspaceWrite", "writableRoots": [str(p) for p in self.writable_roots],
-                                            "networkAccess": bool(self.network_access)} if allow_tools else {"type": "readOnly"}}
+                                            "networkAccess": bool(self.network_access)} if allow_tools and not getattr(self, "managed_tools", None) else {"type": "readOnly"}}
                 if effort:
                     params["effort"] = effort
                 send({"id": 3, "method": "turn/start", "params": params})
@@ -504,7 +514,7 @@ class CodexEngine(EngineAdapter):
                     if rid == 1:
                         send({"method": "initialized", "params": {}})
                         params = {"cwd": run_cwd, "approvalPolicy": "never",
-                                  "sandbox": "workspace-write" if allow_tools else "read-only",
+                                  "sandbox": "workspace-write" if allow_tools and not getattr(self, "managed_tools", None) else "read-only",
                                   "ephemeral": True, "serviceName": "armada"}
                         if model_id(model):
                             params["model"] = model_id(model)

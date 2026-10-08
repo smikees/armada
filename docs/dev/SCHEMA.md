@@ -113,6 +113,7 @@ labels remain supported by the reader's compatibility handling.
 ```jsonc
 { "id": "research", "display": "Research", "role": "Research specialist",
   "coordinator": false, "autonomy": "manual|auto|skip", "model": null, "effort": null,
+  "is_inspector": false,                 // optional; also requires owner approval on this machine
   "mandate": "mandate.md", "soul": "soul.md", "appointed": "YYYY-MM-DD", "membership": "cabinet",
   "inbox_frequency": "every run|hourly|daily|manual", "toolkit": { ... } }
 ```
@@ -121,8 +122,25 @@ labels remain supported by the reader's compatibility handling.
 ```jsonc
 { "name": "Daily Brief", "kind": "agent|command", "thread": "main",
   "schedule": "0 9 * * 1-5" | "manual",           // 5-field cron, or "manual"
-  "prompt": "..." /* agent */ , "run": "..." /* command */ }
+  "prompt": "..." /* agent */ , "run": "..." /* command */,
+  "dry_run_keep_days": 7,                // optional; 1–365; copied into new dry runs
+  "dry_run_command": "" }                // command jobs only; explicit owner-approved draft command
 ```
+
+### Dry-run runtime (additive, no migration)
+
+`.armada/dry-runs/<agent>/<job>/<run-id>/` stores `job.json` (configuration snapshot),
+`run.json` (schema_version 1, identity, model, requested_by, status, UTC started/finished,
+owner_pid, keep_days, output_dir, usage and result), `transcript.json`, and `output/`
+draft artifacts including host-written `final-answer.md`. Optional raw tool capture and
+its index stay within this test tree. `stop.json` is a durable cancellation request.
+Accounting rows use `kind: dry_run` and `task: dryrun:<job>`, separate from production
+job history. Housekeeping removes expired terminal trees, skipping active owned runs.
+
+Machine-local app configuration holds `inspectors` keyed by canonical realm/agent
+identity and `dry_run_commands` keyed by realm/agent/job with a command-definition
+fingerprint. Portable JSON alone cannot grant these authorities.
+See [dry-run boundaries](ADR_014_DRY_RUNS.md) and [Jobs](../../armada/docs/user/jobs.md).
 
 ## Scheduler runtime and admission state
 

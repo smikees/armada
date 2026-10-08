@@ -170,12 +170,50 @@ class JobRoutes:
                 if key in body:
                     jc[key] = body[key]
             validate(jc, self.realm, job)
+            from .. import dry_runs
+            for key in ("dry_run_command", "dry_run_keep_days"):
+                if key in body:
+                    jc[key] = body[key]
+            dry_runs.settings(jc)
         try:
-            util.mutate_json(p, change)
+            saved = util.mutate_json(p, change)
+            if "dry_run_command" in body:
+                from .. import inspection
+                saved.setdefault("id", job)
+                inspection.approve_command(self.realm, agent, saved)
             return {"ok": True, "path": f"agents/{agent}/jobs/{job}.json"}
         except Exception as e:  # noqa
             swallowed(log, '_save_job: failed; error returned to the caller')
             return {"ok": False, "error": f"write: {e}"}
+
+    def _start_dry_run(self, body):
+        from .. import dry_runs
+        try:
+            run = dry_runs.start(self.realm, body.get("agent"), body.get("job"), body.get("model", ""))
+            return {"ok": True, "run": run}
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def _stop_dry_run(self, body):
+        from .. import dry_runs
+        try:
+            return dry_runs.stop(self.realm, body.get("agent"), body.get("job"), body.get("run_id"))
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def _get_dry_runs(self):
+        from .. import dry_runs
+        from ..webui.dryruns import result_html
+        q = self._query()
+        try:
+            runs = dry_runs.listing(self.realm, q.get("agent"), q.get("job"))
+            selected = q.get("run_id") or (runs[0]["run_id"] if runs else "")
+            run = dry_runs.read(self.realm, q.get("agent"), q.get("job"), selected) if selected else None
+            self._json(200, {"ok": True, "runs": runs, "run": run,
+                "models": dry_runs.models(self.realm),
+                "html": result_html(self.realm, run) if run else "No dry runs yet. Choose a model to create a draft."})
+        except (OSError, ValueError) as exc:
+            self._json(400, {"ok": False, "error": str(exc)})
 
     def _run(self, body: dict) -> dict:
         from ..runner import run_job

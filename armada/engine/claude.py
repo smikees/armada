@@ -435,7 +435,7 @@ class ClaudeEngine(EngineAdapter):
         if not lp:
             return RunResult(ok=False, error="claude binary not found (install Claude Code)")
         try:
-            mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None else []
+            mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None and not getattr(self, "managed_tools", None) else []
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             from .startup import failed
             return failed(str(exc), code="connector_discovery", model=model or "")
@@ -456,7 +456,10 @@ class ClaudeEngine(EngineAdapter):
         # one travels by file; see _system_args.
         sys_args, sys_file = _system_args(_verbosity_system(system, verbosity))
         args += sys_args
-        if only_tools is not None:
+        if getattr(self, "managed_tools", None):
+            from ..managed_tools import claude_args
+            args += claude_args(self)
+        elif only_tools is not None:
             args += _sealed_tool_args(only_tools)
         elif allow_tools:
             # NO --safe-mode: load the real MCP servers / skills / plugins so the agent can actually
@@ -522,7 +525,7 @@ class ClaudeEngine(EngineAdapter):
             emit({"kind": "error", "error": "claude binary not found"})
             return RunResult(ok=False, error="claude binary not found")
         try:
-            mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None else []
+            mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None and not getattr(self, "managed_tools", None) else []
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             from .startup import failed
             emit({"kind": "error", "error": str(exc)})
@@ -537,7 +540,10 @@ class ClaudeEngine(EngineAdapter):
         args += _advanced_args(fallback_model, max_budget_usd)
         sys_args, sys_file = _system_args(_verbosity_system(system, verbosity))  # large context travels by file
         args += sys_args
-        if only_tools is not None:
+        if getattr(self, "managed_tools", None):
+            from ..managed_tools import claude_args
+            args += claude_args(self)
+        elif only_tools is not None:
             args += _sealed_tool_args(only_tools)
         elif allow_tools:
             # NO --safe-mode: real MCP/skills/plugins load so the agent can actually use its capabilities.

@@ -53,7 +53,7 @@ def _safe_path(base, relative):
     return target
 
 
-def validate(job, realm_root, job_id, *, run_id="validation", date=None):
+def validate(job, realm_root, job_id, *, run_id="validation", date=None, workspace_root=None):
     patterns = job.get("capture_tools", [])
     if not isinstance(patterns, list) or any(not isinstance(p, str) or not p.strip() for p in patterns):
         raise ValueError("capture_tools must be a list of nonempty full-tool-name globs.")
@@ -72,7 +72,7 @@ def validate(job, realm_root, job_id, *, run_id="validation", date=None):
     if "{" in expanded or "}" in expanded:
         raise ValueError("capture_dir supports only {job}, {date} and {run}.")
     # Validate even when disabled, so a traversal value cannot be saved for later.
-    base = workspace.root(realm_root)
+    base = str(workspace_root) if workspace_root is not None else workspace.root(realm_root)
     target = _safe_path(base or realm_root, expanded)
     if patterns and (not base or not Path(base).is_absolute() or not Path(base).is_dir()):
         raise ValueError("Set an existing absolute realm workspace before enabling capture.")
@@ -81,8 +81,9 @@ def validate(job, realm_root, job_id, *, run_id="validation", date=None):
 
 class ToolCapture:
     """Synchronous writes at result arrival; failures are audit data, never observer exceptions."""
-    def __init__(self, root, job, job_id, run_id, provider, supported, agent):
+    def __init__(self, root, job, job_id, run_id, provider, supported, agent, *, workspace_root=None, index_root=None):
         self.root, self.job = Path(root), job
+        self.workspace_root = workspace_root
         self.job_id, self.run_id, self.agent = job_id, run_id, agent
         self.patterns = job.get("capture_tools") or []
         self.required = job.get("require_capture") is True
@@ -93,10 +94,10 @@ class ToolCapture:
         self.matched = 0
         self.provider = provider
         self.date = clock.today().isoformat()
-        self.index = self.root / "capture-index" / (util.safe_seg(run_id, "run") + ".json")
+        self.index = Path(index_root or self.root) / "capture-index" / (util.safe_seg(run_id, "run") + ".json")
         try:
-            self.directory = validate(job, root, job_id, run_id=run_id, date=self.date)
-            self.base = Path(workspace.root(root)).resolve()
+            self.directory = validate(job, root, job_id, run_id=run_id, date=self.date, workspace_root=workspace_root)
+            self.base = Path(workspace_root if workspace_root is not None else workspace.root(root)).resolve()
             if not supported:
                 raise ValueError(f"Tool capture is unsupported for {provider}.")
             self._checked()
@@ -119,8 +120,9 @@ class ToolCapture:
             log.warning("Tool capture incomplete for %s: %s", self.run_id, reason)
 
     def _checked(self):
-        current = validate(self.job, self.root, self.job_id, run_id=self.run_id, date=self.date)
-        if current != self.directory or Path(workspace.root(self.root)).resolve() != self.base:
+        current = validate(self.job, self.root, self.job_id, run_id=self.run_id, date=self.date, workspace_root=self.workspace_root)
+        base = self.workspace_root if self.workspace_root is not None else workspace.root(self.root)
+        if current != self.directory or Path(base).resolve() != self.base:
             raise ValueError("Capture workspace changed during the run.")
         for name in ("manifest.jsonl",):
             _safe_path(self.base, (self.directory / name).relative_to(self.base).as_posix())

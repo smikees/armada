@@ -823,7 +823,7 @@ class _TurnCapture:
                 return
             inp = ev.get("input") or {}
             name = ev.get("name")
-            if name:
+            if name and not name.startswith("mcp__armada_managed__"):
                 self.tools.append(name)
             if name in _OUT_TOOLS:
                 fp = inp.get("file_path") or inp.get("notebook_path") or inp.get("path")

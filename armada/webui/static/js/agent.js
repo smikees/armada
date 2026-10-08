@@ -19,6 +19,7 @@ async function mcSaveAgent(agent){
     verbosity:(document.getElementById('c-verbosity')||{}).value||'',
     fallback_model:document.getElementById('c-fallback').value,
     max_budget_usd:document.getElementById('c-maxbudget').value,
+    is_inspector:document.getElementById('c-inspector').checked,
     mandate:document.getElementById('c-mandate').value,
     soul:document.getElementById('c-soul').value, tenets:document.getElementById('c-tenets').value};
   const m=document.getElementById('c-savemsg'), btn=document.getElementById('c-save');
