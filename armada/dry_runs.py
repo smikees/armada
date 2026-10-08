@@ -59,6 +59,7 @@ def _save_info(folder, info):
 
 def _read_info(root, path):
     # Windows can transiently deny an open around replacement or antivirus scanning.
+    path = inspection.checked_path(path, [Path(root).resolve()])
     with util.file_lock(path, validate_state=False):
         for attempt in range(8):
             try:
