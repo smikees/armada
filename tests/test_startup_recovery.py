@@ -125,6 +125,24 @@ def test_unresponsive_new_server_reports_activation_failure(monkeypatch):
                            'activation_protocol': 1}, timeout=0)
 
 
+def test_activation_tolerates_a_transient_missing_owner_during_promotion(monkeypatch):
+    monkeypatch.setattr(instance, '_focus_pid', lambda _: False)
+    monkeypatch.setattr(instance.util, 'write_json_atomic', lambda *a: None)
+    monkeypatch.setattr(instance.time, 'sleep', lambda _: None)
+    owner = {'pid': 123, 'role': 'serve', 'nonce': 'same', 'activation_protocol': 1}
+    states = iter([{}, {**owner, 'role': 'app'}])
+    monkeypatch.setattr(instance, 'current', lambda: next(states))
+    instance.activate(owner)
+
+
+def test_activation_still_refuses_a_different_owner_nonce(monkeypatch):
+    monkeypatch.setattr(instance, '_focus_pid', lambda _: False)
+    monkeypatch.setattr(instance.util, 'write_json_atomic', lambda *a: None)
+    monkeypatch.setattr(instance, 'current', lambda: {'nonce': 'replacement', 'role': 'app'})
+    with pytest.raises(instance.ActivationError, match='did not open its desktop'):
+        instance.activate({'pid': 123, 'role': 'serve', 'nonce': 'original', 'activation_protocol': 1})
+
+
 def test_runtime_role_is_used_by_restart_after_promotion(monkeypatch):
     monkeypatch.setattr(sys, 'argv', ['armada', 'serve'])
     with instance.claim('serve', 0):

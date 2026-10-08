@@ -19,3 +19,8 @@ trusted publisher-signing acceptance remain outstanding.
 No user realm or publication job is used as a release fixture. Original failed runs remain
 unchanged. Restoring job model settings and reconciling legacy remote schedules are separate
 operational actions, not a claim that these failed runs succeeded.
+
+The first release candidate passed the local isolated gate (3,334 tests, 5 skips) and current
+Python Windows CI. Pinned-Python CI exposed a transient owner-read activation race. The release
+was withheld, the bounded same-owner wait was fixed and tested, and the final source is revalidated
+by the enforced publication workflow. No failed CI run is treated as successful evidence.

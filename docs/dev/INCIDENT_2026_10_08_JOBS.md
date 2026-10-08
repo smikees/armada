@@ -51,3 +51,12 @@ The upstream Codex runtime ACL bug requires a vendor repair. CLI fallback cannot
 availability of a model an older CLI/account does not offer. ARMADA never changes an explicit
 model automatically. Check the older remote schedules before disabling a working publisher;
 this code release does not prove ownership of those triggers.
+
+## Release-gate startup race
+
+Pinned-Python Windows CI exposed a concurrent activation failure that the local gate and
+current-Python CI did not reproduce. Activation treated an empty owner lookup (including a
+transient Windows read failure during atomic owner-file replacement) as a changed owner nonce,
+and failed immediately. It now waits within its existing 10-second deadline for the same owner
+to finish promotion. A nonempty different nonce still fails closed. Deterministic regression
+tests cover both cases; the real concurrent child-server and native startup checks remain required.

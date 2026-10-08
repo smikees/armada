@@ -130,7 +130,9 @@ def activate(info, requested_role="app", timeout=10.0):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             owner = current()
-            if owner.get('nonce') != info.get('nonce'):
+            # A Windows read can briefly fail while promotion atomically replaces
+            # the owner file. Absence is not proof that another owner took over.
+            if owner and owner.get('nonce') != info.get('nonce'):
                 break
             if owner.get('role') == 'app':
                 return
