@@ -277,7 +277,8 @@ def test_pair_active_files_and_early_scores_are_hidden(realm):
 
 @pytest.mark.skipif(os.name != 'nt', reason='Native Windows draft process ownership')
 @pytest.mark.parametrize('cancel', [False, True])
-def test_skill_deadline_and_cancel_stop_the_owned_process(realm, cancel):
+def test_skill_deadline_and_cancel_stop_the_owned_process(realm, cancel, monkeypatch):
+    from armada.engine import process
     job, folder = _skill_job(realm, content='import time; time.sleep(30)')
     util.mutate_json(realm / 'agents/writer/jobs/digest.json', lambda j: j.update(timeout=1 if not cancel else 20))
     job['timeout'] = 1 if not cancel else 20
@@ -288,12 +289,34 @@ def test_skill_deadline_and_cancel_stop_the_owned_process(realm, cancel):
     grant = draft_skills.stage(realm, 'writer', job, run)
     stop = threading.Event()
     broker = ManagedTools(realm, 'writer', output=output, job=job, snapshot=snapshot, script_grant=grant, cancelled=stop.is_set)
-    if cancel:
-        threading.Timer(.5, stop.set).start()
-    before = time.monotonic()
+    supervised = process.supervise_command
+    lifetimes = []
+    def measure(*args, **kwargs):
+        bind = kwargs['on_proc']
+        started = None
+        timer = None
+        def on_proc(handle):
+            nonlocal started, timer
+            bind(handle)
+            started = time.monotonic()
+            if cancel:
+                timer = threading.Timer(.5, stop.set)
+                timer.start()
+        kwargs['on_proc'] = on_proc
+        try:
+            return supervised(*args, **kwargs)
+        finally:
+            if timer:
+                timer.cancel()
+            if started is not None:
+                lifetimes.append(time.monotonic() - started)
+    monkeypatch.setattr(process, 'supervise_command', measure)
     result = broker.call('run_skill', {'script': 'review/test.py'})
     assert not result['ok'] and (result['cancelled'] if cancel else result['timed_out'])
-    assert time.monotonic() - before < 8 and broker.script_process is None
+    # Runtime copying and container setup depend on host disk speed. Measure only
+    # the running child and its owned cleanup, and cancel after it really starts.
+    assert len(lifetimes) == 1 and lifetimes[0] < 8
+    assert result['exit_code'] is not None and broker.script_process is None
 
 
 def test_failed_script_staging_leaves_no_orphan_run(realm):
