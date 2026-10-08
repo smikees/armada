@@ -36,10 +36,15 @@ async function mcSaveJob(agent,job){
     capture_keep_days:Number(document.getElementById('j-capture-keep').value),
     require_capture:document.getElementById('j-require-capture').checked,
     dry_run_keep_days:Number(document.getElementById('j-dry-keep').value),
+    inspector:document.getElementById('j-inspector').checked,
+    dry_run_inputs:document.getElementById('j-dry-inputs').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+    dry_run_scripts:document.getElementById('j-dry-scripts').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),
+    approve_dry_run_scripts:document.getElementById('j-dry-approve').checked,
     dry_run_command:document.getElementById('j-dry-command').value.trim()};
   const m=document.getElementById('j-savemsg'); m.textContent='saving…';
   try{const r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     m.textContent=r.ok?'saved ✓ · '+(r.path||''):'error: '+(r.error||'failed'); m.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';
+    if(r.ok)document.getElementById('j-dry-approve').checked=false;
   }catch(e){m.textContent='error: '+e;}
 }
 // Delete from the job's own page. Same two-press confirm as the list, but on success there is no

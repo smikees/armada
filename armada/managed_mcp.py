@@ -33,7 +33,7 @@ def serve():
                 body = json.dumps({"method": method, "params": request.get("params") or {}}).encode()
                 req = urllib.request.Request(endpoint, body, headers={"Authorization": "Bearer " + token,
                     "Content-Type": "application/json"})
-                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=30) as response:
+                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=180) as response:
                     result = json.load(response)
             else:
                 raise ValueError("Unsupported MCP method.")

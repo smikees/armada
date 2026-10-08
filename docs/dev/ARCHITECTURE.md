@@ -273,3 +273,12 @@ defines signed-out skips, pending-message preservation and normalized job outcom
   contract rather than import `engine.claude` (see the audit's three rules).
 - Anything recurring → a system job in `sysjobs.JOBS`, not a timer in the server.
 - Anything a user should be able to add without code → an add-on kind, not a setting.
+
+
+## Scoped draft reviews (0.99.95)
+
+Inspector authority is agent-level, tool selection is job-level. Approved skill
+scripts and blind model pairs use managed draft tools with frozen inputs. See
+[DRAFT_REVIEW_ARCHITECTURE.md](DRAFT_REVIEW_ARCHITECTURE.md) for the isolation,
+private mapping, score reveal and retention boundaries. This supersedes the
+agent-wide inspector tool selection in 0.99.93.

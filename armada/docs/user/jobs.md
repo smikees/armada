@@ -31,7 +31,7 @@ follow the agent's settings again. Command jobs run scripts and don't use these 
 ## Dry runs
 
 Expand a job, then open **Dry run history**. The same section is on its **Edit job** page.
-Choose an available **Test model**, then **Start dry run**. This choice applies only
+Choose an available **Test model**, optionally override **Effort**, then **Start dry run**. This choice applies only
 to the test: the saved production model, schedule, enabled switch and production
 outputs stay unchanged. A switched-off job can still be tested. Unsaved editor
 changes are not included: save first to test a changed prompt.
@@ -82,7 +82,11 @@ This authorizes the inspector on this machine. Moving/importing a realm does not
 carry this permission: save the setting on the new machine to authorize it there.
 An agent cannot authorize itself by editing `agent.json`.
 
-Inspector turns use scoped ARMADA tools to list any job in their realm, choose any
+Then mark each review job **Edit job → Inspector job** and save (`"inspector": true`
+in its JSON). **Is inspector** authorizes the agent; the job flag selects turns
+using that authority. Unflagged jobs, Inbox and chat keep their normal filesystem,
+web, shell and sender grants. Existing inspectors must mark their review jobs
+after upgrading. Only flagged job turns use scoped ARMADA tools to list any job in their realm, choose any
 available model, start a dry run, and review its output. They can read all agents'
 **recorded output artifacts**, including captured tool results, but cannot edit
 other agents' files, change production models or jobs, or trigger production runs.
@@ -96,6 +100,79 @@ lower-cost model. Record any missing inputs and recommend whether I should chang
 the production model.” An inspector may start at most four tests per conversation
 turn; it can poll an asynchronous test and return in a later turn to review it.
 Changing the production model remains a user action.
+
+## Approved skill scripts in model tests
+
+In **Edit job → Dry-run settings**, list paths one per line, for example:
+
+```text
+skill-id/scripts/example.py
+skill-id/scripts/example.js
+```
+
+They must belong to this job's own
+**Allowed skills**. Python and Node.js are supported on Windows. Tick **Approve the
+listed script bundles when I save**, then **Save**. This fingerprints the script
+set and complete skill bundles, including vendored dependencies. Editing scripts,
+dependencies, allowed skills, selected inputs or the job prompt revokes approval.
+Re-review and explicitly approve before executing them again. Imports do not carry
+machine-local approvals.
+
+The draft agent receives `run_skill(script, arguments)` only when an approved set
+is configured. It cannot choose another executable or pass interpreter flags.
+Scripts run with cwd and `ARMADA_DRY_RUN_DIR` pointing to `output/`, and
+`ARMADA_DRY_RUN=1`. `ARMADA_INPUT_DIR` points to frozen copies of approved inputs;
+`ARMADA_INPUT_MANIFEST` maps original paths to copied files and SHA-256 hashes.
+Scripts must use copied paths, rather than hard-coded production paths.
+
+Windows LPAC isolation denies production access, changes to staged inputs/scripts,
+network and child processes. Only draft output files are writable. Node.js also
+uses its permission mode. ARMADA refuses to launch if isolation cannot be established;
+there is no unrestricted fallback. Scripts have a maximum 120-second deadline,
+8 calls per turn, bounded output and owned cancellation. Python's standard library,
+Node.js built-ins and fingerprinted vendored libraries are available. Global
+site-packages, node_modules and package-manager installs are not inherited.
+
+**Frozen input paths** optionally selects files/folders already covered by realm,
+workspace or approved job-input access. Leave empty to copy those roots. A snapshot
+is limited to 100 MiB and 10,000 files; large workspaces must select the needed inputs.
+Host control folders, credentials and runtime caches are excluded; links are refused.
+Missing inputs cannot fall back to live reads. Managed `read_input` accepts original
+paths and reads frozen copies. Approved scripts are available only in draft turns,
+never in inspector job turns. The trusted **Draft-only command** remains separate.
+
+## Blind paired comparisons
+
+In a flagged inspector job, call `list_jobs` and `list_models` first. `list_jobs`
+includes each job's effective model, provider and effort after job → agent → realm
+inheritance, its agent defaults, schedule, enabled state and inspector flag.
+`start_dry_run` accepts optional `effort`; `auto` uses the provider's automatic effort.
+The saved job stays unchanged.
+
+`start_dry_run_pair(agent, job, model_a, model_b, effort_a?, effort_b?)` needs both
+realm test slots. It freezes one input tree and one job/context snapshot. Both
+candidates read the same bytes even if production inputs change later. ARMADA
+randomly labels them **A/B**, keeping the mapping in machine-local storage outside
+the realm. Use `get_dry_run_pair(pair_id)` and `read_pair_file(pair_id, label, path)`
+for finished anonymous outputs. Partial files and raw provider diagnostics are
+withheld; the single-run inspection tools cannot bypass the pair interface.
+
+Call `record_scores(pair_id, score_a, score_b, notes?)` after both finish, with
+scores from 0 to 100. Committing both scores reveals requested/actual models,
+effective effort and execution diagnostics. Scores cannot change after reveal.
+Record the rubric and evidence in notes before revealing identity.
+
+`export_dry_run_pair(pair_id)` writes an anonymous ZIP into the inspector's own
+review artifacts so another agent, such as Warren, can score blind. It contains
+A/B artifacts and input hashes, never the host's mapping, transcripts or usage
+metadata. It remains anonymous after scoring. Selected model labels are masked
+in UTF-8 files up to 1 MiB; original artifacts remain in private machine storage.
+Binary files are preserved. Writing style or metadata authored inside a binary
+artifact can still suggest identity; blind review does not guarantee against inference.
+
+Pairs, shared inputs, originals and private mappings expire together under the
+job's captured retention (seven days by default). Active pairs are preserved.
+Exported ZIPs are ordinary review artifacts and are kept.
 
 ## Capture tool results to files
 

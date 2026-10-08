@@ -64,7 +64,7 @@ def safe_emit(callback, event):
             log.exception("CLI event observer failed")
 
 
-def supervise(args, *, prompt, on_line, timeout, cwd=None, env=None, on_proc=None, raw_output=False):
+def supervise(args, *, prompt, on_line, timeout, cwd=None, env=None, on_proc=None, raw_output=False, launch=None):
     """Run one owned process; on_line receives complete lines and may reject malformed output.
 
 Callbacks must return promptly. Memory is bounded at the transport: at most 8 queued lines
@@ -140,7 +140,7 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
         if os.name == "nt":
             from .windows_job import WindowsJob
             tree = WindowsJob()
-        proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        proc = (launch or subprocess.Popen)(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace" if raw_output else "strict",
                                 cwd=cwd, env=env, **process_options(suspended=True),
                                 start_new_session=os.name != "nt")
@@ -246,7 +246,7 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
     return result
 
 
-def supervise_command(args, *, timeout, cwd=None, env=None, on_proc=None):
+def supervise_command(args, *, timeout, cwd=None, env=None, on_proc=None, launch=None):
     """Own a noninteractive command without parsing a provider protocol.
 
     Preserve whitespace and replacement decoding. Exceeding either output limit stops the
@@ -254,7 +254,7 @@ def supervise_command(args, *, timeout, cwd=None, env=None, on_proc=None):
     """
     chunks = []
     result = supervise(args, prompt="", on_line=chunks.append, timeout=timeout, cwd=cwd,
-                       env=env, on_proc=on_proc, raw_output=True)
+                       env=env, on_proc=on_proc, raw_output=True, launch=launch)
     result.stdout = "".join(chunks)
     return result
 

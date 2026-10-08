@@ -112,18 +112,19 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
     if "allow_tools" in agent and type(agent["allow_tools"]) is not bool:
         raise CapabilityPolicyError("Capability policy: allow_tools must be true or false.")
     command = job and (job.get("kind") == "command" or job.get("run") or job.get("command"))
-    policy = execution_policy(realm_root, agent_id) if (allow_tools or agent.get("allow_tools")) and not command else None
+    inspector = bool(job and job.get("inspector") is True and not command)
+    policy = execution_policy(realm_root, agent_id) if (allow_tools or agent.get("allow_tools")) and not command and not inspector else None
     eng = _select_engine(realm_root, agent_id, engine, job)
     from .engine.contracts import ExecutionPolicy
     from . import job_access
-    grant = job_access.grant_for(realm_root, agent_id, job) if job and not command else job_access.Grant()
+    grant = job_access.grant_for(realm_root, agent_id, job) if job and not command and not inspector else job_access.Grant()
     roots = [str(Path(realm_root).resolve())]
     work = workspace.root(realm_root)
     if work:
         roots.append(work)
     roots.extend(grant.roots)
     binding = ExecutionPolicy(policy.allowed_mcp_ids if policy else frozenset(),
-                              tuple(dict.fromkeys(roots)), grant.network)
+                              () if inspector else tuple(dict.fromkeys(roots)), False if inspector else grant.network)
     if isinstance(eng, EngineAdapter):
         eng = eng.configure(binding)
     else:  # legacy injected adapter compatibility

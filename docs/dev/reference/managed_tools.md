@@ -17,7 +17,7 @@ Provider adapters expose only this MCP server during managed turns.
 
 —
 
-- `ManagedTools.__init__(self, root, agent, *, output=None, job=None, inspector=False)` — —
+- `ManagedTools.__init__(self, root, agent, *, output=None, job=None, inspector=False, snapshot=None, script_grant=None, cancelled=None)` — —
 - `ManagedTools.tools(self)` — —
 - `ManagedTools._authorize(self)` — —
 - `ManagedTools.call(self, name, arguments)` — —

@@ -262,13 +262,14 @@ class TurnCoordinator:
                 if not agent:
                     raise ValueError(f"no agent '{aid}'")
                 job = req.job or {}
+                inspector_turn = bool(req.task and job.get("inspector") is True)
                 if req.task and job.get("capture_tools"):
                     from .tool_capture import ToolCapture
                     raw_capture = ToolCapture(root, job, req.task, context.run_id, eng.name,
                         getattr(eng, "capabilities", ProviderCapabilities()).raw_tool_results, aid)
                 if scheduled_job:
                     from . import job_access, job_results
-                    grant = job_access.grant_for(root, aid, req.job) if req.job else job_access.Grant()
+                    grant = job_access.grant_for(root, aid, req.job) if req.job and not inspector_turn else job_access.Grant()
                     result_checks = job_access.expanded_checks(root, grant.checks)
                     result_job = job_results.requirements(job, result_checks)
                 run_agent = {**agent, **{k: job[k] for k in ("effort", "verbosity") if job.get(k)}}
@@ -281,7 +282,7 @@ class TurnCoordinator:
                     timeout=(r._resolve_timeout(root, job) or r._DEFAULT_RUN_TIMEOUT),
                     fallback_model=r._resolve_fallback_model(root, agent) or None,
                     max_budget_usd=r._resolve_max_budget(root, agent),
-                    disallowed_tools=tuple(r._tool_grants(root, aid, eng, use_tools)))
+                    disallowed_tools=() if inspector_turn else tuple(r._tool_grants(root, aid, eng, use_tools)))
                 validate_request(eng.name, getattr(eng, "capabilities", ProviderCapabilities()), request)
                 if req.task:
                     message = workspace.expand(req.message, root)
@@ -300,7 +301,7 @@ class TurnCoordinator:
                 core = memory.assemble_core(root, agent_dir, run_agent)
                 compact_engine = eng  # Context summarization must never receive inspector action tools.
                 from . import inspection
-                if agent.get("is_inspector") is True:
+                if inspector_turn:
                     if not inspection.enabled(root, aid):
                         raise ValueError("Save Is inspector in Configure → Advanced to authorize this agent on this machine.")
                     from .managed_tools import ManagedTools
@@ -309,7 +310,7 @@ class TurnCoordinator:
                     eng = managed.configure(eng)
                     request = replace(request, allow_tools=True, only_tools=None, disallowed_tools=())
                     use_tools = True
-                    core += ("\n\nYou are an ARMADA inspector. Use list_jobs, list_models, start_dry_run "
+                    core += ("\n\nThis is an ARMADA inspector job turn. Use list_jobs, list_models, start_dry_run "
                              "and get_dry_run to test jobs in this realm. Use list_artifacts/read_artifact "
                              "to review all agents' recorded output artifacts, read only. "
                              "Use write_draft for your own review files. No production job/model change, "

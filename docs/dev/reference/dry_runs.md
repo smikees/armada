@@ -30,7 +30,7 @@ Temporary draft jobs, with separate history, explicit models and owned cancellat
 
 —
 
-### `start(root, agent, job_id, model='', *, requested_by='user', engine=None)`
+### `start(root, agent, job_id, model='', *, requested_by='user', engine=None, effort=None, _admitted=False, _frozen=None, _job=None, _pair=None, _context=None)`
 
 Capture configuration before dispatch. No production invocation or job marker is used.
 

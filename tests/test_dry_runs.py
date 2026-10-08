@@ -326,7 +326,7 @@ def test_cross_process_liveness_and_stop_request_are_durable(realm, monkeypatch)
     assert dry_runs.prune(realm, now=dt.datetime.now(dt.timezone.utc)+dt.timedelta(days=5))["removed"] == 1
 
 
-def test_inspector_chat_uses_the_managed_broker_and_records_its_review_files(realm, monkeypatch):
+def test_inspector_job_uses_the_managed_broker_and_records_its_review_files(realm, monkeypatch):
     from armada import runner
     from armada.execution import TurnCoordinator, TurnRequest
     from armada.request_context import RunContext
@@ -344,8 +344,9 @@ def test_inspector_chat_uses_the_managed_broker_and_records_its_review_files(rea
         assert not getattr(engine, "managed_tools", None)
         return False
     monkeypatch.setattr("armada.threads.Thread.compact_if_needed", compact_without_actions)
-    result = TurnCoordinator(TurnRequest(RunContext.capture(realm, "inspector", "main"), "Compare job models")).run()
-    assert result["ok"]
+    result = TurnCoordinator(TurnRequest(RunContext.capture(realm, "inspector", "main"), "Compare job models",
+        task='review', job={'id': 'review', 'inspector': True})).run()
+    assert result["status"] == 'ok'
     from armada.threads import Thread
     outputs = Thread(realm / "agents/inspector", "main")._messages()[-1]["outputs"]
     assert any(o["name"] == "review.md" for o in outputs)

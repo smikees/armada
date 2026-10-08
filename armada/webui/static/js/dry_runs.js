@@ -38,7 +38,8 @@ window.mcDryStart=async function(button){
   if(picker&&!picker.value){message.textContent='Choose a model first.';picker.focus();return;}
   panel._dryStarting=true;button.disabled=true;message.textContent='Starting dry run…';
   try{
-    const response=await fetch('/api/dry-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:panel.dataset.dryAgent,job:panel.dataset.dryJob,model:picker?picker.value:''})});
+    const effort=panel.querySelector('.mc-dry-effort');
+    const response=await fetch('/api/dry-run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:panel.dataset.dryAgent,job:panel.dataset.dryJob,model:picker?picker.value:'',...(effort&&effort.value?{effort:effort.value}:{})})});
     const r=await response.json();if(!response.ok||!r.ok)throw new Error(r.error||'Could not start the dry run.');
     panel.dataset.dryRun=r.run.run_id;message.textContent='Dry run started.';
   }catch(e){message.textContent=e.message;}

@@ -12,6 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.95** scopes inspector tools to flagged jobs, adds fingerprinted
+Python/Node skill execution inside Windows draft isolation, and adds frozen-input
+blind A/B comparisons with immutable score reveal and anonymous export. Inspector
+metadata and dry-run effort overrides are included. Existing inspectors must mark
+their review jobs. [Technical design](dev/DRAFT_REVIEW_ARCHITECTURE.md).
+
 Version **0.99.94** aligns Dry run history with the existing Jobs disclosures,
 removes its duplicate top-row button and reuses the shared select/body typography.
 All 32 native Jobs checks, 78 targeted tests and 179 snapshot/reference checks passed.

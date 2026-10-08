@@ -36,6 +36,9 @@
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
 | [`desktop_launch`](desktop_launch.md) | Start the desktop app with Explorer's lifetime and unvirtualized user context. |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
+| [`draft_inputs`](draft_inputs.md) | Bounded frozen file inputs for draft scripts and paired model tests. |
+| [`draft_skills`](draft_skills.md) | Owner-fingerprinted skill bundles, executed only in Windows draft isolation. |
+| [`dry_run_pairs`](dry_run_pairs.md) | Paired drafts share frozen inputs; A/B identity is private until scores are committed. |
 | [`dry_runs`](dry_runs.md) | Temporary draft jobs, with separate history, explicit models and owned cancellation. |
 | [`ed25519`](ed25519.md) | Ed25519 signatures (RFC 8032), in plain Python — for checking that an update came from us (5.4). |
 | [`engine.__init__`](engine.__init__.md) | Engine adapters — the provider seam |
@@ -52,6 +55,7 @@
 | [`engine.process`](engine.process.md) | Owned CLI lifetime: bounded pipe draining, output-independent deadlines and tree cleanup. |
 | [`engine.raw_results`](engine.raw_results.md) | Keep a CLI JSON value's original spelling across normalized display events. |
 | [`engine.selection`](engine.selection.md) | Resolve the provider from the chosen model, keeping old Claude realms readable. |
+| [`engine.skill_sandbox`](engine.skill_sandbox.md) | Windows LPAC launcher for approved draft scripts; no network or child processes. |
 | [`engine.startup`](engine.startup.md) | Failures before a provider turn starts, with no business-job replay. |
 | [`engine.windows_job`](engine.windows_job.md) | Windows CLI process-tree ownership using documented Job Object and thread APIs. |
 | [`execution`](execution.md) | Own agent turns across HTTP, plain chat, jobs, inbox and Telegram. |

@@ -949,7 +949,7 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-job-output-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .mc-job-run-select{min-width:0;max-width:70%;font:inherit;font-size:11.5px;padding:4px 6px;color:var(--color-text);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r)}
 .mc-dry-runs>.mc-job-section-body{font-size:13px;line-height:1.55}
-.mc-dry-model{max-width:100%}
+.mc-dry-model,.mc-dry-effort{max-width:100%}
 .mc-job .mc-out{min-height:160px;max-height:520px;overflow:auto;overflow-wrap:anywhere;font-size:13px;line-height:1.55;min-width:0}
 .mc-job .mc-out pre{max-width:100%;overflow:auto}
 .mc-job-runlink{padding:0;background:none;border:0;font:inherit;color:var(--color-accent);cursor:pointer;text-align:left}

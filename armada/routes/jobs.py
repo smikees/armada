@@ -171,16 +171,33 @@ class JobRoutes:
                     jc[key] = body[key]
             validate(jc, self.realm, job)
             from .. import dry_runs
-            for key in ("dry_run_command", "dry_run_keep_days"):
+            for key in ("dry_run_command", "dry_run_keep_days", "inspector", "dry_run_scripts", "dry_run_inputs"):
                 if key in body:
-                    jc[key] = body[key]
+                    if key == 'dry_run_inputs' and not body[key]:
+                        jc.pop(key, None)
+                    else:
+                        jc[key] = body[key]
             dry_runs.settings(jc)
+            if jc.get('dry_run_scripts'):
+                from ..draft_skills import fingerprint
+                fingerprint(self.realm, agent, {**jc, 'id': job})
+            if jc.get('dry_run_inputs'):
+                from ..draft_inputs import roots
+                roots(self.realm, agent, {**jc, 'id': job})
+            if jc.get("inspector"):
+                from .. import inspection
+                if not inspection.enabled(self.realm, agent):
+                    raise ValueError("Enable and save Is inspector for this agent before marking an inspector job.")
         try:
             saved = util.mutate_json(p, change)
             if "dry_run_command" in body:
                 from .. import inspection
                 saved.setdefault("id", job)
                 inspection.approve_command(self.realm, agent, saved)
+            if body.get('approve_dry_run_scripts') is True or not saved.get('dry_run_scripts'):
+                from ..draft_skills import approve
+                saved.setdefault('id', job)
+                approve(self.realm, agent, saved)
             return {"ok": True, "path": f"agents/{agent}/jobs/{job}.json"}
         except Exception as e:  # noqa
             swallowed(log, '_save_job: failed; error returned to the caller')
@@ -189,7 +206,7 @@ class JobRoutes:
     def _start_dry_run(self, body):
         from .. import dry_runs
         try:
-            run = dry_runs.start(self.realm, body.get("agent"), body.get("job"), body.get("model", ""))
+            run = dry_runs.start(self.realm, body.get("agent"), body.get("job"), body.get("model", ""), effort=body.get("effort"))
             return {"ok": True, "run": run}
         except (OSError, ValueError) as exc:
             return {"ok": False, "error": str(exc)}

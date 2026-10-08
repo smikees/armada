@@ -16,6 +16,10 @@ def controls(agent, job_id, job, *, open=False):
         '<div style="display:flex;align-items:end;gap:8px;flex-wrap:wrap">'
         + ('<label style="display:grid;gap:4px;font-size:12px">Test model<select class="mc-job-run-select mc-dry-model" '
            'aria-label="Dry-run model"><option value="">Choose a model…</option></select></label>'
+           '<label style="display:grid;gap:4px;font-size:12px">Effort<select class="mc-job-run-select mc-dry-effort" aria-label="Dry-run effort">'
+           '<option value="">Inherit job</option><option value="auto">Auto</option>'
+           '<option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>'
+           '<option value="xhigh">Extra high</option><option value="max">Max</option></select></label>'
            if not command else '<span style="font-size:12px">Uses the draft-only command from Job settings.</span>')
         + '<button class="btn btn-secondary btn-sm mc-dry-start" onclick="mcDryStart(this)">Start dry run</button>'
         '<button class="btn btn-secondary btn-sm mc-dry-stop" onclick="mcDryStop(this)" hidden style="display:none">Stop</button>'
@@ -31,6 +35,10 @@ def controls(agent, job_id, job, *, open=False):
 def result_html(root, info):
     from .. import dry_runs, inspection, util
     folder = dry_runs.directory(root, info["agent"], info["job"], info["run_id"])
+    if info.get('pair_id'):
+        return (f'<div><strong>Blind candidate {E(info["pair_label"])}</strong> · {E(info["status"])}</div>'
+            f'<p>Paired comparison: {E(info["pair_id"])}. Review and score A/B using the inspector’s comparison tools. '
+            'Candidate diagnostics and model identity stay private until scores are committed.</p>')
     status = E(info["status"].replace("_", " ").title())
     model = E(info.get("actual_model") or info.get("model") or "Command")
     html = f'<div><strong>{status}</strong> · {model} · requested by {E(info["requested_by"])}</div>'

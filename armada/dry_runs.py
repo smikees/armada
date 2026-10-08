@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import datetime as dt
 import hashlib
 import json
@@ -31,6 +32,10 @@ def directory(root, agent, job, run_id):
 
 
 def settings(job):
+    if "inspector" in job and type(job["inspector"]) is not bool:
+        raise ValueError("Inspector job must be true or false.")
+    if job.get("inspector") and is_command(job):
+        raise ValueError("Inspector jobs must be agent jobs, without a command.")
     days = job.get("dry_run_keep_days", KEEP_DAYS)
     if type(days) is not int or not 1 <= days <= 365:
         raise ValueError("Dry-run retention must be between 1 and 365 days.")
@@ -54,7 +59,17 @@ def is_command(job):
 def _save_info(folder, info):
     path = Path(folder) / "run.json"
     with util.file_lock(path, validate_state=False):
-        util.write_json_atomic(path, info)
+        saved = copy.deepcopy(info)
+        for key in list(saved):
+            if key.startswith('_'):
+                saved.pop(key)
+        if info.get('pair_id'):
+            for key in ('model', 'actual_model', 'effort_override', 'effective_effort', 'tokens', 'capture', 'result', 'error'):
+                saved.pop(key, None)
+            saved['model'] = 'Blind candidate ' + info['pair_label']
+            if info.get('error'):
+                saved['error'] = 'Candidate failed. Record scores to review its private diagnostics.'
+        util.write_json_atomic(path, saved)
 
 
 def _read_info(root, path):
@@ -71,15 +86,20 @@ def _read_info(root, path):
                 time.sleep(.03)
 
 
-def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
+def start(root, agent, job_id, model="", *, requested_by="user", engine=None, effort=None,
+          _admitted=False, _frozen=None, _job=None, _pair=None, _context=None):
     """Capture configuration before dispatch. No production invocation or job marker is used."""
     from . import realmops, updater
     root = Path(root).resolve()
     agent, job_id = util.safe_seg(agent, "agent"), util.safe_seg(job_id, "job")
     if not isinstance(model, str):
         raise ValueError("Choose a model ID from the available model list.")
+    if effort is not None:
+        from .runner import _EFFORT_LEVELS
+        if not isinstance(effort, str) or effort not in (*_EFFORT_LEVELS, "auto"):
+            raise ValueError("Choose a supported effort or auto.")
     # RunSession owns the process-shared update/lifecycle locks; never acquire them twice.
-    with _LOCK, util.file_lock(base(root) / "admission", validate_state=False):
+    with _LOCK, (contextlib.nullcontext() if _admitted else util.file_lock(base(root) / "admission", validate_state=False)):
         realmops.assert_active(root)
         if updater.installed() and updater.admission_paused():
             raise ValueError("ARMADA is restarting to update. Try after it reopens.")
@@ -91,7 +111,7 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
         inspection.checked_path(ad / "agent.json", [root], must_exist=True)
         jp = inspection.checked_path(ad / "jobs" / (job_id + ".json"), [root], must_exist=True)
         with util.file_lock(jp):
-            job = util.read_json_state(jp)
+            job = copy.deepcopy(_job) if _job is not None else util.read_json_state(jp)
             job.setdefault("id", job_id)
             days = settings(job)
             if is_command(job):
@@ -99,6 +119,8 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
                     raise ValueError("Save an explicit draft-only dry-run command in Job settings first.")
                 if model:
                     raise ValueError("Command jobs use the saved dry-run command, not a model.")
+                if effort is not None:
+                    raise ValueError("Command jobs do not use reasoning effort.")
             elif engine is None and model not in {row["id"] for row in models(root)}:
                 raise ValueError("Select an available model for this dry run.")
         if requested_by != "user" and not inspection.enabled(root, requested_by):
@@ -110,12 +132,34 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
         info = {"schema_version": 1, "run_id": run_id, "agent": agent, "job": job_id,
                 "name": job.get("name") or job_id, "mode": "dry_run", "status": "queued",
                 "model": model, "requested_by": requested_by, "started": now,
+                "effort_override": effort,
                 "owner_pid": os.getpid(),
                 "keep_days": days, "output_dir": str(folder / "output"),
                 "limitations": "Saved file inputs only; live connectors, shell and publication tools are disabled."
                     if not is_command(job) else "Runs the owner-approved dry-run command; the script must honor its draft-only contract."}
-        util.write_json_atomic(folder / "job.json", job)
-        _save_info(folder, info)
+        try:
+            if _pair:
+                info.update(pair_id=_pair[0], pair_label=_pair[1])
+            if _frozen:
+                info['_snapshot'] = str(_frozen)
+            elif job.get('dry_run_scripts'):
+                from .draft_inputs import freeze
+                freeze(root, agent, job, folder / 'inputs')
+                info['_snapshot'] = str(folder / 'inputs')
+            from .draft_skills import stage
+            script_grant = stage(root, agent, job, folder)
+            # Context and job definition are captured at dispatch, never reread between candidates.
+            from . import memory
+            info['_agent'] = copy.deepcopy(_context[0]) if _context else util.read_json_state(ad / 'agent.json')
+            info['_core'] = _context[1] if _context else memory.assemble_core(root, ad, info['_agent'])
+            info['_script_grant'] = script_grant
+            util.write_json_atomic(folder / "job.json", job)
+            _save_info(folder, info)
+        except BaseException:
+            for candidate in folder.rglob('*'):
+                inspection.checked_path(candidate, [folder], must_exist=True)
+            shutil.rmtree(folder)
+            raise
         from .execution import RunSession
         from .request_context import RunContext
         session = RunSession(RunContext.capture(root, agent, "dryrun-" + run_id, run_id=run_id))
@@ -132,7 +176,7 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
             info.update(status="failed", finished=now, error="Could not start the dry run.")
             _save_info(folder, info)
             raise
-        return copy.deepcopy(info)
+        return _read_info(root, folder / 'run.json')
 
 
 def _execute(root, folder, job, info, session, engine):
@@ -176,10 +220,13 @@ def _execute(root, folder, job, info, session, engine):
         else:
             from .managed_tools import ManagedTools
             eng = engine or get_engine(model_provider(info["model"]))
-            agent = util.read_json_state(root / "agents" / info["agent"] / "agent.json")
+            agent = info['_agent']
             chosen = {**agent, "model": info["model"]}
             # A test uses precisely the selected model, with no production fallback or retry.
-            core = memory.assemble_core(root, root / "agents" / info["agent"], chosen)
+            core = info['_core']
+            if info.get('pair_id'):
+                core += ('\nThis is a blind A/B model comparison. Never name your model, provider or reasoning effort '
+                         'in drafts, final answers, script arguments or artifact metadata.')
             core += ("\n\nDRY RUN: produce draft artifacts only. Production instructions to publish, send, "
                      "or edit existing files are replaced by creating drafts in ARMADA_DRY_RUN_DIR. "
                      "Use the ARMADA managed tools to read existing inputs and write drafts. "
@@ -194,7 +241,12 @@ def _execute(root, folder, job, info, session, engine):
             prompt += job_results.instructions(info["run_id"], test_job)
             env = {"ARMADA_DRY_RUN": "1", "ARMADA_DRY_RUN_DIR": str(folder / "output"),
                    "ARMADA_RUN_ID": info["run_id"]}
-            with ManagedTools(root, info["agent"], output=folder / "output", job=job) as tools:
+            snapshot = Path(info['_snapshot']) if info.get('_snapshot') else None
+            if snapshot:
+                core += ('\nInputs are frozen. read_input accepts original approved paths and reads their frozen copies. '
+                         'Approved scripts use ARMADA_INPUT_DIR and ARMADA_INPUT_MANIFEST for staged paths.')
+            with ManagedTools(root, info["agent"], output=folder / "output", job=job, snapshot=snapshot,
+                    script_grant=info.get('_script_grant'), cancelled=lambda: session.active.cancelled) as tools:
                 eng = tools.configure(eng)
                 if job.get("capture_tools"):
                     from .tool_capture import ToolCapture
@@ -210,8 +262,11 @@ def _execute(root, folder, job, info, session, engine):
                 level = verbosity.normalise(job.get("verbosity")) or verbosity.agent_level(root, info["agent"])
                 request = RunRequest(core, prompt, model=runner._engine_model(eng, info["model"]) or None,
                     cwd=str(folder / "output"), allow_tools=True, timeout=runner._resolve_timeout(root, job) or 600,
-                    effort=job.get("effort") or runner._resolve_effort(root, chosen) or None,
+                    effort=(None if info.get("effort_override") == "auto" else info["effort_override"])
+                        if info.get("effort_override") is not None else
+                        runner._resolve_effort(root, {**chosen, **({"effort": job["effort"]} if job.get("effort") else {})}) or None,
                     max_budget_usd=runner._resolve_max_budget(root, chosen), verbosity=level, env=env)
+                info['effective_effort'] = request.effort or 'auto'
                 def event(ev):
                     if capture is not None:
                         capture.on_event(ev)
@@ -244,16 +299,23 @@ def _execute(root, folder, job, info, session, engine):
                     info["status"] = "warning"
             text = job_results.original_answer(result.output)
             util.write_text_atomic(folder / "output" / "final-answer.md", text + "\n")
-            util.write_json_atomic(folder / "transcript.json", {"content": text, "raw_final_answer": result.output,
-                "events": events, "error": result.error})
+            transcript = {"content": text, "raw_final_answer": result.output, "events": events, "error": result.error}
+            if info.get('pair_id'):
+                from . import dry_run_pairs
+                dry_run_pairs.private_result(root, info, transcript)
+                dry_run_pairs.anonymize_outputs(root, info, folder / 'output')
+                info['blind_ready'] = True
+                transcript = {'content': dry_run_pairs.anonymize(root, info, text)}
+                info['files'] = output_files(folder)
+            util.write_json_atomic(folder / "transcript.json", transcript)
             info["files"] = output_files(folder)
             _save_info(folder, info)
             runner._write_report(root / "agents" / info["agent"], info["agent"], {
                 "ts": info["finished"], "agent": info["agent"], "task": "dryrun:" + info["job"],
-                "kind": "dry_run", "run_id": info["run_id"], "model": result.model or info["model"],
+                "kind": "dry_run", "run_id": info["run_id"], "model": ('Blind candidate ' + info['pair_label']) if info.get('pair_id') else result.model or info["model"],
                 "tokens": result.usage.as_dict(), "status": {"completed": "ok", "warning": "warn",
                     "failed": "error", "timed_out": "error"}.get(info["status"], info["status"]),
-                "summary": "Dry run · " + info["name"]})
+                "summary": "Dry run Â· " + info["name"]})
         except Exception:
             log.exception("Could not persist dry-run result")
             try:
@@ -356,6 +418,8 @@ def prune(root, *, now=None):
         try:
             folder = inspection.checked_path(metadata.parent, [Path(root).resolve()], must_exist=True)
             info = read(root, folder.parent.parent.name, folder.parent.name, folder.name)
+            if info.get('pair_id'):
+                continue  # Pair retention owns both candidates and their shared snapshot.
             if info["status"] in ("queued", "running"):
                 continue
             finished = dt.datetime.fromisoformat(info.get("finished") or info["started"])
@@ -370,4 +434,6 @@ def prune(root, *, now=None):
             removed += 1
         except (OSError, ValueError) as exc:
             errors.append(str(exc))
-    return {"removed": removed, "errors": errors}
+    from .dry_run_pairs import prune as prune_pairs
+    pairs = prune_pairs(root, now=now)
+    return {"removed": removed + pairs['removed'], "errors": errors + pairs['errors']}

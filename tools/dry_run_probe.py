@@ -30,6 +30,14 @@ def run(output, width=1280):
         os.environ["HOME"] = os.environ["USERPROFILE"] = str(root / "home")
         (root / "home").mkdir()
         realm = Path(build_fixture(root / "realm"))
+        from armada import skills
+        from armada.model import Skill
+        skills.save(realm, 'captain', [Skill(id='review')])
+        skill = realm / 'agents/captain/skills/review'
+        skill.mkdir(parents=True)
+        (skill / 'SKILL.md').write_text('Synthetic test reviewer.')
+        (skill / 'test.py').write_text('print("synthetic draft 12.34")')
+        (realm / 'input.json').write_text('{"amount":"12.34"}')
         jp = realm / "agents/captain/jobs/synthetic-model-test.json"
         jp.parent.mkdir(parents=True, exist_ok=True)
         job = {"id": jp.stem, "name": "Synthetic model test", "schedule": "manual"}
@@ -96,7 +104,7 @@ def run(output, width=1280):
         def js(code):
             return window.evaluate_js(code)
 
-        def screenshot(name):
+        def screenshot(name, focus='.mc-dry-runs'):
             # Occluded WebView2 CapturePreview can wait forever for a compositor frame.
             # Behavior is tested in native WebView2; render its actual DOM in an isolated
             # headless Chromium profile for repeatable visual evidence.
@@ -113,7 +121,7 @@ def run(output, width=1280):
                     [...target.options].forEach((o,n)=>o.toggleAttribute('selected',n===s.selectedIndex));
                 });
                 return '<!doctype html>'+copy.outerHTML;
-            })()""") + "<script>addEventListener('load',()=>document.querySelector('.mc-dry-runs').scrollIntoView({block:'center'}))</script>"
+            })()""") + "<script>addEventListener('load',()=>document.querySelector("+json.dumps(focus)+").scrollIntoView({block:'center'}))</script>"
             path = output.with_name(name + ".png").resolve()
             subprocess.run([str(chrome), "--headless=new", "--disable-gpu", "--no-first-run",
                 "--disable-background-networking", "--disable-component-update", "--no-proxy-server",
@@ -145,6 +153,7 @@ def run(output, width=1280):
                 }})()"""))
                 check("Dry run is available for a disabled production job", lambda: js(f"!document.querySelector({json.dumps(panel+' .mc-dry-start')}).disabled"))
                 check("Available models load", lambda: js(f"document.querySelector({json.dumps(panel+' .mc-dry-model')}).options.length===3"))
+                check('Dry run effort uses the shared selector', lambda: js(f"document.querySelector({json.dumps(panel+' .mc-dry-effort')}).classList.contains('mc-job-run-select')"))
                 js(f"document.querySelector({json.dumps(panel+' .mc-dry-start')}).click()")
                 check("Missing model gives actionable feedback", lambda: "Choose a model" in js(f"document.querySelector({json.dumps(panel+' .mc-dry-message')}).textContent"))
                 js(f"document.querySelector({json.dumps(panel+' .mc-dry-model')}).value='gpt-6-luna';document.querySelector({json.dumps(panel+' .mc-dry-start')}).click()")
@@ -173,6 +182,16 @@ def run(output, width=1280):
                 check("Agent Advanced contains Is inspector", lambda: js("!!document.getElementById('c-inspector')"))
                 js("document.getElementById('c-inspector').checked=true;mcSaveAgent('captain')")
                 check("Saving inspector grants machine-local authority", lambda: inspection.enabled(realm, "captain"))
+                window.load_url(local_auth.browser_url(url, f'/job/captain/{jp.stem}'))
+                check('Job editor includes scoped inspector and approved script settings', lambda: js("!!document.getElementById('j-inspector') && !!document.getElementById('j-dry-scripts') && !!document.getElementById('j-dry-approve')"))
+                js("document.getElementById('j-inspector').checked=true;document.getElementById('j-dry-scripts').value='review/test.py';document.getElementById('j-dry-approve').checked=true;mcSaveJob('captain','synthetic-model-test')")
+                check('Owner save records inspector scope and the script fingerprint', lambda: (lambda j:
+                    j.get('inspector') is True and inspection.appconfig.get('dry_run_scripts', {}).get(
+                        inspection.identity(realm, 'captain')+'|'+jp.stem) is not None)(util.read_json_state(jp)))
+                check('Script approval checkbox resets after saving', lambda: js("!document.getElementById('j-dry-approve').checked"))
+                js("document.getElementById('j-dry-scripts').closest('details').open=true")
+                check('Script settings fit their section', lambda: js("document.getElementById('j-dry-scripts').scrollWidth<=document.getElementById('j-dry-scripts').clientWidth+1"))
+                screenshot('dry-review-editor' if width > 800 else 'dry-review-editor-narrow', '#j-dry-scripts')
                 result["ok"] = True
             except Exception:
                 result["error"] = traceback.format_exc()
