@@ -15,8 +15,10 @@ The current release is recorded in the [README](../README.md),
 Version **0.99.92** unifies live conversation rendering across the cockpit, embedded view
 and detached window. Stop resolves the active conversation within its bound realm; a dropped
 transport cannot pretend the engine stopped. Occluded views continue observing canonical
-progress, metrics and completion. The native regression now exercises real coordinated
-cancellation and compares live and terminal transcript HTML across both Windows views.
+progress, metrics and completion. The release passed 3,343 isolated tests, exact-source
+Windows CI, 76 native conversation checks and 63 packaged upgrade checks. Fresh public assets
+are verified and 0.99.92 is staged in the running 0.99.91 app. The native regression exercises
+real coordinated cancellation and compares live and terminal transcript HTML across both views.
 [Verification](dev/RELEASE_0_99_92.md) records validation and publication evidence.
 The job, capture and recovery work from earlier releases remains in place.
 Clean-Sandbox GUI acceptance remains open.

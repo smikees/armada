@@ -49,5 +49,38 @@ observer reconciles durable progress and completion.
   Windows CI for the exact source, branded WebView2 session and compiled-launcher recovery
   checks, followed by the exact-package native upgrade gate before publishing.
 
-Publication evidence and final gate counts are recorded after successful publication.
 Generated probe reports, screenshots and packaged assets remain under ignored build/dist paths.
+
+## Publication
+
+[Release v0.99.92](https://github.com/smikees/armada/releases/tag/v0.99.92) was published
+on 2026-10-08T14:43:15Z from commit
+`bd719ef6e5385528db40d2ceaa23d1b098ab071f`.
+
+- The enforced publisher passed **3,343 isolated tests with 5 skips** and successful
+  Windows CI for this exact commit on pinned Python 3.12.10 and current Python 3.12:
+  [CI run 37793094365](https://github.com/smikees/armada/actions/runs/37793094365).
+- The compiled launcher passed all **5 interruption recovery checks**, and the branded
+  packaged runtime passed all **16 native WebView2 multi-window session checks**.
+- The exact signed package passed **63 native upgrade checks** from 0.99.91 to 0.99.92,
+  including authenticated real-page navigation, scheduler/restart recovery and cleanup.
+- The detached-conversation native regression passed **76 checks**. The released production
+  code is identical to the final native-tested code; the last source commit replaces only
+  the obsolete portrait test and records that correction.
+- Fresh public downloads verified the manifest's Ed25519 signature, all four GitHub asset
+  digests/sizes, the local installer digest and all **325 packaged source files** byte for byte.
+- The authenticated live update check staged 0.99.92. The existing **0.99.91** process and
+  instance nonce were preserved; applying the update awaits the owner's normal restart.
+
+| Asset | Bytes | SHA-256 |
+| --- | ---: | --- |
+| armada-0.99.92.zip | 5,482,633 | `73e5647be16a71e54f02a3441782bfd8107ab1a6c360858b35741bbd9dba28c9` |
+| ARMADA-Setup-0.99.92.exe | 20,431,801 | `cd2975dd6fe55c809890c225975239c6e3983b5f931c15ec5855e2363ecea3c0` |
+| armada-update.json | 347 | `6dde156fe0c644b79516d2efd4c1b8e5b6d51fbbed0baa873bb8f36813db9202` |
+| armada-update.json.sig | 89 | `bb958a2fe4dcd459857c8ea5e0c351c50e8777c3c9f907d07bc3f9e668d9e4be` |
+
+Generated evidence remains under ignored build paths:
+`publish-0.99.92-published.log`, `release-evidence-0.99.92.json`,
+`thread-sync-0.99.92-final.json`, `upgrade-0.99.92.json`,
+`verification-0.99.92/result.json` and `staging-0.99.92-live.json`.
+No user realm or provider turn is used as a release fixture.
