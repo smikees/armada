@@ -51,6 +51,25 @@ def is_command(job):
     return job.get("kind") == "command" or bool(job.get("run") or job.get("command"))
 
 
+def _save_info(folder, info):
+    path = Path(folder) / "run.json"
+    with util.file_lock(path, validate_state=False):
+        util.write_json_atomic(path, info)
+
+
+def _read_info(root, path):
+    # Windows can transiently deny an open around replacement or antivirus scanning.
+    with util.file_lock(path, validate_state=False):
+        for attempt in range(8):
+            try:
+                return util.read_json_state(inspection.checked_path(path, [Path(root).resolve()], must_exist=True))
+            except (util.StateError, PermissionError) as exc:
+                cause = exc.__cause__ if isinstance(exc, util.StateError) else exc
+                if not isinstance(cause, PermissionError) or attempt == 7:
+                    raise
+                time.sleep(.03)
+
+
 def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
     """Capture configuration before dispatch. No production invocation or job marker is used."""
     from . import realmops, updater
@@ -64,7 +83,7 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
         if updater.installed() and updater.admission_paused():
             raise ValueError("ARMADA is restarting to update. Try after it reopens.")
         live = [p for p in base(root).glob("*/*/*/run.json") if
-                (lambda r: r.get("status") in ("queued", "running") and util.pid_alive(r.get("owner_pid", 0)))(util.read_json_state(p))]
+                (lambda r: r.get("status") in ("queued", "running") and util.pid_alive(r.get("owner_pid", 0)))(_read_info(root, p))]
         if len(live) >= 2:
             raise ValueError("Two dry runs are already active in this realm. Stop one or wait for it to finish.")
         ad = root / "agents" / agent
@@ -95,7 +114,7 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
                 "limitations": "Saved file inputs only; live connectors, shell and publication tools are disabled."
                     if not is_command(job) else "Runs the owner-approved dry-run command; the script must honor its draft-only contract."}
         util.write_json_atomic(folder / "job.json", job)
-        util.write_json_atomic(folder / "run.json", info)
+        _save_info(folder, info)
         from .execution import RunSession
         from .request_context import RunContext
         session = RunSession(RunContext.capture(root, agent, "dryrun-" + run_id, run_id=run_id))
@@ -110,7 +129,7 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None):
             _ACTIVE.pop(key, None)
             session.close()
             info.update(status="failed", finished=now, error="Could not start the dry run.")
-            util.write_json_atomic(folder / "run.json", info)
+            _save_info(folder, info)
             raise
         return copy.deepcopy(info)
 
@@ -137,7 +156,7 @@ def _execute(root, folder, job, info, session, engine):
     watcher.start()
     try:
         info["status"] = "running"
-        util.write_json_atomic(folder / "run.json", info)
+        _save_info(folder, info)
         if session.active.cancelled:
             result = RunResult(ok=False, cancelled=True, error="Dry run stopped.")
         elif is_command(job):
@@ -227,7 +246,7 @@ def _execute(root, folder, job, info, session, engine):
             util.write_json_atomic(folder / "transcript.json", {"content": text, "raw_final_answer": result.output,
                 "events": events, "error": result.error})
             info["files"] = output_files(folder)
-            util.write_json_atomic(folder / "run.json", info)
+            _save_info(folder, info)
             runner._write_report(root / "agents" / info["agent"], info["agent"], {
                 "ts": info["finished"], "agent": info["agent"], "task": "dryrun:" + info["job"],
                 "kind": "dry_run", "run_id": info["run_id"], "model": result.model or info["model"],
@@ -237,7 +256,7 @@ def _execute(root, folder, job, info, session, engine):
             try:
                 info.update(status="failed", error="Could not save the dry-run output. Check ARMADA logs and retry.",
                             finished=dt.datetime.now(dt.timezone.utc).isoformat())
-                util.write_json_atomic(folder / "run.json", info)
+                _save_info(folder, info)
             except Exception:
                 log.exception("Could not save dry-run persistence failure")
         finally:
@@ -300,7 +319,7 @@ def listing(root, agent, job):
 
 def read(root, agent, job, run_id):
     folder = directory(root, agent, job, run_id)
-    info = util.read_json_state(inspection.checked_path(folder / "run.json", [Path(root).resolve()], must_exist=True))
+    info = _read_info(root, folder / "run.json")
     if (info.get("agent"), info.get("job"), info.get("run_id")) != (agent, job, run_id):
         raise ValueError("Dry-run identity does not match this job.")
     with _LOCK:

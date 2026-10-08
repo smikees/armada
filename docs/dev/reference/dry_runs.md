@@ -22,6 +22,14 @@ Temporary draft jobs, with separate history, explicit models and owned cancellat
 
 —
 
+### `_save_info(folder, info)`
+
+—
+
+### `_read_info(root, path)`
+
+—
+
 ### `start(root, agent, job_id, model='', *, requested_by='user', engine=None)`
 
 Capture configuration before dispatch. No production invocation or job marker is used.

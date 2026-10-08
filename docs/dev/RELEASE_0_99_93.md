@@ -42,12 +42,14 @@ inspector turn bound costs.
 
 ## Validation
 
-- **22 synthetic tests** cover model selection, disabled jobs, independent output
+- **23 synthetic tests** cover model selection, disabled jobs, independent output
   and production history, atomic writes, path safety, inspector self-authorization,
   revocation and turn expiration, artifact reads, command approval, cancellation,
   inspector-free context compaction,
   cross-process Stop/liveness, retention, stdio MCP transport, provider configuration,
   raw result bytes/hashes and required/unsupported capture.
+  Metadata readers and writers share a lock; only transient PermissionError is
+  retried, with a bounded delay. Corrupt state and persistent denial still surface.
   The scoped stdio bridge is also exercised with Unicode file names and content;
   the existing branded embedded pythonw runtime successfully initializes it.
 - The native WebView2 Jobs probe passed **15 checks at each of 1280 and 660 pixels**.
@@ -75,6 +77,12 @@ The first full gate found one error-handling accounting violation in the broker:
 its returned MCP errors intentionally avoid logging private input data. The handler
 now documents that exception explicitly. All 3,364 other tests passed; the enforced
 publisher reruns the complete suite on the final commit after this correction.
+
+A subsequent concurrent local gate found a genuine Windows sharing race opening
+run.json during replacement. The test completed with correct output, but polling
+raised a transient access error. Coordinated metadata reads/writes and a bounded
+PermissionError retry fix the application path. A synthetic regression covers both
+transient recovery and persistent/corrupt-state failure without hiding either.
 
 The enforced publisher also requires successful Windows CI for the exact source,
 compiled-launcher recovery, branded multi-window sessions and the exact signed

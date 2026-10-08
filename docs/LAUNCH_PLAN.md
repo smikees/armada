@@ -16,7 +16,7 @@ Version **0.99.93** adds draft-only job tests with independent model selection, 
 temporary artifacts and seven-day default retention. Inspector agents have owner-approved,
 scoped tools to test any realm job and read recorded artifacts without changing production.
 Model tests use saved inputs; script tests require explicit draft-only commands.
-The feature passed 22 synthetic isolation tests and 30 native Jobs browser checks, with
+The feature passed 23 synthetic isolation tests and 30 native Jobs browser checks, with
 actual scoped-tool calls from all three installed CLIs. The enforced release gate and
 exact-package upgrade checks remain mandatory before publication.
 [Verification](dev/RELEASE_0_99_93.md) records boundaries and validation evidence.

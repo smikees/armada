@@ -100,6 +100,27 @@ def test_invalid_model_does_not_create_a_run(realm):
     assert dry_runs.listing(realm, "writer", "digest") == []
 
 
+def test_history_retries_transient_windows_sharing_but_preserves_persistent_errors(realm, monkeypatch):
+    run = dry_runs.start(realm, "writer", "digest", "gpt-6-sol", engine=DraftEngine())
+    finished(realm, run)
+    original = util.read_json_state
+    denied = [True, True, False]
+    def read(path, **kwargs):
+        if Path(path).name == "run.json" and denied and denied.pop(0):
+            raise util.StateError("Temporary sharing violation") from PermissionError("synthetic sharing")
+        return original(path, **kwargs)
+    monkeypatch.setattr(util, "read_json_state", read)
+    assert dry_runs.read(realm, "writer", "digest", run["run_id"])["status"] == "completed"
+    denied[:] = [True] * 8
+    with pytest.raises(util.StateError, match="sharing"):
+        dry_runs.read(realm, "writer", "digest", run["run_id"])
+    def corrupt(*args, **kwargs):
+        raise util.StateError("Corrupt state")
+    monkeypatch.setattr(util, "read_json_state", corrupt)
+    with pytest.raises(util.StateError, match="Corrupt state"):
+        dry_runs.read(realm, "writer", "digest", run["run_id"])
+
+
 @pytest.mark.parametrize("path", ["../production.txt", "nested/../../production.txt", "NUL", "draft.txt:stream", "draft. "])
 def test_draft_paths_are_contained_and_reject_windows_aliases(realm, path):
     tools = ManagedTools(realm, "writer", output=realm / "drafts")
