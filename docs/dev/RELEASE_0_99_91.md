@@ -24,3 +24,8 @@ The first release candidate passed the local isolated gate (3,334 tests, 5 skips
 Python Windows CI. Pinned-Python CI exposed a transient owner-read activation race. The release
 was withheld, the bounded same-owner wait was fixed and tested, and the final source is revalidated
 by the enforced publication workflow. No failed CI run is treated as successful evidence.
+
+The final result evaluator discards model-supplied startup_failure fields; only engine
+readiness can attach admission evidence. A regression test verifies a model's final block
+cannot turn completed work into a claimed non-start. The second in-progress validation was
+superseded before packaging to include this hardening in the exact final source gate.

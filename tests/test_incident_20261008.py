@@ -136,6 +136,14 @@ def test_optional_research_fields_are_validated(tmp_path):
     assert evaluate(tmp_path,data)["validation_errors"]
 
 
+def test_agent_final_block_cannot_claim_engine_startup_failure(tmp_path):
+    data = contract(tmp_path)
+    data["startup_failure"] = {"code": "execution_environment", "reason": "Agent claim"}
+    result = evaluate(tmp_path, data)
+    assert "startup_failure" not in result
+    assert job_results.label(result) == "Completed — audit clear — delivered"
+
+
 def test_calendar_groups_proven_retries_and_keeps_manual_runs(tmp_path):
     from armada import webui
     attempts=[{"run_id":str(i),"ts":PAST.isoformat()+f"T09:0{i}:00","task":"hand-brief",

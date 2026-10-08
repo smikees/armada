@@ -172,6 +172,8 @@ def evaluate(output: str, *, run_id: str, job: dict, root: Path, started: float,
             errors.append("No valid structured result or legacy outcome marker was provided.")
     else:
         data = copy.deepcopy(data)
+        # Admission evidence belongs to the engine, never the model's final block.
+        data.pop("startup_failure", None)
         data["detail_level"] = "structured"
         data["legacy_result"] = marker
         if data["audit_outcome"] in ("clear", "not_applicable") and any(
