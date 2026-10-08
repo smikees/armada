@@ -16,7 +16,9 @@ Version **0.99.91** checks Codex execution/model readiness before jobs, holds bu
 on provider startup failures, gives large Claude connector inventories a bounded 90-second
 startup budget, groups proven retry series in the calendar and releases idle scheduler locks
 when realms are archived, removed or deleted. Research observations are separate from audit
-breaches. [Verification](dev/RELEASE_0_99_91.md) records the regression and native checks.
+breaches. The release passed 3,337 isolated tests, exact-source Windows CI and 63 native
+upgrade checks; signed public assets are verified and staged in the running app.
+[Verification](dev/RELEASE_0_99_91.md) records the evidence and remaining provider/schedule work.
 The detached windows, capture and recovery work from earlier releases remain in place.
 Clean-Sandbox GUI acceptance remains open.
 
