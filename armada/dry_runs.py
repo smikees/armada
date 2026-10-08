@@ -250,7 +250,9 @@ def _execute(root, folder, job, info, session, engine):
             runner._write_report(root / "agents" / info["agent"], info["agent"], {
                 "ts": info["finished"], "agent": info["agent"], "task": "dryrun:" + info["job"],
                 "kind": "dry_run", "run_id": info["run_id"], "model": result.model or info["model"],
-                "tokens": result.usage.as_dict(), "status": info["status"], "summary": "Dry run · " + info["name"]})
+                "tokens": result.usage.as_dict(), "status": {"completed": "ok", "warning": "warn",
+                    "failed": "error", "timed_out": "error"}.get(info["status"], info["status"]),
+                "summary": "Dry run · " + info["name"]})
         except Exception:
             log.exception("Could not persist dry-run result")
             try:

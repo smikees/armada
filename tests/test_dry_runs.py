@@ -87,6 +87,8 @@ def test_dry_run_is_separate_disabled_job_explicit_model_and_temporary_outputs(r
     assert not job_history.reports(realm / "agents/writer", "digest")
     accounting = job_history.reports(realm / "agents/writer")
     assert len(accounting) == 1 and accounting[0]["kind"] == "dry_run"
+    from armada import reader
+    assert next(a for a in reader.read(realm).agents if a.id == "writer").status == "green"
     assert info["keep_days"] == 7
     for file in info["files"]:
         assert Path(file["path"]).is_relative_to(Path(run["output_dir"]))
