@@ -26,6 +26,8 @@ def realm(tmp_path):
 @pytest.mark.parametrize('entry', ['chat', 'stream', 'job', 'inbox'])
 def test_codex_mixed_catalogue_never_becomes_individual_tool_denials(realm, monkeypatch, entry):
     engine = codex.CodexEngine()
+    # The synthetic turn below tests grant translation, not a live Windows sandbox.
+    monkeypatch.setattr(engine, '_execution_probe', lambda *a: {"ok": True, "reason": ""})
     launches = []
     monkeypatch.setattr(engine, '_probe', lambda *a, **kw: SimpleNamespace(returncode=0,
         stdout=json.dumps([{'name': IBKR}, {'name': 'ambient'}, {'name': 'revoked'}])))

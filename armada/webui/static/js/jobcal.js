@@ -30,13 +30,14 @@ async function fetchEvents(a,b,scope){const key=(scope||'')+'|'+iso(a)+'_'+iso(b
   const evs=r.events||[];JC_CACHE[key]={t:now,events:evs};return evs;}
  catch(e){return c?c.events:[];}}
 function href(e){return (e.agent==='system')?'/jobs'
- :('/agent/'+encodeURIComponent(e.agent)+'/jobs?job='+encodeURIComponent(e.job));}
-function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' · '+e.job_name+' · '+e.status;
+ :('/agent/'+encodeURIComponent(e.agent)+'/jobs?job='+encodeURIComponent(e.job)+(e.run_id?'&run='+encodeURIComponent(e.run_id):''));}
+function attempts(e){return e.attempt_count>1?' · '+e.attempt_count+' attempts':'';}
+function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' · '+e.job_name+' · '+e.status+attempts(e);
  const c=CLR[e.status]||CLR.scheduled;const hollow=(e.status==='scheduled');
  const base='display:block;cursor:pointer;border-radius:4px;font-size:10.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 4px;';
  const txt=WHITETEXT[e.status]?'#fff':'var(--color-text)';
  const style=hollow?(base+'border:1px solid '+c+';color:'+c+';background:transparent'):(base+'background:'+c+';color:'+txt);
- return '<div class="mc-jc-ev" title="'+esc(label)+'" data-href="'+href(e)+'" style="'+style+'">'+esc(t+' '+e.job_name)+'</div>';}
+ return '<div class="mc-jc-ev" title="'+esc(label)+'" data-href="'+href(e)+'" style="'+style+'">'+esc(t+' '+e.job_name+attempts(e))+'</div>';}
 function byDay(evs){const m={};evs.forEach(e=>{const k=e.ts.slice(0,10);(m[k]=m[k]||[]).push(e);});Object.values(m).forEach(l=>l.sort((x,y)=>x.ts<y.ts?-1:1));return m;}
 function drawMonth(body,a,evs){const gs=monday(new Date(a.getFullYear(),a.getMonth(),1));const map=byDay(evs);const tk=iso(new Date());
  let h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--color-divider)">';
@@ -63,7 +64,7 @@ function drawDay(body,a,evs){const evd=byDay(evs)[iso(a)]||[];
    +'<span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(hollow?'transparent':c)+';box-shadow:'+(hollow?('inset 0 0 0 1.5px '+c):'none')+'"></span>'
    +'<span style="font-weight:600;font-size:12.5px">'+esc(e.job_name)+'</span>'
    +'<span style="font-size:11.5px;color:var(--text-muted)">'+esc(e.agent_disp)+'</span>'
-   +'<span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">'+esc(e.status)+'</span></div>';});
+   +'<span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">'+esc(e.status+attempts(e))+'</span></div>';});
  body.innerHTML=h;}
 // Read the owning pane's filter dropdowns (absent on the dashboard widget → no filtering). The
 // widget names its bar's control prefix in data-fpfx, so the User and System calendars each read

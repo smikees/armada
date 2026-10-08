@@ -31,6 +31,9 @@ Map Armada's four writing styles to Codex's three native verbosity levels.
 
 - `CodexEngine.__init__(self, binary='codex')` — —
 - `CodexEngine._launcher(self)` — —
+- `CodexEngine._standalone_launcher(self)` — An already installed CLI, never a download or a change to owner settings.
+- `CodexEngine._execution_probe(self, request, on_proc=None)` — Verify sandbox execution through the CLI's command/exec RPC; no model turn.
+- `CodexEngine.execute(self, request, *, on_event=None, on_proc=None)` — —
 - `CodexEngine._probe(self, args, cwd=None)` — —
 - `CodexEngine.auth_status(self)` — —
 - `CodexEngine.doctor(self)` — —

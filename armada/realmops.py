@@ -227,7 +227,12 @@ def delete(realm_root, current_realm=None, permanent: bool = False) -> dict:
     """Delete a realm's folder. Recycle Bin by default; `permanent` only on explicit instruction."""
     try:
         with lifecycle_lock(realm_root):
-            return _delete_locked(realm_root, current_realm, permanent)
+            from . import scheduler_state
+            # Do not wait for or interrupt real work; only release an idle daemon lease.
+            if busy(realm_root):
+                return {"ok": False, "error": "Wait for this realm's current tasks to finish before deleting it."}
+            with scheduler_state.pause_for_lifecycle(realm_root):
+                return _delete_locked(realm_root, current_realm, permanent)
     except (OSError, ValueError) as exc:
         return {"ok": False, "error": str(exc)}
 

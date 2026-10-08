@@ -51,6 +51,7 @@
 | [`engine.process`](engine.process.md) | Owned CLI lifetime: bounded pipe draining, output-independent deadlines and tree cleanup. |
 | [`engine.raw_results`](engine.raw_results.md) | Keep a CLI JSON value's original spelling across normalized display events. |
 | [`engine.selection`](engine.selection.md) | Resolve the provider from the chosen model, keeping old Claude realms readable. |
+| [`engine.startup`](engine.startup.md) | Failures before a provider turn starts, with no business-job replay. |
 | [`engine.windows_job`](engine.windows_job.md) | Windows CLI process-tree ownership using documented Job Object and thread APIs. |
 | [`execution`](execution.md) | Own agent turns across HTTP, plain chat, jobs, inbox and Telegram. |
 | [`fonts`](fonts.md) | The app's font faces — a temporary Appearance setting (v0.99.62), to become part of themes/skins. |

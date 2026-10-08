@@ -12,12 +12,51 @@ import os
 from pathlib import Path
 import threading
 import uuid
+import tempfile
+import time
+from contextlib import contextmanager
 
 from . import util
 
 
 def _owner_path(root):
     return Path(root) / "scheduler.lock.json"
+
+
+def _pause_path(root):
+    key = hashlib.sha256(os.path.normcase(str(Path(root).resolve())).encode()).hexdigest()
+    return Path(tempfile.gettempdir()) / "armada-realm-lifecycle" / (key + ".pause.json")
+
+
+def lifecycle_paused(root):
+    """External to the realm, so the folder can be recycled while dispatch is held."""
+    data = util.read_json_state(_pause_path(root), default=dict, max_schema=1)
+    if not data:
+        return False
+    if (type(data.get("pid")) is not int or type(data.get("expires")) not in (int, float)
+            or not isinstance(data.get("token"), str)):
+        raise util.StateError("Invalid realm lifecycle pause; scheduler dispatch is held.")
+    return util.pid_alive(data["pid"]) and data["expires"] > time.time()
+
+
+@contextmanager
+def pause_for_lifecycle(root, timeout=5):
+    """Called under realmops.lifecycle_lock. Cooperatively release the idle daemon lease."""
+    path = _pause_path(root)
+    token = uuid.uuid4().hex
+    util.write_json_atomic(path, {"schema_version": 1, "pid": os.getpid(),
+                                 "token": token, "expires": time.time() + 600})
+    try:
+        until = time.monotonic() + timeout
+        while holder(root):
+            if time.monotonic() >= until:
+                raise util.StateError("The scheduler has not released this realm yet. Wait for its tasks to finish; if using an older ARMADA version, update and restart ARMADA before deleting it.")
+            time.sleep(.05)
+        yield
+    finally:
+        data = util.read_json_state(path, default=dict, max_schema=1)
+        if data.get("token") == token:
+            path.unlink(missing_ok=True)
 
 
 def _stamp():
@@ -65,6 +104,8 @@ class Lease:
 def acquire(root) -> Lease | None:
     """Return exclusive ownership, None when busy; raise on any persistence error."""
     root = Path(root).resolve()
+    if lifecycle_paused(root):
+        return None
     util.assert_realm_writable(_owner_path(root))
     lock = util.file_lock(_owner_path(root), timeout=.05)
     try:
@@ -72,6 +113,9 @@ def acquire(root) -> Lease | None:
     except util.FileLockTimeout:
         return None
     try:
+        if lifecycle_paused(root):
+            lock.__exit__(None, None, None)
+            return None
         old = util.read_json_state(_owner_path(root), default=dict, max_schema=1)
         # Compatibility guard for the old PID-only protocol. Upgrades must stop all old writers;
         # do not deliberately run over a known live old daemon, even one in this process.

@@ -348,6 +348,8 @@ class TurnCoordinator:
                 connector_errors = [f"Connector {row['server']}: {row['error']}" for row in result.raw.get("connector_runtime", [])
                                     if row.get("state") != "ready"]
                 job_result["app_errors"].extend(connector_errors)
+                if result.raw.get("startup_failure"):
+                    job_result["startup_failure"] = result.raw["startup_failure"]
                 if raw_capture is not None:
                     raw_capture.audit(job_result)
                 status = job_results.status(job_result)
@@ -373,6 +375,10 @@ class TurnCoordinator:
                 "realm_id": context.realm.realm_id, "run_id": context.run_id}
             if raw_capture is not None:
                 report["capture"] = raw_capture.report()
+            if req.job and req.job.get("_retry_series"):
+                report["retry"] = req.job["_retry_series"]
+            if result.raw.get("runtime_readiness"):
+                report["runtime_readiness"] = result.raw["runtime_readiness"]
             if result.raw.get("connector_runtime"):
                 report["connector_runtime"] = result.raw["connector_runtime"]
             if job_result is not None:

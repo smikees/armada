@@ -141,7 +141,18 @@ If the realm's scheduled jobs are paused, a banner at the top of the Jobs page s
 **On failure** in Edit Job offers **No retries**, **1 retry**, **2 retries** or **3 retries**.
 These are additional attempts after the first run, with waits of 30 seconds, 1 minute and
 2 minutes. Each attempt has its own run ID, output and result in Run history. Armada sends
-the final outcome notification after recovery or exhaustion.
+the final outcome notification after recovery or exhaustion. The calendar shows one entry
+for a proven retry series, with its final outcome and attempt count. Open it to inspect each
+attempt without treating retries as separate scheduled jobs.
+
+Provider startup failures are shown as **Not started — provider environment unavailable**
+and do not consume business-job retries. On Windows, Codex first executes a harmless sandbox
+readiness command and checks the selected model. If the desktop runtime fails, ARMADA can use
+an independently installed standalone Codex CLI after it passes those checks. The report
+records this fallback. Your login, model choice, grants and sandbox policy are preserved;
+ARMADA does not install CLIs or silently change a model. Repair/update Codex or choose an
+available model when the report requests it. Claude connector health discovery has a bounded
+90-second budget because it checks the configured connector inventory before the turn.
 
 Completed reports with findings or missing evidence are not rerun. Stopped runs, admission
 errors, malformed results and confirmed or uncertain delivery require inspection instead
@@ -164,7 +175,7 @@ More in [When something goes wrong](troubleshooting.md).
 
 Open a run to see **Execution**, **Audit** and **Delivery** independently. A completed
 report may contain findings or an incomplete audit. Such runs retain a warning: completion
-does not mean the portfolio passed its checks or that an unresolved risk gate is cleared.
+does not establish a clear audit or clear an unresolved risk gate.
 A delivery failure is separate from the execution that produced the report. Runtime errors,
 timeouts and stops are shown under Armada errors, separate from the agent's original answer.
 
@@ -175,3 +186,8 @@ original status, error and final answer without repeating the job or its deliver
 
 Older `ARMADA_JOB_RESULT: SUCCESS/FAILED` results are marked **less detailed**. Their explicit
 result and explanation remain available; SUCCESS does not establish a clear audit.
+
+Research jobs can record ordinary facts in `observations` and optional future announcements
+in `expected_unknowns`. These are distinct from audit/rule breaches (`findings`) and unavailable
+required evidence (`missing_inputs`). Actual contradictions or unresolved risk gates still
+produce warnings; older reports are preserved with their original evidence.

@@ -83,6 +83,8 @@ class CodexEngine(EngineAdapter):
         self._turn_mcp_ids = ()
 
     def _launcher(self):
+        if getattr(self, "_runtime_launcher", None):
+            return self._runtime_launcher
         if self.binary == "codex":
             local = os.environ.get("LOCALAPPDATA")
             install_dir = os.environ.get("CODEX_INSTALL_DIR")
@@ -112,6 +114,136 @@ class CodexEngine(EngineAdapter):
             node = shutil.which("node")
             return [node, str(entry)] if node and entry.is_file() else None
         return [exe]
+
+    def _standalone_launcher(self):
+        """An already installed CLI, never a download or a change to owner settings."""
+        exe = shutil.which("codex")
+        if not exe:
+            return None
+        if not str(exe).lower().endswith((".cmd", ".bat", ".ps1")):
+            return [exe]
+        package = Path(exe).parent / "node_modules" / "@openai" / "codex"
+        # npm's platform dependency contains the independently installed native CLI.
+        native = sorted(package.glob("node_modules/@openai/codex-win32-*/vendor/*/bin/codex.exe"))
+        if native:
+            return [str(native[0])]
+        entry = package / "bin" / "codex.js"
+        node = shutil.which("node")
+        return [node, str(entry)] if node and entry.is_file() else None
+
+    def _execution_probe(self, request, on_proc=None):
+        """Verify sandbox execution through the CLI's command/exec RPC; no model turn.
+
+        Fields verified against generated v2/CommandExecParams and real Windows runs
+        on CLI 0.157.1 and 0.162.0-alpha.2. Windows rejects outputBytesCap overrides.
+        """
+        launcher = self._launcher()
+        if not launcher:
+            return {"ok": False, "reason": "Codex CLI not found. Install Codex CLI and run codex login."}
+        responses = []
+        models = set()
+        wanted_model = model_id(request.model or "")
+        marker = "ARMADA_SANDBOX_READY"
+        cwd = str(Path(request.cwd or Path.cwd()).resolve())
+        shell = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) /
+                    "System32/WindowsPowerShell/v1.0/powershell.exe")
+
+        def start(send):
+            send({"id": 1, "method": "initialize", "params": {
+                "clientInfo": {"name": "armada-readiness", "version": "1.0"}}})
+
+        def accept(message, send):
+            if message.get("id") == 1 and "result" in message:
+                send({"method": "initialized", "params": {}})
+                send({"id": 2, "method": "command/exec", "params": {
+                    "command": [shell, "-NoProfile", "-Command", "Write-Output " + marker],
+                    "cwd": cwd, "timeoutMs": 10000,
+                    "sandboxPolicy": {"type": "workspaceWrite",
+                        "writableRoots": list(map(str, self.writable_roots)),
+                        "networkAccess": bool(self.network_access)}}})
+            elif message.get("id") == 2 and "result" in message:
+                responses.append(message)
+                command = message["result"]
+                if wanted_model and command.get("exitCode") == 0 and command.get("stdout", "").strip() == marker:
+                    send({"id": 3, "method": "model/list", "params": {"limit": 100, "includeHidden": True}})
+                    return False
+                return True
+            elif message.get("id") == 3 and "result" in message:
+                page = message["result"]
+                for row in page.get("data", []):
+                    models.add(row.get("model") or row.get("id"))
+                cursor = page.get("nextCursor")
+                if cursor and wanted_model not in models:
+                    send({"id": 3, "method": "model/list", "params": {
+                        "limit": 100, "includeHidden": True, "cursor": cursor}})
+                    return False
+                if wanted_model not in models:
+                    responses.append({"error": {"message": f"Codex model {wanted_model} is unavailable in this CLI/account. Choose an available model or repair/update Codex."}})
+                return True
+            elif message.get("id") in (1, 2, 3) and "error" in message:
+                responses.append(message)
+                return True
+            elif "id" in message and "method" in message:
+                # A readiness probe cannot approve tools or account changes.
+                send({"id": message["id"], "error": {"code": -32601, "message": "Readiness probe only"}})
+            return False
+
+        try:
+            args = launcher + ["app-server"] + _feature_args()
+            args += self._mcp_args(True, request.disallowed_tools, cwd=cwd) + ["-c", "notify=[]"]
+            proc = supervise_rpc(args, start=start, on_message=accept, timeout=20,
+                                 cwd=cwd, env=request.env or None, on_proc=on_proc)
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            return {"ok": False, "reason": str(exc)}
+        if proc.cancelled:
+            return {"ok": False, "cancelled": True, "reason": "Run stopped by the owner."}
+        response = responses[-1] if responses else {}
+        result = (responses[0].get("result") if responses else None) or {}
+        ok = not proc.error and result.get("exitCode") == 0 and result.get("stdout", "").strip() == marker
+        ok = ok and not response.get("error")
+        reason = proc.error or (response.get("error") or {}).get("message") or (
+            "Codex sandbox could not execute the readiness command." if not ok else "")
+        return {"ok": ok, "reason": reason}
+
+    def execute(self, request, *, on_event=None, on_proc=None):
+        from . import startup
+        validate_request(self.name, self.capabilities, request)
+        self._runtime_launcher = None
+        readiness = None
+        if os.name == "nt" and request.allow_tools:
+            safe_emit(on_event, {"kind": "status", "text": "Checking Codex execution readiness…"})
+            primary = self._launcher()
+            readiness = self._execution_probe(request, on_proc)
+            reason = readiness.get("reason", "")
+            sandbox_failure = any(x in reason.lower() for x in (
+                "windows sandbox", "helper_unknown_error", "setup refresh"))
+            if not readiness["ok"] and not readiness.get("cancelled") and self.binary == "codex" and sandbox_failure:
+                alternate = self._standalone_launcher()
+                if alternate and alternate != primary:
+                    self._runtime_launcher = alternate
+                    second = self._execution_probe(request, on_proc)
+                    if second["ok"]:
+                        readiness = {"ok": True, "fallback": True, "launcher": alternate,
+                                     "primary_launcher": primary, "primary_error": reason}
+                        safe_emit(on_event, {"kind": "status", "text":
+                            "Desktop Codex sandbox unavailable; using the verified installed standalone Codex CLI."})
+                    else:
+                        readiness = {**second, "primary_error": reason, "launcher": alternate}
+            if not readiness["ok"]:
+                reason = readiness["reason"]
+                if not readiness.get("cancelled"):
+                    reason = "Codex execution environment unavailable: " + reason + (
+                        " No job tools were run. Repair/update Codex or select an available model in Edit job.")
+                code = "provider_model" if "is unavailable in this CLI/account" in reason else "execution_environment"
+                result = startup.failed(reason, code=code, model=request.model or "",
+                                        cancelled=bool(readiness.get("cancelled")))
+                result.raw["runtime_readiness"] = readiness
+                safe_emit(on_event, {"kind": "error", "error": reason})
+                return result
+        result = super().execute(request, on_event=on_event, on_proc=on_proc)
+        if readiness is not None:
+            result.raw["runtime_readiness"] = readiness
+        return result
 
     def _probe(self, args, cwd=None):
         launcher = self._launcher()

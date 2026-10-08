@@ -317,8 +317,16 @@ def state(realm_root) -> dict:
         return {}
 
 
-def _save_state(realm_root, st: dict) -> None:
+def _save_state(realm_root, st: dict, stop=None) -> None:
     try:
+        if stop is not None:
+            from . import realmops, scheduler_state
+            with realmops.lifecycle_lock(realm_root):
+                if (stop.is_set() or not (Path(realm_root) / "realm.json").is_file()
+                        or realmops.archived(realm_root) or scheduler_state.lifecycle_paused(realm_root)):
+                    return
+                util.write_json_atomic(_state_path(realm_root), st)
+            return
         util.write_json_atomic(_state_path(realm_root), st)
     except Exception:  # noqa
         swallowed(log, '_save_state: failed; ignored')
@@ -419,7 +427,7 @@ def register_commands(realm_root) -> dict:
 
 # ---- the pass -----------------------------------------------------------------------------------
 
-def poll(realm_root, wait: int = 0) -> list:
+def poll(realm_root, wait: int = 0, stop=None) -> list:
     """New messages from the linked chat since last time. Free: no engine, no quota.
 
     `wait` is Telegram's long-poll timeout: 0 returns immediately (the fallback job's one-a-minute
@@ -433,6 +441,8 @@ def poll(realm_root, wait: int = 0) -> list:
     if st.get("offset"):
         payload["offset"] = int(st["offset"])
     r = api(tok, "getUpdates", payload, timeout=int(wait) + 20)
+    if stop is not None and stop.is_set():
+        return []
     if not r.get("ok"):
         return []
     msgs, last_id, ignored = [], st.get("offset") or 0, 0
@@ -452,7 +462,7 @@ def poll(realm_root, wait: int = 0) -> list:
     st["offset"] = last_id
     if ignored:
         st["ignored"] = int(st.get("ignored") or 0) + ignored
-    _save_state(realm_root, st)
+    _save_state(realm_root, st, stop=stop)
     return msgs
 
 
@@ -582,8 +592,8 @@ def listen(realm_root, engine="auto", stop=None) -> None:
                 continue
             st = state(realm_root)
             st["listener"] = time.time()
-            _save_state(realm_root, st)
-            msgs = poll(realm_root, wait=45)
+            _save_state(realm_root, st, stop=stop)
+            msgs = poll(realm_root, wait=45, **({"stop": stop} if stop is not None else {}))
             if msgs:
                 _handling += 1
             try:
@@ -599,13 +609,13 @@ def listen(realm_root, engine="auto", stop=None) -> None:
             time.sleep(10)
 
 
-def start_listener(realm_root, engine="auto"):
+def start_listener(realm_root, engine="auto", stop=None):
     """Start the listener on a daemon thread if Telegram is set up. Returns the thread or None."""
     import threading
     try:
         if not ready():
             return None
-        t = threading.Thread(target=listen, args=(realm_root, engine),
+        t = threading.Thread(target=listen, args=(realm_root, engine, stop),
                              name="armada-telegram", daemon=True)
         t.start()
         return t

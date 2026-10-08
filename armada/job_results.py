@@ -21,7 +21,7 @@ After your original human-readable final answer, supply exactly one final block:
 <armada_job_result>
 {{"schema_version":1,"run_id":"{run_id}","execution":"completed",
 "audit_outcome":"not_applicable","delivery":[],"evidence":{{"outputs":[],
-"findings":[],"missing_inputs":[],"operational_errors":[],"risk_gates":[]}}}}
+"findings":[],"missing_inputs":[],"operational_errors":[],"risk_gates":[],\n"observations":[],"expected_unknowns":[]}}}}
 </armada_job_result>
 Execution: completed, failed, stopped, timed_out. A produced report explaining
 unresolved evidence is completed; rule breaches are findings; missing accounting
@@ -31,6 +31,11 @@ Delivery: one object per required destination with destination, status (sent,
 failed, unknown, not_required), receipt_path (if sent), error (if failed).
 Evidence outputs: objects with absolute path and required (true for required reports).
 Evidence findings, missing_inputs, operational_errors, risk_gates: lists of strings.
+Findings are audit/rule breaches, not ordinary research facts or calendar entries.
+Missing inputs are REQUIRED evidence unavailable for the requested work. Optional future
+announcements are expected_unknowns. General facts and research notes are observations.
+Optional evidence observations and expected_unknowns: lists of strings. These do not
+invalidate not_applicable or clear; actual breaches and missing required inputs still do.
 Keep unresolved warnings and risk gates visible. Completion never clears a risk gate.
 Receipts must be JSON with schema_version:1, run_id:"{run_id}", destination,
 status:"sent", sent_at (ISO timestamp), and provider message_ids or receipt_id.
@@ -89,6 +94,10 @@ def _parse(output: str, run_id: str) -> dict | None:
         seen.add(item["destination"])
     for key in ("findings", "missing_inputs", "operational_errors", "risk_gates"):
         if not isinstance(evidence.get(key), list) or any(not isinstance(x, str) for x in evidence[key]):
+            raise ValueError(f"Evidence {key} must be a list of strings.")
+    for key in ("observations", "expected_unknowns"):
+        if key in evidence and (not isinstance(evidence[key], list) or
+                                any(not isinstance(x, str) for x in evidence[key])):
             raise ValueError(f"Evidence {key} must be a list of strings.")
     if not isinstance(evidence.get("outputs"), list):
         raise ValueError("Evidence outputs must be a list.")
@@ -278,6 +287,8 @@ def status(result: dict) -> str:
 
 
 def label(result: dict) -> str:
+    if result.get("startup_failure"):
+        return "Not started — provider environment unavailable"
     parts = [result["execution"].replace("_", " ").capitalize()]
     if result["audit_outcome"] != "not_applicable":
         parts.append("audit " + result["audit_outcome"])
@@ -295,6 +306,8 @@ def label(result: dict) -> str:
 
 def reason(result):
     """Operational failure precedes secondary contract-validation diagnostics."""
+    if result.get("startup_failure"):
+        return result["startup_failure"]["reason"]
     if result.get('execution') in ('failed', 'timed_out', 'stopped'):
         errors = result.get('evidence', {}).get('operational_errors', [])
         if errors:

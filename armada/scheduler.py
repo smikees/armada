@@ -512,7 +512,9 @@ def _adopt_new_realms(rescan, owned: dict, others: list) -> None:
     have = {p.resolve() for p in owned}
     for p in wanted:
         try:
-            if p.resolve() in have or not p.is_dir():
+            from . import realmops
+            if (p.resolve() in have or not p.is_dir() or realmops.archived(p)
+                    or _state.lifecycle_paused(p)):
                 continue
         except OSError:
             continue
@@ -526,6 +528,33 @@ def _adopt_new_realms(rescan, owned: dict, others: list) -> None:
             others.append(p)
             have.add(p.resolve())
             print(f"  also firing ▶ {p} (new since start)", flush=True)
+
+
+def _reconcile_leases(rescan, owned, others, *, primary=None, listener_stop=None):
+    """Drop idle locks after archive/removal or a cooperative deletion request."""
+    from . import realmops
+    wanted = None
+    if rescan is not None:
+        try:
+            wanted = {Path(p).resolve() for p in (rescan() or [])}
+        except Exception:
+            # A transient registry error cannot withdraw otherwise valid ownership.
+            swallowed(log, "run_daemon: realm rescan failed; keeping registered leases")
+    for p, lease in list(owned.items()):
+        try:
+            release = (not p.is_dir() or realmops.archived(p) or _state.lifecycle_paused(p)
+                       or (wanted is not None and p.resolve() not in wanted))
+        except OSError:
+            swallowed(log, "run_daemon: cannot inspect realm lifecycle")
+            continue
+        if not release:
+            continue
+        if p == primary and listener_stop is not None:
+            listener_stop.set()
+        _lock_release(lease)
+        del owned[p]
+        others[:] = [other for other in others if other != p]
+        print(f"  released idle realm: {p}", flush=True)
 
 
 def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
@@ -563,6 +592,9 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
         return 1
     owned = {realm_root: primary}
     restart = False
+    import threading
+    listener_stop = threading.Event()
+    listener = None
     try:
         for p in others:
             if p.resolve() in {r.resolve() for r in owned}:
@@ -596,7 +628,8 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
         # This is the always-on process, so it's where the listener belongs.
         try:
             from . import telegram as _tg
-            if _tg.start_listener(realm_root, engine):
+            listener = _tg.start_listener(realm_root, engine, stop=listener_stop)
+            if listener:
                 print("  Telegram listener ▶ answering messages as they arrive", flush=True)
         except Exception:  # noqa — Telegram must never stop jobs from running
             swallowed(log, 'run_daemon: failed; ignored')
@@ -620,9 +653,13 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 continue
             from . import clock
             now = clock.now()  # Display-only; each tick validates its own realm clock.
+            _reconcile_leases(rescan, owned, others, primary=realm_root, listener_stop=listener_stop)
             if rescan is not None:
                 _adopt_new_realms(rescan, owned, others)
-            for p in [realm_root, *others]:
+            if realm_root in owned and listener_stop.is_set() and (listener is None or not listener.is_alive()):
+                listener_stop = threading.Event()
+                listener = _tg.start_listener(realm_root, engine, stop=listener_stop)
+            for p in list(owned):
                 # One realm's problem is its own. A folder that has been moved or deleted since
                 # startup must not take the other realms' jobs down with it.
                 try:
@@ -648,10 +685,12 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 if app_owner and (not _util.pid_alive(app_owner) or
                                   (_util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
                     break
+                _reconcile_leases(rescan, owned, others, primary=realm_root, listener_stop=listener_stop)
                 time.sleep(1)
     except KeyboardInterrupt:
         print("\nARMADA scheduler stopped.")
     finally:
+        listener_stop.set()
         # Released before the restart too: on Windows the restarted scheduler is a new process, and
         # it must find the realms free rather than held by a pid that's about to exit.
         for lease in owned.values():

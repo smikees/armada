@@ -14,6 +14,10 @@ Keep large transcripts out of the small accounting log used by every dashboard.
 
 —
 
+### `logical_runs(agent_dir, events)`
+
+Group only proven retry series. Manual invocations keep their own identity.
+
 ### `apply_annotation(agent_dir, event: dict)`
 
 Overlay a correction in views; the original accounting/transcript stays immutable.

@@ -28,12 +28,18 @@ def result_html(event: dict, content: dict) -> str:
     evidence = result["evidence"]
     rows = [f'<div><strong>Execution:</strong> {E(result["execution"].replace("_", " "))}</div>',
             f'<div><strong>Audit:</strong> {E(result["audit_outcome"].replace("_", " "))}</div>']
+    if result.get("startup_failure"):
+        rows.append('<div><strong>Not started:</strong> provider environment unavailable; automatic job retries held.</div>')
+    readiness = event.get("runtime_readiness") or {}
+    if readiness.get("fallback"):
+        rows.append('<div><strong>Codex runtime:</strong> verified standalone CLI used after desktop sandbox failed.</div>')
     for delivery in result["delivery"]:
         rows.append(f'<div><strong>{E(delivery["destination"])}:</strong> {E(delivery["status"])}'
                     + (f' — {E(delivery["error"])}' if delivery.get("error") else '') + '</div>')
     if not result["delivery"]:
         rows.append('<div><strong>Delivery:</strong> no required destination recorded</div>')
     for key, label in (("findings", "Findings"), ("missing_inputs", "Missing inputs"),
+                       ("observations", "Research observations"), ("expected_unknowns", "Expected future announcements"),
                        ("risk_gates", "Unresolved risk gates"), ("operational_errors", "Agent-recorded operational errors")):
         if evidence.get(key):
             rows.append(f'<div><strong>{label}</strong><ul>' + ''.join(f'<li>{E(x)}</li>' for x in evidence[key]) + '</ul></div>')
@@ -60,5 +66,5 @@ def result_html(event: dict, content: dict) -> str:
                     f'<div>Original status: {E(event.get("original_status") or "")} · '
                     f'Original error: {E(event.get("original_summary") or "")}</div>')
     if result["audit_outcome"] in ("incomplete", "findings") or evidence.get("risk_gates"):
-        rows.append('<div><strong>Completion does not mean the portfolio passed its checks. Unresolved risk gates remain in force.</strong></div>')
+        rows.append('<div><strong>Completion does not establish a clear audit. Unresolved checks and risk gates remain in force.</strong></div>')
     return captured + '<div class="mc-job-result">' + ''.join(rows) + '</div>'

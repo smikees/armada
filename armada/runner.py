@@ -1221,6 +1221,8 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
               "summary": tail}
     from .job_history import save_transcript
     report["run_id"] = run_id
+    if job.get("_retry_series"):
+        report["retry"] = job["_retry_series"]
     report["result"] = job_results.evaluate(out, run_id=run_id, job=result_job,
         root=realm_root, started=t0, runtime_execution="cancelled" if cancelled else "timed_out" if timed_out else "completed" if ok else "failed",
         runtime_error=err if not ok else "", roots=grant.roots, checks=checks)

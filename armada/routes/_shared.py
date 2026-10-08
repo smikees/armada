@@ -117,6 +117,8 @@ def _job_detail(realm_root, agent_id, job_id, selected_run="") -> dict:
     elif chosen or runs:
         ev = chosen or runs[0]
         content = job_history.transcript(ad, ev)
+        group = next((g for g in job_history.logical_runs(ad, all_runs)
+                      if ev in g["attempts"] and g["attempt_count"] > 1), None)
         from ..webui.jobresults import result_html
         html = _progress_steps(content.get("events")) + _turn(
             "assistant", content.get("content", ""), ev.get("ts", ""), 0, False,
@@ -133,7 +135,15 @@ def _job_detail(realm_root, agent_id, job_id, selected_run="") -> dict:
         html = (f'<div style="margin-bottom:10px;color:var(--text-dim)">'
                 f'<span style="color:{status.color(raw_status)}">{E(label)}</span>'
                 f' · {E(_fmt_ts(ev.get("ts", "")))}</div>' + result_html(ev, content) + html)
-    entries = [{k: ev.get(k) for k in ("ts", "status", "summary", "tokens", "result", "capture")} |
+        if group:
+            import json as _json
+            links = ''.join('<li><button class="mc-job-runlink" onclick="mcSelectJobRun(this,' +
+                E(_json.dumps(str(a.get("run_id") or a.get("ts")))) + ')">Attempt ' + str(i+1) +
+                '</button> · ' + E(str(a.get("status", ""))) + ' · ' + E(str(a.get("ts", ""))) + '</li>'
+                for i, a in enumerate(group["attempts"]))
+            html = ('<details><summary>' + str(group["attempt_count"]) +
+                    ' attempts for this run</summary><ul>' + links + '</ul></details>' + html)
+    entries = [{k: ev.get(k) for k in ("ts", "status", "summary", "tokens", "result", "capture", "retry")} |
                {"id": str(ev.get("run_id") or ev.get("ts"))} for ev in runs]
     from .. import scheduler
     from ..webui.realmpages import _job_history_rows, _job_week_html

@@ -30,7 +30,7 @@ def validate(value):
 def retryable(report):
     result = report.get('result') or {}
     execution = result.get('execution')
-    if report.get('engine') == 'unknown' or result.get('detail_level') == 'unstructured':
+    if result.get("startup_failure") or report.get('engine') == 'unknown' or result.get('detail_level') == 'unstructured':
         # Admission/configuration failures and malformed terminal results cannot
         # establish which side effects occurred. Do not burn retries on them.
         return False
@@ -105,6 +105,9 @@ def execute(root, agent, job_id, job, run, *, sleep=time.sleep, clock=time.time)
                     util.write_json_atomic(path, journal)
                     return journal['last_report']
             attempt_job = copy.deepcopy(job)
+            attempt_job["_retry_series"] = {"series_id": journal["series_id"],
+                "attempt": len(journal["attempts"])+1, "max_retries": maximum,
+                "started_at": journal["started_at"]}
             # Keep approved instructions byte-for-byte: grants are bound to this
             # prompt. The dedicated job thread already retains previous attempts.
             journal.update(state='running', next_at=None)

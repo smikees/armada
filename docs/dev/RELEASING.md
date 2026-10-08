@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.90. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.91. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -235,3 +235,10 @@ specific native upgrade run. Both publication paths abort on changed source.
 If CI is still running after the local gate, publication waits up to fifteen minutes
 for that exact push commit. A completed failure or missing successful result aborts
 publication; an earlier commit cannot satisfy this requirement.
+
+
+### 2026-10-08: maintenance 0.99.91
+
+The job-startup and realm-lifecycle fixes continue the existing owner-authorized maintenance
+beta distribution. Runtime compatibility and Windows publisher-signing limitations are
+unchanged. See [release verification](RELEASE_0_99_91.md).

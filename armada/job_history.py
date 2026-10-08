@@ -40,6 +40,42 @@ def reports(agent_dir, job_id: str | None = None) -> list[dict]:
     return result
 
 
+def logical_runs(agent_dir, events):
+    """Group only proven retry series. Manual invocations keep their own identity.
+
+    Older reports can be correlated with the durable retry journal's run IDs;
+    new reports carry their series permanently, after that journal is replaced.
+    Original reports/transcripts are never changed.
+    """
+    older = {}
+    for path in (Path(agent_dir) / "runs" / "retries").glob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
+            if data.get("schema_version") != 1 or not isinstance(data.get("series_id"), str):
+                continue
+            for attempt in data.get("attempts", []):
+                if isinstance(attempt.get("run_id"), str):
+                    older[(path.stem, attempt["run_id"])] = data["series_id"]
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue  # optional presentation metadata never changes admission
+    groups = {}
+    for n, event in enumerate(events):
+        retry = event.get("retry")
+        retry = retry if isinstance(retry, dict) else {}
+        series = retry.get("series_id")
+        if not isinstance(series, str) or not series:
+            series = older.get((event.get("task"), event.get("run_id")))
+        key = (event.get("task"), series) if series else (None, n)
+        groups.setdefault(key, []).append(event)
+    result = []
+    for attempts in groups.values():
+        attempts.sort(key=lambda e: str(e.get("ts", "")))
+        result.append({**attempts[-1], "ts": attempts[0].get("ts", ""),
+                       "attempt_count": len(attempts), "attempts": attempts,
+                       "run_ids": [e.get("run_id") for e in attempts]})
+    return sorted(result, key=lambda e: str(e.get("ts", "")), reverse=True)
+
+
 def apply_annotation(agent_dir, event: dict) -> dict:
     """Overlay a correction in views; the original accounting/transcript stays immutable."""
     run_id = event.get("run_id")

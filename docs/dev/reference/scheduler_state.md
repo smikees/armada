@@ -9,6 +9,18 @@ Neither can make a provider's external side effects exactly once. See dev/PERSIS
 
 —
 
+### `_pause_path(root)`
+
+—
+
+### `lifecycle_paused(root)`
+
+External to the realm, so the folder can be recycled while dispatch is held.
+
+### `pause_for_lifecycle(root, timeout=5)`
+
+Called under realmops.lifecycle_lock. Cooperatively release the idle daemon lease.
+
 ### `_stamp()`
 
 —

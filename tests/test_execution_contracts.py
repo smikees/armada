@@ -58,6 +58,9 @@ def test_every_path_has_one_durable_terminal_outcome(realm, monkeypatch, path, p
             error="stopped" if ending == "cancel" else "failed" if ending == "error" else "",
             cancelled=ending == "cancel", usage=Usage(input=3, output=2, cost_usd=None))
     monkeypatch.setattr(engine, "run_stream", stream)
+    if isinstance(engine, CodexEngine):
+        # This test supplies a synthetic provider turn; readiness has its own RPC tests.
+        monkeypatch.setattr(engine, "_execution_probe", lambda *a: {"ok": True, "reason": ""})
     result = invoke(path, realm, engine)
     assert result["status"] == ("ok" if ending in ("ok", "empty") else "stopped" if ending == "cancel" else "error")
     messages = [m for m in transcript.snapshot()[1] if m.get("role") in ("user", "assistant")]

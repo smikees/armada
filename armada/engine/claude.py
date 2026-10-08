@@ -274,7 +274,13 @@ class ClaudeEngine(EngineAdapter):
         if version.returncode or not match or tuple(map(int, match.groups())) < (2, 1, 263):
             raise ValueError("Capability gating requires Claude Code 2.1.263 or newer.")
         probe_started = time.time()
-        result = subprocess.run(self._launcher() + ["mcp", "list"], **kwargs)
+        # This command health-checks every configured server; measured inventories
+        # with 50 connectors take about 39 seconds even when admitted servers work.
+        kwargs["timeout"] = 90
+        try:
+            result = subprocess.run(self._launcher() + ["mcp", "list"], **kwargs)
+        except subprocess.TimeoutExpired as exc:
+            raise ValueError("Claude connector discovery exceeded 90 seconds. Check connector health before running the job again.") from exc
         if result.returncode or result.stderr.strip():
             raise ValueError("Could not inspect Claude MCP configuration; refusing to run without capability gating.")
         names = _mcp_inventory(result.stdout)
@@ -431,7 +437,8 @@ class ClaudeEngine(EngineAdapter):
         try:
             mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None else []
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
-            return RunResult(ok=False, error=str(exc))
+            from .startup import failed
+            return failed(str(exc), code="connector_discovery", model=model or "")
         # The prompt goes on STDIN, not argv: a long thread as a command-line arg overflows Windows'
         # ~32K command-line limit (WinError 206). `claude -p` with no positional prompt reads stdin.
         args = ["-p", "--output-format", "json"]
@@ -517,8 +524,9 @@ class ClaudeEngine(EngineAdapter):
         try:
             mcp_args = self._mcp_args(disallowed_tools, cwd) if allow_tools and only_tools is None else []
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            from .startup import failed
             emit({"kind": "error", "error": str(exc)})
-            return RunResult(ok=False, error=str(exc))
+            return failed(str(exc), code="connector_discovery", model=model or "")
         # prompt via STDIN (see run(): keeps a long thread off the command line — WinError 206)
         args = ["-p", "--output-format", "stream-json", "--verbose",
                 "--include-partial-messages"]

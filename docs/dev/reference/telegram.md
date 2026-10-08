@@ -98,7 +98,7 @@ Answer a bare /agent by opening a reply box aimed at that agent.
 
 —
 
-### `_save_state(realm_root, st: dict)`
+### `_save_state(realm_root, st: dict, stop=None)`
 
 —
 
@@ -122,7 +122,7 @@ The command to publish for an agent — its NAME where that works, else its fold
 
 Publish only /help and /agents.
 
-### `poll(realm_root, wait: int=0)`
+### `poll(realm_root, wait: int=0, stop=None)`
 
 New messages from the linked chat since last time. Free: no engine, no quota.
 
@@ -146,6 +146,6 @@ Is the listener in the middle of answering? The updater (5.4) doesn't restart th
 
 Hold a long poll open and answer messages as they land. Runs on a daemon thread.
 
-### `start_listener(realm_root, engine='auto')`
+### `start_listener(realm_root, engine='auto', stop=None)`
 
 Start the listener on a daemon thread if Telegram is set up. Returns the thread or None.

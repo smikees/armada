@@ -39,7 +39,7 @@ async function mcLoadJobOutput(d){
       delete d._resetOutputScroll;
     }
     const select=d.querySelector('.mc-job-run-select');
-    const options=[{id:'',label:r.running?'Live run':'Latest run'},...r.runs.map(ev=>({id:ev.id,label:(ev.ts||'').replace('T',' · ')+' · '+ev.status}))];
+    const options=[{id:'',label:r.running?'Live run':'Latest run'},...r.runs.map(ev=>({id:ev.id,label:(ev.ts||'').replace('T',' · ')+' · '+ev.status+(ev.retry?' · attempt '+ev.retry.attempt:'' )}))];
     const key=JSON.stringify(options);
     if(select._key!==key){select.replaceChildren(...options.map(ev=>new Option(ev.label,ev.id)));select._key=key;}
     select.value=selected;
@@ -61,7 +61,12 @@ function mcSelectJobRun(el,id){
   d.querySelector('.mc-job-output-pane').open=true;
   d.dataset.run=id;d._resetOutputScroll=true;mcLoadJobOutput(d);
 }
+const jobRunQuery=new URLSearchParams(location.search);
 document.querySelectorAll('details.mc-job').forEach(d=>{
+  if(d.dataset.jid===jobRunQuery.get('job')&&jobRunQuery.get('run')){
+    d.dataset.run=jobRunQuery.get('run');
+    d.querySelector('.mc-job-output-pane').open=true;
+  }
   d.addEventListener('toggle',e=>{if(e.target===d&&d.open)mcLoadJobOutput(d);});
   if(d.open)mcLoadJobOutput(d);
 });

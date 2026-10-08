@@ -464,7 +464,7 @@ def _jc_norm(st) -> str:
 def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
     """Job occurrences in [d_from, d_to]: projected from each job's schedule, with past slots
     resolved to their actual run status (success/failed/warn/missed); manual/ad-hoc runs added too."""
-    from .. import scheduler as S
+    from .. import scheduler as S, job_history
     realm_root = Path(realm_root)
     now = clock.now().replace(tzinfo=None)
     today_d = now.date()
@@ -478,7 +478,8 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
     out = []
     for a in agents:
         idx = {}
-        for r in _runs(realm_root, a.id):
+        for r in sorted(job_history.logical_runs(realm_root / "agents" / a.id, _runs(realm_root, a.id)),
+                        key=lambda event: str(event.get("ts", ""))):
             dd = str(r.get("ts", ""))[:10]
             if not dd or dd < lo or dd > hi:
                 continue
@@ -521,10 +522,12 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
                         continue                      # before the job existed: nothing was due
                     past = dt <= now
                     status = "scheduled"
+                    occurrence = {}
                     if past:
                         rs = idx.get((day.isoformat(), task))
                         if rs:
-                            status = _jc_norm(rs[0].get("status"))
+                            occurrence = rs[0]
+                            status = _jc_norm(occurrence.get("status"))
                             idx[(day.isoformat(), task)] = rs[1:]
                         elif j.id in run_now and day == today_d:
                             status = "running"           # executing now (its slot passed, no report yet)
@@ -532,7 +535,8 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
                             status = "missed"
                     out.append({"agent": a.id, "agent_disp": a.display, "job": j.id, "job_name": j.name,
                                 "ts": dt.strftime("%Y-%m-%dT%H:%M"), "status": status, "past": past,
-                                "cad": _cadence_bucket(j.cadence)})
+                                "cad": _cadence_bucket(j.cadence),
+                                "attempt_count": occurrence.get("attempt_count", 0), "run_id": occurrence.get("run_id")})
         for (dd, task), rs in idx.items():
             for r in rs:
                 ts = str(r.get("ts", ""))
@@ -541,7 +545,8 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
                 out.append({"agent": a.id, "agent_disp": a.display,
                             "job": (jb.id if jb else task), "job_name": (jb.name if jb else (task or "run")),
                             "ts": dd + "T" + hm, "status": _jc_norm(r.get("status")), "past": True,
-                            "cad": _cadence_bucket(jb.cadence) if jb else "other"})
+                            "cad": _cadence_bucket(jb.cadence) if jb else "other",
+                            "attempt_count": r.get("attempt_count", 1), "run_id": r.get("run_id")})
     return out
 
 

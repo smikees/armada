@@ -250,7 +250,7 @@ def test_the_listener_survives_a_bad_message(realm, isolate, monkeypatch):
     stop = threading.Event()
     calls = []
 
-    def _poll(_r, wait=0):
+    def _poll(_r, wait=0, stop=None):
         calls.append(1)
         if len(calls) >= 3:
             stop.set()

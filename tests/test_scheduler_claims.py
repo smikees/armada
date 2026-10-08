@@ -298,7 +298,7 @@ def test_failure_consumes_today_only_and_preserves_other_jobs(realm, monkeypatch
 def test_daemon_startup_failure_closes_all_leases(realm, monkeypatch):
     monkeypatch.setattr(scheduler, "_note_running", lambda on: (_ for _ in ()).throw(RuntimeError("startup")) if on else None)
     from armada import telegram
-    monkeypatch.setattr(telegram, "start_listener", lambda *a: False)
+    monkeypatch.setattr(telegram, "start_listener", lambda *a, **kw: False)
     with pytest.raises(RuntimeError, match="startup"):
         scheduler.run_daemon(realm)
     lease = state.acquire(realm)

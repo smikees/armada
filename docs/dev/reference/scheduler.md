@@ -112,6 +112,10 @@ One pass, with at most one automatic attempt per job and realm-local day.
 
 Take on realms registered since the daemon started (created or added in the app while it was running). Without this, a new realm's jobs never fired until the scheduler was restarted — and the scheduler is the thing nobody restarts. A realm another live process already owns is left to it.
 
+### `_reconcile_leases(rescan, owned, others, *, primary=None, listener_stop=None)`
+
+Drop idle locks after archive/removal or a cooperative deletion request.
+
 ### `run_daemon(realm_root, engine: str='auto', interval: int=60, grace_min: Optional[int]=None, also: Optional[list]=None, rescan=None, app_owner: int=0)`
 
 Fire due jobs until stopped. `also` names further realms to tick in the same pass.
