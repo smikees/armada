@@ -28,7 +28,7 @@
         }
         throw new Error(state.error||'Thread updates are unavailable. Retrying…');
       }
-      mcTid=state.run_id||mcLocalTid||null;
+      mcTid=state.run_id||(!mcServerAdmitted?mcLocalTid:null)||null;
       mcSetGen(!!mcTid,!!state.stopping||mcStopRequested);
       const status=document.getElementById('mc-chatmsg');
       if(status?.dataset.syncError||status?.dataset.transportError){

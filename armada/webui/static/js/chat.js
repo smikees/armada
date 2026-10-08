@@ -211,7 +211,7 @@ const MC_ACT={copy:window.mcIcon('copy',14), check:window.mcIcon('check',14),
  restart:window.mcIcon('refresh-cw',14), edit:window.mcIcon('edit',14)};
 // --- attachments + composer + menu ---
 let mcAttach=[], mcCtrl=null, mcTid=null, mcLocalTid=null, mcGen=false, mcViewGeneration=0;
-let mcStopRequested=false,mcStopBusy=false,mcFocusOnIdle=false;
+let mcStopRequested=false,mcStopBusy=false,mcFocusOnIdle=false,mcServerAdmitted=false;
 function mcBuildMessage(text){let m='';for(const f of mcAttach){if(f.text)m+='```'+f.name+'\n'+f.text+'\n```\n\n';}return (m+(text||'')).trim();}
 const MC_IMGICON=window.mcIcon('image',13,'opacity:.6');
 const MC_FILEICON=window.mcIcon('file',12,'opacity:.6');
@@ -347,13 +347,14 @@ function mcChat(agent,thread,forceText){
   const images=mcAttach.filter(f=>f.image).map(f=>({name:f.name,data:f.image}));
   const files=mcAttach.filter(f=>!f.image).map(f=>f.name);
   const tid='t'+Date.now()+Math.random().toString(36).slice(2,7),ctrl=new AbortController();
-  mcViewGeneration++;mcLocalTid=mcTid=tid;mcCtrl=ctrl;mcStopRequested=false;mcFocusOnIdle=true;mcSetGen(true);
+  mcViewGeneration++;mcLocalTid=mcTid=tid;mcCtrl=ctrl;mcServerAdmitted=false;
+  mcStopRequested=false;mcFocusOnIdle=true;mcSetGen(true);
   ta.value='';mcSaveDraft();mcAutosize();mcClearAttach();
   const note=document.getElementById('mc-chatmsg');if(note)note.textContent='';
   let finished=false,connected=false;
   function finish(){
     if(finished)return;finished=true;
-    if(mcCtrl===ctrl){mcCtrl=null;mcLocalTid=null;}
+    if(mcCtrl===ctrl){mcCtrl=null;mcLocalTid=null;mcServerAdmitted=false;}
     // The transport is only an observer. It never writes a second transcript,
     // nor declares the engine stopped just because a connection closed.
     window.mcThreadChanged?.();
@@ -364,7 +365,8 @@ function mcChat(agent,thread,forceText){
     if(event.kind==='rename'&&event.thread_title)mcSetThreadTitle(thread,event.thread_title);
     if(event.kind==='error'&&note)note.textContent=event.error||'The turn failed.';
     window.mcThreadChanged?.();
-    if(event.kind==='done')finish();
+    if(event.kind==='done'||event.kind==='error'){finish();return true;}
+    return false;
   }
   (async()=>{
     try{
@@ -375,6 +377,9 @@ function mcChat(agent,thread,forceText){
         throw new Error(result.error||result.output||'Could not send the message.');
       }
       connected=true;
+      // The server admits RunSession before sending these headers. Discard polls
+      // predating that admission; thereafter only the server decides busy/idle.
+      if(mcCtrl===ctrl){mcServerAdmitted=true;mcViewGeneration++;window.mcThreadChanged?.();}
       if(!response.body)throw new Error('The live connection is unavailable.');
       const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
       while(true){
@@ -384,7 +389,12 @@ function mcChat(agent,thread,forceText){
         while((split=buffer.indexOf('\n\n'))>=0){
           const line=buffer.slice(0,split).replace(/^data:\s?/,'');buffer=buffer.slice(split+2);
           let event;try{event=JSON.parse(line);}catch(error){continue;}
-          handle(event);
+          if(handle(event)){
+            // Release the keep-alive stream after a terminal event; subsequent
+            // renames and other changes arrive through the canonical observer.
+            try{await reader.cancel();}catch(error){}
+            return;
+          }
         }
       }
     }catch(error){

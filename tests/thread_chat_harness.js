@@ -5,7 +5,7 @@ const source=name=>fs.readFileSync(path.join(__dirname,'../armada/webui/static/j
 const settle=async()=>{for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));};
 let shared={revision:'initial',html:'saved initial transcript',title:'Main',run_id:'',stopping:false,
   metrics:{messages:2,pct:1,chars:40,context_window:200000}};
-let stream,stopError=false,deferAdmission=false,pendingAdmission,stopRequests=[];
+let stream,stopError=false,deferAdmission=false,pendingAdmission,stopRequests=[],closedStreams=0;
 function view(hidden=false){
   const node=()=>({dataset:{},style:{},textContent:'',addEventListener:()=>{}});
   const nodes={'mc-turns':{...node(),dataset:{agent:'captain',thread:'main'},innerHTML:shared.html,
@@ -31,15 +31,16 @@ function view(hidden=false){
       }
       if(parsed.pathname==='/api/chat-stream'){
         const request=JSON.parse(options.body);
-        const body=new ReadableStream({start(controller){stream=controller;}});
+        const body=new ReadableStream({start(controller){stream=controller;},cancel(){closedStreams++;}});
         options.signal.addEventListener('abort',()=>{
           const error=new Error('transport disconnected');error.name='AbortError';stream.error(error);
         });
+        let admitted;
         pendingAdmission=()=>{shared={...shared,revision:request.tid,run_id:request.tid,
           html:'saved user: '+request.message+'; live **Markdown** and tool activity',
-          metrics:{...shared.metrics,messages:3}};};
-        if(!deferAdmission)pendingAdmission();
-        return {ok:true,body};
+          metrics:{...shared.metrics,messages:3}};admitted?.({ok:true,body});};
+        if(deferAdmission)return new Promise(resolve=>admitted=resolve);
+        pendingAdmission();return {ok:true,body};
       }
       if(parsed.pathname==='/api/chat-stop'){
         stopRequests.push(parsed.searchParams);
@@ -48,7 +49,7 @@ function view(hidden=false){
         if(stopped){
           shared={...shared,revision:shared.revision+'-stopped',run_id:'',stopping:false,
             html:'saved partial reply; stopped by owner',metrics:{...shared.metrics,messages:4}};
-          stream.enqueue(new TextEncoder().encode('data: {"kind":"done"}\n\n'));stream.close();
+          stream.enqueue(new TextEncoder().encode('data: {"kind":"done"}\n\n'));
         }
         return json({ok:true,stopped});
       }
@@ -97,5 +98,17 @@ function same(a,b){assert.equal(a.nodes['mc-turns'].innerHTML,b.nodes['mc-turns'
   assert(!detached.get('mcCtrl.signal.aborted'),'early Stop must retain the transport until admission');
   pendingAdmission();detached.retry();await sync(main,detached);same(main,detached);
   assert.equal(shared.run_id,'');assert(!detached.get('mcGen'));
+  deferAdmission=false;main.send('terminal error');await sync(main,detached);
+  shared={...shared,revision:'terminal-error',run_id:'',html:'canonical saved failure'};
+  const closedBefore=closedStreams;
+  stream.enqueue(new TextEncoder().encode('data: {"kind":"error","error":"Terminal synthetic failure"}\n\n'));
+  await sync(main,detached);same(main,detached);assert(!main.get('mcGen')&&!main.get('mcCtrl'));
+  assert.equal(closedStreams,closedBefore+1,'terminal errors release the keep-alive stream');
+  main.send('backend finishes without terminal SSE');await sync(main,detached);
+  shared={...shared,revision:'completed-with-stalled-transport',run_id:'',html:'canonical completion despite stalled SSE'};
+  await sync(main,detached);same(main,detached);
+  assert(main.get('mcCtrl')&&!main.get('mcGen'),'server completion overrides a stalled transport');
+  assert(!main.nodes['mc-msg'].disabled&&!detached.nodes['mc-msg'].disabled);
+  main.get('mcCtrl').abort();await settle();
   console.log('shared canonical rendering, Stop from either view, disconnect and admission races passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

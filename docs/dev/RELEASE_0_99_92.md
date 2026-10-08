@@ -23,15 +23,18 @@ state. Snapshot metrics are shared too.
 Stop resolves the conversation by immutable realm, agent and thread at the server. It cancels
 only matching owned active turns, supports the legacy run-ID route, retains transport during
 cancellation, retries when a local Stop beats admission, and displays failed cancellation for
-retry. A disconnected transport cannot declare the engine idle; the observer reconciles
-durable progress and completion.
+retry. Once the stream headers confirm server admission, only the snapshot decides busy/idle.
+A disconnected transport cannot declare the engine idle, and a stalled transport cannot
+keep a completed engine busy. Terminal SSE events release the keep-alive reader. The
+observer reconciles durable progress and completion.
 
 ## Validation
 
 - The isolated thread-window, chat persistence, execution-contract and HTML snapshot selection
   passed **132 tests**. JavaScript harnesses exercise both production sender and observer together:
   divergent SSE HTML is ignored, hidden views refresh, stale run IDs are tolerated,
-  Stop errors are retryable, early Stop survives admission and disconnect preserves busy state.
+  Stop errors are retryable, early Stop survives admission, disconnect preserves busy state,
+  stalled transport cannot hold completion busy and terminal errors release their stream.
 - The hidden native WebView2 probe passed **76 checks** using a deterministic EngineAdapter through the production
   coordinator, persistence and cancellation paths. No model provider or user realm is used.
   It compares exact live and terminal transcript HTML; cancels from the observing detached,

@@ -5,7 +5,7 @@ let shared={revision:'1',html:'initial',title:'Main',run_id:''};
 function view(){
   const box={dataset:{agent:'captain',thread:'main'},querySelector:()=>box.editing||null,contains:()=>false};
   const note={dataset:{},textContent:''},stop={style:{}};
-  const ctx={mcCtrl:null,mcLocalTid:null,mcStopRequested:false,mcGen:false,mcViewGeneration:0,mcTid:null,document:{hidden:false,
+  const ctx={mcCtrl:null,mcLocalTid:null,mcServerAdmitted:false,mcStopRequested:false,mcGen:false,mcViewGeneration:0,mcTid:null,document:{hidden:false,
     getElementById:id=>id==='mc-turns'?box:id==='mc-stop'?stop:note,addEventListener:()=>{}},
     URLSearchParams,setTimeout:()=>1,clearTimeout:()=>{},addEventListener:()=>{},getSelection:()=>null,
     mcSetGen:on=>{ctx.busy=ctx.mcGen=on;},mcSetThreadTitle:(thread,title)=>ctx.title=title,
