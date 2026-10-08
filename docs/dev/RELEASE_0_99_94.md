@@ -37,7 +37,35 @@ Sandbox GUI acceptance remain outstanding.
   comment). None belongs to the new rules; preserving the existing application
   appearance is part of this bounded polish request.
 
-The enforced publisher must still pass the complete pinned isolated suite,
-exact-source Windows CI, compiled-launcher recovery, branded native sessions and
-the exact signed-package upgrade checks. Final publication and public-download
-verification will be recorded here after those gates complete.
+The final enforced publisher passed **3,372 isolated tests with 5 skips**.
+Exact-source Windows CI passed on pinned Python 3.12.10 and current Python 3.12:
+[CI run 37820999267](https://github.com/smikees/armada/actions/runs/37820999267).
+The compiled launcher passed all **5 interruption recovery checks**; the branded
+runtime passed **16 native multi-window session checks**. The exact signed package
+passed **63 native upgrade checks** from 0.99.93 to 0.99.94.
+
+## Publication
+
+[Release v0.99.94](https://github.com/smikees/armada/releases/tag/v0.99.94) was
+published at 2026-10-08T18:12:01Z from source commit
+`e56be7d86f59448923e8b61c9f0ccaebee1291b8`.
+
+Fresh public downloads verified the Ed25519 manifest signature, all four asset
+sizes/hashes against GitHub and the local build, and all **331 packaged source
+files** byte for byte against the release source.
+
+The authenticated live update check staged **0.99.94** in the running **0.99.93** app.
+Its process and instance nonce were preserved. Applying the update awaits the
+owner's normal restart.
+
+| Asset | Bytes | SHA-256 |
+| --- | ---: | --- |
+| armada-0.99.94.zip | 5,503,743 | `f11a2b21858c0c3fbf718d698e7da6ca2433815b8809c7733d7be64001caddb7` |
+| ARMADA-Setup-0.99.94.exe | 20,443,707 | `a987590caadbeac9d281e992a1cd5635997798bd3aad53d02cf6e511796e8631` |
+| armada-update.json | 347 | `bc2ee794662890b110df71a5bcdc1deb620df8fcf65d762a97f9e83db8d7d39b` |
+| armada-update.json.sig | 89 | `c8a683c979c90272d2b713b28755b00b8c95ff85a281da8acecfbfdc25f789a4` |
+
+Generated evidence remains under ignored build paths: `publish-0.99.94-complete.log`,
+`release-evidence-0.99.94.json`, `upgrade-0.99.94.json`,
+`verification-0.99.94/result.json`, `dry-run-ui-0.99.94.json`,
+`dry-run-ui-0.99.94-narrow.json` and `staging-0.99.94-live.json`.

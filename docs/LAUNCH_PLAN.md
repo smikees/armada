@@ -15,7 +15,9 @@ The current release is recorded in the [README](../README.md),
 Version **0.99.94** aligns Dry run history with the existing Jobs disclosures,
 removes its duplicate top-row button and reuses the shared select/body typography.
 All 32 native Jobs checks, 78 targeted tests and 179 snapshot/reference checks passed.
-The enforced exact-source publication gates are pending.
+The published release passed 3,372 isolated tests, exact-source Windows CI and 63
+packaged upgrade checks. Fresh public assets are verified; 0.99.94 is staged in
+the running 0.99.93 app for the owner's normal restart.
 [Verification](dev/RELEASE_0_99_94.md) records validation and publication evidence.
 The draft-only tests and inspector access from 0.99.93 remain in place: separate
 models/history, temporary artifacts, seven-day retention and owner-approved,
