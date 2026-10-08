@@ -692,7 +692,6 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
             f'{"" if on else "disabled "}'
             f'title="{"Run this job now" if on else "This job is switched off — switch it on to run it"}" '
             f'onclick="mcRun({_J(a.id)},{_J(j.id)},\'auto\',this)">{_icon("play",12)}Run now</button>'
-            f'<button class="btn btn-secondary btn-sm" onclick="mcDryOpen(this)">Dry run</button>'
             f'<a href="/job/{E(a.id)}/{E(j.id)}" class="btn btn-secondary btn-sm" style="'
             f'text-decoration:none">{_icon("edit",12)}Edit job</a>'
             # Delete sits beside Edit, inside the expanded view: it belongs with the other things

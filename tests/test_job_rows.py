@@ -477,8 +477,9 @@ def test_job_disclosures_keep_actions_outside_and_sections_in_order(realm):
     html=AF._tab_jobs(m, realm, m.agents[0], datetime.date.today())
     p=Disclosures(); p.feed(html)
     assert p.action_depths == [1,1,1]
-    assert [s for s in p.sections if 'mc-dry-runs' not in s] == ['mc-job-section mc-job-'+part+'-pane'
-                          for _ in range(3) for part in ('prompt','output','history')]
+    assert p.sections == [section for _ in range(3) for section in (
+        'mc-job-section mc-job-prompt-pane', 'mc-job-section mc-job-output-pane',
+        'mc-job-section mc-job-history-pane', 'mc-job-section mc-dry-runs')]
     assert html.count('Run history</summary>') == 3
 
 

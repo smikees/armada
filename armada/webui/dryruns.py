@@ -1,30 +1,30 @@
 """Inline draft-only job controls and review output, using existing Jobs styles."""
 from pathlib import Path
 
+from ..icons import _icon
 from ._base import E, _md
 
 
 def controls(agent, job_id, job, *, open=False):
     command = job.get("kind") == "command" or bool(job.get("run") or job.get("command"))
-    field = "padding:6px 8px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;max-width:100%"
     return (f'<details class="mc-job-section mc-dry-runs" data-dry-agent="{E(agent)}" '
         f'data-dry-job="{E(job_id)}" data-dry-command="{"1" if command else "0"}"'
-        f'{" open" if open else ""}><summary>Dry runs</summary><div class="mc-job-section-body">'
+        f'{" open" if open else ""}><summary>{_icon("chevron-right",14)}Dry run history</summary><div class="mc-job-section-body">'
         f'<p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">Create temporary drafts to test '
         f'{"the saved dry-run command" if command else "a model using saved file inputs"}. '
         'Production outputs, model and schedule stay unchanged.</p>'
         '<div style="display:flex;align-items:end;gap:8px;flex-wrap:wrap">'
-        + (f'<label style="display:grid;gap:4px;font-size:12px">Test model<select class="mc-dry-model" '
-           f'aria-label="Dry-run model" style="{field}"><option value="">Choose a model…</option></select></label>'
+        + ('<label style="display:grid;gap:4px;font-size:12px">Test model<select class="mc-job-run-select mc-dry-model" '
+           'aria-label="Dry-run model"><option value="">Choose a model…</option></select></label>'
            if not command else '<span style="font-size:12px">Uses the draft-only command from Job settings.</span>')
         + '<button class="btn btn-secondary btn-sm mc-dry-start" onclick="mcDryStart(this)">Start dry run</button>'
         '<button class="btn btn-secondary btn-sm mc-dry-stop" onclick="mcDryStop(this)" hidden style="display:none">Stop</button>'
         '<span class="mc-dry-message" role="status" style="font-size:12px"></span></div>'
         f'<p style="font-size:11.5px;color:var(--text-muted)">Kept for {E(str(job.get("dry_run_keep_days", 7)))} days '
         'after completion. Model tests cannot publish, send, use a shell, or refresh live connectors.</p>'
-        f'<label style="display:grid;gap:4px;font-size:12px">Dry-run history<select class="mc-dry-history" '
-        f'aria-label="Dry-run output" onchange="mcDrySelect(this)" style="{field}"><option value="">Latest dry run</option></select></label>'
-        '<div class="mc-dry-output" style="margin-top:12px;overflow-wrap:anywhere">Open to load dry runs.</div>'
+        '<div class="mc-job-output-heading"><select class="mc-job-run-select mc-dry-history" '
+        'aria-label="Dry-run output" onchange="mcDrySelect(this)"><option value="">Latest dry run</option></select></div>'
+        '<div class="mc-dry-output" style="overflow-wrap:anywhere">Expand to load dry runs.</div>'
         '</div></details>')
 
 

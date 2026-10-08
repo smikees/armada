@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.93. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.94. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -265,3 +265,10 @@ Draft-only job tests and inspector agents continue the standing owner-authorized
 Windows beta maintenance distribution. All isolated, exact-source CI, native session and
 upgrade checks remain mandatory. Runtime compatibility is unchanged.
 See [release verification](RELEASE_0_99_93.md).
+
+### 2026-10-08: maintenance 0.99.94
+
+Dry-run disclosure styling continues the standing owner-authorized unsigned Windows beta
+maintenance distribution. All isolated, exact-source CI, native session and upgrade checks
+remain mandatory. Runtime compatibility is unchanged.
+See [release verification](RELEASE_0_99_94.md).

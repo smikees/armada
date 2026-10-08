@@ -12,16 +12,16 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.93** adds draft-only job tests with independent model selection, Stop,
-temporary artifacts and seven-day default retention. Inspector agents have owner-approved,
-scoped tools to test any realm job and read recorded artifacts without changing production.
-Model tests use saved inputs; script tests require explicit draft-only commands.
-The published release passed 3,370 isolated tests, exact-source Windows CI, 30 native
-Jobs browser checks and 63 packaged upgrade checks. Actual scoped-tool calls from all
-three CLIs and the branded embedded runtime verified draft writes and production-write
-refusal. Fresh public assets are verified; 0.99.93 is staged in the running 0.99.92 app
-for the owner's normal restart.
-[Verification](dev/RELEASE_0_99_93.md) records boundaries, validation and publication evidence.
+Version **0.99.94** aligns Dry run history with the existing Jobs disclosures,
+removes its duplicate top-row button and reuses the shared select/body typography.
+All 32 native Jobs checks, 78 targeted tests and 179 snapshot/reference checks passed.
+The enforced exact-source publication gates are pending.
+[Verification](dev/RELEASE_0_99_94.md) records validation and publication evidence.
+The draft-only tests and inspector access from 0.99.93 remain in place: separate
+models/history, temporary artifacts, seven-day retention and owner-approved,
+read-only cross-agent artifact review. Model tests use saved inputs; script tests
+require explicit draft-only commands. [0.99.93 verification](dev/RELEASE_0_99_93.md)
+records the isolation boundaries and actual scoped-tool checks across all three CLIs.
 The canonical detached-conversation rendering and cancellation fixes from 0.99.92 remain in place.
 The job, capture and recovery work from earlier releases remains in place.
 Clean-Sandbox GUI acceptance remains open.

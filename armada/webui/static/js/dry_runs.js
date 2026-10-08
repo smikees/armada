@@ -56,7 +56,6 @@ window.mcDryStop=async function(button){
   finally{button.disabled=false;await mcDryLoad(panel);}
 };
 window.mcDrySelect=function(select){const panel=select.closest('.mc-dry-runs');panel.dataset.dryRun=select.value;mcDryLoad(panel);};
-window.mcDryOpen=function(button){const panel=button.closest('.mc-job').querySelector('.mc-dry-runs');panel.open=true;mcDryLoad(panel);};
 document.querySelectorAll('.mc-dry-runs').forEach(panel=>{
   panel.addEventListener('toggle',e=>{if(e.target===panel&&panel.open)mcDryLoad(panel);});
   if(panel.open)mcDryLoad(panel);

@@ -129,8 +129,20 @@ def run(output, width=1280):
         panel = selector + ' .mc-dry-runs'
         def exercise():
             try:
-                check("Jobs loads the dry-run controls", lambda: js("typeof mcDryOpen==='function'"))
-                js(f"document.querySelector({json.dumps(selector)}).open=true;document.querySelector({json.dumps(selector+' button[onclick^=mcDryOpen]')}).click()")
+                check("Jobs loads the dry-run controls", lambda: js("typeof mcDryStart==='function'"))
+                js(f"document.querySelector({json.dumps(selector)}).open=true;document.querySelector({json.dumps(panel+' > summary')}).click()")
+                check("Dry run disclosure matches Jobs styling and has one launch control", lambda: js(f"""(() => {{
+                    const job=document.querySelector({json.dumps(selector)}), panel=job.querySelector('.mc-dry-runs');
+                    const regular=job.querySelector('.mc-job-output-pane > summary'), dry=panel.querySelector(':scope > summary');
+                    const a=getComputedStyle(regular), b=getComputedStyle(dry);
+                    const picker=job.querySelector('.mc-job-output-pane .mc-job-run-select'), model=panel.querySelector('.mc-dry-model');
+                    return panel.open && dry.textContent==='Dry run history' && dry.querySelector('svg').outerHTML===regular.querySelector('svg').outerHTML
+                        && ['fontFamily','fontSize','fontWeight','paddingLeft','gap'].every(k=>a[k]===b[k])
+                        && Math.abs(dry.getBoundingClientRect().left-regular.getBoundingClientRect().left)<1
+                        && getComputedStyle(picker).fontSize===getComputedStyle(model).fontSize
+                        && job.querySelectorAll('.mc-dry-start').length===1
+                        && ![...job.querySelectorAll('.mc-job-actions button')].some(b=>b.textContent==='Dry run');
+                }})()"""))
                 check("Dry run is available for a disabled production job", lambda: js(f"!document.querySelector({json.dumps(panel+' .mc-dry-start')}).disabled"))
                 check("Available models load", lambda: js(f"document.querySelector({json.dumps(panel+' .mc-dry-model')}).options.length===3"))
                 js(f"document.querySelector({json.dumps(panel+' .mc-dry-start')}).click()")

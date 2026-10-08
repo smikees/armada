@@ -30,13 +30,13 @@ follow the agent's settings again. Command jobs run scripts and don't use these 
 
 ## Dry runs
 
-Expand a job and choose **Dry run**, or open **Dry runs** on its **Edit job** page.
+Expand a job, then open **Dry run history**. The same section is on its **Edit job** page.
 Choose an available **Test model**, then **Start dry run**. This choice applies only
 to the test: the saved production model, schedule, enabled switch and production
 outputs stay unchanged. A switched-off job can still be tested. Unsaved editor
 changes are not included: save first to test a changed prompt.
 
-The separate **Dry-run history** shows the selected model, outcome, final answer
+The separate **Dry run history** shows the selected model, outcome, final answer
 and draft files. **Stop** stops the current dry run. Closing the page does not stop
 it; reopen the job to review its result. Dry runs use quota and their token usage
 is recorded, but they do not enter production job history or the calendar, consume
