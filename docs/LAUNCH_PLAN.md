@@ -16,7 +16,13 @@ Version **0.99.95** scopes inspector tools to flagged jobs, adds fingerprinted
 Python/Node skill execution inside Windows draft isolation, and adds frozen-input
 blind A/B comparisons with immutable score reveal and anonymous export. Inspector
 metadata and dry-run effort overrides are included. Existing inspectors must mark
-their review jobs. [Technical design](dev/DRAFT_REVIEW_ARCHITECTURE.md).
+their review jobs. The published release passed 3,397 isolated tests, both exact-source
+Windows CI jobs, 42 native Jobs/editor checks and 63 packaged upgrade checks. Actual
+Claude, Codex and Gemini turns each exercised approved Python/Node scripts and a
+refused production write. Fresh public assets are verified; 0.99.95 is staged in
+the running 0.99.94 app for the owner's normal restart.
+[Technical design](dev/DRAFT_REVIEW_ARCHITECTURE.md) and
+[publication evidence](dev/RELEASE_0_99_95.md).
 
 Version **0.99.94** aligns Dry run history with the existing Jobs disclosures,
 removes its duplicate top-row button and reuses the shared select/body typography.
