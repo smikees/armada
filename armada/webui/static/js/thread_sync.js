@@ -1,48 +1,67 @@
-// Every view observes the same saved thread. Polling never starts another agent run.
+// All views render the same server snapshot, including the window that sent the turn.
 (function(){
-  const box=document.getElementById('mc-turns');
-  if(!box)return;
+  const box=document.getElementById('mc-turns');if(!box)return;
   const agent=box.dataset.agent,thread=box.dataset.thread;
-  let revision='',timer=null,inflight=false,stopped=false;
-  function later(){if(!stopped){clearTimeout(timer);timer=setTimeout(tick,1500);}}
+  let revision='',timer=null,inflight=false,stopped=false,queued=false,lastStart=0,channel=null;
+  function later(){
+    if(stopped)return;
+    clearTimeout(timer);
+    const delay=queued?Math.max(0,250-(Date.now()-lastStart)):(mcGen?750:1500);
+    queued=false;timer=setTimeout(tick,delay);
+  }
+  function wake(){
+    if(stopped)return;
+    queued=true;if(!inflight)later();
+  }
   async function tick(){
-    if(stopped||inflight)return;
-    if(document.hidden||mcCtrl){later();return;}
-    inflight=true;const generation=mcViewGeneration;
+    if(stopped)return;
+    if(inflight){queued=true;return;}
+    inflight=true;lastStart=Date.now();const generation=mcViewGeneration;
     try{
-      const r=await fetch('/api/thread-state?'+new URLSearchParams({agent,thread,revision}),{cache:'no-store'});
-      if(!r.ok){
-        const result=await r.json();
-        if(result.unavailable&&!mcCtrl&&generation===mcViewGeneration){
+      const response=await fetch('/api/thread-state?'+new URLSearchParams({agent,thread,revision}),{cache:'no-store'});
+      const state=await response.json();
+      if(generation!==mcViewGeneration)return;
+      if(!response.ok){
+        if(state.unavailable){
           stopped=true;mcSetGen(true);
           const stop=document.getElementById('mc-stop');if(stop)stop.style.display='none';
         }
-        throw new Error(result.error||'Thread updates are unavailable.');
+        throw new Error(state.error||'Thread updates are unavailable. Retrying…');
       }
-      const state=await r.json();
-      // A local send may have started while this request was in flight.
-      if(mcCtrl||generation!==mcViewGeneration)return;
-      mcTid=state.run_id||null;mcSetGen(!!mcTid);
+      mcTid=state.run_id||mcLocalTid||null;
+      mcSetGen(!!mcTid,!!state.stopping||mcStopRequested);
       const status=document.getElementById('mc-chatmsg');
-      if(status?.dataset.syncError){status.textContent='';delete status.dataset.syncError;}
+      if(status?.dataset.syncError||status?.dataset.transportError){
+        status.textContent='';delete status.dataset.syncError;delete status.dataset.transportError;
+      }
       mcSetThreadTitle(thread,state.title);
+      if(state.metrics)mcApplyMetrics(state.metrics);
       const selection=window.getSelection();
       const reading=selection&&!selection.isCollapsed&&box.contains(selection.anchorNode);
       if(state.html!==undefined&&!box.querySelector('textarea')&&!reading){
-        mcApplyTurns(box,state.html);
-        revision=state.revision;
-        mcRefreshMetrics(agent,thread);mcRefreshRail(agent,thread);
-        mcRefreshAgentDot();
+        mcApplyTurns(box,state.html);revision=state.revision;
+        mcRefreshRail(agent,thread);mcRefreshAgentDot();
       }
     }catch(error){
       const status=document.getElementById('mc-chatmsg');
       if(status){status.textContent=error.message||'Thread updates are unavailable. Retrying…';status.dataset.syncError='1';}
     }finally{inflight=false;later();}
   }
+  // Invalidation speeds up sibling windows; the server remains authoritative.
+  // Polling continues when occluded, and also covers browsers without channels.
+  try{
+    if(typeof BroadcastChannel==='function'){
+      const realm=window.mcRealmId||document.querySelector('meta[name="armada-realm"]')?.content||'';
+      channel=new BroadcastChannel('armada-thread:'+realm+':'+agent+':'+thread);
+      channel.onmessage=wake;
+    }
+  }catch(error){}
   window.mcThreadSync=tick;
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});
-  window.addEventListener('focus',tick);
+  window.mcThreadChanged=()=>{wake();try{channel?.postMessage('refresh');}catch(error){}};
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake();});
+  document.addEventListener('selectionchange',()=>{if(window.getSelection()?.isCollapsed)wake();});
+  window.addEventListener('focus',wake);
   window.addEventListener('pagehide',()=>{stopped=true;clearTimeout(timer);});
-  window.addEventListener('pageshow',()=>{stopped=false;tick();});
+  window.addEventListener('pageshow',()=>{stopped=false;wake();});
   tick();
 })();

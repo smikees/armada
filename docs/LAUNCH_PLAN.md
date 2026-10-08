@@ -12,14 +12,13 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.91** checks Codex execution/model readiness before jobs, holds business retries
-on provider startup failures, gives large Claude connector inventories a bounded 90-second
-startup budget, groups proven retry series in the calendar and releases idle scheduler locks
-when realms are archived, removed or deleted. Research observations are separate from audit
-breaches. The release passed 3,337 isolated tests, exact-source Windows CI and 63 native
-upgrade checks; signed public assets are verified and staged in the running app.
-[Verification](dev/RELEASE_0_99_91.md) records the evidence, verified runtime fallback and scheduler consolidation.
-The detached windows, capture and recovery work from earlier releases remain in place.
+Version **0.99.92** unifies live conversation rendering across the cockpit, embedded view
+and detached window. Stop resolves the active conversation within its bound realm; a dropped
+transport cannot pretend the engine stopped. Occluded views continue observing canonical
+progress, metrics and completion. The native regression now exercises real coordinated
+cancellation and compares live and terminal transcript HTML across both Windows views.
+[Verification](dev/RELEASE_0_99_92.md) records validation and publication evidence.
+The job, capture and recovery work from earlier releases remains in place.
 Clean-Sandbox GUI acceptance remains open.
 
 ## Implemented foundations

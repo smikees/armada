@@ -129,7 +129,13 @@ class RunSession:
                 return {"ok": True, "note": "no active turn"}
             active.cancelled = True
             if active.process is not None:
-                active.process.kill()
+                try:
+                    active.process.kill()
+                except Exception:
+                    # A rejected kill is not a successful cancellation. Let both
+                    # views retry Stop instead of remaining stuck on Stopping.
+                    active.cancelled = False
+                    raise
         return {"ok": True}
 
     def close(self):

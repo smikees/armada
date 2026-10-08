@@ -144,6 +144,46 @@ def test_other_view_can_stop_only_original_realms_run(realm, tmp_path):
         proc_b.kill.assert_not_called()
 
 
+def test_stop_resolves_conversation_even_with_stale_run_id(realm, tmp_path):
+    a = RunContext.capture(realm, "captain", "main", "current-run")
+    other_thread = RunContext.capture(realm, "captain", "another", "other-thread")
+    other_realm = RunContext.capture(build_fixture(tmp_path / "B"), "captain", "main", "other-realm")
+    with ServedRealm(realm) as server, RunSession(a) as run, RunSession(other_thread) as sibling, RunSession(other_realm) as outsider:
+        proc, sibling_proc, outsider_proc = Mock(), Mock(), Mock()
+        run.bind(proc); sibling.bind(sibling_proc); outsider.bind(outsider_proc)
+        status, raw = request(server, "/api/chat-stop?agent=captain&thread=main&tid=old-run", a.realm, companion=True)
+        assert status == 200 and json.loads(raw) == {"ok": True, "stopped": True}
+        proc.kill.assert_called_once()
+        sibling_proc.kill.assert_not_called()
+        outsider_proc.kill.assert_not_called()
+        state = thread_windows.state(realm, "captain", "main")
+        assert state["run_id"] == "current-run" and state["stopping"]
+        assert state["metrics"]["messages"] == 2
+
+
+def test_stop_without_admitted_turn_reports_no_cancellation(realm):
+    ctx = RealmContext.capture(realm)
+    with ServedRealm(realm) as server:
+        status, raw = request(server, "/api/chat-stop?agent=captain&thread=main&tid=not-yet-admitted", ctx, companion=True)
+        assert status == 200 and json.loads(raw) == {"ok": True, "stopped": False}
+
+
+def test_failed_process_cancellation_remains_retryable(realm):
+    context = RunContext.capture(realm, "captain", "main", "kill-fails")
+    with ServedRealm(realm) as server, RunSession(context) as run:
+        process = Mock()
+        process.kill.side_effect = [OSError("Synthetic kill failure"), None]
+        run.bind(process)
+        route = "/api/chat-stop?agent=captain&thread=main&tid=stale"
+        _, raw = request(server, route, context.realm, companion=True)
+        assert json.loads(raw) == {"ok": False, "error": "Synthetic kill failure"}
+        assert not thread_windows.state(realm, "captain", "main")["stopping"]
+        _, raw = request(server, route, context.realm, companion=True)
+        assert json.loads(raw) == {"ok": True, "stopped": True}
+        assert thread_windows.state(realm, "captain", "main")["stopping"]
+        assert process.kill.call_count == 2
+
+
 def test_native_windows_reuse_close_reopen_and_separate_realms(realm, tmp_path, monkeypatch):
     other = build_fixture(tmp_path / "other")
     windows = []
@@ -186,7 +226,7 @@ def test_native_windows_reuse_close_reopen_and_separate_realms(realm, tmp_path, 
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for script checks")
-@pytest.mark.parametrize("harness", ["thread_sync_harness.js", "thread_window_open_harness.js"])
+@pytest.mark.parametrize("harness", ["thread_sync_harness.js", "thread_window_open_harness.js", "thread_chat_harness.js"])
 def test_browser_window_interactions(harness):
     result = subprocess.run(["node", str(Path(__file__).with_name(harness))],
                             capture_output=True, text=True, timeout=15)

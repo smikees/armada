@@ -5,10 +5,10 @@ let shared={revision:'1',html:'initial',title:'Main',run_id:''};
 function view(){
   const box={dataset:{agent:'captain',thread:'main'},querySelector:()=>box.editing||null,contains:()=>false};
   const note={dataset:{},textContent:''},stop={style:{}};
-  const ctx={mcCtrl:null,mcViewGeneration:0,mcTid:null,document:{hidden:false,
+  const ctx={mcCtrl:null,mcLocalTid:null,mcStopRequested:false,mcGen:false,mcViewGeneration:0,mcTid:null,document:{hidden:false,
     getElementById:id=>id==='mc-turns'?box:id==='mc-stop'?stop:note,addEventListener:()=>{}},
     URLSearchParams,setTimeout:()=>1,clearTimeout:()=>{},addEventListener:()=>{},getSelection:()=>null,
-    mcSetGen:on=>ctx.busy=on,mcSetThreadTitle:(thread,title)=>ctx.title=title,
+    mcSetGen:on=>{ctx.busy=ctx.mcGen=on;},mcSetThreadTitle:(thread,title)=>ctx.title=title,
     mcApplyTurns:(box,html)=>ctx.html=html,mcRefreshMetrics:()=>{},mcRefreshRail:()=>{},mcRefreshAgentDot:()=>{},
     fetch:async url=>{
       const current={...shared};
@@ -25,6 +25,12 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  shared={revision:'2',html:'user + partial reply',title:'Renamed',run_id:'run-A'};
  await Promise.all([main.mcThreadSync(),popout.mcThreadSync()]);
  assert.equal(main.html,popout.html);assert.equal(popout.mcTid,'run-A');assert(popout.busy);
+ main.mcCtrl={};main.mcLocalTid='run-A';popout.document.hidden=true;
+ shared={...shared,revision:'2b',html:'canonical live Markdown and tool result'};
+ await Promise.all([main.mcThreadSync(),popout.mcThreadSync()]);
+ assert.equal(main.html,shared.html,'sender also observes the canonical server render');
+ assert.equal(popout.html,shared.html,'occluded views keep observing the conversation');
+ main.mcCtrl=null;main.mcLocalTid=null;popout.document.hidden=false;
  shared={revision:'3',html:'user + final reply',title:'Renamed',run_id:''};
  await main.mcThreadSync();await popout.mcThreadSync();
  assert.equal(main.html,popout.html);assert(!popout.busy);
@@ -35,7 +41,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  popout.fetch=()=>new Promise(resolve=>release=resolve);
  const pending=popout.mcThreadSync();popout.mcViewGeneration++;popout.mcCtrl={};
  release({ok:true,json:async()=>({revision:'old',html:'stale',title:'Old',run_id:''})});
- await pending;assert.equal(popout.html,'external edit','in-flight poll must not overwrite local streaming');
+ await pending;assert.equal(popout.html,'external edit','a poll predating local admission must not replace newer state');
  popout.mcCtrl=null;popout.fetch=main.fetch;shared={...shared,revision:'5',html:''};
  await popout.mcThreadSync();assert.equal(popout.html,'','empty results replace old messages too');
  const header={dataset:{editing:'1'},textContent:'draft title'},row={dataset:{editing:'1'},textContent:'draft title'};

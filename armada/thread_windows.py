@@ -41,14 +41,16 @@ def target(root, agent, thread):
 def state(root, agent, thread, revision=""):
     """Canonical conversation snapshot, shared by the cockpit, widget and companion."""
     from .execution import ACTIVE_RUNS, RUNS_LOCK
-    from .webui.threadsview import _render_turns
+    from .webui.threadsview import _render_turns, thread_metrics
     context, a, title, _ = target(root, agent, thread)
-    with RUNS_LOCK:
-        run_ids = [run.context.run_id for run in ACTIVE_RUNS.values()
-                   if run.context.realm.realm_id == context.realm_id
-                   and run.context.agent == agent and run.context.thread == thread]
     html = bind_content_html(_render_turns(root, a, thread), context)
-    payload = {"title": title, "run_id": run_ids[0] if run_ids else ""}
+    with RUNS_LOCK:
+        runs = [run for run in ACTIVE_RUNS.values()
+                if run.context.realm.realm_id == context.realm_id
+                and run.context.agent == agent and run.context.thread == thread]
+        payload = {"title": title, "run_id": runs[0].context.run_id if runs else "",
+                   "stopping": any(run.cancelled for run in runs)}
+    payload["metrics"] = thread_metrics(root, agent, thread)
     digest = hashlib.sha256((html + json.dumps(payload, sort_keys=True)).encode("utf-8")).hexdigest()
     payload["revision"] = digest
     if revision != digest:

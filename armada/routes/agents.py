@@ -280,9 +280,22 @@ class AgentRoutes:
     def _chat_stop(self, q: dict) -> dict:
         from ..execution import RunSession
         from ..request_context import RealmContext
-        key = (RealmContext.capture(self.realm).realm_id, q.get("tid", ""))
+        realm_id = RealmContext.capture(self.realm).realm_id
         try:
-            return RunSession.cancel(key, self._streams, self._streams_lock)
+            if "agent" in q or "thread" in q:
+                agent = safe_seg(q.get("agent", ""), "agent")
+                thread = safe_seg(q.get("thread", "main"), "thread")
+                # A viewing window may have a stale run ID. Resolve the conversation
+                # here, and cancel only its owned turns in this immutable realm.
+                with self._streams_lock:
+                    keys = [key for key, active in self._streams.items()
+                            if active.context.realm.realm_id == realm_id
+                            and active.context.agent == agent and active.context.thread == thread]
+                    for key in keys:
+                        RunSession.cancel(key, self._streams, self._streams_lock)
+                return {"ok": True, "stopped": bool(keys)}
+            result = RunSession.cancel((realm_id, q.get("tid", "")), self._streams, self._streams_lock)
+            return {**result, "stopped": "note" not in result}
         except Exception as exc:
             log.exception("Could not cancel turn")
             return {"ok": False, "error": str(exc)}

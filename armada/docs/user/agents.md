@@ -47,10 +47,20 @@ and use the arrow keys. The window has a broad, soft shadow, with subtle separat
 The avatar sits closer to the header to leave more vertical room for chat, and its activity dot
 is smaller. The window keeps a minimum size for the composer.
 
-Both views use the same saved conversation and refresh while open. Messages and reply progress
-started in either view appear in the other; unsent drafts stay local to each view. Opening an
-already-open thread brings its window forward. Closing the window does not delete the thread
-or cancel a running reply. Open it again from **Detach thread**.
+Both views render the same saved conversation throughout a reply: messages, Markdown, tool
+activity, edits, message counts and compaction information. They keep refreshing in the
+background. Messages and reply progress started in either view appear in the other; unsent
+drafts stay local to each view. A selected passage or an unsaved message edit stays in place
+until you finish reading or editing, then catches up with the latest saved content.
+
+**Stop** cancels the active reply from either view, including a window that did not start it.
+Both views show **Stopping…** while cancellation finishes. If cancellation fails, the window
+shows the error and lets you try again. Losing the live connection does not stop the reply:
+the view keeps checking the saved conversation and restores its progress and final answer.
+
+Opening an already-open thread brings its window forward. Closing the window does not delete
+the thread or cancel a running reply. Open it again from **Detach thread** to see the current
+conversation and use Stop.
 
 A companion stays with its original realm when you switch the main app to another realm.
 If a thread is archived or deleted, its old window reports that it is unavailable.

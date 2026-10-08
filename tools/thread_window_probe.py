@@ -23,6 +23,8 @@ def run(output):
     from armada import app, local_auth, serve, util, runner
     from armada.request_context import RealmContext
     from armada.threads import Thread
+    from armada.engine.base import EngineAdapter, RunResult, Usage
+    from armada.engine.contracts import ProviderCapabilities
     from tests.golden_support import build_fixture
 
     result = {"ok": False, "checks": []}
@@ -57,17 +59,40 @@ def run(output):
         threading.Thread(target=server.serve_forever, daemon=True).start()
         url = f"http://127.0.0.1:{server.server_port}/"
 
-        def fake_chat(root, agent, thread, message, *, on_event, **kwargs):
-            th = Thread(Path(root) / "agents" / agent, thread)
-            turn = th.begin_turn(message)
-            th.save_progress(turn, "Checking the synthetic figures.", "Checking", [])
-            on_event({"kind": "text", "text": "Checking the synthetic figures."})
-            started.set()
-            release.wait(15)
-            answer = "Synthetic result: 125.50. Saved once."
-            th.complete_turn(turn, answer)
-            on_event({"kind": "render", "html": "<p>" + answer + "</p>"})
-            return {"ok": True, "output": answer}
+        class SyntheticEngine(EngineAdapter):
+            """Only the provider boundary is simulated; persistence and Stop are real."""
+            name = "mock"
+            capabilities = ProviderCapabilities(streaming=True, cancellation=True, tool_denials=True)
+
+            def doctor(self):
+                return True, "Synthetic engine"
+
+            def run(self, *args, **kwargs):
+                return self.run_stream(*args, **kwargs)
+
+            def run_stream(self, *args, on_event, on_proc, **kwargs):
+                cancelled = threading.Event()
+                class Process:
+                    pid = 0
+                    def kill(self):
+                        cancelled.set()
+                    def poll(self):
+                        return -1 if cancelled.is_set() else None
+                on_proc(Process())
+                on_event({"kind": "thinking", "text": "Checking synthetic data"})
+                on_event({"kind": "tool", "id": "fixture-tool", "name": "Read", "input": {"file": "synthetic.txt"}})
+                on_event({"kind": "tool_result", "id": "fixture-tool", "content": "125.50", "is_error": False})
+                on_event({"kind": "text", "text": "Checking the synthetic figures."})
+                started.set()
+                deadline = time.monotonic() + 60
+                while not release.is_set() and not cancelled.is_set() and time.monotonic() < deadline:
+                    cancelled.wait(.05)
+                if cancelled.is_set():
+                    return RunResult(ok=False, cancelled=True, error="Run stopped by the owner.",
+                                     output="Checking the synthetic figures.", usage=Usage(input=10, output=5))
+                answer = "Synthetic result: 125.50. Saved once."
+                on_event({"kind": "text", "text": "\n\n" + answer})
+                return RunResult(ok=True, output=answer, usage=Usage(input=10, output=10))
 
         def wait_for(fn, label, timeout=15):
             deadline = time.monotonic() + timeout
@@ -85,11 +110,17 @@ def run(output):
         def ready(window):
             wait_for(lambda: window.events.loaded.is_set() and window.evaluate_js("!!document.getElementById('mc-turns') && typeof window.mcThreadSync==='function'"),
                      "authenticated conversation loaded")
-            # Background test windows must exercise the same polling as visible windows.
-            window.evaluate_js("Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});window.mcThreadSync()")
+            # Occluded windows must keep observing too; do not override document.hidden.
+            window.evaluate_js("window.mcThreadSync()")
 
         def text(window):
             return window.evaluate_js("document.getElementById('mc-turns').textContent")
+
+        def transcript(window):
+            return window.evaluate_js("document.getElementById('mc-turns').innerHTML")
+
+        def idle(window):
+            return window.evaluate_js("!mcGen && !mcCtrl")
 
         def check(label, value):
             if not value:
@@ -244,18 +275,51 @@ def run(output):
                 wait_for(lambda: "Checking the synthetic figures." in text(companion), "companion shows progress started in main")
                 wait_for(lambda: companion.evaluate_js("document.getElementById('mc-stop').style.display") != "none",
                          "Stop is available in the observing window")
+                wait_for(lambda: "Checking the synthetic figures." in text(main) and transcript(main) == transcript(companion),
+                         "sender and occluded companion have identical live HTML and tool activity")
                 release.set()
                 wait_for(lambda: "Synthetic result: 125.50." in text(main) and "Synthetic result: 125.50." in text(companion),
                          "both views receive the saved reply")
+                wait_for(lambda: idle(main) and idle(companion) and transcript(main) == transcript(companion),
+                         "both views have identical terminal HTML")
                 companion.evaluate_js("document.getElementById('mc-msg').value='Question from companion';mcChat('captain','main')")
                 wait_for(lambda: "Question from companion" in text(main), "main receives a message sent by the companion")
                 wait_for(lambda: len(Thread(Path(realm)/"agents/captain")._messages()) == 6, "each send is persisted exactly once")
+                wait_for(lambda: idle(companion), "companion finishes its sending transport")
                 # Switch the cockpit admission default while the companion remains bound to A.
                 Fixture.realm = other
                 companion.evaluate_js("document.getElementById('mc-msg').value='Still in original realm';mcChat('captain','main')")
                 wait_for(lambda: len(Thread(Path(realm)/"agents/captain")._messages()) == 8, "companion sends to original realm after switch")
                 check("other realm unchanged", len(Thread(Path(other)/"agents/captain")._messages()) == 2)
                 Fixture.realm = realm
+                # The old cockpit page deliberately refuses requests after a realm
+                # switch. Reload its bound page before comparing the original realm.
+                main.load_url(local_auth.browser_url(url, "/probe-main"))
+                ready(main)
+                wait_for(lambda: idle(main) and idle(companion), "both views idle after realm-bound send")
+                for sender, stopper, label in ((main, companion, "observing detached window"),
+                                                (companion, companion, "sending detached window"),
+                                                (companion, main, "observing main window")):
+                    release.clear();started.clear()
+                    sender.evaluate_js("document.getElementById('mc-msg').value='Cancel from " + label + "';mcChat('captain','main')")
+                    wait_for(started.is_set, "live turn starts for cancellation from " + label)
+                    wait_for(lambda: stopper.evaluate_js("mcGen") and "Checking the synthetic figures." in text(stopper),
+                             "Stop observes the active conversation in " + label)
+                    wait_for(lambda: transcript(main) == transcript(companion), "live snapshots match before Stop in " + label)
+                    stopper.evaluate_js("mcTid='deliberately-stale-id';document.getElementById('mc-stop').click()")
+                    wait_for(lambda: idle(main) and idle(companion), "Stop actually cancels the backend from " + label)
+                    wait_for(lambda: transcript(main) == transcript(companion), "cancelled snapshots match from " + label)
+                    check("cancelled turn persisted once from " + label,
+                          Thread(Path(realm)/"agents/captain")._messages()[-1].get("status") == "stopped")
+                release.clear();started.clear()
+                main.evaluate_js("document.getElementById('mc-msg').value='Continue after disconnect';mcChat('captain','main')")
+                wait_for(started.is_set, "turn admitted before observer disconnect")
+                main.evaluate_js("mcCtrl.abort()")
+                wait_for(lambda: main.evaluate_js("!mcCtrl && mcGen && document.getElementById('mc-msg').disabled"),
+                         "interrupted transport retains the backend busy state")
+                release.set()
+                wait_for(lambda: idle(main) and idle(companion) and transcript(main) == transcript(companion),
+                         "interrupted sender and companion reconcile the durable completion")
                 companion.evaluate_js("document.getElementById('mc-msg').value='Draft stays here';mcAutosize();mcSyncSend()")
                 screenshot(main, "thread-main")
                 screenshot(companion, "thread-window")
@@ -281,6 +345,21 @@ def run(output):
                 reopened = next(iter(app._thread_windows.values()))
                 ready(reopened)
                 check("reopened view retains all conversation content", "Still in original realm" in text(reopened))
+                release.clear();started.clear()
+                reopened.evaluate_js("document.getElementById('mc-msg').value='Close while running';mcChat('captain','main')")
+                wait_for(started.is_set, "reopened companion starts a real coordinated turn")
+                reopened.evaluate_js("document.querySelector('[data-thread-close]').click()")
+                wait_for(lambda: not app._thread_windows, "sending companion closes during its active turn")
+                check("closing its observer does not stop the conversation", main.evaluate_js("mcGen") or bool(
+                    __import__('armada.execution', fromlist=['ACTIVE_RUNS']).ACTIVE_RUNS))
+                check("active conversation can be reopened", app.open_thread(realm, "captain", "main"))
+                reopened = next(iter(app._thread_windows.values()))
+                ready(reopened)
+                wait_for(lambda: reopened.evaluate_js("mcGen") and transcript(reopened) == transcript(main),
+                         "reopened active conversation has identical live content and Stop")
+                reopened.evaluate_js("document.getElementById('mc-stop').click()")
+                wait_for(lambda: idle(main) and idle(reopened) and transcript(main) == transcript(reopened),
+                         "reopened observer can Stop and reconcile the active turn")
                 result["ok"] = True
             except Exception:
                 result["error"] = traceback.format_exc()
@@ -296,7 +375,7 @@ def run(output):
         try:
             with patch.object(app, "_main_window", main), patch.object(app, "_app_url", url), \
                     patch.object(app, "_thread_windows", {}), patch.object(app, "_quitting", False), \
-                    patch.object(webview, "create_window", hidden_create), patch.object(runner, "chat_stream", fake_chat), \
+                    patch.object(webview, "create_window", hidden_create), patch.object(runner, "_select_engine", return_value=SyntheticEngine()), \
                     patch.object(Fixture, "_autoname_thread", return_value=None):
                 webview.start(exercise, gui="edgechromium", **app._webview_options())
         finally:

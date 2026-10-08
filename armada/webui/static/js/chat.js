@@ -82,8 +82,6 @@ function mcSetThreadTitle(thread,title){
     const it=document.querySelector(sel); if(it&&!it.dataset.editing)it.textContent=title;}catch(e){}
 }
 if(document.getElementById('mc-turns')){requestAnimationFrame(mcScrollBottom);setTimeout(mcScrollBottom,120);}
-// After a reply lands, replace the just-streamed turns with the server's canonical render, so the
-// live view matches a reloaded page exactly (Markdown formatting, correct action icons, segments).
 // Refetch the right rail (loaded context + capabilities + artifacts) after a reply, so newly created
 // output artifacts appear without a manual page reload. No-op if the rail isn't on the page.
 async function mcRefreshRail(agent,thread){
@@ -98,13 +96,16 @@ async function mcRefreshMetrics(agent,thread){
   try{
     const r=await fetch('/api/thread-metrics?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread),{cache:'no-store'});
     if(!r.ok)return;const m=await r.json();
-    count.textContent=mcGen?Math.max(Number(count.textContent)||0,Number(m.messages)||0):m.messages;
-    const note=document.getElementById('mc-compacted-note');if(note)note.textContent=m.compacted?' · compacted':'';
-    const pct=document.getElementById('mc-comp-pct');if(pct)pct.textContent=m.pct;
-    const bar=document.getElementById('mc-comp-bar');if(bar){bar.style.width=m.pct+'%';
-      bar.style.background=m.pct>=90?'var(--status-bad)':m.pct>=70?'var(--status-warn)':'var(--color-accent-2)';}
-    const wrap=document.getElementById('mc-comp-wrap');if(wrap)wrap.title='History uses ~'+Math.floor(m.chars/4).toLocaleString()+' of the model\'s '+Math.floor(m.context_window/1000)+'K-token context window. At 100% the oldest turns are summarised to keep the thread lean.';
+    mcApplyMetrics(m);
   }catch(e){}
+}
+function mcApplyMetrics(m){
+  const count=document.getElementById('mc-message-count');if(count)count.textContent=m.messages;
+  const note=document.getElementById('mc-compacted-note');if(note)note.textContent=m.compacted?' · compacted':'';
+  const pct=document.getElementById('mc-comp-pct');if(pct)pct.textContent=m.pct;
+  const bar=document.getElementById('mc-comp-bar');if(bar){bar.style.width=m.pct+'%';
+    bar.style.background=m.pct>=90?'var(--status-bad)':m.pct>=70?'var(--status-warn)':'var(--color-accent-2)';}
+  const wrap=document.getElementById('mc-comp-wrap');if(wrap)wrap.title='History uses ~'+Math.floor(m.chars/4).toLocaleString()+' of the model\'s '+Math.floor(m.context_window/1000)+'K-token context window. At 100% the oldest turns are summarised to keep the thread lean.';
 }
 function mcApplyTurns(box,html){
   const bottom=box.scrollHeight-box.scrollTop-box.clientHeight<90,top=box.scrollTop;
@@ -114,15 +115,9 @@ function mcApplyTurns(box,html){
   open.forEach(i=>{if(details[i]){details[i].style.display='block';const arrow=details[i].parentNode.querySelector('.mc-step-c');if(arrow)arrow.textContent='▾';}});
   mcMarkDone();if(bottom)mcScrollBottom();else box.scrollTop=top;
 }
-async function mcRefreshTurns(agent,thread){
-  const box=document.getElementById('mc-turns');if(!box)return;
-  const generation=mcViewGeneration;
-  try{
-    const r=await fetch('/api/thread-turns?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread),{cache:'no-store'});
-    if(!r.ok)return;const html=await r.text();
-    if(mcCtrl||generation!==mcViewGeneration||box.querySelector('textarea'))return;
-    mcApplyTurns(box,html);mcRefreshMetrics(agent,thread);
-  }catch(e){}
+function mcRefreshTurns(agent,thread){
+  const context=mcThreadCtx();
+  if(context&&context.agent===agent&&context.thread===thread)return window.mcThreadSync?.();
 }
 // The shared state observer in thread_sync.js also watches turns started elsewhere.
 function mcPendingWatch(){if(window.mcThreadSync)window.mcThreadSync();}
@@ -215,7 +210,8 @@ document.addEventListener('click',e=>{const h=e.target.closest&&e.target.closest
 const MC_ACT={copy:window.mcIcon('copy',14), check:window.mcIcon('check',14),
  restart:window.mcIcon('refresh-cw',14), edit:window.mcIcon('edit',14)};
 // --- attachments + composer + menu ---
-let mcAttach=[], mcCtrl=null, mcTid=null, mcGen=false, mcViewGeneration=0;
+let mcAttach=[], mcCtrl=null, mcTid=null, mcLocalTid=null, mcGen=false, mcViewGeneration=0;
+let mcStopRequested=false,mcStopBusy=false,mcFocusOnIdle=false;
 function mcBuildMessage(text){let m='';for(const f of mcAttach){if(f.text)m+='```'+f.name+'\n'+f.text+'\n```\n\n';}return (m+(text||'')).trim();}
 const MC_IMGICON=window.mcIcon('image',13,'opacity:.6');
 const MC_FILEICON=window.mcIcon('file',12,'opacity:.6');
@@ -282,9 +278,33 @@ document.addEventListener('click',(e)=>{const m=document.getElementById('mc-plus
 document.addEventListener('keydown',(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='u'){const f=document.getElementById('mc-file');if(f&&document.getElementById('mc-msg')){e.preventDefault();f.click();}}});
 function mcSyncSend(){const ta=document.getElementById('mc-msg'),s=document.getElementById('mc-send');
   if(s)s.style.display=(!mcGen&&ta&&ta.value.trim())?'inline-flex':'none';}
-function mcSetGen(on){mcGen=on;const st=document.getElementById('mc-stop'),ta=document.getElementById('mc-msg');
-  if(st)st.style.display=on?'inline-flex':'none';if(ta)ta.disabled=on;mcSyncSend();}
-async function mcStop(){if(mcTid){try{await fetch('/api/chat-stop?tid='+encodeURIComponent(mcTid));}catch(e){}}if(mcCtrl){try{mcCtrl.abort();}catch(e){}}}
+function mcSetGen(on,stopping=false){mcGen=on;const st=document.getElementById('mc-stop'),ta=document.getElementById('mc-msg');
+  if(!on)mcStopRequested=false;
+  if(st){st.style.display=on?'inline-flex':'none';st.disabled=!!stopping;
+    st.title=stopping?'Stopping conversation…':'Stop conversation';
+    if(st.lastChild?.nodeType===3)st.lastChild.textContent=stopping?'Stopping…':'Stop';}
+  if(ta)ta.disabled=on;mcSyncSend();
+  if(!on&&mcFocusOnIdle){mcFocusOnIdle=false;if(!document.hidden)ta?.focus();}}
+async function mcStop(){
+  const context=mcThreadCtx();if(!context||mcStopBusy||!mcGen)return;
+  const note=document.getElementById('mc-chatmsg');
+  if(note?.dataset.stopError){note.textContent='';delete note.dataset.stopError;}
+  mcStopBusy=true;mcStopRequested=true;mcSetGen(true,true);
+  try{
+    const response=await fetch('/api/chat-stop?'+new URLSearchParams({
+      agent:context.agent,thread:context.thread,tid:mcLocalTid||mcTid||''}),{cache:'no-store'});
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw new Error(result.error||'Could not stop the conversation. Try again.');
+    // Stop can beat admission of a just-sent request. Keep its transport alive,
+    // and retry the cancellation once the server owns it.
+    if(!result.stopped&&mcLocalTid)setTimeout(()=>{if(mcStopRequested&&mcLocalTid)mcStop();},200);
+  }catch(error){
+    mcStopRequested=false;mcSetGen(mcGen);
+    if(note){note.textContent=error.message||'Could not stop the conversation. Try again.';note.dataset.stopError='1';}
+  }finally{
+    mcStopBusy=false;window.mcThreadChanged?.();
+  }
+}
 // --- turn actions ---
 function mcRawText(turn){const t=turn.querySelector('template.mc-raw');if(t)return t.content.textContent;const b=turn.querySelector('.mc-body');return b?b.textContent:'';}
 function mcCopyTurn(btn){const txt=mcRawText(btn.closest('.mc-turn'));try{navigator.clipboard.writeText(txt);}catch(e){}
@@ -319,88 +339,61 @@ function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-
   turn.querySelector('.mc-body').parentNode.appendChild(row);}
 function mcChat(agent,thread,forceText){
   if(mcGen)return;
-  mcViewGeneration++;
-  const ta=document.getElementById('mc-msg'); const typed=(ta.value||'').trim();
-  const text=(forceText!==undefined)?forceText:typed; if(!text&&!mcAttach.length) return;
-  const box=document.getElementById('mc-turns'); if(!box) return;
-  const disp=box.dataset.display||'Agent';
-  document.querySelectorAll('.mc-editbtn').forEach(b=>b.remove());
-  document.querySelectorAll('.mc-done').forEach(b=>b.remove());   // clear the previous 'Done' marker
-  const msg=mcBuildMessage(text);
-  const imgs=mcAttach.filter(f=>f.image).map(f=>({name:f.name,data:f.image}));
+  const ta=document.getElementById('mc-msg'),box=document.getElementById('mc-turns');
+  if(!ta||!box)return;
+  const text=forceText!==undefined?forceText:(ta.value||'').trim();
+  if(!text&&!mcAttach.length)return;
+  const message=mcBuildMessage(text);
+  const images=mcAttach.filter(f=>f.image).map(f=>({name:f.name,data:f.image}));
   const files=mcAttach.filter(f=>!f.image).map(f=>f.name);
-  const attHtml=mcAttach.map(f=>f.image
-    ?('<a href="'+f.image+'" target="_blank" class="mc-att-img"><img src="'+f.image+'"></a>')
-    :('<span class="mc-att-file">'+MC_FILEICON+'<span>'+mcEsc(f.name)+'</span></span>')).join('');
-  const attRow=attHtml?('<div class="mc-att-row">'+attHtml+'</div>'):'';
-  const u=document.createElement('div');u.className='mc-turn';u.dataset.role='user';u.style.marginBottom='12px';
-  const _uav=document.querySelector('.mc-userav');const uav=(_uav&&_uav.innerHTML.trim())||'';
-  const ubub=uav?('<div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex:none;border:1px solid var(--color-divider)">'+uav+'</div>')
-    :'<div style="width:28px;height:28px;border-radius:50%;background:var(--color-accent);color:#fff;display:grid;place-items:center;font-size:11px;flex:none">You</div>';
-  u.innerHTML='<div style="display:flex;flex-direction:row-reverse;gap:10px">'+ubub
-   +'<div style="max-width:72%">'+attRow+'<div class="mc-body" style="background:var(--color-sand-100);border-radius:var(--r);padding:8px 10px;font-size:13px;line-height:1.5;white-space:pre-wrap">'+mcEsc(text||'(files)')+'</div></div></div><template class="mc-raw">'+mcEsc(text||'')+'</template>';
-  box.appendChild(u);
-  // The whole portrait out of the <template class="mc-av">, colour crescent and all — not the
-  // avatar's innerHTML dropped into a 28px overflow:hidden box, which threw the crescent away and
-  // left the streaming turn's avatar looking different from every finished turn above it. Selecting
-  // the template explicitly also matters: '.mc-av' matches the inner circle of the header portrait
-  // first, which is a different size.
-  const _avt=document.querySelector('template.mc-av');
-  const av=(_avt&&_avt.innerHTML)||'<span style="display:inline-block;width:28px;height:28px;border-radius:50%;overflow:hidden"><svg width=28 height=28 viewBox="2 0.8 21 21" style="background:var(--color-accent-100)"><path fill="color-mix(in srgb,var(--color-accent) 75%,transparent)" d="M7.5 6.5C7.5 8.981 9.519 11 12 11s4.5-2.019 4.5-4.5S14.481 2 12 2S7.5 4.019 7.5 6.5M20 21h1v-1c0-3.859-3.141-7-7-7h-4c-3.86 0-7 3.141-7 7v1z"/></svg></span>';
-  const a=document.createElement('div');a.className='mc-turn';a.dataset.role='assistant';a.style.marginBottom='12px';
-  a.innerHTML='<div style="display:flex;gap:10px"><div style="display:flex;flex:none">'+av+'</div>'
-   +'<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">'+mcEsc(disp)+'</div>'
-   +'<div class="mc-steps" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px"></div>'
-   +'<div class="mc-answer mc-body mc-md"></div>'
-   +'<div class="mc-work" style="display:flex;flex-direction:column;gap:4px;margin-top:6px"></div></div></div>';
-  box.appendChild(a);
-  const steps=a.querySelector('.mc-steps'), answer=a.querySelector('.mc-answer'), work=a.querySelector('.mc-work');
-  // the "working…" gif trails the output — it sits BELOW the streamed reply as the agent thinks
-  const working=mcAddChip(work,'<img src="/static/working.gif" width="34" height="34" style="display:block" alt="">','working on it…','');
-  working.querySelector('.mc-step-l').style.animation='mc-pulse 1.4s ease-in-out infinite';
-  ta.value=''; mcSaveDraft(); mcAutosize(); mcClearAttach(); mcSyncSend(); box.scrollTop=box.scrollHeight;
-  const count=document.getElementById('mc-message-count');if(count)count.textContent=String((Number(count.textContent)||0)+1);
-  // The user turn is written before the engine starts; refresh the compaction meter as soon as
-  // that persisted state exists instead of waiting for the final answer.
-  setTimeout(()=>mcRefreshMetrics(agent,thread),300);
-  mcSetAgentDot('working');                              // this agent's header dot pulses while it replies
-  const tools={}; mcTid='t'+Date.now()+Math.random().toString(36).slice(2,7); mcCtrl=new AbortController(); mcSetGen(true);
-  let done=false,rawAnswer='';
-  function finish(ok){if(done)return;done=true;ok=(ok!==false);
-    // the animated "working…" gif shows for the whole turn; then it's removed and (on success) the
-    // canonical render swap adds a green 'Done' marker at the BOTTOM of the reply (see mcMarkDone).
-    if(working.parentNode)working.remove();
-    mcSetGen(false);mcTid=null;mcCtrl=null;
-    mcAddActions(a,'assistant',agent,thread,false);
-    const us=[...document.querySelectorAll('#mc-turns .mc-turn[data-role="user"]')];if(us.length)mcAddActions(us[us.length-1],'user',agent,thread,true);
-    const t=document.getElementById('mc-msg');if(t)t.focus();
-    if(ok){mcRefreshTurns(agent,thread);   // swap streamed turns for the canonical server render
-      mcRefreshRail(agent,thread);         // new output artifacts / caps appear without a reload
-      if(window.mcPendingRefresh)window.mcPendingRefresh();}   // reply may have proposed a job → bump the nav badge
-    mcRefreshMetrics(agent,thread);
-    mcRefreshAgentDot();                    // reply done → dot returns to its real state…
-    setTimeout(mcRefreshAgentDot, 900);     // …and again once the server has settled unread + cleared the run marker
-    if(ok)setTimeout(()=>mcSeenNow(true),1100);   // your own reply is seen; let the server settle first
+  const tid='t'+Date.now()+Math.random().toString(36).slice(2,7),ctrl=new AbortController();
+  mcViewGeneration++;mcLocalTid=mcTid=tid;mcCtrl=ctrl;mcStopRequested=false;mcFocusOnIdle=true;mcSetGen(true);
+  ta.value='';mcSaveDraft();mcAutosize();mcClearAttach();
+  const note=document.getElementById('mc-chatmsg');if(note)note.textContent='';
+  let finished=false,connected=false;
+  function finish(){
+    if(finished)return;finished=true;
+    if(mcCtrl===ctrl){mcCtrl=null;mcLocalTid=null;}
+    // The transport is only an observer. It never writes a second transcript,
+    // nor declares the engine stopped just because a connection closed.
+    window.mcThreadChanged?.();
+    mcRefreshRail(agent,thread);mcRefreshAgentDot();
+    if(window.mcPendingRefresh)window.mcPendingRefresh();
   }
-  function handle(ev){
-    if(ev.activity){const label=working.querySelector('.mc-step-l');if(label)label.textContent=ev.activity;}
-    if(ev.kind==='thinking'){mcAddChip(steps,MC_STEP_ICONS.think,'Thought for a moment',ev.text);}
-    else if(ev.kind==='tool'){const c=mcAddChip(steps,MC_STEP_ICONS.tool,mcToolLabel(ev.name,ev.input),mcToolDetail(ev.name,ev.input));if(ev.id)tools[ev.id]=c;}
-    else if(ev.kind==='tool_result'){const c=tools[ev.id];if(c){const pre=c.querySelector('.mc-step-d');if(pre)pre.textContent=pre.textContent+'\n— result —\n'+ev.content;c.querySelector('.mc-step-l').textContent+=(ev.is_error?' · failed':' · done');}}
-    else if(ev.kind==='text'){rawAnswer+=ev.text||'';}
-    else if(ev.kind==='render'){answer.innerHTML=ev.html||'';}
-    else if(ev.kind==='result'){if(ev.output&&!rawAnswer.trim())answer.textContent=ev.output;}
-    else if(ev.kind==='rename'){if(ev.thread_title)mcSetThreadTitle(thread,ev.thread_title);}
-    else if(ev.kind==='done'){if(ev.output&&!rawAnswer.trim())answer.textContent=ev.output;
-      if(ev.thread_title)mcSetThreadTitle(thread,ev.thread_title);finish(ev.ok!==false);}
-    else if(ev.kind==='error'){answer.textContent=(rawAnswer||'')+'\n[error: '+(ev.error||'failed')+']';finish(false);}
-    box.scrollTop=box.scrollHeight;}
-  (async()=>{try{
-    const resp=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,thread,message:msg,images:imgs,files:files,tid:mcTid}),signal:mcCtrl.signal});
-    const reader=resp.body.getReader();const dec=new TextDecoder();let buf='';
-    while(true){const r=await reader.read();if(r.done)break;buf+=dec.decode(r.value,{stream:true});
-      let i;while((i=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,i);buf=buf.slice(i+2);const line=chunk.replace(/^data:\s?/,'');if(!line.trim())continue;let ev;try{ev=JSON.parse(line);}catch(x){continue;}handle(ev);}}
-    if(!done)finish(false);
-    mcRefreshTurns(agent,thread);
-  }catch(e){if(e.name==='AbortError'){answer.textContent=rawAnswer.trim()+' — stopped';}else{answer.textContent=rawAnswer+'\n[error: '+e+']';}finish(false);}})();
+  function handle(event){
+    if(event.kind==='rename'&&event.thread_title)mcSetThreadTitle(thread,event.thread_title);
+    if(event.kind==='error'&&note)note.textContent=event.error||'The turn failed.';
+    window.mcThreadChanged?.();
+    if(event.kind==='done')finish();
+  }
+  (async()=>{
+    try{
+      const response=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({agent,thread,message,images,files,tid}),signal:ctrl.signal});
+      if(!response.ok){
+        const result=await response.json();
+        throw new Error(result.error||result.output||'Could not send the message.');
+      }
+      connected=true;
+      if(!response.body)throw new Error('The live connection is unavailable.');
+      const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
+      while(true){
+        const chunk=await reader.read();if(chunk.done)break;
+        buffer+=decoder.decode(chunk.value,{stream:true});
+        let split;
+        while((split=buffer.indexOf('\n\n'))>=0){
+          const line=buffer.slice(0,split).replace(/^data:\s?/,'');buffer=buffer.slice(split+2);
+          let event;try{event=JSON.parse(line);}catch(error){continue;}
+          handle(event);
+        }
+      }
+    }catch(error){
+      if(note){
+        note.textContent=error.name==='AbortError'
+          ?'Live connection interrupted. Reconnecting to the saved conversation…'
+          :(error.message||'Live connection interrupted. The saved conversation will keep updating.');
+        if(connected||error.name==='AbortError'||error.name==='TypeError')note.dataset.transportError='1';
+      }
+    }finally{finish();}
+  })();
 }

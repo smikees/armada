@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.91. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.92. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
 
@@ -44,9 +44,12 @@ UI seed catalogue as proof that a specific model is still supported.
    authenticated. Synthetic HTTP data and an isolated data folder keep live realms and providers
    out of this test. Unit tests with supplied Cookie headers cannot replace this browser gate.
 
-For detached thread frame changes, also run `python tools/thread_window_probe.py --output
+For detached thread frame, synchronization or Stop changes, also run `python tools/thread_window_probe.py --output
 <result.json>` in the Windows pywebview environment. It checks the native sizing loop, shadow
 resources and lifecycle, compact layout and shared-thread behavior with synthetic data.
+Its synthetic engine runs through the real coordinator: live and terminal transcript HTML must
+match in both views, Stop must cancel from either view despite a stale run ID, and disconnecting
+or reopening a view must preserve the active conversation.
 
 For changes to startup, instance activation, error navigation or full quit, also run the native
 startup check before release:
@@ -242,3 +245,10 @@ publication; an earlier commit cannot satisfy this requirement.
 The job-startup and realm-lifecycle fixes continue the existing owner-authorized maintenance
 beta distribution. Runtime compatibility and Windows publisher-signing limitations are
 unchanged. See [release verification](RELEASE_0_99_91.md).
+
+### 2026-10-08: maintenance 0.99.92
+
+The standing owner authorization for unsigned Windows beta maintenance publication also applies
+to this detached-conversation fix. All isolated, exact-source CI, native session and upgrade
+checks remain mandatory. Runtime compatibility is unchanged.
+See [release verification](RELEASE_0_99_92.md).
