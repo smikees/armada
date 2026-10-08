@@ -64,10 +64,27 @@ Local evidence is retained under `build/`: `publish-0.99.91-published.log`,
 
 ## Operational handoff
 
-The installed standalone 0.157.1 CLI verified explicit GPT-6-Sol execution. Its model list
-does not offer the two jobs' selected GPT-6.1-Sol. The owner has been asked whether to use
-GPT-6-Sol temporarily; no job model was changed without that answer.
+The live app is now running 0.99.91 with its scheduler healthy. After the owner selected
+GPT-6-Sol, both job-specific overrides were saved through the realm-bound authenticated
+job API. Their original schedules and every other setting were verified unchanged.
+The standalone 0.157.1 CLI passed sandbox command/model-availability probes under each job's
+actual policy, and a separate synthetic GPT-6-Sol turn returned a verified command marker.
+The newer desktop CLI still reproduces the upstream sandbox error; verified fallback is
+working. The Finance connector inventory also passed in 13.77 seconds under its actual
+grants, with the broker connector connected and no broker-data tool called. These checks
+do not claim that a business delivery was rerun.
 
-The available browser session reached the older scheduler provider's sign-in page.
-Current remote schedules cannot be verified without authenticated access. No remote trigger
-was disabled, no vendor cache was rewritten and no delivery job was rerun.
+Browser authentication was unavailable during the earlier investigation, but the existing
+Claude Code 2.1.289 subscription login can manage remote routines with the documented
+`/schedule` command and its `RemoteTrigger` tool. An actual authenticated listing returned
+15 routines, 14 still enabled. The owner approved pausing the two duplicates and then
+explicitly approved pausing the other twelve. Minimal updates set only `enabled=false`.
+A fresh complete server listing verified **zero enabled routines**, all 15 definitions
+preserved, and unchanged names, cron expressions, prompts, folders, connectors, models,
+plugin settings and session configuration. No vendor cache was rewritten and no delivery
+job was rerun. ARMADA is the chosen scheduler.
+
+Follow-up evidence remains local in `build/job-recovery-20261008/`: `model-settings.json`,
+`readiness.json`, `codex-safe-command/result.json`, `claude-verify/result.json` and
+`finance-readiness.json`.
+See [Claude's documented routine management](https://code.claude.com/docs/en/routines#manage-routines-from-the-cli).

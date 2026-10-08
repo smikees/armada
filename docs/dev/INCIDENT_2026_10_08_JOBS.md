@@ -60,3 +60,24 @@ transient Windows read failure during atomic owner-file replacement) as a change
 and failed immediately. It now waits within its existing 10-second deadline for the same owner
 to finish promotion. A nonempty different nonce still fails closed. Deterministic regression
 tests cover both cases; the real concurrent child-server and native startup checks remain required.
+
+## Operational recovery verified on 8 October
+
+The owner chose GPT-6-Sol and ARMADA as scheduler. The app is running 0.99.91, with its
+scheduler healthy. Explicit GPT-6-Sol overrides are saved for Price check and Daily digest,
+with all other job settings preserved. Both actual job policies passed sandbox execution
+and model-availability checks through the verified installed standalone CLI. An isolated
+model turn also executed a harmless command successfully. The upstream desktop sandbox
+failure remains; no sandbox protection was disabled.
+
+The existing authenticated Claude Code CLI supports `/schedule list` and remote routine
+updates. Its actual server listing returned 15 routines, 14 enabled, despite historical
+local task copies being disabled. After the owner's explicit approval for all remaining
+Claude routines, minimal server updates paused the fourteen. A fresh complete listing
+verified zero enabled routines and unchanged routine definitions. This confirms from
+current server state that the duplicate schedules remained active; their prompts contain
+the exact expected job identifiers. No publication or notification was
+rerun, and no historical run status was changed.
+
+The Finance job's connector inventory also passed under its actual grants in 13.77 seconds,
+with the broker connector connected. The check called no broker-data tool.

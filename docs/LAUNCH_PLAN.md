@@ -18,7 +18,7 @@ startup budget, groups proven retry series in the calendar and releases idle sch
 when realms are archived, removed or deleted. Research observations are separate from audit
 breaches. The release passed 3,337 isolated tests, exact-source Windows CI and 63 native
 upgrade checks; signed public assets are verified and staged in the running app.
-[Verification](dev/RELEASE_0_99_91.md) records the evidence and remaining provider/schedule work.
+[Verification](dev/RELEASE_0_99_91.md) records the evidence, verified runtime fallback and scheduler consolidation.
 The detached windows, capture and recovery work from earlier releases remain in place.
 Clean-Sandbox GUI acceptance remains open.
 
