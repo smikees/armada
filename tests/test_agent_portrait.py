@@ -217,18 +217,32 @@ def test_no_wrapper_clips_a_portrait():
                 assert "overflow:hidden" not in line, f"{mod.name}: {line.strip()[:90]}"
 
 
-def test_the_streaming_turn_clones_the_whole_portrait():
-    """While an agent is thinking, chat.js builds its turn client-side. It used to copy the avatar's
-    innerHTML into its own round box, which threw the colour crescent away — so the live turn looked
-    different from every finished turn above it. It also selected '.mc-av', which matches the header
-    portrait's inner circle first, not the template."""
-    src = (_JS / "chat.js").read_text(encoding="utf-8")
-    assert "querySelector('template.mc-av')" in src, "select the template, not the first .mc-av"
-    assert "querySelector('.mc-av')" not in src
-    # the line that drops the portrait into the turn — not the bare-SVG fallback above it, which
-    # legitimately rounds itself because it isn't a portrait
-    insert = next(l for l in src.splitlines() if "'+av+'" in l)
-    assert "overflow:hidden" not in insert, "a clipping box here slices the crescent off"
+def test_live_and_completed_turns_keep_the_whole_portrait(tmp_path):
+    """The canonical live renderer must retain the same crescent as completed turns."""
+    from armada import reader, util
+    from armada.execution import RunSession
+    from armada.request_context import RunContext
+    from armada.threads import Thread
+    from armada.webui.threadsview import _render_turns
+    from tests.golden_support import build_fixture
+
+    root = Path(build_fixture(tmp_path / "realm"))
+    cfg_path = root / "agents/captain/agent.json"
+    config = util.read_json_state(cfg_path)
+    config["color"] = "#1f78b4"
+    util.write_json_atomic(cfg_path, config)
+    a = next(a for a in reader.read(root).agents if a.id == "captain")
+    portrait = agentbits._portrait(root, a, 28)
+    th = Thread(root / "agents/captain", "main")
+    with RunSession(RunContext.capture(root, "captain", "main", "portrait-check")):
+        turn = th.begin_turn("Synthetic question")
+        th.save_progress(turn, "Synthetic live reply", "Thinking", [])
+        live = _render_turns(root, a, "main").split('data-role="assistant"')[-1]
+        assert "Synthetic live reply" in live
+        assert portrait in live and "mc-avdisc" in portrait and "#1f78b4" in portrait
+        th.complete_turn(turn, "Synthetic final reply")
+    final = _render_turns(root, a, "main").split('data-role="assistant"')[-1]
+    assert "Synthetic final reply" in final and portrait in final
 
 
 def _seen_fn():

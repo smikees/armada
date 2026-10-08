@@ -42,6 +42,9 @@ observer reconciles durable progress and completion.
   interrupted transport and close/reopen during a running conversation.
 - Release-owned provider preferences were reviewed against the same-day 0.99.91 provider
   verification. They are unchanged; unavailable catalogue picks retain the CLI-default fallback.
+- The portrait regression now checks actual admitted-live and completed HTML, preserving
+  the complete avatar and color crescent. The old source-text assertion required the removed
+  client-side cloning renderer; the full gate correctly withheld that candidate.
 - The enforced maintenance publisher must pass the full pinned isolated suite, successful
   Windows CI for the exact source, branded WebView2 session and compiled-launcher recovery
   checks, followed by the exact-package native upgrade gate before publishing.
