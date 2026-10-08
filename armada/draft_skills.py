@@ -166,7 +166,7 @@ def execute(broker, script, arguments):
         exe = _runtime(kind, Path(temporary))
         if kind == 'python':
             args = [str(exe), '-I', '-B', '-c',
-                    'import sys,runpy;sys.path.insert(0,sys.argv[1]);sys.argv=sys.argv[2:];runpy.run_path(sys.argv[0],run_name="__main__")',
+                    'import sys,runpy,os;sys.path.insert(0,sys.argv[1]);sys.path.insert(0,os.path.dirname(sys.argv[2]));sys.argv=sys.argv[2:];runpy.run_path(sys.argv[0],run_name="__main__")',
                     str(code / sid), str(path), *arguments]
         else:
             args = [str(exe), '--permission', '--preserve-symlinks', '--preserve-symlinks-main',

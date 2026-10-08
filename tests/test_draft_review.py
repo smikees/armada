@@ -145,9 +145,9 @@ def test_real_skill_script_isolation(realm, runtime):
     port = listener.getsockname()[1]
     production = realm / 'production.txt'; production.write_text('untouched')
     if runtime == 'python':
-        content = '''import json,os,pathlib,socket,subprocess,sys
+        content = '''import json,os,pathlib,socket,subprocess,sys,helper
 p=pathlib.Path(os.environ['ARMADA_INPUT_DIR']); m=json.loads((p/'manifest.json').read_text()); src=p/m['files'][0]['copy']
-r={'input':src.read_text(),'cwd':os.getcwd(),'dry':os.environ['ARMADA_DRY_RUN']}
+r={'input':src.read_text(),'cwd':os.getcwd(),'dry':os.environ['ARMADA_DRY_RUN'],'helper':helper.VALUE}
 pathlib.Path('draft.txt').write_text('12.34')
 for n,p in [('input_write',src),('production_write',pathlib.Path(sys.argv[1])),('production_read',pathlib.Path(sys.argv[1]))]:
  try:
@@ -172,6 +172,13 @@ s.on('connect',()=>{r.network='ALLOWED';s.destroy();console.log(JSON.stringify(r
 '''
         suffix = 'js'
     job, folder = _skill_job(realm, suffix, content)
+    if runtime == 'python':
+        nested = folder / 'scripts'
+        nested.mkdir()
+        (folder / 'test.py').rename(nested / 'test.py')
+        (nested / 'helper.py').write_text('VALUE = "approved sibling"')
+        job['dry_run_scripts'] = ['review/scripts/test.py']
+        util.write_json_atomic(realm / 'agents/writer/jobs/digest.json', job)
     draft_skills.approve(realm, 'writer', job)
     run = dry_runs.directory(realm, 'writer', 'digest', 'native')
     output = run / 'output'; output.mkdir(parents=True)
@@ -179,10 +186,12 @@ s.on('connect',()=>{r.network='ALLOWED';s.destroy();console.log(JSON.stringify(r
     grant = draft_skills.stage(realm, 'writer', job, run)
     broker = ManagedTools(realm, 'writer', output=output, job=job, snapshot=snapshot, script_grant=grant)
     try:
-        result = broker.call('run_skill', {'script': 'review/test.' + suffix, 'arguments': [str(production), str(port)]})
+        result = broker.call('run_skill', {'script': job['dry_run_scripts'][0], 'arguments': [str(production), str(port)]})
         assert result['ok'], result
         report = json.loads(result['stdout'])
         assert report['input'] == '{"amount":"12.34"}' and report['dry'] == '1' and Path(report['cwd']) == output
+        if runtime == 'python':
+            assert report['helper'] == 'approved sibling'
         assert all(report[k] == 'denied' for k in ('input_write', 'production_write', 'production_read', 'child', 'network'))
         assert production.read_text() == 'untouched' and (output / 'draft.txt').read_text() == '12.34'
         listener.settimeout(.1)
