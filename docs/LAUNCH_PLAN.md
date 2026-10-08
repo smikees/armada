@@ -16,10 +16,12 @@ Version **0.99.93** adds draft-only job tests with independent model selection, 
 temporary artifacts and seven-day default retention. Inspector agents have owner-approved,
 scoped tools to test any realm job and read recorded artifacts without changing production.
 Model tests use saved inputs; script tests require explicit draft-only commands.
-The feature passed 23 synthetic isolation tests and 30 native Jobs browser checks, with
-actual scoped-tool calls from all three installed CLIs. The enforced release gate and
-exact-package upgrade checks remain mandatory before publication.
-[Verification](dev/RELEASE_0_99_93.md) records boundaries and validation evidence.
+The published release passed 3,370 isolated tests, exact-source Windows CI, 30 native
+Jobs browser checks and 63 packaged upgrade checks. Actual scoped-tool calls from all
+three CLIs and the branded embedded runtime verified draft writes and production-write
+refusal. Fresh public assets are verified; 0.99.93 is staged in the running 0.99.92 app
+for the owner's normal restart.
+[Verification](dev/RELEASE_0_99_93.md) records boundaries, validation and publication evidence.
 The canonical detached-conversation rendering and cancellation fixes from 0.99.92 remain in place.
 The job, capture and recovery work from earlier releases remains in place.
 Clean-Sandbox GUI acceptance remains open.

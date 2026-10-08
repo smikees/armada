@@ -88,3 +88,40 @@ The enforced publisher also requires successful Windows CI for the exact source,
 compiled-launcher recovery, branded multi-window sessions and the exact signed
 package upgrade probe before publication. Build outputs, provider evidence and
 screenshots remain under ignored build/dist paths.
+
+## Publication
+
+[Release v0.99.93](https://github.com/smikees/armada/releases/tag/v0.99.93) was
+published at 2026-10-08T16:51:55Z from source commit
+`7454f631c7f273faf6215e49c4226a8f404911cd`.
+
+- The final enforced publisher passed **3,370 isolated tests with 5 skips**.
+  Exact-commit Windows CI passed on pinned Python 3.12.10 and current Python 3.12:
+  [CI run 37810543848](https://github.com/smikees/armada/actions/runs/37810543848).
+- The compiled launcher passed all **5 interruption recovery checks**. The branded
+  runtime passed **16 native multi-window session checks**.
+- The exact signed package passed **63 native upgrade checks** from 0.99.92 to
+  0.99.93, including authenticated real-page navigation, scheduler/restart recovery
+  and cleanup.
+- Fresh public downloads verified the Ed25519 manifest signature, all four asset
+  digests/sizes, the local installer digest and all **331 packaged source files**
+  byte for byte against the local tracked source.
+- The newly packaged embedded pythonw runtime made real stdio MCP requests:
+  initialize/list, exact Unicode draft write and input read, and refusal of a
+  production write. Original production fixture bytes remained unchanged.
+- The live authenticated update check staged **0.99.93** in the running **0.99.92**
+  app. Its process and instance nonce were preserved; applying it awaits the
+  owner's normal restart. No business job or external delivery was run.
+
+| Asset | Bytes | SHA-256 |
+| --- | ---: | --- |
+| armada-0.99.93.zip | 5,503,720 | `747ab451486008cf1771bd3531cb089abb0920aeafc1cee40d7ddde8fe62b5ab` |
+| ARMADA-Setup-0.99.93.exe | 20,449,494 | `eb4ff1dd2d9e4501bb9470d19460fb06b3ac1d9d9419685307ecc5377738147c` |
+| armada-update.json | 347 | `5f207897a04535f685418824c7dd15b38bf4b59c0f64bee4dfe88af9f699c659` |
+| armada-update.json.sig | 89 | `ce5b57e783c4261928e0aeada438bb0eb2eb6cdaa7cf4cdf13c46bb86bdfff91` |
+
+Generated evidence remains under ignored build paths: `publish-0.99.93-complete.log`,
+`release-evidence-0.99.93.json`, `upgrade-0.99.93.json`,
+`verification-0.99.93/result.json`, `packaged-managed-0.99.93.json`,
+`managed-tools-probe/final-result.json`, `dry-run-ui-0.99.93.json`,
+`dry-run-ui-0.99.93-narrow.json` and `staging-0.99.93-live.json`.
