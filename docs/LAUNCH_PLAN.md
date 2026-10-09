@@ -16,7 +16,14 @@ Version **0.99.96** adds inspector writes to the running job's approved output
 folders, bounded host-managed owner messages with job-history receipts, optional
 unpacked anonymous comparisons and dismissible new-version ribbons. Inspector
 shell/web/live connector and production-change restrictions remain in force.
-The [technical design](dev/DRAFT_REVIEW_ARCHITECTURE.md) documents the extensions.
+The [technical design](dev/DRAFT_REVIEW_ARCHITECTURE.md) documents the extensions
+and a verified Windows skill-script exit fix found by the release gate.
+The published release passed 3,437 isolated tests,
+both exact-source Windows CI jobs, 56 native Jobs/update checks and 63 packaged
+upgrade checks. Actual Claude, Codex and Gemini turns exercised approved writes,
+audited owner-message attempts and refused foreign-agent writes. Public assets
+are verified; 0.99.96 is staged in the running 0.99.95 app without restart.
+[Publication evidence](dev/RELEASE_0_99_96.md).
 
 Version **0.99.95** scopes inspector tools to flagged jobs, adds fingerprinted
 Python/Node skill execution inside Windows draft isolation, and adds frozen-input
