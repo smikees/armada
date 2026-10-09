@@ -15,7 +15,10 @@ The current release is recorded in the [README](../README.md),
 Version **0.99.98** fixes connector sign-in feedback and configuration copying.
 Google Drive in Codex explains its required client setup, CLI outcomes remain visible and
 clipboard controls provide real templates and a fallback. [Verification](dev/RELEASE_0_99_98.md)
-records focused tests and actual CLI/browser checks; publication gates remain required.
+records focused tests and actual CLI/browser checks. The published release passed 3,505 isolated
+tests, both exact-source Windows CI configurations, 5 native recovery checks, 16 multi-window
+session checks and 63 packaged upgrade checks. Fresh public assets, exact source and the update
+signature are verified. The running owner app was not restarted.
 
 Version **0.99.97** adds independent provider connection status and actions for connectors,
 CLI-safe grant identities, operational job warnings and useful Claude quota/refusal errors.
