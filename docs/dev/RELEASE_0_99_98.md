@@ -24,6 +24,9 @@ copy controls introduced with the provider connection UI in 0.99.97.
   no browser consent was completed and no live job ran.
 - Installed provider metadata confirmed all release-default model preferences (14 Claude,
   7 Codex and 4 Gemini entries). Existing provider/model choices remain unchanged.
+- The first full gate caught the repository's broad-exception logging guard. The login worker
+  now logs only an unexpected exception's class, preserving the sanitized UI reason without
+  logging OAuth credentials. The corrected source is revalidated before publication.
 
 See [technical details](CONNECTOR_PROVIDER_CONNECTIONS.md) and the linked official provider
 and Google setup references. The enforced publisher must complete the isolated full suite,

@@ -78,6 +78,17 @@ def test_timeout_keeps_deadline_reason_even_with_other_stderr(monkeypatch):
     assert login.begin('timeout', ['codex'])['error'] == 'CLI timed out after 300s'
 
 
+def test_unexpected_worker_failure_is_terminal_and_logs_without_credentials(monkeypatch, caplog):
+    def crash(*args, **kwargs):
+        raise RuntimeError('authorization failed access_token=private-token')
+    monkeypatch.setattr(login, 'supervise', crash)
+    result = login.begin('crash', ['codex'])
+    assert not result['ok'] and result['state'] == 'failed'
+    assert 'private-token' not in result['error']
+    assert any('RuntimeError' in r.getMessage() for r in caplog.records)
+    assert all('private-token' not in r.getMessage() and not r.exc_info for r in caplog.records)
+
+
 def test_owned_process_is_cancelled_on_shutdown_even_when_started_late(monkeypatch):
     calls = []
     login._close()

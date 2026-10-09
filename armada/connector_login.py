@@ -1,5 +1,6 @@
 """Bounded connector OAuth attempts; CLI output and authorization URLs stay in memory."""
 import atexit
+import logging
 import re
 import threading
 import time
@@ -79,6 +80,8 @@ def begin(key, argv, cwd=None, env=None, on_finish=None):
                 else:
                     item.update(state='configured', reason='Sign-in command finished. Recheck to verify live tools.', login_url='')
         except Exception as exc:
+            # OAuth exceptions may contain credentials; log only the exception class.
+            logging.getLogger(__name__).warning('Connector sign-in failed (%s)', type(exc).__name__)
             with _lock:
                 item.update(state='failed', reason=_error(str(exc)), login_url='')
         finally:
