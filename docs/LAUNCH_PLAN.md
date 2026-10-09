@@ -14,8 +14,11 @@ The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
 Version **0.99.97** adds independent provider connection status and actions for connectors,
 CLI-safe grant identities, operational job warnings and useful Claude quota/refusal errors.
-The [release verification](dev/RELEASE_0_99_97.md) records the mandatory gates; publication
-is pending those gates. Existing grants, runtime compatibility and provider defaults remain intact.
+The published release passed 3,485 isolated tests, both exact-source Windows CI jobs,
+5 native recovery checks, 16 multi-window checks and 63 packaged upgrade checks. Fresh public
+assets and the update signature are verified. The original skill review succeeded after its
+provider quota reset. [Publication evidence](dev/RELEASE_0_99_97.md). Existing grants, runtime
+compatibility and provider defaults remain intact. The running owner app was not restarted.
 
 Version **0.99.96** adds inspector writes to the running job's approved output
 folders, bounded host-managed owner messages with job-history receipts, optional

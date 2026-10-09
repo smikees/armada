@@ -23,3 +23,6 @@ tool boundary. A second actual invocation returned the full session-limit explan
 The account's limit itself is not an ARMADA defect. The review remains Claude-only; switching
 an agent's model or connector does not change this internal review's provider. Retrying after
 the provider's reset is the appropriate recovery for this response.
+
+After the provider’s stated reset, the original repository completed its review successfully
+through the same sealed invocation. The fix ships in [0.99.97](RELEASE_0_99_97.md).
