@@ -239,10 +239,20 @@ class NativeProcess:
         self.returncode = None
 
     def poll(self):
+        if self.returncode is not None:
+            return self.returncode
+        # ExitProcess can publish its code before the process object is signaled.
+        # Treating that interval as completion lets job cleanup terminate a script
+        # that is still exiting and replace its successful code with 1.
+        value = self.api.WaitForSingleObject(self._handle, 0)
+        if value == 258:
+            return None
+        if value:
+            raise C.WinError(C.get_last_error())
         code = W.DWORD()
         if not self.api.GetExitCodeProcess(self._handle, C.byref(code)):
             raise C.WinError(C.get_last_error())
-        self.returncode = None if code.value == 259 else code.value
+        self.returncode = code.value
         return self.returncode
 
     def wait(self, timeout=None):

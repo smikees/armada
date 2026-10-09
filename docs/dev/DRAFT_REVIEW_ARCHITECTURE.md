@@ -101,6 +101,16 @@ Job Object before resuming it. Deadlines, output caps and cancellation retain th
 same ownership semantics as other command processes. No unsupported-platform or
 launch-error fallback uses an unrestricted process.
 
+The 0.99.96 release gate also exposed a native exit race: `ExitProcess` can publish
+code 0 while the process handle remains nonsignaled. Immediate tree termination
+can then replace that code with 1. The sandbox wrapper now checks the process
+signal with a zero-timeout wait before reading and caching the terminal exit code,
+matching the standard subprocess wrapper. Native instrumentation reproduced the
+premature code in all eleven runs and the false failure in the eleventh; the fix
+retains the same job ownership, deadlines and isolation restrictions.
+See Microsoft's [wait contract](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject)
+and [exit status reference](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodeprocess).
+
 Scripts have 8 calls per turn, a maximum 120-second deadline, 4 MiB stdout and
 1 MiB stderr bounds. Cancellation watches the parent session without replacing
 its provider process handle. Broker expiry also requests script cancellation.
