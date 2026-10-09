@@ -295,8 +295,8 @@ def _dedupe(key: str) -> bool:
     return False
 
 
-def _send(title: str, body: str) -> None:
-    payload = json.dumps({"title": title[:120], "body": body[:250], "appid": APP_ID})
+def _send(title: str, body: str, *, body_limit=250) -> None:
+    payload = json.dumps({"title": title[:120], "body": body[:body_limit], "appid": APP_ID})
     try:
         p = subprocess.Popen(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS],
@@ -482,6 +482,34 @@ def emit(realm_root, event: str, title: str, body: str = "", href: str = "") -> 
     return {"recorded": recorded, "toasted": toasted, "sent": sent}
 
 
+def validate_owner_text(text):
+    """Inspector messages have no recipient, markup, attachment or chat-link controls."""
+    import re
+    if not isinstance(text, str) or not text.strip() or len(text) > 1000:
+        raise ValueError("Owner messages must contain 1–1,000 characters of plain text.")
+    if re.search(r'(?i)(?:\b(?:t\.me|telegram\.me|telegram\.dog)\b|\b(?:tg|telegram):|(?<!\w)@[a-z0-9_]{5,})', text):
+        raise ValueError("Owner messages cannot contain Telegram chat links or mentions.")
+    if any(ord(c) < 32 and c not in '\n\t\r' for c in text):
+        raise ValueError("Owner messages cannot contain control characters.")
+    return text
+
+
+def owner_message(realm_root, agent, text):
+    """Explicit inspector delivery to the linked owner only; no connector is exposed."""
+    from . import telegram
+    text = validate_owner_text(text)
+    if telegram.ready():
+        if muted():
+            return {'ok': False, 'channel': 'telegram', 'status': 'suppressed', 'error': 'External notifications are muted.'}
+        # No recipient/markup argument: the host's linked chat is the only destination.
+        message_id = telegram.send(text)
+        return {'ok': bool(message_id), 'channel': 'telegram', 'status': 'sent' if message_id else 'failed',
+                **({'message_id': message_id} if message_id else {'error': 'Telegram delivery failed.'})}
+    dispatched = toast(f'{agent}: inspector review', text, realm_root=realm_root, body_limit=1000)
+    return {'ok': dispatched, 'channel': 'desktop', 'status': 'dispatched' if dispatched else 'suppressed',
+            **({} if dispatched else {'error': 'Desktop notifications are unavailable or disabled.'})}
+
+
 def _send_telegram(realm_root, event: str, title: str, body: str, href: str) -> bool:
     """Push a notification to the linked Telegram chat.
 
@@ -507,7 +535,7 @@ def _send_telegram(realm_root, event: str, title: str, body: str, href: str) -> 
         return False
 
 
-def toast(title: str, body: str = "", *, realm_root=None, event: str = "") -> bool:
+def toast(title: str, body: str = "", *, realm_root=None, event: str = "", body_limit=250) -> bool:
     """Show a desktop notification. Returns True if it was dispatched (not that it was displayed).
 
     Non-blocking and non-throwing by contract: callers can fire this from inside a run without
@@ -530,7 +558,10 @@ def toast(title: str, body: str = "", *, realm_root=None, event: str = "") -> bo
         # still surface as an unhandled-thread-exception in the log. Nothing about notifying is
         # worth a stack trace.
         try:
-            _send(title, body)
+            if body_limit == 250:
+                _send(title, body)
+            else:
+                _send(title, body, body_limit=body_limit)
         except Exception as e:  # noqa
             log.debug("toast thread failed: %s", e)
     threading.Thread(target=_run, daemon=True).start()

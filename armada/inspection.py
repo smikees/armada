@@ -75,6 +75,7 @@ def artifacts(root):
                     candidates.extend(message.get("outputs") or [])
         for report in job_history.reports(ad):
             candidates.extend((report.get("result") or {}).get("evidence", {}).get("outputs", []))
+            candidates.extend((report.get('inspector') or {}).get('writes', []))
             capture = report.get("capture") or {}
             if capture.get("manifest"):
                 candidates.append({"path": capture["manifest"]})
@@ -125,3 +126,38 @@ def checked_path(path, roots, *, must_exist=False):
     if not resolved.is_relative_to(base):
         raise ValueError("Path leaves its allowed folder.")
     return resolved
+
+
+def writable_path(root, agent, job, path, *, artifacts_only=False):
+    """Inspector output grants never authorize realm state or another agent's files."""
+    from . import draft_inputs, job_access
+    root = Path(root).resolve()
+    artifacts = root / "agents" / util.safe_seg(agent, "agent") / "artifacts"
+    roots = [artifacts]
+    if not artifacts_only:
+        roots.extend(job_access.grant_for(root, agent, job, reject_reparse=True).roots)
+    raw = Path(path)
+    target = checked_path(raw if raw.is_absolute() else artifacts / raw, roots)
+    base = next(Path(p).resolve() for p in roots if target.is_relative_to(Path(p).resolve()))
+    reserved = {"agent.json", "realm.json", "theme.json", "dashboard.json", "skills.json",
+                "notifications.jsonl", "notifications.state.json", "final-answer.md"}
+    blocked = {"memory", "memories", "jobs", "threads", "runs", "inbox", "goals", "addons",
+               "capture-index", ".matcap"}
+    if (not draft_inputs.permitted(target) or target.name.casefold() in reserved
+            or any(p.casefold() in blocked for p in target.relative_to(base).parts)
+            or any(target.is_relative_to(root / p) for p in blocked)
+            or target.is_relative_to(Path(__file__).resolve().parent)):
+        raise ValueError("Inspector writes cannot change ARMADA control files, jobs or memory.")
+    if target.is_relative_to(root / "agents") and not target.is_relative_to(artifacts):
+        raise ValueError("Inspector writes cannot change another agent or its configuration.")
+    if target.parent == root:
+        raise ValueError("Realm root files belong to the owner. Use an approved output folder.")
+    # A broad workspace grant must not admit another realm's configuration/artifacts.
+    for parent in target.parents:
+        if parent == root:
+            break
+        if (parent / "realm.json").is_file():
+            raise ValueError("Inspector writes cannot change another realm.")
+        if parent == base:
+            break
+    return target

@@ -19,7 +19,7 @@ Stable key for a job on this machine, independent of path casing on Windows.
 
 Changing a prompt or tool mode revokes its access until the owner re-approves it.
 
-### `grant_for(realm_root, agent_id: str, job: dict | None)`
+### `grant_for(realm_root, agent_id: str, job: dict | None, *, reject_reparse=False)`
 
 —
 

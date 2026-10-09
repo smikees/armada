@@ -49,10 +49,13 @@ def run(output, width=1280):
 
         class Fixture(serve.Handler):
             capture_html = ""
+            update_status = {"ok": True, "installed": False}
             def _route_get(self):
                 if self.path.split("?")[0] == "/probe-screenshot":
                     self._send(200, type(self).capture_html.encode("utf-8"))
-                elif self.path.split("?")[0] in {"/api/auth-status", "/api/scheduler-status", "/api/update-status",
+                elif self.path.split("?")[0] == '/api/update-status':
+                    self._json(200, type(self).update_status)
+                elif self.path.split("?")[0] in {"/api/auth-status", "/api/scheduler-status",
                                                "/api/proposals-count", "/api/notifications", "/api/providers"}:
                     self._json(200, {"ok": True, "logged_in": True})
                 else:
@@ -192,6 +195,29 @@ def run(output, width=1280):
                 js("document.getElementById('j-dry-scripts').closest('details').open=true")
                 check('Script settings fit their section', lambda: js("document.getElementById('j-dry-scripts').scrollWidth<=document.getElementById('j-dry-scripts').clientWidth+1"))
                 screenshot('dry-review-editor' if width > 800 else 'dry-review-editor-narrow', '#j-dry-scripts')
+                Fixture.update_status = {'installed': True, 'version': '0.99.95', 'newer': True,
+                    'staged': '0.99.96', 'phase': 'ready'}
+                js('window.scrollTo(0,0);mcUpdCheck()')
+                check('New-version ribbon has an accessible dismiss button', lambda: js("!!document.querySelector('#mc-updbar button[aria-label=\"Dismiss update notification\"]')"))
+                check('Update ribbon fits at this window width', lambda: js("document.getElementById('mc-updbar').scrollWidth<=document.getElementById('mc-updbar').clientWidth+1"))
+                js("document.documentElement.classList.remove('armada-dark')")
+                screenshot('update-notice-light' if width > 800 else 'update-notice-light-narrow', '#mc-updbar')
+                js("document.documentElement.classList.add('armada-dark')")
+                screenshot('update-notice-dark' if width > 800 else 'update-notice-dark-narrow', '#mc-updbar')
+                js("document.querySelector('#mc-updbar .mc-banner-dismiss').click();mcUpdCheck()")
+                check('Dismissed update remains hidden after polling', lambda: js("!document.getElementById('mc-updbar').textContent"))
+                window.load_url(local_auth.browser_url(url, '/jobs'))
+                check('Dismissed version remains hidden after navigation', lambda: js("typeof mcUpdCheck==='function' && !document.getElementById('mc-updbar').textContent"))
+                Fixture.update_status['staged'] = '0.99.97'
+                js('mcUpdCheck()')
+                check('A later update appears again', lambda: js("document.getElementById('mc-updbar').textContent.includes('0.99.97')"))
+                js('mcUpdateDismiss()')
+                Fixture.update_status.update(requested=True, phase='waiting')
+                js('mcUpdCheck()')
+                check('Active update progress remains visible without dismissal', lambda: js("document.getElementById('mc-updbar').textContent.includes('Postpone update') && !document.querySelector('#mc-updbar .mc-banner-dismiss')"))
+                Fixture.update_status.update(requested=False, phase='error', staged='', newer=False, message='Synthetic restart error')
+                js('mcUpdCheck()')
+                check('Restart errors remain visible', lambda: js("document.getElementById('mc-updbar').textContent.includes('Synthetic restart error')"))
                 result["ok"] = True
             except Exception:
                 result["error"] = traceback.format_exc()

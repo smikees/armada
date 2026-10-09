@@ -42,7 +42,7 @@ def fingerprint(job: dict) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def grant_for(realm_root, agent_id: str, job: dict | None) -> Grant:
+def grant_for(realm_root, agent_id: str, job: dict | None, *, reject_reparse=False) -> Grant:
     if not job or not isinstance(job, dict) or not job.get("id"):
         return Grant()
     job_id = str(job["id"])
@@ -64,7 +64,12 @@ def grant_for(realm_root, agent_id: str, job: dict | None) -> Grant:
     for value in entry.get("roots", []):
         if not isinstance(value, str) or not value or not Path(value).is_absolute():
             raise ValueError(f"Invalid approved folder for {job_id}.")
-        root = Path(value).resolve()
+        if reject_reparse:
+            from .inspection import checked_path
+            # Inspect the original spelling before resolve can erase a replaced root link.
+            root = checked_path(value, [Path(value).anchor], must_exist=True)
+        else:
+            root = Path(value).resolve()
         if not root.is_dir():
             raise ValueError(f"Approved folder for {job_id} is unavailable: {root}")
         roots.append(str(root))

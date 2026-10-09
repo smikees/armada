@@ -37,3 +37,7 @@ Only recorded output artifacts inside their producer's authorized file roots.
 ### `checked_path(path, roots, *, must_exist=False)`
 
 Reject escapes and reparse points, including links whose target remains inside a root.
+
+### `writable_path(root, agent, job, path, *, artifacts_only=False)`
+
+Inspector output grants never authorize realm state or another agent's files.

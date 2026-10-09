@@ -1,8 +1,9 @@
 # `armada/managed_tools.py`
 
-Invocation-scoped MCP tools for draft jobs and read-only inspectors.
+Invocation-scoped MCP tools for draft jobs and narrowly scoped inspectors.
 
-This broker deliberately has no shell, network, generic production write, or owner HTTP action.
+This broker has no shell, live connectors, web or owner HTTP action. Inspector outputs
+and owner notification use host-managed operations with no model-chosen recipient.
 Provider adapters expose only this MCP server during managed turns.
 
 ### `_tool(name, description, properties=None, required=(), *, read_only=True)`
@@ -24,6 +25,7 @@ Provider adapters expose only this MCP server during managed turns.
 - `ManagedTools._read(path)` — —
 - `ManagedTools.__enter__(self)` — —
 - `ManagedTools.configure(self, engine)` — —
+- `ManagedTools.seal(self)` — Expire actions before terminal report persistence and snapshot their audit.
 - `ManagedTools.__exit__(self, *args)` — —
 
 ### `claude_args(engine)`

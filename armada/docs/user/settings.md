@@ -82,6 +82,11 @@ Your avatar replaces "You" in threads.
 
 ## Restarting and updating
 
+The new-version ribbon has a **×** button to dismiss that version's notice. It
+stays dismissed across page navigation and polling; a later version appears again.
+Dismissal leaves the downloaded update ready and available in Settings. Active
+update progress and restart errors remain visible.
+
 Only one ARMADA desktop/server instance can run under your Windows account. Opening it
 again brings forward the existing window, including from the tray. Changing realms does
 not create another app instance. The scheduler is an internal background process.

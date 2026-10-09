@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import secrets
 import shutil
+import tempfile
 import uuid
 import zipfile
 
@@ -213,7 +214,7 @@ def record_scores(root, pair_id, score_a, score_b, notes=''):
     return read(root, pair_id)
 
 
-def export(root, pair_id, output):
+def export(root, pair_id, output, *, unpacked=False):
     from . import dry_runs
     private = _private(root, pair_id)
     state = read(root, pair_id)
@@ -221,15 +222,34 @@ def export(root, pair_id, output):
         raise ValueError('Wait for both candidates before exporting the blind pair.')
     if any(not dry_runs.read(root, private['agent'], private['job'], rid).get('blind_ready') for rid in private['runs'].values()):
         raise ValueError('Anonymous artifacts could not be prepared. Export is unavailable for this pair.')
-    output = inspection.checked_path(Path(output) / ('blind-pair-' + pair_id + '.zip'), [Path(root).resolve()])
+    if type(unpacked) is not bool:
+        raise ValueError('unpacked must be true or false.')
+    parent = inspection.checked_path(output, [Path(root).resolve()])
+    output = inspection.checked_path(parent / ('blind-pair-' + pair_id + '.zip'), [parent])
     output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output.with_suffix('.tmp')
+    # Unique staging names keep concurrent exporters from sharing a partial archive.
+    temporary = inspection.checked_path(parent / ('.pair-' + uuid.uuid4().hex + '.tmp'), [parent])
+    staging = None
+    folder = None
+    files = []
     try:
+        if unpacked:
+            staging = inspection.checked_path(tempfile.mkdtemp(prefix='.pair-', dir=parent), [parent])
+            folder = inspection.checked_path(parent / ('blind-pair-' + pair_id + '-' + uuid.uuid4().hex[:12]), [parent])
+            for label in ('A', 'B'):
+                (staging / label).mkdir()
+        def add(archive, name, data):
+            archive.writestr(name, data)
+            if staging:
+                target = inspection.checked_path(staging / name, [staging])
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)  # Private staging; the complete tree is renamed atomically.
+                files.append(str(folder / name))
         with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
             manifest = util.read_json_state(directory(root, pair_id) / 'inputs' / 'manifest.json')
-            archive.writestr('comparison.json', json.dumps({'pair_id': pair_id, 'labels': ['A', 'B'],
+            add(archive, 'comparison.json', json.dumps({'pair_id': pair_id, 'labels': ['A', 'B'],
                 'inputs': [{'sha256': f['sha256'], 'bytes': f['bytes']} for f in manifest['files']],
-                'scoring': 'Review A and B; record scores 0–100 for both before requesting model identity.'}, indent=2))
+                'scoring': 'Review A and B; record scores 0–100 for both before requesting model identity.'}, indent=2).encode('utf-8'))
             for label, run_id in private['runs'].items():
                 for file in dry_runs.output_files(dry_runs.directory(root, private['agent'], private['job'], run_id)):
                     data = Path(file['path']).read_bytes()
@@ -238,11 +258,20 @@ def export(root, pair_id, output):
                             data = anonymize(root, {'pair_id': pair_id}, data.decode('utf-8-sig')).encode('utf-8')
                         except UnicodeDecodeError:
                             pass
-                    archive.writestr(label + '/' + Path(file['name']).as_posix(), data)
+                    add(archive, label + '/' + Path(file['name']).as_posix(), data)
+        inspection.checked_path(output, [parent])
         temporary.replace(output)
+        if staging:
+            inspection.checked_path(folder, [parent])
+            staging.rename(folder)  # Only a complete folder becomes visible under its final name.
+            staging = None
     finally:
         temporary.unlink(missing_ok=True)
-    return {'path': str(output), 'bytes': output.stat().st_size, 'pair_id': pair_id}
+        if staging:
+            inspection.checked_path(staging, [parent], must_exist=True)
+            shutil.rmtree(staging)
+    return {'path': str(output), 'bytes': output.stat().st_size, 'pair_id': pair_id,
+            **({'folder': str(folder), 'files': files} if unpacked else {})}
 
 
 def prune(root, *, now):

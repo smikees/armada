@@ -17,6 +17,13 @@ def capture_html(event):
 
 def result_html(event: dict, content: dict) -> str:
     captured = capture_html(event)
+    notifications = (event.get('inspector') or {}).get('notifications', [])
+    if notifications:
+        captured += ('<div class="mc-job-result"><details><summary>Owner messages</summary><ul>'
+            + ''.join(f'<li><strong>{E(n.get("channel", "owner"))} — {E(n.get("status", "unknown"))}</strong>'
+                f'<div style="white-space:pre-wrap;overflow-wrap:anywhere">{E(n.get("text", ""))}</div>'
+                + (f'<div>{E(n["error"])}</div>' if n.get('error') else '') + '</li>' for n in notifications)
+            + '</ul></details></div>')
     result = event.get("result")
     if not isinstance(result, dict):
         markers = job_results.LEGACY.findall(content.get("raw_final_answer") or content.get("content") or "")

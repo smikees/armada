@@ -12,6 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.96** adds inspector writes to the running job's approved output
+folders, bounded host-managed owner messages with job-history receipts, optional
+unpacked anonymous comparisons and dismissible new-version ribbons. Inspector
+shell/web/live connector and production-change restrictions remain in force.
+The [technical design](dev/DRAFT_REVIEW_ARCHITECTURE.md) documents the extensions.
+
 Version **0.99.95** scopes inspector tools to flagged jobs, adds fingerprinted
 Python/Node skill execution inside Windows draft isolation, and adds frozen-input
 blind A/B comparisons with immutable score reveal and anonymous export. Inspector

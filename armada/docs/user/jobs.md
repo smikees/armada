@@ -90,8 +90,29 @@ after upgrading. Only flagged job turns use scoped ARMADA tools to list any job 
 available model, start a dry run, and review its output. They can read all agents'
 **recorded output artifacts**, including captured tool results, but cannot edit
 other agents' files, change production models or jobs, or trigger production runs.
-They write their own review artifacts in `agents/<inspector>/artifacts/`.
-Shell, live connectors and publishing tools are unavailable in inspector turns.
+They write their own review artifacts in `agents/<inspector>/artifacts/` using
+`write_draft(path, content)`. `write_file(path, content)` also writes to folders
+approved for the **running inspector job** through its machine-local job grant.
+Relative paths go into its own artifacts; use absolute paths for other approved
+folders. Each UTF-8 file is limited to 1 MiB and replaced atomically. Grants are
+rechecked for each call; changing the approved prompt or revoking access takes
+effect immediately. Broad roots never permit other agents' folders, agent/realm
+configuration, memory, jobs or ARMADA control files. Traversal, device aliases and
+linked/reparse paths are refused.
+
+`notify_owner(text)` sends one plain-text message to ARMADA's linked owner
+Telegram chat. The tool cannot choose a recipient or attach files, markup controls
+or Telegram chat links/mentions. Text must contain 1–1,000 characters; at most two
+valid attempts are allowed per turn, including failed or suppressed deliveries.
+External notification muting is honored. If Telegram is not linked, ARMADA uses
+its desktop notification channel, respecting desktop and cross-realm settings.
+Desktop **dispatched** means the toast was queued, not proof that Windows displayed
+it. Linked Telegram failures are recorded without rerouting to another chat.
+These explicit messages are separate from automatic job-notification event settings.
+Exact messages and delivery status appear in the job report/transcript and in
+**Run history → Output → Owner messages**, even when the model turn later fails.
+
+Shell, web, live connectors and publishing tools are unavailable in inspector turns.
 Disabling the setting revokes their review tools immediately. Ordinary agents do
 not receive inspector tools.
 
@@ -170,9 +191,16 @@ in UTF-8 files up to 1 MiB; original artifacts remain in private machine storage
 Binary files are preserved. Writing style or metadata authored inside a binary
 artifact can still suggest identity; blind review does not guarantee against inference.
 
+Use `export_dry_run_pair(pair_id, unpacked=true)` to also create a folder beside
+the ZIP containing **A/**, **B/** and **comparison.json**. The return value includes
+`folder` and `files` paths. Another agent can read these files without running a
+script. Both forms contain exactly the same anonymous bytes; the complete folder
+appears only after staging finishes. Repeated exports create separate unpacked
+folders, leaving earlier review copies intact.
+
 Pairs, shared inputs, originals and private mappings expire together under the
 job's captured retention (seven days by default). Active pairs are preserved.
-Exported ZIPs are ordinary review artifacts and are kept.
+Exported ZIPs and unpacked folders are ordinary review artifacts and are kept.
 
 ## Capture tool results to files
 

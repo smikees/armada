@@ -1,12 +1,14 @@
-"""Invocation-scoped MCP tools for draft jobs and read-only inspectors.
+"""Invocation-scoped MCP tools for draft jobs and narrowly scoped inspectors.
 
-This broker deliberately has no shell, network, generic production write, or owner HTTP action.
+This broker has no shell, live connectors, web or owner HTTP action. Inspector outputs
+and owner notification use host-managed operations with no model-chosen recipient.
 Provider adapters expose only this MCP server during managed turns.
 """
 from __future__ import annotations
 
 import base64
 import copy
+from contextlib import nullcontext
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -52,6 +54,8 @@ class ManagedTools:
         self.server = self.thread = self.temporary = None
         self.token = secrets.token_urlsafe(32)
         self.tests_started = 0
+        self.writes = {}
+        self.notifications = []
         self.closed = False
         self.lock = threading.RLock()
 
@@ -60,7 +64,12 @@ class ManagedTools:
             {"path": _string("Path inside the draft folder"), "content": _string("Exact UTF-8 text")},
             ("path", "content"), read_only=False)]
         if self.inspector:
-            tools += [_tool("list_jobs", "List every job in this realm, including disabled jobs."),
+            tools += [_tool("write_file", "Write UTF-8 review text to your running job's owner-approved folders or your own artifacts. Never changes jobs, memory, control files or other agents' folders.",
+                {"path": _string("Absolute approved path, or relative path in your own artifacts"),
+                 "content": _string("Exact UTF-8 text, at most 1 MiB")}, ("path", "content"), read_only=False),
+                _tool("notify_owner", "Send plain text to ARMADA's linked owner Telegram chat, or desktop if unlinked. At most two messages per turn; no attachments or Telegram chat links.",
+                    {"text": {"type": "string", "maxLength": 1000}}, ("text",), read_only=False),
+                _tool("list_jobs", "List every job in this realm, including disabled jobs."),
                 _tool("list_models", "List currently available models for dry runs."),
                 _tool("list_artifacts", "List recorded output artifacts from all agents in this realm. Read only."),
                 _tool("read_artifact", "Read an artifact by its ID from list_artifacts. Never edits it.",
@@ -91,7 +100,7 @@ class ManagedTools:
                     {'pair_id': _string('Pair ID'), 'score_a': {'type': 'number'}, 'score_b': {'type': 'number'},
                      'notes': _string('Rubric and review notes')}, ('pair_id', 'score_a', 'score_b'), read_only=False),
                 _tool('export_dry_run_pair', 'Export a finished anonymised A/B ZIP to your own review artifacts for another agent to score blind.',
-                    {'pair_id': _string('Pair ID')}, ('pair_id',), read_only=False)]
+                    {'pair_id': _string('Pair ID'), 'unpacked': {'type': 'boolean', 'description': 'Also export an A/B folder beside the ZIP for script-free review'}}, ('pair_id',), read_only=False)]
         else:
             tools += [_tool("read_input", "Read an existing file from the realm/workspace or approved job inputs. Read only.",
                         {"path": _string("Absolute input file path")}, ("path",)),
@@ -107,6 +116,8 @@ class ManagedTools:
     def _authorize(self):
         if self.closed:
             raise ValueError("This turn's managed tools have expired.")
+        if self.cancelled():
+            raise ValueError("This turn was stopped by the owner.")
         from . import realmops
         realmops.assert_active(self.root)
         if self.inspector and not inspection.enabled(self.root, self.agent):
@@ -123,25 +134,52 @@ class ManagedTools:
             kind = schema['properties'][key]['type']
             if (kind == 'string' and not isinstance(value, str)) or (kind == 'array' and
                     (not isinstance(value, list) or any(not isinstance(v, str) for v in value))) or (
-                    kind == 'number' and (type(value) not in (int, float) or not 0 <= value <= 100)):
+                    kind == 'number' and (type(value) not in (int, float) or not 0 <= value <= 100)) or (
+                    kind == 'boolean' and type(value) is not bool):
                 raise ValueError('Arguments do not match the managed tool schema.')
         if name == 'run_skill':
             from .draft_skills import execute
             with self.script_lock:
                 self._authorize()
                 return execute(self, arguments['script'], arguments.get('arguments', []))
-        if name == "write_draft":
-            raw = Path(arguments["path"])
-            path = inspection.checked_path(raw if raw.is_absolute() else self.output / raw, [self.output])
-            # Control files belong to the host, not the model.
-            if path.name == "final-answer.md":
-                raise ValueError("final-answer.md is reserved for the final response. Choose another draft name.")
-            if len(arguments["content"].encode("utf-8")) > MAX_BYTES:
-                raise ValueError("A draft file must be at most 1 MiB.")
-            path.parent.mkdir(parents=True, exist_ok=True)
-            inspection.checked_path(path, [self.output])
-            util.write_text_atomic(path, arguments["content"])
-            return {"path": str(path), "bytes": path.stat().st_size}
+        if name in ("write_draft", "write_file"):
+            with self.lock:
+                self._authorize()
+                def checked():
+                    if self.inspector:
+                        return inspection.writable_path(self.root, self.agent, self.job, arguments['path'],
+                                                       artifacts_only=name == 'write_draft')
+                    raw = Path(arguments['path'])
+                    return inspection.checked_path(raw if raw.is_absolute() else self.output / raw, [self.output])
+                path = checked()
+                if path.name.casefold() == "final-answer.md":
+                    raise ValueError("final-answer.md is reserved for the final response. Choose another draft name.")
+                if len(arguments["content"].encode("utf-8")) > MAX_BYTES:
+                    raise ValueError("A review or draft file must be at most 1 MiB.")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with util.file_lock(path) if self.inspector else nullcontext():
+                    self._authorize()
+                    if checked() != path:
+                        raise ValueError('Approved output path changed during the write.')
+                    util.write_text_atomic(path, arguments["content"], newline="\n")
+                result = {"path": str(path), "bytes": path.stat().st_size}
+                self.writes[str(path)] = {"kind": "output", "name": path.name, **result}
+                return result
+        if name == 'notify_owner':
+            from . import notify
+            text = notify.validate_owner_text(arguments['text'])
+            with self.lock:
+                self._authorize()
+                if len(self.notifications) >= 2:
+                    raise ValueError('At most two owner messages are allowed per inspector turn.')
+                entry = {'text': text, 'ts': notify._now(), 'status': 'pending'}
+                self.notifications.append(entry)
+                try:
+                    delivery = notify.owner_message(self.root, self.agent, text)
+                except Exception:  # silent-ok: bounded delivery failure is returned and retained in the job audit
+                    delivery = {'ok': False, 'status': 'failed', 'error': 'Owner notification delivery failed.'}
+                entry.update(delivery)
+                return dict(entry)
         if name == "read_input":
             from . import draft_inputs
             path = draft_inputs.map_path(self.snapshot, arguments['path']) if self.snapshot else inspection.checked_path(arguments["path"], self.read_roots, must_exist=True)
@@ -216,7 +254,14 @@ class ManagedTools:
             if name == 'record_scores':
                 return dry_run_pairs.record_scores(self.root, arguments['pair_id'], arguments['score_a'], arguments['score_b'], arguments.get('notes', ''))
             if name == 'export_dry_run_pair':
-                return dry_run_pairs.export(self.root, arguments['pair_id'], self.output)
+                with self.lock:
+                    self._authorize()
+                    result = dry_run_pairs.export(self.root, arguments['pair_id'], self.output,
+                        unpacked=arguments.get('unpacked', False))
+                    for value in [result['path'], *result.get('files', [])]:
+                        path = Path(value)
+                        self.writes[str(path)] = {'kind': 'output', 'name': path.name, 'path': str(path)}
+                    return result
             return self._read(dry_run_pairs.read_file(self.root, arguments['pair_id'], arguments['label'], arguments['path']))
         if name == "get_dry_run":
             from . import dry_runs, dry_run_pairs
@@ -303,8 +348,15 @@ class ManagedTools:
         configured.network_access = False
         return configured
 
+    def seal(self):
+        """Expire actions before terminal report persistence and snapshot their audit."""
+        with self.lock:
+            self.closed = True
+            return {'writes': copy.deepcopy(list(self.writes.values())),
+                    'notifications': copy.deepcopy(self.notifications)}
+
     def __exit__(self, *args):
-        self.closed = True
+        self.seal()
         if self.script_process and self.script_process.poll() is None:
             self.script_process.kill()
         if self.server:

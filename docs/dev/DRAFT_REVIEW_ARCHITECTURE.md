@@ -1,5 +1,43 @@
 # Scoped draft reviews (0.99.95)
 
+## 0.99.96 follow-up
+
+Inspector job turns now receive their running job definition. `write_file` adds
+only that job's current `job_access.grant_for` roots to its own artifact root.
+Strict root validation checks the original spelling before path resolution can
+erase a reparse point. Every call repeats grant verification and checked-path
+validation, with exclusions for agent/realm state, memory, jobs, host control
+trees and other agents. Writes use shared locks and atomic replacement, preserving
+UTF-8 bytes/newlines so the 1 MiB limit is the actual file limit. `write_draft`
+keeps its artifact-only boundary.
+
+`notify_owner` accepts only text: no model-selected channel, recipient, attachment,
+markup mode or Telegram chat link. Two valid attempts per turn are serialized
+under the broker lock. Explicit delivery uses the host's linked Telegram sender;
+external mute applies. If unlinked, the existing desktop channel applies its
+machine/cross-realm switches and deduplication. Delivery failures are returned as
+data, never provider exceptions. Desktop dispatch is not a display receipt.
+
+Before final accounting, the coordinator seals the broker and snapshots successful
+file writes plus exact notification text, timestamp, channel and delivery status.
+Both the job report and transcript retain this audit on success, failure or Stop.
+Host-recorded writes feed output capture and cross-agent artifact review, including
+approved external paths. Inspector result validation admits those file roots but
+does not execute live completion checks. No provider shell, web or live connector
+is added, and production job/model changes remain owner actions.
+
+`export_dry_run_pair(unpacked=true)` stages A/, B/ and comparison.json alongside
+the atomic ZIP. ZIP and folder entries use the same anonymous bytes. A unique
+final folder name preserves earlier exports; only a complete tree is renamed
+into view. Exports remain ordinary review artifacts after pair retention.
+
+The update ribbon independently remembers a dismissed version in browser-local
+storage. Polling/navigation preserve it, later versions appear, and active update
+progress/errors override dismissal. Settings retains its update action.
+
+The following sections describe the 0.99.95 foundation, with these narrow
+extensions superseding the original artifact-only inspector output scope.
+
 This supersedes the agent-wide inspector behavior introduced in 0.99.93.
 `is_inspector` plus the machine-local owner grant authorizes review access.
 `job.inspector is True` selects it for a job turn. Chat, Inbox and other jobs retain

@@ -75,7 +75,7 @@ Back-compat view: is this event enabled on ANY channel?
 
 True if this exact event fired very recently (so we should stay quiet).
 
-### `_send(title: str, body: str)`
+### `_send(title: str, body: str, *, body_limit=250)`
 
 —
 
@@ -135,10 +135,18 @@ Mark everything currently in the feed as seen.
 
 The one way ARMADA announces something: archive it in the app, and — for the event kinds that warrant interrupting — also raise a desktop notification.
 
+### `validate_owner_text(text)`
+
+Inspector messages have no recipient, markup, attachment or chat-link controls.
+
+### `owner_message(realm_root, agent, text)`
+
+Explicit inspector delivery to the linked owner only; no connector is exposed.
+
 ### `_send_telegram(realm_root, event: str, title: str, body: str, href: str)`
 
 Push a notification to the linked Telegram chat.
 
-### `toast(title: str, body: str='', *, realm_root=None, event: str='')`
+### `toast(title: str, body: str='', *, realm_root=None, event: str='', body_limit=250)`
 
 Show a desktop notification. Returns True if it was dispatched (not that it was displayed).

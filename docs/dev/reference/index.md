@@ -72,7 +72,7 @@
 | [`jobs`](jobs.md) | Agent-authored job proposals (pending owner approval). |
 | [`local_auth`](local_auth.md) | Per-server loopback credentials, bootstrapped through an owner-only local file. |
 | [`managed_mcp`](managed_mcp.md) | Small stdio MCP transport for a single, scoped ARMADA managed-tools invocation. |
-| [`managed_tools`](managed_tools.md) | Invocation-scoped MCP tools for draft jobs and read-only inspectors. |
+| [`managed_tools`](managed_tools.md) | Invocation-scoped MCP tools for draft jobs and narrowly scoped inspectors. |
 | [`memory`](memory.md) | Layered memory + always-on core assembly (SPEC §5). |
 | [`memory_boundary`](memory_boundary.md) | Non-destructive memory boundary: provider denials where available, observation everywhere. |
 | [`model`](model.md) | ARMADA domain model (neutral ontology). |
