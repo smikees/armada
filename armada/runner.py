@@ -115,6 +115,9 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
     inspector = bool(job and job.get("inspector") is True and not command)
     policy = execution_policy(realm_root, agent_id) if (allow_tools or agent.get("allow_tools")) and not command and not inspector else None
     eng = _select_engine(realm_root, agent_id, engine, job)
+    if policy:
+        from .capabilities import provider_policy
+        policy = provider_policy(policy, eng.name)
     from .engine.contracts import ExecutionPolicy
     from . import job_access
     grant = job_access.grant_for(realm_root, agent_id, job) if job and not command and not inspector else job_access.Grant()
@@ -279,6 +282,11 @@ def _tool_grants(realm_root, agent_id, eng, use_tools):
         blocked = {server_id(t.removeprefix('mcp__')) for t in policy.denied_tools}
         eng.allowed_mcp_ids = frozenset(sid for sid in policy.allowed_mcp_ids
                                       if server_id(sid) not in blocked)
+        from .capabilities import provider_policy, CapabilityPolicy
+        translated = provider_policy(CapabilityPolicy(
+            eng.allowed_mcp_ids, policy.denied_tools, policy.native_filesystem_ids), eng.name)
+        eng.allowed_mcp_ids = translated.allowed_mcp_ids
+        eng.native_filesystem_ids = translated.native_filesystem_ids
     denied = list(policy.denied_tools) if policy and not inventory_gated else []
     if use_tools and getattr(eng, "name", "") == "claude":
         try:
@@ -313,6 +321,9 @@ def _record_used_capabilities(realm_root: Path, tool_names) -> None:
             js = _load_json(rp)
             conns = js.setdefault("toolkit", {}).setdefault("connectors", [])
             have = {str(c.get("id") or "").lower() for c in conns} | {str(c.get("name") or "").lower() for c in conns}
+            from .engine.mcp import registration_id, server_id
+            have |= {alias.lower() for c in conns for alias in
+                     (registration_id(c.get("id", "")), server_id(c.get("id", ""))) if c.get("id")}
             added = False
             for srv in servers:
                 if srv.lower() in have:

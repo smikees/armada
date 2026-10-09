@@ -118,3 +118,54 @@ def test_claude_alias_collision_is_blocked(monkeypatch):
     monkeypatch.setattr(claude.subprocess, 'run', probe)
     with pytest.raises(ValueError, match='Ambiguous'):
         engine._mcp_args([])
+
+
+@pytest.mark.parametrize('provider', ['claude', 'codex', 'gemini'])
+def test_portable_registration_keeps_grant_and_revocation(provider, tmp_path, monkeypatch):
+    from armada import capabilities
+    from armada.engine import get_engine
+    from armada.engine.mcp import registration_id
+    cid = 'claude.ai Google Drive'
+    util.write_json_atomic(tmp_path/'realm.json', {'toolkit': {'connectors': [{'id': cid}]}})
+    util.write_json_atomic(tmp_path/'agents/steve/agent.json', {'id': 'steve', 'toolkit': {'connectors': [{'id': cid}]}})
+    engine = get_engine(provider)
+    runner._tool_grants(tmp_path, 'steve', engine, True)
+    assert registration_id(cid) in engine.allowed_mcp_ids
+    assert (cid in engine.allowed_mcp_ids) == (provider == 'claude')
+    assert capabilities.revoke(tmp_path, 'steve', cid)['ok']
+    runner._tool_grants(tmp_path, 'steve', engine, True)
+    assert registration_id(cid) not in engine.allowed_mcp_ids
+
+
+def test_portable_registration_does_not_create_duplicate_discovery(tmp_path):
+    from armada.engine.mcp import registration_id
+    cid = 'claude.ai Google Drive'
+    util.write_json_atomic(tmp_path/'realm.json', {'toolkit': {'connectors': [{'id': cid}]}})
+    runner._record_used_capabilities(tmp_path, ['mcp__'+registration_id(cid)+'__read_file_content'])
+    assert len(json.loads((tmp_path/'realm.json').read_text())['toolkit']['connectors']) == 1
+
+
+def test_codex_portable_registration_is_admitted_while_ambient_servers_are_disabled(tmp_path, monkeypatch):
+    from armada.engine.mcp import registration_id
+    cid = 'claude.ai Google Drive'
+    sid = registration_id(cid)
+    util.write_json_atomic(tmp_path/'realm.json', {'toolkit': {'connectors': [{'id': cid}]}})
+    util.write_json_atomic(tmp_path/'agents/steve/agent.json', {'id': 'steve', 'toolkit': {'connectors': [{'id': cid}]}})
+    engine = codex.CodexEngine()
+    runner._tool_grants(tmp_path, 'steve', engine, True)
+    monkeypatch.setattr(engine, '_probe', lambda *a, **kw: SimpleNamespace(returncode=0,
+        stdout=json.dumps([{'name': sid}, {'name': 'ambient'}, {'name': registration_id('claude.ai Google/Drive')}])) )
+    args = engine._mcp_args(True, [])
+    assert f'mcp_servers.{sid}.enabled=false' not in args
+    assert 'mcp_servers.ambient.enabled=false' in args
+    assert f'mcp_servers.{registration_id("claude.ai Google/Drive")}.enabled=false' in args
+    assert engine._turn_mcp_ids == (sid,)
+
+
+@pytest.mark.parametrize('provider', ['claude', 'codex', 'gemini'])
+def test_disabled_registration_alias_revokes_logical_grant(provider):
+    from armada.capabilities import CapabilityPolicy, provider_policy
+    from armada.engine.mcp import registration_id
+    cid = 'claude.ai Google Drive'
+    policy = CapabilityPolicy(frozenset({cid}), ('mcp__'+registration_id(cid),))
+    assert provider_policy(policy, provider).allowed_mcp_ids == frozenset()

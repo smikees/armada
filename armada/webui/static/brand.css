@@ -266,7 +266,25 @@ details.mc-realmsw>summary::-webkit-details-marker{display:none}
 .mc-conn-mark{display:inline-flex;align-items:center;justify-content:center;min-width:13px}
 .mc-conn-badge[data-state="ready"],.mc-provider-status[data-state="ready"]{color:var(--status-ok)!important}
 .mc-conn-badge[data-state="failed"],.mc-conn-badge[data-state="sign_in"]{color:var(--status-bad)}
-.mc-conn-detail .mc-conn-action{margin-left:8px}
+.mc-conn-panel{min-width:0;font-size:12.5px}
+.mc-conn-intro{margin:0 0 8px;color:var(--text-dim)}
+.mc-conn-detail{display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:8px 14px;align-items:start;padding:12px 0;border-top:1px solid var(--color-divider)}
+.mc-conn-provider{display:flex;gap:6px;align-items:center;padding-top:3px}
+.mc-conn-provider svg{flex:none}
+.mc-conn-state{font-weight:600;line-height:1.5}
+.mc-conn-reason{margin:2px 0 0;line-height:1.5;color:var(--text-dim);overflow-wrap:anywhere}
+.mc-conn-buttons,.mc-conn-setup-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mc-conn-buttons{justify-content:flex-end}
+.mc-conn-help{font:inherit;color:var(--color-accent-2);border:0;background:none;padding:4px 0;cursor:pointer}
+.mc-conn-help:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}
+.mc-conn-detail[data-state="ready"] .mc-conn-state{color:var(--status-ok)}
+.mc-conn-detail[data-state="failed"] .mc-conn-state,.mc-conn-detail[data-state="sign_in"] .mc-conn-state{color:var(--status-bad)}
+.mc-conn-setup{grid-column:2/-1;min-width:0}
+.mc-conn-setup[hidden]{display:none}
+.mc-conn-instructions{margin:0 0 8px;line-height:1.6;overflow-wrap:anywhere}
+.mc-conn-snippet{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 8px;padding:10px 12px;background:var(--color-sand-100);border-radius:var(--r)}
+@media(max-width:1100px){.mc-conn-detail{grid-template-columns:80px minmax(0,1fr)}.mc-conn-buttons{grid-column:2;justify-content:flex-start}}
+@media(max-width:600px){.mc-conn-detail{grid-template-columns:minmax(0,1fr)}.mc-conn-buttons,.mc-conn-setup{grid-column:1}}
 /* Capabilities sub-tabs (User / System) — in-page, distinct from the top nav's .mc-tab */
 .mc-captab{display:inline-block;padding:7px 14px;cursor:pointer;font-size:13px;font-weight:600;
   color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}

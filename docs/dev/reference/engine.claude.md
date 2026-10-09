@@ -71,6 +71,10 @@ Concrete versioned model id for logging (so usage shows 'Opus 4.8', not bare 'Op
 - `ClaudeEngine.run(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=DEFAULT_TIMEOUT, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None, only_tools: Optional[list]=None, verbosity: Optional[str]=None, env=None)` — —
 - `ClaudeEngine.run_stream(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=600, on_event: Optional[Callable[[dict], None]]=None, on_proc: Optional[Callable]=None, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None, only_tools: Optional[list]=None, verbosity: Optional[str]=None, env=None)` — Run a turn in streaming mode, calling on_event(dict) for each intermediate step (thinking / tool use / tool result / text) as Claude Code emits them (stream-json NDJSON). Returns the final RunResult; malformed or missing terminal output fails the turn.
 
+### `_failure_reason(process, terminal_error)`
+
+Preserve a provider refusal hidden behind the supervisor's generic exit error.
+
 ### `_result_error(event)`
 
 —

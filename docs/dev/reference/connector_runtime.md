@@ -25,15 +25,31 @@ Verify startup in a gated, ephemeral thread without making a model request.
 
 —
 
-### `claude_inventory()`
+### `_claude_rows(realm_root=None)`
 
 Read Claude's current MCP health, without returning URLs or credentials.
 
-### `claude_connection(cap: dict, inventory: dict[str, bool] | None)`
+### `claude_inventory()`
 
 —
 
-### `connection_snapshot(realm_root, *, force=False)`
+### `claude_connection(cap: dict, inventory: dict[str, bool | None] | None)`
+
+—
+
+### `gemini_inventory()`
+
+The same global inventory admitted by GeminiEngine; no credential transfer.
+
+### `gemini_connection(cap, inventory)`
+
+—
+
+### `connection_detail(cap, provider, state, error='')`
+
+Owner-facing state and recovery action; unsupported is never called disconnected.
+
+### `connection_snapshot(realm_root, *, force=False, provider=None)`
 
 Nonblocking, independent provider checks; pending checks have a fixed deadline.
 
@@ -44,3 +60,11 @@ Old auto-discovery filed the model app itself as a user MCP connector.
 ### `connect_codex(cap: dict, realm_root=None)`
 
 Register a reviewed realm endpoint and start Codex's own browser OAuth flow.
+
+### `connect_claude(cap: dict, realm_root=None)`
+
+Authenticate the existing Claude registration; never clone a cloud proxy.
+
+### `connector_setup(cap: dict, provider: str)`
+
+Credential-free setup guidance for an approved connector, never evaluated as code.

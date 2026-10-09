@@ -47,11 +47,13 @@ _CAP_HELP = (
     '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcCapHelp(false)">Close</button></div>'
     '<div style="font-size:12.5px;line-height:1.6;background:var(--color-sand-100);border:1px solid var(--color-sand-300);'
     'border-radius:var(--r);padding:10px 12px;margin-bottom:14px">'
-    'ARMADA uses your connected Claude or Codex subscription. Giving an agent access to a connector takes '
+    'ARMADA uses your connected model providers. Giving an agent access to a connector takes '
     'effect on its next run, provided that connector is also connected in the agent’s model provider. '
-    'Claude and Codex require separate connector sign-ins. Expand a connector to check Codex and start its '
-    'sign-in. Codex saves that connection in your Codex CLI, which other Codex sessions on this computer can '
-    'also use; ARMADA limits which of its agents can use it.<br><br>'
+    'Claude, Codex and Gemini have separate connector connections. Expand a connector to see each '
+    'provider’s status, sign in or view its setup instructions. You can connect several providers at once. '
+    'An agent’s access grant applies across providers; each provider still needs its own authorization. '
+    'Provider connections are saved in their own clients and may also be used by other sessions on this '
+    'computer. ARMADA limits which of its agents can use them.<br><br>'
     'What actually decides trust is shown on every item as three '
     'signals: <b>who made it</b>, whether it <b>runs code on your machine</b>, and <b>what it can touch</b> '
     '(files · network · shell · connectors). Expand any item to see where it came from and what a content scan '
@@ -292,6 +294,33 @@ def _provider_badges(it: dict) -> str:
         f'data-state="checking" title="Checking {label} connector status">'
         f'{_icon(provider, 11)}<span>{label}</span><span class="mc-conn-mark" aria-label="Checking">{_icon("loader",13)}</span></span>'
         for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")))
+
+
+def _connector_controls(it: dict) -> str:
+    sid = E(str(it.get("id") or it.get("name") or ""))
+    rows = []
+    for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")):
+        rows.append(
+            f'<div class="mc-conn-detail" data-cap="{sid}" data-provider="{provider}" data-state="checking">'
+            f'<div class="mc-conn-provider">{_icon(provider,16)}<strong>{label}</strong></div>'
+            '<div class="mc-conn-observation"><span class="mc-conn-state" role="status">Checking connection…</span>'
+            '<p class="mc-conn-reason"></p></div>'
+            '<div class="mc-conn-buttons">'
+            '<button type="button" class="btn btn-secondary btn-sm mc-conn-action" style="display:none">Connect</button>'
+            '<button type="button" class="btn btn-secondary btn-sm mc-conn-recheck" disabled '
+            'onclick="mcProviderRecheck(this)">Recheck</button>'
+            '<button type="button" class="mc-cap-ico mc-conn-help" onclick="mcConnectorSetup(this)">Setup details</button>'
+            '</div><div class="mc-conn-setup" hidden>'
+            '<p class="mc-conn-instructions"></p>'
+            '<pre class="mc-conn-snippet" hidden></pre>'
+            '<div class="mc-conn-setup-actions">'
+            '<button type="button" class="btn btn-secondary btn-sm mc-conn-copy" hidden onclick="mcConnectorCopy(this)">Copy configuration</button>'
+            '<a class="mc-conn-web" target="_blank" rel="noopener" hidden>Open Claude connectors</a>'
+            '<a class="mc-conn-guide" target="_blank" rel="noopener" hidden>Provider setup guide ↗</a>'
+            '<a class="mc-conn-service-guide" target="_blank" rel="noopener" hidden>Service OAuth setup ↗</a>'
+            '</div></div></div>')
+    return ('<div class="mc-conn-panel"><p class="mc-conn-intro">Connect each provider you use. '
+            'Connections can coexist; agent access is shared.</p>' + ''.join(rows) + '</div>')
 _KIND_SINGULAR = {"connectors": "Connector", "extensions": "Extension",
                   "skills": "Skill", "plugins": "Plugin"}
 
@@ -605,17 +634,7 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
                  f'<div class="mc-cap-availto" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
                  f'{_cap_availto_chips(realm, realm_root, it, kind)}</div>')
     if kind == "connectors" and realm is not None:
-        sid = E(str(it.get("id") or it.get("name") or ""))
-        for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")):
-            action = (f' <button type="button" class="btn btn-secondary btn-sm mc-conn-action" '
-                      f'data-provider="codex" data-cap="{sid}" style="display:none" '
-                      f'onclick="mcCodexConnect(this,{_J(it.get("id") or "")})">Connect to Codex</button>'
-                      if provider == "codex" else "")
-            if provider == 'gemini':
-                action = ' <a href="https://antigravity.google/docs/mcp" target="_blank" rel="noopener">Configure in Antigravity CLI ↗</a>'
-            rows += (f'<div class="k">{label}</div><div class="mc-conn-detail" '
-                     f'data-cap="{sid}" data-provider="{provider}">'
-                     f'<span class="mc-conn-state">Checking connection…</span>{action}</div>')
+        rows += '<div class="k">Connections</div><div>' + _connector_controls(it) + '</div>'
     ver = str(it.get("version") or "").strip()
     upd = _cap_has_update(it)
     if ver or upd:
@@ -731,9 +750,8 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
     availto = ""
     if realm is not None and realm_root is not None:
         availto = _cap_availto_cell(realm, realm_root, it)
-        cid = E(str(it.get("id") or it.get("name") or ""))
         droppable = (f' ondragover="mcCapDragOver(event)" ondragleave="mcCapDragLeave(event)" '
-                     f'ondrop="mcCapDrop(event,\'{cid}\')"')
+                     f'ondrop="mcCapDrop(event,{_J(str(it.get("id") or it.get("name") or ""))})"')
     # The tier colour bleeds ~8px in from the left border and fades out, so a card reads as the
     # same object as its swatch in the Risk legend. It's a background-IMAGE, not the `background`
     # shorthand: the shorthand would drop the card's own background-color and the row would go

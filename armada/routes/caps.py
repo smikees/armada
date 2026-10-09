@@ -21,7 +21,32 @@ class CapabilityRoutes:
     def _get_capability_connections(self):
         from .. import connector_runtime
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        self._json(200, connector_runtime.connection_snapshot(self.realm, force=query.get('force') == ['1']))
+        provider = (query.get('provider') or [None])[0]
+        if provider not in (None, 'claude', 'codex', 'gemini'):
+            return self._json(400, {"error": "Unknown connector provider."})
+        self._json(200, connector_runtime.connection_snapshot(self.realm, force=query.get('force') == ['1'], provider=provider))
+
+    def _connector_action(self, body: dict) -> dict:
+        """Provider setup/authentication, separate from the agent's logical grant."""
+        from .. import capabilities as caps, connector_runtime
+        provider = body.get('provider')
+        action = body.get('action')
+        if provider not in ('claude', 'codex', 'gemini') or action not in ('setup', 'connect'):
+            return {"ok": False, "error": "Unknown connector action or provider."}
+        kind, cap = caps.find(self.realm, str(body.get('capability') or ''))
+        if kind != 'connectors' or not cap:
+            return {"ok": False, "error": "Connector not found in this realm."}
+        if action == 'setup':
+            return connector_runtime.connector_setup(cap, provider)
+        if not caps.realm_enabled(cap):
+            return {"ok": False, "error": "Enable this connector in the realm first."}
+        from .. import providers
+        if providers.status(provider, force=True).get('connected') is not True:
+            return {"ok": False, "error": "Connect this provider in Settings → App first."}
+        if provider == 'gemini':
+            return {"ok": False, "error": "Configure Gemini connectors in Antigravity, then recheck here."}
+        connect = connector_runtime.connect_claude if provider == 'claude' else connector_runtime.connect_codex
+        return connect(cap, self.realm)
 
     def _codex_connector(self, body: dict) -> dict:
         """Connect a realm-approved MCP endpoint to the owner's Codex CLI."""
@@ -38,7 +63,7 @@ class CapabilityRoutes:
             return {"ok": False, "error": "Connector not found in this realm."}
         inventory = connector_runtime.codex_live_inventory(self.realm)
         return {"ok": True, "state": connector_runtime.codex_connection(cap, inventory),
-                "error": (inventory or {}).get(cap["id"], {}).get("runtime_error", "")}
+                "error": (inventory or {}).get(connector_runtime.registration_id(cap["id"]), {}).get("runtime_error", "")}
 
     def _read_claude_mcp(self) -> list:
         """Best-effort: enumerate MCP servers Claude Code can see (~/.claude.json + project scopes + .mcp.json)."""

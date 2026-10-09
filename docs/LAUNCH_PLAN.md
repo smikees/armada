@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.97** adds independent provider connection status and actions for connectors,
+CLI-safe grant identities, operational job warnings and useful Claude quota/refusal errors.
+The [release verification](dev/RELEASE_0_99_97.md) records the mandatory gates; publication
+is pending those gates. Existing grants, runtime compatibility and provider defaults remain intact.
+
 Version **0.99.96** adds inspector writes to the running job's approved output
 folders, bounded host-managed owner messages with job-history receipts, optional
 unpacked anonymous comparisons and dismissible new-version ribbons. Inspector

@@ -8,6 +8,27 @@ Checks finish independently for each engine; a slow check does not hide another 
 A timed-out check is marked unverified with a reason, rather than left spinning. Recheck retries
 the live connection. The legend starts open and remembers whether you last left it open or closed.
 
+Expand a connector's **Connections** section to see separate Claude, Codex and Gemini rows.
+Each row shows its status, reason and relevant action:
+
+- **Connect / Sign in** opens that provider's supported authentication flow. Codex registers
+  reviewed direct MCP endpoints; Claude authenticates its existing registration.
+- **Set up / Setup details** shows instructions for that provider, including a copyable
+  Antigravity configuration for Gemini and service-specific OAuth guidance where needed.
+- **Recheck** checks only the selected provider. An error includes a recovery action.
+- **App settings** takes you to a provider that needs installation, sign-in or reconnection.
+
+Several providers can connect to the same service at once. Connecting another provider does
+not replace your working connection or change which agents have access. Claude-managed
+integrations without a reviewed portable endpoint show **Unavailable through this integration**,
+with options to use a compatible integration. A provider's **Registered · unverified** state
+means its configuration exists; it does not prove authorization or live tools. Gemini currently
+uses this state because ARMADA cannot verify its live connector health.
+
+Google Drive's direct MCP endpoint is portable, but each client needs compatible OAuth setup.
+See [Google's setup guide](https://developers.google.com/workspace/drive/api/guides/configure-mcp-server).
+Existing Claude credentials are never copied into Codex or Gemini.
+
 The tools your agents can use — and, more importantly, where each came from, what it can reach,
 and who may use it.
 
@@ -46,6 +67,11 @@ doesn't have, it asks in a thread and you approve or decline.
   it, what it can reach, what it found, and what it couldn't check. **Read the report before you
   add it.** The reviewing agent can only read the web: it can't run anything, touch your files or
   use your connected services, so a page written to trick it has nothing to trick it into.
+
+Bring-a-link reviews currently use Claude Code and its plan limits. A provider refusal, such as
+a session limit, shows Claude's explanation and reset time when supplied. Wait for the stated
+reset or resolve the reported provider issue, then choose **Review** again. A failed review
+does not add or install the capability.
 
 ## Keeping them current
 

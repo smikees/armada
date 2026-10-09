@@ -346,6 +346,23 @@ def denied_tool_patterns(realm_root, agent) -> list:
     return list(execution_policy(realm_root, agent).denied_tools)
 
 
+def provider_policy(policy: CapabilityPolicy, provider: str) -> CapabilityPolicy:
+    """Resolve approved logical identities to the provider's actual registration names."""
+    if provider not in ("claude", "codex", "gemini"):
+        return policy
+    from .engine.mcp import registration_id
+    blocked = {registration_id(t.removeprefix("mcp__")) for t in policy.denied_tools}
+    if provider == "claude":
+        # Preserve the cloud/display registration and also admit the safe direct
+        # name shown by Set up. A disabled alias always revokes both identities.
+        allowed = {sid for sid in policy.allowed_mcp_ids if registration_id(sid) not in blocked}
+        allowed |= {registration_id(sid) for sid in allowed}
+        return CapabilityPolicy(frozenset(allowed), policy.denied_tools, policy.native_filesystem_ids)
+    allowed = {registration_id(sid) for sid in policy.allowed_mcp_ids} - blocked
+    return CapabilityPolicy(frozenset(allowed), tuple("mcp__" + sid for sid in sorted(blocked)),
+                            frozenset(registration_id(sid) for sid in policy.native_filesystem_ids))
+
+
 # --------------------------------------------------------------------------- requests
 
 _SLUG = re.compile(r"[^a-z0-9]+")

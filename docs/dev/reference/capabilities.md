@@ -131,6 +131,10 @@ Read policy strictly for execution; display/discovery fallbacks never authorize 
 
 Compatibility facade for validated catalogue denials; adapters also gate their inventory.
 
+### `provider_policy(policy: CapabilityPolicy, provider: str)`
+
+Resolve approved logical identities to the provider's actual registration names.
+
 ### `_slug(s: str)`
 
 —

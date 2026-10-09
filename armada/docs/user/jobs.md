@@ -352,6 +352,12 @@ report may contain findings or an incomplete audit. Such runs retain a warning: 
 does not establish a clear audit or clear an unresolved risk gate.
 A delivery failure is separate from the execution that produced the report. Runtime errors,
 timeouts and stops are shown under Armada errors, separate from the agent's original answer.
+Agent-recorded operational errors also retain an overall warning when execution and delivery
+succeed; the result label shows operational warnings and the recorded reason remains visible.
+A required operational prerequisite, such as reading a fresh watchlist, failing before the work
+is performed means execution failed. Writing an error report or delivering a failure notice does
+not turn that job into a success. This differs from a reviewer completing a report that honestly
+explains missing historical evidence: that report can be completed with an incomplete audit.
 
 Output evidence, missing inputs, findings and delivery receipts are attached to the individual
 run. Delivery is verified only by a receipt for that run and destination. An earlier receipt

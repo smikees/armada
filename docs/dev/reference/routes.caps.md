@@ -13,6 +13,7 @@ stays in serve.py, only the handler bodies moved.
 —
 
 - `CapabilityRoutes._get_capability_connections(self)` — —
+- `CapabilityRoutes._connector_action(self, body: dict)` — Provider setup/authentication, separate from the agent's logical grant.
 - `CapabilityRoutes._codex_connector(self, body: dict)` — Connect a realm-approved MCP endpoint to the owner's Codex CLI.
 - `CapabilityRoutes._codex_connector_status(self, body: dict)` — —
 - `CapabilityRoutes._read_claude_mcp(self)` — Best-effort: enumerate MCP servers Claude Code can see (~/.claude.json + project scopes + .mcp.json).

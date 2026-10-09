@@ -23,9 +23,13 @@ After your original human-readable final answer, supply exactly one final block:
 "audit_outcome":"not_applicable","delivery":[],"evidence":{{"outputs":[],
 "findings":[],"missing_inputs":[],"operational_errors":[],"risk_gates":[],\n"observations":[],"expected_unknowns":[]}}}}
 </armada_job_result>
-Execution: completed, failed, stopped, timed_out. A produced report explaining
-unresolved evidence is completed; rule breaches are findings; missing accounting
-or historical risk evidence makes the audit incomplete, not execution failed.
+Execution: completed, failed, stopped, timed_out. A reviewer report explaining
+unresolved evidence can be completed; rule breaches are findings; missing accounting
+or historical risk evidence makes that audit incomplete, not execution failed.
+A required operational prerequisite (such as a fresh source read or sync) failing
+before the requested work is performed means execution failed, even if an error
+report was written or a failure notification was delivered. Record its missing input
+and operational error; a sent notification alone never proves the job succeeded.
 Audit: clear, findings, incomplete, not_applicable. Incomplete may also have findings.
 Delivery: one object per required destination with destination, status (sent,
 failed, unknown, not_required), receipt_path (if sent), error (if failed).
@@ -283,6 +287,7 @@ def status(result: dict) -> str:
         return "stopped" if result["execution"] == "stopped" else "error"
     if (result["audit_outcome"] in ("findings", "incomplete") or result.get("app_errors")
             or result["evidence"].get("risk_gates")
+            or result["evidence"].get("operational_errors")
             or any(d["status"] in ("failed", "unknown") for d in result["delivery"])):
         return "warn"
     return "ok"
@@ -294,6 +299,8 @@ def label(result: dict) -> str:
     parts = [result["execution"].replace("_", " ").capitalize()]
     if result["audit_outcome"] != "not_applicable":
         parts.append("audit " + result["audit_outcome"])
+    if result['execution'] == 'completed' and result.get('evidence', {}).get('operational_errors'):
+        parts.append('operational warnings')
     if result["execution"] == "failed" and any("Report not produced/validated:" in x for x in result.get("app_errors", [])):
         parts = ["Failed", "report not produced"]
     deliveries = [d["status"] for d in result["delivery"] if d["status"] != "not_required"]
@@ -317,4 +324,7 @@ def reason(result):
     errors = result.get('app_errors', [])
     if errors:
         return errors[0]
+    operational = result.get('evidence', {}).get('operational_errors', [])
+    if operational:
+        return operational[0]
     return result.get('legacy_explanation', '')[-500:] if result.get('legacy_result') == 'FAILED' else ''

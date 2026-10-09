@@ -41,6 +41,10 @@ Connection state shown as a plain icon + text (not a pill) next to the name — 
 
 —
 
+### `_connector_controls(it: dict)`
+
+—
+
 ### `_cap_made(it: dict)`
 
 (made-key, is-you) — who made it, where that is recorded.

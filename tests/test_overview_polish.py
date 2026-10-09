@@ -67,7 +67,7 @@ assert(badges.every(b=>b.dataset.state==='checking'&&b.mark.innerHTML.includes('
 resolve({ok:true,json:async()=>({providers:{},connectors:{ibkr:{claude:'missing',codex:'ready',gemini:'unsupported'}}})});
 await pending;assert(badges.every(b=>b.dataset.state!=='checking'));
 assert.equal(badges[1].mark.textContent,'✓');assert.equal(badges[1].mark.innerHTML,'');
-assert(badges[2].title.includes('Not configured in Gemini'));
+assert(badges[2].title.includes('Unavailable through this integration'));
 fetch=async()=>{throw Error('offline')};await mcCapConnectionsRefresh();
 assert(badges.every(b=>b.dataset.state==='unknown'&&b.mark.textContent==='?'));
 })().catch(e=>{console.error(e);process.exit(1)});

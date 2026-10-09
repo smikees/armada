@@ -8,7 +8,7 @@ const context={document:{getElementById(){return {};},querySelectorAll(selector)
   if(selector==='.mc-conn-badge')return badges;
   if(selector==='.mc-conn-badge[data-state="checking"]')return badges.filter(b=>b.dataset.state==='checking');
   return [];
-}},AbortSignal:{timeout(){}},Date,setTimeout,fetch:async()=>{
+}},AbortSignal:{timeout(){}},Date,setTimeout,URLSearchParams,fetch:async()=>{
   fetched++;return {ok:true,json:async()=>({providers:{claude:'ready',codex:'ready',gemini:'ready'},
     connectors:{ibkr:{claude:'failed',codex:'ready',gemini:'unknown'}},pending:false})};
 }};

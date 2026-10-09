@@ -72,6 +72,29 @@ def test_delivery_failure_preserves_completed_execution_and_specific_error(tmp_p
     assert result["delivery"][0]["error"] == "Telegram returned HTTP 503"
 
 
+def test_recorded_operational_error_warns_even_when_output_and_delivery_succeed(tmp_path):
+    data = contract(tmp_path, audit='not_applicable')
+    data['evidence']['operational_errors'] = ['Product page fetch failed: remote disconnected']
+    result = evaluate(tmp_path, data)
+    assert result['execution'] == 'completed'
+    assert result['delivery'][0]['validated'] is True
+    assert result['evidence']['outputs'][0]['validated'] is True
+    assert result['app_errors'] == []
+    assert jr.status(result) == 'warn'
+    assert jr.label(result) == 'Completed — operational warnings — delivered'
+    assert jr.reason(result) == data['evidence']['operational_errors'][0]
+
+
+def test_missing_required_operational_input_remains_failed_despite_failure_notice(tmp_path):
+    data = contract(tmp_path, execution='failed', audit='incomplete')
+    data['evidence']['missing_inputs'] = ['Current watchlist: Drive unavailable']
+    data['evidence']['operational_errors'] = ['Required Sheet sync failed']
+    result = evaluate(tmp_path, data)
+    assert result['delivery'][0]['validated'] is True
+    assert result['execution'] == 'failed' and jr.status(result) == 'error'
+    assert jr.reason(result) == 'Required Sheet sync failed'
+
+
 @pytest.mark.parametrize("terminal", ["timed_out", "stopped", "failed"])
 def test_runtime_failure_overrides_agent_completion_but_keeps_partial_outputs(tmp_path, terminal):
     data = contract(tmp_path, audit="incomplete")

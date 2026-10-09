@@ -484,6 +484,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/workspace-migrate": "_workspace_migrate", "/api/set-approot": "_set_approot",
         "/api/cap-grant": "_cap_grant", "/api/cap-revoke": "_cap_revoke",
         "/api/codex-connector": "_codex_connector",
+        "/api/connector-action": "_connector_action",
         "/api/codex-connector-status": "_codex_connector_status",
         "/api/cap-request-approve": "_cap_request_approve",
         "/api/cap-request-reject": "_cap_request_reject",

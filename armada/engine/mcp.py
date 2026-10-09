@@ -1,5 +1,19 @@
 """Translate MCP display names to their tool namespace without granting access."""
 import re
+import hashlib
+
+
+def registration_id(name: str) -> str:
+    """Stable CLI-safe registration, separate from the logical capability identity.
+
+    Preserve existing valid registrations. Hash invalid display names so punctuation
+    collapse cannot accidentally grant another connector with a similar name.
+    """
+    name = str(name or "")
+    if re.fullmatch(r"[A-Za-z0-9_-]+", name):
+        return name
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")[:48] or "connector"
+    return "armada_" + slug + "_" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:12]
 
 
 def server_id(name: str) -> str:

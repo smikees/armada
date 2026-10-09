@@ -490,7 +490,7 @@ class ClaudeEngine(EngineAdapter):
                 raise ValueError("missing terminal result")
             usage = _usage_from_event(data)
             model_used = _concrete_model(data.get("model"), data.get("modelUsage"), model)
-            error = process.error or _result_error(data)
+            error = _failure_reason(process, _result_error(data))
         except (ValueError, TypeError, AttributeError) as exc:
             return RunResult(ok=False, output=raw.strip(), model=model or "",
                              error=process.error or f"Invalid Claude result: {exc}",
@@ -565,7 +565,7 @@ class ClaudeEngine(EngineAdapter):
                                 cwd=cwd, env={**self._env(), **(env or {})}, on_proc=on_proc)
         finally:
             _drop_system_file(sys_file)
-        error = process.error or state.error
+        error = _failure_reason(process, state.error)
         if not state.completed and not error:
             error = "Claude ended before completing the turn."
         if error:
@@ -573,6 +573,16 @@ class ClaudeEngine(EngineAdapter):
         return RunResult(ok=state.completed and not error, output=state.output or "".join(state.texts).strip(),
                          error=error, model=state.model, usage=state.usage, cancelled=process.cancelled,
                          timed_out=getattr(process, "timed_out", False))
+
+
+def _failure_reason(process, terminal_error):
+    """Preserve a provider refusal hidden behind the supervisor's generic exit error."""
+    generic_exit = f"CLI exited with code {process.returncode}: {process.stderr}"
+    if terminal_error and process.error == generic_exit:
+        detail = process.stderr.strip()
+        return terminal_error + (f"\nCLI stderr: {detail}" if detail else "")
+    # Cancellation, deadlines, broken protocols and cleanup failures remain authoritative.
+    return process.error or terminal_error
 
 
 def _result_error(event):
