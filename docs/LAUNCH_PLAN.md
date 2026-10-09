@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.98** fixes connector sign-in feedback and configuration copying.
+Google Drive in Codex explains its required client setup, CLI outcomes remain visible and
+clipboard controls provide real templates and a fallback. [Verification](dev/RELEASE_0_99_98.md)
+records focused tests and actual CLI/browser checks; publication gates remain required.
+
 Version **0.99.97** adds independent provider connection status and actions for connectors,
 CLI-safe grant identities, operational job warnings and useful Claude quota/refusal errors.
 The published release passed 3,485 isolated tests, both exact-source Windows CI jobs,

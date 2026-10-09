@@ -2,6 +2,10 @@
 
 Prepared for 0.99.97; see [release verification](RELEASE_0_99_97.md) for publication status.
 
+0.99.98 follow-up: [verification](RELEASE_0_99_98.md). Connector sign-in no longer discards
+CLI failures or assumes a browser opened. Setup copy now works with displayed Codex templates
+and a clipboard fallback; empty copy controls stay hidden.
+
 ## Release changes
 
 - Expanded connectors have separate Claude, Codex and Gemini connection rows, with status,
@@ -38,6 +42,27 @@ Google Drive's exact published endpoint is allowed for portable setup. Other Cla
 proxy identities remain unavailable outside Claude unless a reviewed portable endpoint mapping
 exists, such as the existing IBKR registry mapping. A conflict or disabled provider registration
 is never overwritten. Provider OAuth client registration may still require service-specific setup.
+
+`connector_login.begin()` supervises an owned CLI process for at most 300 seconds and observes
+its stdout. Preparation, an issued authorization URL, failure and completed login are distinct
+states. Only HTTPS URLs without embedded username/password and with OAuth code/client parameters
+is eligible for the fallback link; transient URLs remain in memory and are removed when the
+attempt ends. Error diagnostics strip URLs and OAuth secrets. Duplicate clicks reuse the active
+attempt, shutdown cancels owned processes and completed attempts expire after 15 minutes.
+Completion invalidates the provider's earlier health check; Connected still requires a live check.
+Provider conflicts, disabled connections and realm grants retain precedence over login progress.
+
+Google Drive currently rejects dynamic OAuth client registration. ARMADA checks only the presence
+of Codex's own non-placeholder `mcp_servers.<id>.oauth.client_id` in the configured `CODEX_HOME`
+before launching its Google sign-in. Without it, Set up replaces a misleading Connect action.
+The owner must create the compatible Google OAuth client and configure Codex's supported
+client options, registering the exact callback URL provided by Codex. ARMADA creates no OAuth
+credentials, never copies Claude authorization and provides only a placeholder TOML template.
+
+Copy controls honor `hidden` despite shared button styling. Clipboard writes reject empty text,
+try the browser Clipboard API, then a selected textarea copy for hosts without that API. The
+fallback restores focus and text selection. Success is reported only after the copy operation
+succeeds; failures provide manual-copy guidance without overwriting the setup instructions.
 
 Gemini checks the same global `mcp_config.json` read by `GeminiEngine`. It verifies a matching
 `serverUrl` and enabled registration, but always labels that evidence `configured`, not `ready`.

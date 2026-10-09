@@ -19,6 +19,29 @@ from urllib.parse import urlsplit
 from .engine.codex import CodexEngine, _NO_WINDOW, _feature_args
 from .engine.mcp import registration_id, server_id
 
+_DRIVE_URL = 'https://drivemcp.googleapis.com/mcp/v1'
+
+
+def _login_key(realm_root, cap, provider):
+    return (str(Path(realm_root or Path.cwd()).resolve()), provider, str(cap.get('id') or ''),
+            str(cap.get('command') or ''))
+
+
+def _codex_drive_client(cap):
+    """Read only the presence of Codex's own pre-registered OAuth client ID."""
+    import os
+    import tomllib
+    if codex_endpoint(cap) != _DRIVE_URL:
+        return True
+    try:
+        root = Path(os.environ.get('CODEX_HOME') or Path.home()/'.codex')
+        data = tomllib.loads((root/'config.toml').read_text(encoding='utf-8-sig'))
+        row = data.get('mcp_servers', {}).get(registration_id(cap.get('id')), {})
+        client = row.get('oauth', {}).get('client_id')
+        return isinstance(client, str) and bool(client.strip()) and client.strip() != 'YOUR_GOOGLE_OAUTH_CLIENT_ID'
+    except (OSError, ValueError, AttributeError, TypeError):
+        return False
+
 
 _SERVER_ID = re.compile(r"[A-Za-z0-9_-]+\Z")
 _IBKR_KEY = "mcp-registry/connectors/com.ibkr/interactive-brokers-ibkr"
@@ -27,6 +50,15 @@ _connection_checks = {}
 _checks_lock = threading.Lock()
 _CHECK_DEADLINE = 90
 _CHECK_CACHE_TTL = 60
+
+
+def _login_finished(realm_root, provider):
+    """Discard earlier health checks; completed login alone never means Connected."""
+    root = str(Path(realm_root or Path.cwd()).resolve())
+    with _checks_lock:
+        for key in list(_connection_checks):
+            if key[:2] == (root, provider):
+                del _connection_checks[key]
 
 
 def codex_endpoint(cap: dict) -> str:
@@ -240,9 +272,14 @@ def gemini_connection(cap, inventory):
 def connection_detail(cap, provider, state, error=""):
     """Owner-facing state and recovery action; unsupported is never called disconnected."""
     title = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}[provider]
+    if (provider == 'codex' and state in ('missing', 'sign_in', 'configured', 'failed')
+            and not _codex_drive_client(cap)):
+        return {"state": "setup_required", "reason": "Google Drive requires a pre-registered Google OAuth client in Codex. Set up that client first; automatic registration cannot open a sign-in page.",
+                "action": "setup", "server_id": registration_id(cap.get('id'))}
     reasons = {
         "missing": f"This connector has no registration in {title}.",
         "checking": f"Checking {title}'s own connection; other providers finish independently.",
+        "starting": "Preparing connector sign-in…",
         "unknown": "The connection could not be verified. Recheck to try again.",
         "sign_in": f"Complete this connector's {title} sign-in, then recheck.",
         "failed": f"{title} could not connect. Check its authorization and service availability.",
@@ -258,8 +295,8 @@ def connection_detail(cap, provider, state, error=""):
     action = ""
     if state in ("unavailable", "provider_disabled"):
         action = "provider_settings"
-    elif state not in ("checking", "realm_disabled"):
-        if provider == "codex" and codex_endpoint(cap) and state in ("missing", "sign_in", "configured"):
+    elif state not in ("checking", "starting", "realm_disabled"):
+        if provider == "codex" and codex_endpoint(cap) and state in ("missing", "sign_in", "configured", "failed"):
             action = "connect"
         elif provider == "claude" and state in ("sign_in", "failed"):
             action = "connect"
@@ -272,6 +309,7 @@ def connection_detail(cap, provider, state, error=""):
 def connection_snapshot(realm_root, *, force=False, provider=None) -> dict:
     """Nonblocking, independent provider checks; pending checks have a fixed deadline."""
     from . import capabilities, providers
+    requested = (provider,) if provider else ('claude', 'codex', 'gemini')
 
     def probe(provider):
         try:
@@ -355,8 +393,20 @@ def connection_snapshot(realm_root, *, force=False, provider=None) -> dict:
         }
         if not capabilities.realm_enabled(cap):
             rows[sid].update({p: "realm_disabled" for p in states})
-        rows[sid]["details"] = {p: connection_detail(cap, p, rows[sid][p], rows[sid]["errors"].get(p, "")) for p in states}
-    return {"providers": states, "connectors": rows, "pending": 'checking' in states.values()}
+        from . import connector_login
+        rows[sid]["details"] = {}
+        for p in states:
+            attempt = connector_login.state(_login_key(realm_root, cap, p))
+            detail = connection_detail(cap, p, rows[sid][p], rows[sid]["errors"].get(p, ""))
+            if (attempt and attempt['state'] != 'configured'
+                    and rows[sid][p] not in ('ready', 'realm_disabled', 'provider_disabled', 'unavailable', 'different', 'disabled')):
+                detail = connection_detail(cap, p, attempt['state'], attempt['reason'])
+                if attempt.get('login_url'):
+                    detail['login_url'] = attempt['login_url']
+            rows[sid][p] = detail['state']
+            rows[sid]["details"][p] = detail
+    pending = any(states[p] == 'checking' or any(r[p] == 'starting' for r in rows.values()) for p in requested)
+    return {"providers": states, "connectors": rows, "pending": pending}
 
 
 def is_provider_placeholder(cap: dict) -> bool:
@@ -379,6 +429,10 @@ def connect_codex(cap: dict, realm_root=None) -> dict:
     state = codex_connection(cap, inventory)
     if state in ("different", "disabled"):
         return {"ok": False, "error": "A Codex MCP server with this name already has different settings. Review it in Codex first."}
+    if state == 'ready':
+        return {"ok": True, "state": "ready"}
+    if not _codex_drive_client(cap):
+        return {"ok": False, "state": "setup_required", "error": connection_detail(cap, 'codex', state)['reason']}
     launcher = engine._launcher()
     if not launcher:
         return {"ok": False, "error": "Codex CLI is not installed."}
@@ -393,15 +447,10 @@ def connect_codex(cap: dict, realm_root=None) -> dict:
             refreshed = codex_inventory(engine)
             if codex_connection(cap, refreshed) not in ("sign_in", "configured", "ready"):
                 return {"ok": False, "error": "Codex could not add this connector. Check its URL and CLI setup."}
-    if state == "ready":
-        return {"ok": True, "state": "ready"}
-    try:
-        subprocess.Popen(launcher + _feature_args() + ["mcp", "login", sid], stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                         **process_options())
-    except OSError:
-        return {"ok": False, "error": "Codex could not start the connector sign-in."}
-    return {"ok": True, "state": "sign_in"}
+    from . import connector_login
+    return connector_login.begin(_login_key(realm_root, cap, 'codex'),
+                                 launcher + _feature_args() + ["mcp", "login", sid], cwd=realm_root,
+                                 on_finish=lambda: _login_finished(realm_root, 'codex'))
 
 
 def connect_claude(cap: dict, realm_root=None) -> dict:
@@ -421,13 +470,10 @@ def connect_claude(cap: dict, realm_root=None) -> dict:
     launcher = engine._launcher()
     if not launcher:
         return {"ok": False, "error": "Claude Code CLI is not installed."}
-    try:
-        subprocess.Popen(launcher + ["mcp", "login", matches[0]["name"]], cwd=realm_root,
-                         env=engine._env(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL, **process_options())
-    except OSError:
-        return {"ok": False, "error": "Claude could not start connector sign-in. Open Claude's connector settings and recheck."}
-    return {"ok": True, "state": "sign_in"}
+    from . import connector_login
+    return connector_login.begin(_login_key(realm_root, cap, 'claude'),
+                                 launcher + ["mcp", "login", matches[0]["name"]], cwd=realm_root, env=engine._env(),
+                                 on_finish=lambda: _login_finished(realm_root, 'claude'))
 
 
 def connector_setup(cap: dict, provider: str) -> dict:
@@ -458,7 +504,12 @@ def connector_setup(cap: dict, provider: str) -> dict:
         data.update(instructions="In Antigravity, open MCP Servers → Manage MCP Servers → View raw config. Merge this entry into ~/.gemini/config/mcp_config.json without replacing other servers. Complete any service-specific OAuth setup, then use /mcp to check the live connection. ARMADA verifies registration here, but cannot verify authentication or live tools.",
                     snippet=json.dumps({"mcpServers": {sid: {"serverUrl": endpoint}}}, indent=2))
     else:
-        data["instructions"] = "Use Connect here to register this endpoint and open Codex's own sign-in. Some services, including Google Drive, require a separately registered OAuth client for Codex; configure it using the service guide before signing in. Existing Claude authorization is not transferred."
+        data.update(instructions="Merge this server entry into Codex's config.toml without replacing other servers, then use Connect and complete Codex's sign-in. Existing Claude authorization is not transferred.",
+                    snippet=f'[mcp_servers.{sid}]\nurl = {json.dumps(endpoint)}')
     if endpoint == "https://drivemcp.googleapis.com/mcp/v1":
         data["service_guide_url"] = "https://developers.google.com/workspace/drive/api/guides/configure-mcp-server"
+        if provider == 'codex':
+            data.update(instructions="Google Drive rejects automatic OAuth client registration. Create a Google Cloud OAuth client for Codex using the service guide, then configure it with codex mcp add --oauth-client-id (and --oauth-client-secret if required). Register the exact callback URL printed by Codex. This template shows the server entry; replace its placeholder before sign-in. ARMADA does not create OAuth credentials or reuse Claude's authorization.",
+                        snippet=data['snippet'] + f'\n\n[mcp_servers.{sid}.oauth]\nclient_id = "YOUR_GOOGLE_OAUTH_CLIENT_ID"',
+                        copy_label='Copy setup template')
     return data

@@ -281,6 +281,9 @@ details.mc-realmsw>summary::-webkit-details-marker{display:none}
 .mc-conn-detail[data-state="failed"] .mc-conn-state,.mc-conn-detail[data-state="sign_in"] .mc-conn-state{color:var(--status-bad)}
 .mc-conn-setup{grid-column:2/-1;min-width:0}
 .mc-conn-setup[hidden]{display:none}
+.mc-conn-detail [hidden]{display:none}
+.mc-conn-copy-status{margin:0 0 8px;color:var(--text-dim)}
+.mc-conn-copy-status:empty{display:none}
 .mc-conn-instructions{margin:0 0 8px;line-height:1.6;overflow-wrap:anywhere}
 .mc-conn-snippet{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 8px;padding:10px 12px;background:var(--color-sand-100);border-radius:var(--r)}
 @media(max-width:1100px){.mc-conn-detail{grid-template-columns:80px minmax(0,1fr)}.mc-conn-buttons{grid-column:2;justify-content:flex-start}}

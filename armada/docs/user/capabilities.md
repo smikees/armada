@@ -11,10 +11,14 @@ the live connection. The legend starts open and remembers whether you last left 
 Expand a connector's **Connections** section to see separate Claude, Codex and Gemini rows.
 Each row shows its status, reason and relevant action:
 
-- **Connect / Sign in** opens that provider's supported authentication flow. Codex registers
-  reviewed direct MCP endpoints; Claude authenticates its existing registration.
+- **Connect / Sign in** starts that provider's supported authentication flow. Preparation and
+  CLI errors are shown separately. **Open sign-in page** appears when the CLI supplies a URL,
+  so you can open it if the browser did not appear. Codex registers reviewed direct MCP
+  endpoints; Claude authenticates its existing registration.
 - **Set up / Setup details** shows instructions for that provider, including a copyable
-  Antigravity configuration for Gemini and service-specific OAuth guidance where needed.
+  Codex or Antigravity configuration and service-specific OAuth guidance where needed.
+  **Copy configuration / Copy setup template** copies the displayed text and confirms success.
+  A template's placeholders must be replaced before use. No copy button appears for empty text.
 - **Recheck** checks only the selected provider. An error includes a recovery action.
 - **App settings** takes you to a provider that needs installation, sign-in or reconnection.
 
@@ -26,6 +30,11 @@ means its configuration exists; it does not prove authorization or live tools. G
 uses this state because ARMADA cannot verify its live connector health.
 
 Google Drive's direct MCP endpoint is portable, but each client needs compatible OAuth setup.
+Google Drive rejects automatic client registration. Until Codex has its own pre-registered
+Google OAuth client ID, its row shows **Setup required**, with instructions and a template.
+Create and configure that OAuth client using the service guide and Codex's supported client
+options; register the exact callback URL printed by Codex. Copying the template alone does
+not register or authorize a client. Then choose **Sign in** and **Recheck**.
 See [Google's setup guide](https://developers.google.com/workspace/drive/api/guides/configure-mcp-server).
 Existing Claude credentials are never copied into Codex or Gemini.
 

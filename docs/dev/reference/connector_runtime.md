@@ -5,6 +5,18 @@ Provider-specific MCP connections for realm capabilities.
 A realm grant is permission, not a provider login. Claude's MCP inventory and Codex's
 MCP inventory are separate; never infer one provider's authentication from the other.
 
+### `_login_key(realm_root, cap, provider)`
+
+—
+
+### `_codex_drive_client(cap)`
+
+Read only the presence of Codex's own pre-registered OAuth client ID.
+
+### `_login_finished(realm_root, provider)`
+
+Discard earlier health checks; completed login alone never means Connected.
+
 ### `codex_endpoint(cap: dict)`
 
 Return a direct HTTPS MCP endpoint, never a Claude-only proxy or local command.

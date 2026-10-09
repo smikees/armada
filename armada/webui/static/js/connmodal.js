@@ -14,7 +14,7 @@ async function mcConnectorRefresh(el){
 }
 
 const MC_CONN_LABEL={ready:"Connected",missing:"Not connected",failed:"Connection failed",
-  checking:"Checking…",sign_in:"Sign-in required",unavailable:"Provider unavailable",
+  checking:"Checking…",starting:"Preparing sign-in…",setup_required:"Setup required",sign_in:"Sign-in required",unavailable:"Provider unavailable",
   provider_disabled:"Provider disconnected",realm_disabled:"Disabled in this realm",
   disabled:"Connector disabled",unknown:"Could not verify",different:"Configuration conflict",
   configured:"Registered · unverified",unsupported:"Unavailable through this integration"};
@@ -44,6 +44,14 @@ function mcCapConnectionState(cap,provider,state,supported,error,detail){
     const note=d.querySelector(".mc-conn-reason");if(note)note.textContent=reason;
     const recheck=d.querySelector(".mc-conn-recheck");
     if(recheck&&!recheck.dataset.busy)recheck.disabled=state==="checking";
+    const login=d.querySelector(".mc-conn-login");
+    if(login){
+      let url="";
+      try{const candidate=new URL((detail&&detail.login_url)||"");
+        if(candidate.protocol==="https:"&&!candidate.username&&!candidate.password)url=candidate.href;
+      }catch(e){}
+      login.hidden=!url;if(url)login.href=url;else login.removeAttribute("href");
+    }
     const button=d.querySelector(".mc-conn-action");if(!button||button.dataset.busy)return;
     button.style.display="none";
     const action=detail?detail.action:(provider==="codex"&&supported&&
@@ -89,7 +97,8 @@ async function mcCapConnectionsRefresh(force=false,provider=null){
         targets.filter(current).forEach(p=>mcCapConnectionState(cap,p,states[p]||"unknown",
           p==="codex"&&states.codex_supported,(states.errors||{})[p],(states.details||{})[p]));
       });
-      if(!targets.filter(current).some(p=>data.providers[p]==="checking"))break;
+      if(!targets.filter(current).some(p=>data.providers[p]==="checking"||
+        Object.values(data.connectors).some(row=>row[p]==="starting")))break;
       if(Date.now()>=deadline)throw new Error("Connector check timed out. Recheck to try again.");
       await new Promise(resolve=>setTimeout(resolve,1200));
     }while(targets.some(current));
@@ -116,7 +125,10 @@ async function mcConnectorRequest(detail,action){
     signal:AbortSignal.timeout(action==="connect"?60000:10000),
     body:JSON.stringify({capability:detail.dataset.cap,provider:detail.dataset.provider,action})});
   const data=await response.json();
-  if(!response.ok||!data.ok)throw new Error(data.error||"The connector action failed. Recheck and try again.");
+  if(!response.ok||!data.ok){
+    const error=new Error(data.error||"The connector action failed. Recheck and try again.");
+    error.data=data;throw error;
+  }
   return data;
 }
 async function mcProviderConnect(button,provider,id){
@@ -124,13 +136,18 @@ async function mcProviderConnect(button,provider,id){
   if(provider)detail.dataset.provider=provider;if(id)detail.dataset.cap=id;
   const note=detail.querySelector(".mc-conn-reason");
   button.disabled=true;button.dataset.busy="1";
-  if(note)note.textContent="Opening "+MC_CONN_PROVIDERS[detail.dataset.provider]+" sign-in…";
+  if(note)note.textContent="Preparing "+MC_CONN_PROVIDERS[detail.dataset.provider]+" sign-in…";
   try{
     const data=await mcConnectorRequest(detail,"connect");
-    button.style.display="none";
-    if(data.state==="ready"){await mcCapConnectionsRefresh(true,detail.dataset.provider);}
-    else if(note)note.textContent="Complete sign-in in your browser, then recheck this provider.";
-  }catch(e){if(note)note.textContent=e.message||String(e);}
+    delete button.dataset.busy;
+    mcCapConnectionState(detail.dataset.cap,detail.dataset.provider,data.state||"starting",true,"",data);
+    await mcCapConnectionsRefresh(true,detail.dataset.provider);
+  }catch(e){
+    delete button.dataset.busy;
+    const state=(e.data&&e.data.state)||"failed";
+    mcCapConnectionState(detail.dataset.cap,detail.dataset.provider,state,true,e.message||String(e),
+      {action:state==="setup_required"?"setup":"connect",reason:e.message||String(e)});
+  }
   finally{delete button.dataset.busy;button.disabled=false;}
 }
 async function mcProviderRecheck(button,provider){
@@ -150,7 +167,9 @@ async function mcConnectorSetup(button){
     const data=detail._setupData||await mcConnectorRequest(detail,"setup");detail._setupData=data;
     text.textContent=data.instructions;
     const snippet=panel.querySelector(".mc-conn-snippet");snippet.textContent=data.snippet||"";snippet.hidden=!data.snippet;
-    panel.querySelector(".mc-conn-copy").hidden=!data.snippet;
+    const copy=panel.querySelector(".mc-conn-copy");copy.hidden=!data.snippet;
+    copy.textContent=data.copy_label||"Copy configuration";
+    panel.querySelector(".mc-conn-copy-status").textContent="";
     [[".mc-conn-web","web_url"],[".mc-conn-guide","guide_url"],[".mc-conn-service-guide","service_guide_url"]].forEach(([selector,key])=>{
       const link=panel.querySelector(selector),url=data[key]||"";
       link.hidden=!url;if(url)link.href=url;
@@ -160,7 +179,23 @@ async function mcConnectorSetup(button){
 }
 async function mcConnectorCopy(button){
   const panel=button.closest(".mc-conn-setup");
-  try{await navigator.clipboard.writeText(panel.querySelector(".mc-conn-snippet").textContent);button.textContent="Copied";}
-  catch(e){panel.querySelector(".mc-conn-instructions").textContent="Could not copy. Select the configuration text and copy it manually.";}
+  const text=panel.querySelector(".mc-conn-snippet").textContent;
+  const status=panel.querySelector(".mc-conn-copy-status");
+  if(!text){status.textContent="There is no configuration text to copy.";return;}
+  button.disabled=true;let copied=false;
+  try{
+    if(navigator.clipboard)try{await navigator.clipboard.writeText(text);copied=true;}catch(e){}
+    if(!copied){
+      const focus=document.activeElement,selection=window.getSelection();
+      const ranges=selection?Array.from({length:selection.rangeCount},(_,i)=>selection.getRangeAt(i).cloneRange()):[];
+      const input=document.createElement("textarea");input.value=text;input.readOnly=true;
+      input.style.cssText="position:fixed;left:-9999px;top:0";document.body.appendChild(input);
+      try{input.select();copied=document.execCommand("copy");}
+      finally{input.remove();if(focus)focus.focus({preventScroll:true});
+        if(selection){selection.removeAllRanges();ranges.forEach(r=>selection.addRange(r));}}
+    }
+    status.textContent=copied?"Configuration copied.":"Could not copy. Select the configuration text and copy it manually.";
+  }catch(e){status.textContent="Could not copy. Select the configuration text and copy it manually.";}
+  finally{button.disabled=false;}
 }
 if(document.getElementById("cap-pane-user"))mcCapConnectionsRefresh();

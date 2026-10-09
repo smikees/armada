@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from types import SimpleNamespace
 
-from armada import capabilities, connector_runtime
+from armada import capabilities, connector_runtime, connector_login
 from armada.engine.codex import CodexEngine
 from armada.engine.claude import ClaudeEngine
 from armada.routes.caps import CapabilityRoutes
@@ -120,8 +120,8 @@ def test_add_timeout_after_config_write_continues_to_sign_in(monkeypatch):
         return original_probe(args)
     fake._probe = probe
     launched = []
-    monkeypatch.setattr(connector_runtime.subprocess, "Popen", lambda args, **kwargs:
-                        launched.append(args))
+    monkeypatch.setattr(connector_login, "begin", lambda key, args, **kwargs:
+                        launched.append(args) or {"ok": True, "state": "sign_in"})
     assert connector_runtime.connect_codex(IBKR) == {"ok": True, "state": "sign_in"}
     assert launched == [["codex"] + connector_runtime._feature_args() + ["mcp", "login", IBKR["id"]]]
 
@@ -177,7 +177,7 @@ def test_portable_drive_name_is_stable_and_does_not_collide():
 
 @pytest.mark.parametrize('provider', ['claude', 'codex', 'gemini'])
 def test_independent_provider_actions_and_reasons(provider):
-    detail = connector_runtime.connection_detail(DRIVE, provider, 'missing')
+    detail = connector_runtime.connection_detail(IBKR, provider, 'missing')
     assert detail['action'] == ('connect' if provider == 'codex' else 'setup')
     assert provider.title() in detail['reason']
     assert connector_runtime.connection_detail(DRIVE, provider, 'provider_disabled')['action'] == 'provider_settings'
@@ -211,11 +211,12 @@ def test_claude_sign_in_targets_existing_name_and_preserves_other_providers(monk
     monkeypatch.setattr(connector_runtime, '_claude_rows', lambda root: [{'name': DRIVE['id'], 'ready': False}])
     monkeypatch.setattr(ClaudeEngine, '_launcher', lambda self: ['claude'])
     launched = []
-    monkeypatch.setattr(connector_runtime.subprocess, 'Popen', lambda args, **kw: launched.append((args, kw)))
+    monkeypatch.setattr(connector_login, 'begin', lambda key, args, **kw:
+                        launched.append((args, kw)) or {'ok': True, 'state': 'sign_in'})
     assert connector_runtime.connect_claude(DRIVE, tmp_path) == {'ok': True, 'state': 'sign_in'}
     assert launched[0][0] == ['claude', 'mcp', 'login', DRIVE['id']]
     assert launched[0][1]['cwd'] == tmp_path
-    assert launched[0][1]['stdin'] == subprocess.DEVNULL
+    assert callable(launched[0][1]['on_finish'])
 
 
 def test_connector_actions_validate_realm_provider_and_enabled_state(tmp_path, monkeypatch):
@@ -237,6 +238,7 @@ def test_connector_actions_validate_realm_provider_and_enabled_state(tmp_path, m
 def test_recheck_only_refreshes_requested_provider(tmp_path, monkeypatch):
     from armada import providers
     connector_runtime._connection_checks.clear()
+    monkeypatch.setenv('CODEX_HOME', str(tmp_path/'codex'))
     (tmp_path/'realm.json').write_text(json.dumps({'toolkit': {'connectors': [DRIVE]}}))
     calls = []
     monkeypatch.setattr(providers, 'status', lambda p, force=False: calls.append(p) or {'connected': True})
@@ -246,7 +248,7 @@ def test_recheck_only_refreshes_requested_provider(tmp_path, monkeypatch):
     snapshot = connector_runtime.connection_snapshot(tmp_path)
     assert not snapshot['pending']
     assert snapshot['connectors'][DRIVE['id']]['claude'] == 'ready'
-    assert snapshot['connectors'][DRIVE['id']]['codex'] == 'missing'
+    assert snapshot['connectors'][DRIVE['id']]['codex'] == 'setup_required'
     calls.clear()
     snapshot = connector_runtime.connection_snapshot(tmp_path, force=True, provider='codex')
     assert calls == ['codex']
@@ -275,6 +277,7 @@ def test_timed_out_check_can_be_replaced(tmp_path, monkeypatch):
     from concurrent.futures import Future
     from armada import providers
     connector_runtime._connection_checks.clear()
+    monkeypatch.setenv('CODEX_HOME', str(tmp_path/'codex'))
     (tmp_path/'realm.json').write_text(json.dumps({'toolkit': {'connectors': [DRIVE]}}))
     monkeypatch.setattr(providers, 'status', lambda *a, **kw: {'connected': True})
     monkeypatch.setattr(connector_runtime, 'codex_live_inventory', lambda root: {})
@@ -283,8 +286,68 @@ def test_timed_out_check_can_be_replaced(tmp_path, monkeypatch):
     hung = Future()
     connector_runtime._connection_checks[key] = {'future': hung, 'started': -1000, 'finished': -1000}
     snapshot = connector_runtime.connection_snapshot(tmp_path, force=True, provider='codex')
-    assert snapshot['connectors'][DRIVE['id']]['codex'] == 'missing'
+    assert snapshot['connectors'][DRIVE['id']]['codex'] == 'setup_required'
     assert connector_runtime._connection_checks[key]['future'] is not hung
+
+
+def test_drive_requires_own_oauth_client_before_login(tmp_path, monkeypatch):
+    monkeypatch.setenv('CODEX_HOME', str(tmp_path))
+    monkeypatch.setattr(connector_runtime, 'codex_inventory', lambda engine=None: {})
+    monkeypatch.setattr(connector_login, 'begin', lambda *a, **kw: pytest.fail('Must not launch login'))
+    result = connector_runtime.connect_codex(DRIVE)
+    assert not result['ok'] and result['state'] == 'setup_required'
+    assert 'pre-registered' in result['error']
+    assert connector_runtime.connection_detail(DRIVE, 'codex', 'sign_in')['action'] == 'setup'
+    for state in ('ready', 'different', 'disabled', 'provider_disabled', 'realm_disabled'):
+        assert connector_runtime.connection_detail(DRIVE, 'codex', state)['state'] == state
+
+
+def test_codex_setup_template_is_valid_and_does_not_copy_credentials():
+    import tomllib
+    data = connector_runtime.connector_setup(DRIVE, 'codex')
+    row = tomllib.loads(data['snippet'])['mcp_servers'][data['server_id']]
+    assert row == {'url': DRIVE['command'], 'oauth': {'client_id': 'YOUR_GOOGLE_OAUTH_CLIENT_ID'}}
+    assert data['copy_label'] == 'Copy setup template'
+    assert 'exact callback' in data['instructions']
+    assert 'client_secret' not in data['snippet']
+    generic = connector_runtime.connector_setup(IBKR, 'codex')
+    assert tomllib.loads(generic['snippet'])['mcp_servers'][IBKR['id']]['url'] == connector_runtime.codex_endpoint(IBKR)
+
+
+def test_configured_drive_client_can_start_owned_login(tmp_path, monkeypatch):
+    monkeypatch.setenv('CODEX_HOME', str(tmp_path))
+    sid = connector_runtime.registration_id(DRIVE['id'])
+    (tmp_path/'config.toml').write_text(f'[mcp_servers.{sid}.oauth]\nclient_id = "test-client"')
+    monkeypatch.setattr(connector_runtime, 'codex_inventory', lambda engine=None: {sid: {
+        'name': sid, 'enabled': True, 'transport': {'url': DRIVE['command']}, 'auth_status': 'not_logged_in'}})
+    monkeypatch.setattr(CodexEngine, '_launcher', lambda self: ['codex'])
+    calls = []
+    monkeypatch.setattr(connector_login, 'begin', lambda key, args, **kw:
+        calls.append((key, args, kw)) or {'ok': True, 'state': 'starting'})
+    assert connector_runtime.connect_codex(DRIVE)['state'] == 'starting'
+    assert calls[0][1][-3:] == ['mcp', 'login', sid]
+    (tmp_path/'config.toml').write_text('invalid toml')
+    assert not connector_runtime._codex_drive_client(DRIVE)
+
+
+def test_login_progress_and_failure_do_not_change_other_provider_checks(tmp_path, monkeypatch):
+    from armada import providers
+    connector_runtime._connection_checks.clear()
+    (tmp_path/'realm.json').write_text(json.dumps({'toolkit': {'connectors': [IBKR]}}))
+    monkeypatch.setattr(providers, 'status', lambda p, force=False: {'connected': True})
+    monkeypatch.setattr(connector_runtime, 'codex_live_inventory', lambda root: {})
+    monkeypatch.setattr(connector_login, 'state', lambda key: {'state': 'starting', 'reason': 'Waiting', 'login_url': ''}
+        if key[1] == 'claude' else {})
+    snapshot = connector_runtime.connection_snapshot(tmp_path, provider='codex')
+    assert not snapshot['pending']
+    assert snapshot['connectors'][IBKR['id']]['claude'] == 'starting'
+    monkeypatch.setattr(connector_login, 'state', lambda key: {'state': 'failed', 'reason': 'Registration rejected', 'login_url': ''}
+        if key[1] == 'codex' else {})
+    snapshot = connector_runtime.connection_snapshot(tmp_path, provider='codex')
+    assert snapshot['connectors'][IBKR['id']]['codex'] == 'failed'
+    assert snapshot['connectors'][IBKR['id']]['details']['codex']['reason'] == 'Registration rejected'
+    connector_runtime._login_finished(tmp_path, 'codex')
+    assert not any(k[1] == 'codex' for k in connector_runtime._connection_checks)
 
 
 @pytest.mark.skipif(shutil.which('node') is None, reason='Node required for UI action checks')
