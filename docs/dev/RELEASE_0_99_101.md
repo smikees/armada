@@ -43,4 +43,23 @@ ARMADA still never signs in or out for the owner and never copies credentials be
 
 Full Windows suite with the release changes: one failure on the first run (the settings dropdown
 harness passes options without a `style`), fixed with optional chaining in `fdrop.js` and re-run green.
-Publication evidence is recorded below when the maintenance publisher completes.
+
+## Published evidence — 2026-10-10
+
+- Published normal/latest [v0.99.101 release](https://github.com/smikees/armada/releases/tag/v0.99.101)
+  from source `0705556`, through `tools/publish_release.py --maintenance-unsigned`.
+- Pinned isolated release gate: **3,594 passed, 5 skipped**.
+- [Exact-source CI](https://github.com/smikees/armada/actions/runs/38058700504) passed on the first attempt.
+- Native upgrade gate: 63 real-page, restart and cleanup checks passed, upgrading 0.99.100 to 0.99.101.
+- The owner's running app was not restarted.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `ARMADA-Setup-0.99.101.exe` | `a2b0453486dedc0cd2fe70cebe04c7ec5e88cc7120ac61e8f1c9ab1b51c8e0d5` |
+| `armada-0.99.101.zip` | `29c505b0760f3ac433bae72e957067084fa846f764a4fdc8951cbc2ebef9d428` |
+| `armada-update.json` | `9fcd6b73d2a209a53f090a1955b687013c70afd44fe4bea34f32745f5bc3fa5c` |
+| `armada-update.json.sig` | `9bd6f743db0ef423c72bec16bf36d989ac5d4c0367ba7ac0b827a93e65e0f7f7` |
+
+Website: `website/index.html` carries 0.99.101 (0.99.100 was never uploaded, so the live page moves
+from 0.99.99 straight to 0.99.101). The owner runs the FTPS upload with their local credentials;
+its HTTPS verification is recorded here once done.
