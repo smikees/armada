@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -44,7 +45,7 @@ log = logging.getLogger("armada.realmformat")
 KEY = "schema_version"
 
 # The format this build writes and understands. Bump it together with a new entry in MIGRATIONS.
-CURRENT = 3
+CURRENT = 4
 
 
 def _m0_to_1(cfg: dict, realm_root: Path) -> dict:
@@ -117,11 +118,97 @@ def _m2_to_3(cfg: dict, realm_root: Path) -> dict:
     return cfg
 
 
+def _split_label(cap: dict) -> str:
+    """The service name a split-off ChatGPT app row is called by."""
+    from .connector_registry import SERVICES
+    svc = next((s for s in SERVICES if s["id"] == cap.get("native_service")), None)
+    if svc:
+        return svc["name"]
+    name = str(cap.get("name") or cap.get("id") or "Connector")
+    for prefix in ("claude.ai ", "claude_ai_"):
+        if name.lower().startswith(prefix):
+            name = name[len(prefix):]
+    return name.replace("_", " ").strip() or "Connector"
+
+
+def _m3_to_4(cfg: dict, realm_root: Path) -> dict:
+    """3 → 4: one connector row reaches one server (docs/dev/CAPABILITIES_UPGRADE.md).
+
+    0.99.99 let a ChatGPT app be bound to a row that also stood for a Claude connector or a public
+    server, so one name claimed two different services. Each such app binding becomes its own Codex
+    row, "<service> · ChatGPT app". Agents granted the original that currently run on Codex are
+    granted the new row too; original grants stay, so switching back loses nothing. Idempotent: a
+    row without a mixed binding is left exactly as it is.
+    """
+    from . import capreach
+    from .engine.selection import engine_for
+    tk = cfg.get("toolkit")
+    if not isinstance(tk, dict) or not isinstance(tk.get("connectors"), list):
+        return cfg
+    used = {str(c.get("id") or "").lower() for k in ("connectors", "extensions", "skills", "plugins")
+            for c in (tk.get(k) or []) if isinstance(c, dict)}
+    splits = []                                    # (original id, new row)
+    for cap in list(tk["connectors"]):
+        if not isinstance(cap, dict):
+            continue
+        rows = cap.get("provider_bindings")
+        if not isinstance(rows, dict):
+            continue
+        app = rows.get("codex") if isinstance(rows.get("codex"), dict) and rows["codex"].get("app_id") else None
+        if not app:
+            continue
+        others = [r for p, r in rows.items() if p != "codex" and isinstance(r, dict) and r.get("server_name")]
+        if not (capreach.endpoint(cap) or others or capreach.is_claude_import(cap)):
+            continue                               # an app-only row is already one service
+        label = _split_label(cap)
+        base = util.safe_seg(re.sub(r"[^a-z0-9-]+", "-", label.lower()).strip("-") or "connector", "cap")
+        nid, n = f"{base}-chatgpt-app", 2
+        while nid.lower() in used:
+            nid, n = f"{base}-chatgpt-app-{n}", n + 1
+        used.add(nid.lower())
+        new = {"id": nid, "name": f"{label} · ChatGPT app", "source": "custom", "enabled": cap.get("enabled", True),
+               "status": "configured", "runs": "service", "touch": ["network"], "reach": "codex",
+               "description": "A native app in your ChatGPT account, split from "
+                              f"“{cap.get('name') or cap.get('id')}” so each row reaches one service.",
+               "connection_type": "provider-native", "provider_bindings": {"codex": {"app_id": app["app_id"]}}}
+        if cap.get("native_service"):
+            new["native_service"] = cap["native_service"]
+        labels = cap.get("connection_labels")
+        if isinstance(labels, dict) and labels.get("codex"):
+            new["connection_labels"] = {"codex": labels.pop("codex")}
+        rows.pop("codex", None)
+        tk["connectors"].append(new)
+        splits.append((str(cap.get("id") or ""), new))
+    if not splits:
+        return cfg
+    for path in sorted((realm_root / "agents").glob("*/agent.json")):
+        try:
+            with util.file_lock(path):
+                agent = util.read_json_state(path)
+                if engine_for(realm_root, agent) != "codex":
+                    continue
+                conns = (agent.get("toolkit") or {}).get("connectors")
+                if not isinstance(conns, list):
+                    continue
+                have = {str((g.get("id") if isinstance(g, dict) else g) or "").lower() for g in conns}
+                changed = False
+                for old, new in splits:
+                    if old.lower() in have and new["id"].lower() not in have:
+                        conns.append({"id": new["id"], "name": new["name"], "granted_via": "migration"})
+                        changed = True
+                if changed:
+                    util.write_json_atomic(path, agent)
+        except (OSError, ValueError):
+            continue
+    return cfg
+
+
 # MIGRATIONS[n] upgrades a realm at version n to version n + 1.
 MIGRATIONS: dict[int, Callable[[dict, Path], dict]] = {
     0: _m0_to_1,
     1: _m1_to_2,
     2: _m2_to_3,
+    3: _m3_to_4,
 }
 
 

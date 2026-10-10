@@ -268,6 +268,10 @@ class CapabilityPolicy:
     native_filesystem_ids: frozenset[str] = frozenset()
     provider_bindings: tuple[tuple[str, str, str], ...] = ()
     allowed_app_ids: frozenset[str] = frozenset()
+    # (logical id, engines it may be admitted on). A capability outside an engine's reach, or a
+    # one-engine-at-a-time capability on any engine but its current one, is denied there
+    # (capreach; docs/dev/CAPABILITIES_UPGRADE.md).
+    engine_scope: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 def _policy_json(path: Path) -> dict:
@@ -345,8 +349,11 @@ def execution_policy(realm_root, agent) -> CapabilityPolicy:
         bindings = tuple(row for kind in MCP_KINDS for cap in cat[kind] for row in policy_bindings(cap))
     except ValueError as exc:
         raise CapabilityPolicyError(str(exc)) from exc
+    from .capreach import engine_scope as _scope, ENGINES as _ENGINES
+    scope = tuple((cap["id"], tuple(_scope(kind, cap))) for kind in MCP_KINDS for cap in cat[kind]
+                  if cap.get("id") and tuple(_scope(kind, cap)) != _ENGINES)
     return CapabilityPolicy(frozenset(allowed), tuple(f"mcp__{sid}" for sid in sorted(denied)),
-                            native_filesystem, bindings)
+                            native_filesystem, bindings, engine_scope=scope)
 
 def denied_tool_patterns(realm_root, agent) -> list:
     """Compatibility facade for validated catalogue denials; adapters also gate their inventory."""
@@ -358,6 +365,14 @@ def provider_policy(policy: CapabilityPolicy, provider: str) -> CapabilityPolicy
     if provider not in ("claude", "codex", "gemini"):
         return policy
     from .engine.mcp import registration_id
+    out_of_reach = {sid for sid, engines in policy.engine_scope if provider not in engines}
+    if out_of_reach:
+        # Denied outright on this engine, before any alias mapping: a stale registration left in
+        # the engine (a Claude connector after the owner moved it to Codex) must not admit it.
+        policy = CapabilityPolicy(
+            frozenset(s for s in policy.allowed_mcp_ids if s not in out_of_reach),
+            tuple(sorted(set(policy.denied_tools) | {f"mcp__{s}" for s in out_of_reach})),
+            policy.native_filesystem_ids, policy.provider_bindings, policy.allowed_app_ids)
     if policy.provider_bindings:
         mapping = {logical: actual for logical, engine, actual in policy.provider_bindings if engine == provider}
         # Denials resolve through the same mapping; a denied alias always wins.

@@ -108,7 +108,7 @@ def _cat_card(e: dict, publisher: str, where: list, labels: dict, here: bool = F
             f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
             f'<span style="display:flex;flex:none;color:var(--text-muted)" title="{E(_KIND_SINGULAR.get(kind, kind))}">{_icon(ic,15)}</span>'
             f'<span style="font-family:var(--font-heading);font-weight:600;font-size:13.5px">{E(e.get("name") or e.get("id"))}</span>'
-            f'{src_pill}{where_chip}</div>'
+            f'{_cat_reach_badge(e)}{src_pill}{where_chip}</div>'
             + (f'<div style="font-size:12px;color:var(--text-muted);line-height:1.45;margin-top:4px;'
                f'max-width:640px">{E(e.get("description") or "")}</div>' if e.get("description") else "")
             + (f'<div style="font-size:11px;color:var(--text-42);'
@@ -116,8 +116,19 @@ def _cat_card(e: dict, publisher: str, where: list, labels: dict, here: bool = F
             + f'</div><div>{btn}</div></div>')
 
 
+def _cat_reach_badge(e: dict) -> str:
+    """Which engines can use this once added: any engine, or one (docs/dev/CAPABILITIES_UPGRADE.md)."""
+    from .. import capreach
+    r = capreach.entry_reach(e)
+    if r == "any":
+        return (f'<span class="mc-cat-reach" data-reach="any" title="Works whichever model an agent uses">'
+                f'{_icon("engines-any", 11)}Any engine</span>')
+    return (f'<span class="mc-cat-reach" data-reach="{E(r)}" title="Only agents on {E(capreach.LABEL[r])} '
+            f'models can use this">{_icon(r, 11)}{E(capreach.LABEL[r])} only</span>')
+
+
 def _cat_results(realm, realm_root, q: str = "", source: str = "", kind: str = "",
-                 author: str = "", category: str = "", page: int = 0) -> str:
+                 author: str = "", category: str = "", page: int = 0, reach: str = "") -> str:
     """The results area — re-rendered on its own whenever a filter changes.
 
     ONE list. The registry used to render as a second block below the first, fetched by a call
@@ -156,6 +167,14 @@ def _cat_results(realm, realm_root, q: str = "", source: str = "", kind: str = "
         reg = cat.search(reg_all, kind=kind, author=author, category=category)
     else:
         reg_note = ""      # another source is named; the registry is no part of THIS answer
+
+    # Works with: an engine keeps what that engine can use (any engine, plus its own); "any" keeps
+    # only what every engine can use. Applied to both legs, after their own filters.
+    if reach:
+        from .. import capreach
+        keep = (lambda r: r == "any") if reach == "any" else (lambda r: r in ("any", reach))
+        hits = [e for e in hits if keep(capreach.entry_reach(e))]
+        reg = [e for e in reg if keep(capreach.entry_reach(e))]
 
     # One matching pass over everything on screen, so a live registry result gets the same
     # "already in your realms" mark the mirrored ones do.
@@ -339,6 +358,10 @@ def _catalogue_pane(realm, realm_root) -> str:
     # the registry, so a number here would have been the mirrored half of the answer wearing the
     # whole answer's clothes. Better no number than a number that means something else.
     kind_opts = [(k, _KIND_SINGULAR[k] + "s") for k in ("connectors", "extensions", "skills", "plugins")]
+    # Works with: which model an agent must be on to use a result. Engine first, because it decides
+    # whether a result is any use to the agent you have in mind at all.
+    reach_opts = [("any", "Every engine"), ("claude", "Works with Claude"),
+                  ("codex", "Works with Codex"), ("gemini", "Works with Gemini")]
     faint = "var(--text-faint)"
     bar = (f'<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px">'
            f'<div style="position:relative;flex:0 0 200px">'
@@ -350,6 +373,7 @@ def _catalogue_pane(realm, realm_root) -> str:
            f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:{faint}">{_icon("x",14)}</span></div>'
            f'<span style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;'
            f'color:{faint}">Filter</span>'
+           f'{sel("cat-reach", "Works with any", reach_opts, width="170px")}'
            f'{sel("cat-source", "All sources", src_opts, width="170px")}'
            f'{sel("cat-kind", "All types", kind_opts, width="140px")}'
            f'{sel("cat-author", "Any publisher", [(v, v) for v, n in f["author"][:40]], width="180px")}'

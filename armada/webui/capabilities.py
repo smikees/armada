@@ -117,8 +117,9 @@ _CONNECTOR_MODAL = (
     'font-weight:600;font-size:17px" id="mc-conn-title">Add a connector</div>'
     '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcConnClose()">Close</button></div>'
     '<div class="mc-conn-form-body">'
-    '<p class="mc-conn-intro">One connector, separate connections for each engine. '
-    'Choose a service, then connect each engine you use with its own sign-in.</p>'
+    '<p class="mc-conn-intro">Choose a service. An open server works with every engine, each signing in '
+    'separately; a service that lives in a provider’s account is added for one engine and appears under '
+    'that engine on this page.</p>'
     '<label class="mc-label" for="mc-conn-mode">Add from</label>'
     '<select id="mc-conn-mode" class="mc-field" onchange="mcConnectorMode()">'
     '<option value="native">Find a service</option><option value="existing">Import an existing connection</option>'
@@ -136,7 +137,8 @@ _CONNECTOR_MODAL = (
               f'data-search="{E((s["name"]+" "+s["aliases"]).lower())}" data-category="{E(s["category"])}" '
               f'data-engines="{"claude codex gemini" if s.get("endpoint") else "claude codex"}" '
               f'onclick="mcConnectorSelect(this.dataset.service)" aria-pressed="false">'
-              f'{_icon("cap-connector",16)}<span><strong>{E(s["name"])}</strong><small>{E(s["category"])}</small></span>'
+              f'{_icon("cap-connector",16)}<span><strong>{E(s["name"])}</strong><small>{E(s["category"])} · '
+              f'{"Any engine" if s.get("endpoint") else "Claude or Codex, added per engine"}</small></span>'
               f'{_icon("chevron-right",12)}</button>' for s in _CONNECTOR_SERVICES) + '</div>'
     '<p id="mc-conn-empty" class="mc-conn-intro" hidden>No matching service here. Import a connection from your engine, '
     'or use a custom MCP server.</p>'
@@ -202,6 +204,28 @@ def _tab_skills(realm, realm_root, a) -> str:
                f'Give or remove access on the <a href="/skills" style="color:var(--color-accent-2);'
                f'text-decoration:none">Capabilities page</a>, by dragging an agent onto a '
                f'capability there.')
+
+    # Which engine this agent runs on, and anything granted that this engine can't use — said at the
+    # top, because it is the answer to "why didn't Warren use IBKR" before anyone has to ask it.
+    from .. import capreach
+    from ..engine.selection import engine_for
+    try:
+        eng = engine_for(realm_root, a.id)
+        lost = capreach.impact(realm_root, a.id, eng)
+    except Exception:  # noqa
+        swallowed(log, '_tab_skills: reach unreadable; omitting the summary')
+        eng, lost = "", []
+    if eng in capreach.ENGINES:
+        if lost:
+            items = "".join(f'<li>{E(x["why"])}</li>' for x in lost)
+            why += (f'<div class="mc-reach-summary" data-state="loses">{_icon(eng, 13)}'
+                    f'<div><b>{E(a.display)} runs on {E(capreach.LABEL[eng])}.</b> '
+                    f'{len(lost)} of these can\'t be used there:<ul>{items}</ul>'
+                    f'Switch the model, or move or add the connection on the Capabilities page.</div></div>')
+        else:
+            why += (f'<div class="mc-reach-summary" data-state="ok">{_icon(eng, 13)}'
+                    f'<div><b>{E(a.display)} runs on {E(capreach.LABEL[eng])}.</b> '
+                    f'Everything below works there.</div></div>')
 
     # This page answers one question — what can this agent use — and every control that belongs to
     # the catalogue (Manage, the connector refresh, updates) lives on the realm page. Repeating
@@ -340,19 +364,87 @@ def _cap_conn_info(it: dict, kind: str, ok: bool) -> str:
             f'<span style="display:flex">{_icon("circle-x", 13)}</span>{E(lab)}</span>')
 
 
-def _provider_badges(it: dict) -> str:
+_ENGINE_ROWS = (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini"))
+
+
+def _provider_badges(it: dict, engines=None) -> str:
+    """Live sign-in chips, one per engine this connector can be used with right now."""
     sid = E(str(it.get("id") or it.get("name") or ""))
     return ''.join(
         f'<span class="mc-conn-badge" data-cap="{sid}" data-provider="{provider}" '
         f'data-state="checking" title="Checking {label} connector status">'
         f'{_icon(provider, 11)}<span>{label}</span><span class="mc-conn-mark" aria-label="Checking">{_icon("loader",13)}</span></span>'
-        for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")))
+        for provider, label in _ENGINE_ROWS if engines is None or provider in engines)
 
 
-def _connector_controls(it: dict) -> str:
+# ---- engine reach (capreach; docs/dev/CAPABILITIES_UPGRADE.md) --------------------------------
+# Sections run Any engine → Claude → Codex → Gemini: the broadest first, because that is the list
+# an owner can grant without thinking about which model an agent is on.
+_REACH_TITLE = {"any": "Any engine", "claude": "Claude only", "codex": "Codex only", "gemini": "Gemini only"}
+_REACH_DESC = {
+    "any": "Works whichever model an agent uses. Connectors still need a sign-in in each engine "
+           "you use, shown on each row.",
+    "claude": "Only agents on Claude models can use these: connectors hosted in your Claude account "
+              "and Claude Code plugins.",
+    "codex": "Only agents on Codex models can use these: apps in your ChatGPT account.",
+    "gemini": "Only agents on Gemini models can use these.",
+}
+_REACH_EMPTY = {
+    "claude": "Nothing Claude-only. Connectors you add for Claude appear here.",
+    "codex": "Nothing Codex-only. ChatGPT apps you add for Codex appear here.",
+    "gemini": "Nothing Gemini-only.",
+}
+
+
+def _reach_mark(scope: str, size: int = 15) -> str:
+    if scope == "any":
+        return f'<span class="mc-reach-mark" data-reach="any">{_icon("engines-any", size)}</span>'
+    return f'<span class="mc-reach-mark" data-reach="{E(scope)}">{_provider_logo(scope, size, connected=True)}</span>'
+
+
+def _reach_badges(r) -> str:
+    """The badges a card earns from its reach: single-engine, and one engine at a time."""
+    from .. import capreach
+    out = ""
+    if r.scope in capreach.ENGINES:
+        out += (f'<span class="mc-reach-badge" data-reach="{r.scope}" title="{E(r.why)}">'
+                f'{_icon(r.scope, 11)}{E(capreach.LABEL[r.scope])} only</span>')
+    if r.exclusive:
+        out += (f'<span class="mc-reach-badge mc-reach-x" title="{E(r.exclusive_why)}">'
+                f'{_icon("swap", 11)}One engine at a time · on {E(capreach.LABEL[r.engine])}</span>')
+    return out
+
+
+def _reach_row(it: dict, kind: str, r, manage) -> str:
+    """The expanded 'Works with' row: an engine strip, the reason, and Move for one-at-a-time."""
+    from .. import capreach
+    cid = str(it.get("id") or it.get("name") or "")
+    strip = ""
+    for e in capreach.ENGINES:
+        ok = r.available_on(e)
+        state = "ok" if ok else ("held" if e in r.engines else "no")
+        tip = ("Works with " + capreach.LABEL[e]) if ok else r.blocked_reason(e, it.get("name") or cid)
+        strip += (f'<span class="mc-reach-eng" data-state="{state}" title="{E(tip)}">'
+                  f'{_icon(e, 13)}{E(capreach.LABEL[e])}'
+                  f'<span class="mc-reach-tick">{_icon("check" if ok else "x", 11)}</span></span>')
+    body = f'<div class="mc-reach-strip">{strip}</div><p class="mc-reach-why">{E(r.how)} · {E(r.why)}</p>'
+    if r.exclusive:
+        body += f'<p class="mc-reach-why">{E(r.exclusive_why)}</p>'
+        if manage:
+            moves = "".join(
+                f'<button type="button" class="btn btn-secondary btn-sm" '
+                f'onclick="mcReachMove(this,{_J(cid)},\'{e}\')">{_icon("swap", 13)}Move to {E(capreach.LABEL[e])}</button>'
+                for e in r.engines if e != r.engine)
+            body += f'<div class="mc-reach-actions">{moves}</div>'
+    return f'<div class="k">Works with</div><div class="mc-reach-panel">{body}</div>'
+
+
+def _connector_controls(it: dict, engines=None, reach=None) -> str:
     sid = E(str(it.get("id") or it.get("name") or ""))
     rows = []
-    for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")):
+    for provider, label in _ENGINE_ROWS:
+        if engines is not None and provider not in engines:
+            continue
         account = (it.get('connection_labels') or {}).get(provider) or it.get('account_label')
         rows.append(
             f'<div class="mc-conn-detail" data-cap="{sid}" data-provider="{provider}" data-state="checking">'
@@ -382,9 +474,15 @@ def _connector_controls(it: dict) -> str:
             '<a class="mc-conn-guide" target="_blank" rel="noopener" hidden>Provider setup guide ↗</a>'
             '<a class="mc-conn-service-guide" target="_blank" rel="noopener" hidden>Service OAuth setup ↗</a>'
             '</div></div></div>')
-    return ('<div class="mc-conn-panel"><p class="mc-conn-intro">Connect each provider you use. '
-            'Connections can coexist; agent access is shared. Review each integration’s permissions before linking it. '
-            'Unlinking here leaves its sign-in in the engine intact.</p>' + ''.join(rows) + '</div>')
+    if reach is not None and reach.exclusive:
+        intro = (f'Connected to {E(reach.engine.title())} only: this service allows one engine at a time. '
+                 'Move it under Works with to use another engine. Unlinking leaves its sign-in in the engine intact.')
+    elif engines is not None and len(engines) == 1:
+        intro = ('This connector exists for one engine only. Unlinking leaves its sign-in in the engine intact.')
+    else:
+        intro = ('Connect each engine you use; each signs in separately and ARMADA never copies a sign-in. '
+                 'Agent access is shared. Unlinking here leaves its sign-in in the engine intact.')
+    return ('<div class="mc-conn-panel"><p class="mc-conn-intro">' + intro + '</p>' + ''.join(rows) + '</div>')
 _KIND_SINGULAR = {"connectors": "Connector", "extensions": "Extension",
                   "skills": "Skill", "plugins": "Plugin"}
 
@@ -579,6 +677,16 @@ def _cap_advanced(it: dict, kind: str, manage) -> str:
           "background:var(--color-bg);color:var(--color-text);font:inherit;font-size:12px")
     opts = ("".join(f'<option value="{v}" {"selected" if v==perm else ""}>{lab}</option>'
                     for v, lab in (("allow", "Always allow"), ("ask", "Ask the owner first"))))
+    once = ""
+    r = _cap_reach(it, kind)
+    if manage == "realm" and kind in ("connectors", "extensions") and r is not None and r.scope == "any":
+        on = r.exclusive
+        once = (f'<label class="mc-reach-once"><input type="checkbox" {"checked" if on else ""} '
+                f'onchange="mcReachExclusive(this,{_J(str(it.get("id") or ""))})">'
+                f'<span>One engine at a time</span></label>'
+                f'<div style="font-size:10.5px;color:var(--text-muted);margin-top:4px;line-height:1.4">'
+                f'For a service that disconnects the previous AI platform when another one signs in. '
+                f'Agents on other engines stop being offered it until you move it.</div>')
     return (f'<details class="mc-cap-adv" onclick="event.stopPropagation()">'
             f'<summary>{_icon("chevron-right",12)}Advanced</summary>'
             f'<div class="mc-cap-advbody">'
@@ -587,7 +695,9 @@ def _cap_advanced(it: dict, kind: str, manage) -> str:
             f'<select onchange="mcCapPerm(this,\'{manage}\',\'{kind}\',\'{iid}\')" style="{fs}">{opts}</select></div>'
             f'<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px;line-height:1.4">'
             f'Guides the agents (via their context) for this whole capability. Per-tool controls and hard '
-            f'enforcement land with the engine-permission work.</div></div></details>')
+            f'enforcement land with the engine-permission work.</div>'
+            + (f'<div style="margin-top:12px">{once}</div>' if once else '')
+            + '</div></details>')
 
 
 def _cap_agents(realm, realm_root, it: dict) -> tuple:
@@ -612,6 +722,32 @@ def _cap_agents(realm, realm_root, it: dict) -> tuple:
     return coords, granted
 
 
+def _cap_reach(it: dict, kind: str):
+    """capreach.Reach for a realm card, or None for a kind it doesn't describe."""
+    if kind not in ("connectors", "extensions", "skills", "plugins"):
+        return None
+    from .. import capreach
+    return capreach.reach(kind, it)
+
+
+def _cap_blocked_agents(realm_root, it: dict, kind: str, agents) -> dict:
+    """{agent id: engine} for agents whose current engine can't use this capability."""
+    r = _cap_reach(it, kind)
+    if r is None:
+        return {}
+    from ..engine.selection import engine_for
+    out = {}
+    for a in agents:
+        try:
+            e = engine_for(realm_root, a.id)
+        except Exception:  # noqa — an unreadable agent shouldn't blank the row
+            swallowed(log, '_cap_blocked_agents: failed; skipping this one')
+            continue
+        if not r.available_on(e):
+            out[a.id] = e
+    return out
+
+
 def _cap_availto_label(realm, coords, granted) -> str:
     """The collapsed-row summary: 'Coordinator + 4 agents', or '4 agents' where there's no coordinator."""
     n = len(granted)
@@ -623,15 +759,21 @@ def _cap_availto_label(realm, coords, granted) -> str:
     return f"{n} agent{'s' if n != 1 else ''}"
 
 
-def _cap_availto_cell(realm, realm_root, it: dict) -> str:
+def _cap_availto_cell(realm, realm_root, it: dict, kind: str = "") -> str:
     coords, granted = _cap_agents(realm, realm_root, it)
     label = _cap_availto_label(realm, coords, granted)
     muted = "var(--text-faint)"
     col = muted if (not coords and not granted) else "var(--text-strong)"
+    blocked = _cap_blocked_agents(realm_root, it, kind, coords + granted) if kind else {}
+    warn = ""
+    if blocked:
+        n = len(blocked)
+        warn = (f'<span class="mc-reach-warn" title="{n} of them run on an engine that can\'t use this">'
+                f'{_icon("warning-tri", 11)}{n} can\'t use it</span>')
     return (f'<span style="min-width:0;display:flex;flex-direction:column;gap:2px">'
             f'<span style="font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:{muted}">Available to</span>'
             f'<span style="font-size:11.5px;color:{col};overflow:hidden;text-overflow:ellipsis;'
-            f'white-space:nowrap">{E(label)}</span></span>')
+            f'white-space:nowrap">{E(label)}</span>{warn}</span>')
 
 
 def _cap_availto_chips(realm, realm_root, it: dict, kind: str) -> str:
@@ -648,14 +790,25 @@ def _cap_availto_chips(realm, realm_root, it: dict, kind: str) -> str:
                      "border:1px solid var(--color-divider);"
                      "color:var(--text-62)")
     out = ""
+    from .. import capreach
+    blocked = _cap_blocked_agents(realm_root, it, kind, coords + granted)
+
+    def cant(a) -> str:
+        e = blocked.get(a.id)
+        if not e:
+            return ""
+        r = _cap_reach(it, kind)
+        why = r.blocked_reason(e, str(it.get("name") or it.get("id") or "")) if r else ""
+        return (f'<span class="mc-reach-cant" title="{E(why)}">{_icon(e, 10)}'
+                f'on {E(capreach.LABEL.get(e, e))} · can\'t use it</span>')
     for c in coords:
         out += (f'<span title="{E(realm.theme_coordinator)} — can use every capability" '
                 f'style="{pinned};padding-right:9px">{_portrait(realm_root, c, 18)}{E(c.display)}'
-                f'<span style="display:inline-flex;color:var(--text-38)">'
+                f'{cant(c)}<span style="display:inline-flex;color:var(--text-38)">'
                 f'{_icon("pin",11)}</span></span>')
     for a in granted:
-        readiness = ''
-        if kind == 'connectors':
+        readiness = cant(a)
+        if kind == 'connectors' and not readiness:
             from ..engine.selection import engine_for
             readiness = (f'<span class="mc-conn-agent-state" data-cap="{cid}" '
                          f'data-provider="{E(engine_for(realm_root, a.id))}">Checking engine…</span>')
@@ -699,12 +852,16 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
             + (f'<div class="k">Published by</div><div>{E(str(it.get("made_by")))}</div>'
                if it.get("made_by") else "")
             + f'<div class="k">Persistence</div><div>{pchip} &nbsp;{E(pnote)}</div>')
+    r = _cap_reach(it, kind)
+    if r is not None and not it.get("preview"):
+        rows += _reach_row(it, kind, r, manage)
     if realm is not None and realm_root is not None:
         rows += (f'<div class="k">Available to</div>'
                  f'<div class="mc-cap-availto" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
                  f'{_cap_availto_chips(realm, realm_root, it, kind)}</div>')
     if kind == "connectors" and realm is not None:
-        rows += '<div class="k">Connections</div><div>' + _connector_controls(it) + '</div>'
+        rows += ('<div class="k">Connections</div><div>'
+                 + _connector_controls(it, r.usable_engines if r else None, r) + '</div>')
     ver = str(it.get("version") or "").strip()
     upd = _cap_has_update(it)
     if ver or upd:
@@ -770,9 +927,11 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
     if realm is not None and realm_root is not None:
         _co, _gr = _cap_agents(realm, realm_root, it)
         avail_ids = " ".join(a.id for a in (_co + _gr))
+    reach = _cap_reach(it, kind)
     data = (f'data-owner="{E(str(manage or ""))}" data-source="{E(src_grp)}" data-tier="{tier}" '
             f'data-runs="{E((it.get("runs") or "").lower())}" data-kind="{E(kind)}" '
-            f'data-cap="{E(str(it.get("id") or it.get("name") or ""))}" data-agents="{E(avail_ids)}"')
+            f'data-cap="{E(str(it.get("id") or it.get("name") or ""))}" data-agents="{E(avail_ids)}"'
+            + (f' data-reach="{reach.scope}"' if reach is not None else ''))
     # A capability you just added has no connection state worth reporting yet — it has not been
     # installed or signed in to. "Planned", in red, read as something having gone wrong.
     is_new = _cap_is_new(it, realm, realm_root, kind)
@@ -813,13 +972,14 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
             f'<span title="{tlab}" style="display:flex;flex:none;color:var(--text-62)">{_icon(ic,15)}</span>'
             f'<span style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{name}</span>{conn_info}{upd_badge}</span>'
             f'<span style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-left:22px">{_cap_source_pill(it)}'
-            f'{_provider_badges(it) if kind == "connectors" and realm is not None and not it.get("preview") else ""}'
+            f'{_reach_badges(reach) if reach is not None and not it.get("preview") else ""}'
+            f'{_provider_badges(it, reach.usable_engines if reach else None) if kind == "connectors" and realm is not None and not it.get("preview") else ""}'
             f'{inh}</span></span>')
     col5 = (f'<span style="display:flex;gap:7px;align-items:center;justify-self:end">{selection}{toggle}{ed}{dl}</span>')
     droppable = ""
     availto = ""
     if realm is not None and realm_root is not None:
-        availto = _cap_availto_cell(realm, realm_root, it)
+        availto = _cap_availto_cell(realm, realm_root, it, kind)
         droppable = (f' ondragover="mcCapDragOver(event)" ondragleave="mcCapDragLeave(event)" '
                      f'ondrop="mcCapDrop(event,{_J(str(it.get("id") or it.get("name") or ""))})"')
     # The tier colour bleeds ~8px in from the left border and fades out, so a card reads as the
@@ -998,6 +1158,22 @@ def _cap_roster(realm, realm_root) -> str:
             f'<b class="mc-rc-n" style="font-weight:600;font-size:10.5px;'
             f'font-variant-numeric:tabular-nums">{len(grants.get(k) or [])}</b></span>'
             for k, ic in _KINDS)
+        # Which engine the agent runs on, and how many of its grants that engine can't use: the
+        # two facts you need before dragging it onto a Claude-only connector.
+        from .. import capreach
+        from ..engine.selection import engine_for
+        try:
+            eng = engine_for(realm_root, a.id)
+            lost = capreach.impact(realm_root, a.id, eng)
+        except Exception:  # noqa
+            swallowed(log, '_cap_roster: reach unreadable; omitting it')
+            eng, lost = "", []
+        engmark = (f'<span class="mc-roster-eng" title="Runs on {E(capreach.LABEL.get(eng, eng))}">'
+                   f'{_icon(eng, 11)}</span>' if eng in capreach.ENGINES else "")
+        if lost:
+            names = ", ".join(x["name"] for x in lost[:4]) + ("…" if len(lost) > 4 else "")
+            engmark += (f'<span class="mc-reach-warn" title="Can\'t use on {E(capreach.LABEL.get(eng, eng))}: '
+                        f'{E(names)}">{_icon("warning-tri", 11)}{len(lost)}</span>')
         chips += (f'<div draggable="true" ondragstart="mcCapDragStart(event,{_J(a.id)})" class="mc-rosteragent" '
                   f'style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--color-divider);'
                   f'border-radius:var(--r);background:var(--color-bg);cursor:grab;margin-bottom:6px;font-size:12.5px">'
@@ -1010,7 +1186,7 @@ def _cap_roster(realm, realm_root) -> str:
                   # four numbers read as a column you can scan rather than four that wander with
                   # the length of each name.
                   f'<span style="flex:0 0 96px;min-width:0;overflow:hidden;text-overflow:ellipsis;'
-                  f'white-space:nowrap" title="{E(a.display)}">{E(a.display)}</span>'
+                  f'white-space:nowrap" title="{E(a.display)}">{E(a.display)}</span>{engmark}'
                   f'<span style="display:flex;align-items:center;gap:7px;margin-left:auto">{counts}</span>'
                   f'</div>')
     if not chips:
@@ -1083,17 +1259,109 @@ def _system_panel() -> str:
 
 
 
+def _reach_hint(realm_root, agent_id: str, select_id: str, job: dict | None = None,
+                job_id: str = "") -> str:
+    """The line under a model picker: what this agent (or job) can use on the chosen model's engine.
+
+    Rendered with the current answer so it is right before any script runs; reachhint.js asks the
+    server again whenever the selection changes. One sentence, then the reasons as a short list.
+    """
+    from .. import capreach
+    from ..assets import REACHHINT_JS
+    try:
+        a = util_read(realm_root, agent_id)
+        eng = capreach.agent_engine(realm_root, a, job)
+        lost = capreach.impact(realm_root, agent_id, eng)
+        text = capreach.impact_text(a.get("display") or agent_id, eng, lost)
+    except Exception:  # noqa — a hint is not worth breaking the settings page for
+        swallowed(log, '_reach_hint: failed; rendering an empty hint')
+        eng, lost, text = "", [], ""
+    items = "".join(f'<li>{E(x["why"])}</li>' for x in lost)
+    return (f'<div class="mc-reach-hint" data-reach-hint data-reach-for="{E(select_id)}" '
+            f'data-agent="{E(agent_id)}" data-job="{E(job_id)}" data-engine="{E(eng)}" '
+            f'data-state="{"loses" if lost else "ok"}" aria-live="polite">'
+            f'{_icon("engines-any", 13)}<div><span data-text>{E(text)}</span>'
+            f'<ul data-list{"" if lost else " hidden"}>{items}</ul></div></div>{REACHHINT_JS}')
+
+
+def util_read(realm_root, agent_id: str) -> dict:
+    from ..engine.selection import read_config
+    return read_config(Path(realm_root) / "agents" / agent_id / "agent.json")
+
+
+_KIND_GROUPS = (("connectors", "Connectors", "cap-connector"), ("extensions", "Extensions", "puzzle"),
+                ("skills", "Skills", "cap-skill"), ("plugins", "Plugins", "cap-plugin"))
+
+
+def _reach_sections(realm, realm_root, tk: dict) -> str:
+    """The User tab's catalogue, grouped by which engines can use it (docs/dev/CAPABILITIES_UPGRADE.md).
+
+    One switcher above the sections (All · Any engine · Claude · Codex · Gemini) and one section per
+    reach. The kind groups live inside each section, so a connector's place on the page already says
+    which models can use it before you open it. Engine sections for engines the realm doesn't use are
+    left out unless something is in them; an empty one for an engine in use says what would go there.
+    """
+    from .. import capreach
+    from ..engine.selection import enabled_providers
+    try:
+        engines_on = set(enabled_providers(realm_root))
+    except Exception:  # noqa — a layout preference is not worth breaking the page for
+        swallowed(log, '_reach_sections: provider list unreadable; showing all engines')
+        engines_on = set(capreach.ENGINES)
+    # …and every engine an agent actually runs on, even one switched off in the picker since: the
+    # section is how its owner sees what that agent can reach.
+    from ..engine.selection import engine_for
+    for a in getattr(realm, "agents", []) or []:
+        try:
+            engines_on.add(engine_for(realm_root, a.id))
+        except Exception:  # noqa
+            swallowed(log, '_reach_sections: agent engine unreadable; skipping it')
+    by = {s: {k: [] for k, _t, _i in _KIND_GROUPS} for s in capreach.SCOPES}
+    for kind, _t, _i in _KIND_GROUPS:
+        for it in tk.get(kind) or []:
+            by[capreach.reach(kind, it).scope][kind].append(it)
+    counts = {s: sum(len(v) for v in by[s].values()) for s in capreach.SCOPES}
+    shown = [s for s in capreach.SCOPES if s == "any" or counts[s] or s in engines_on]
+    ctx = {"realm": realm, "realm_root": realm_root}
+    secs = ""
+    for s in shown:
+        groups = "".join(_tool_group(title, icon, by[s][kind], manage="realm", **ctx)
+                         for kind, title, icon in _KIND_GROUPS if by[s][kind])
+        if not groups:
+            groups = (f'<div class="mc-reach-empty">'
+                      f'{E(_REACH_EMPTY.get(s, "Nothing here yet. Add a capability to get started."))}</div>')
+        secs += (f'<section class="mc-reach-sec" data-reach-sec="{s}" aria-labelledby="mc-reach-h-{s}">'
+                 f'<header class="mc-reach-head">{_reach_mark(s, 18)}'
+                 f'<div class="mc-reach-headtext"><h2 id="mc-reach-h-{s}" class="mc-reach-title">'
+                 f'{E(_REACH_TITLE[s])}<span class="mc-reach-count">{counts[s]}</span></h2>'
+                 f'<p class="mc-reach-sub">{E(_REACH_DESC[s])}</p></div></header>'
+                 f'<div class="mc-reach-body">{groups}</div></section>')
+    pills = (f'<button type="button" class="mc-reach-pill" data-reach="" aria-pressed="true" '
+             f'onclick="mcReachPick(this)">All<span>{sum(counts.values())}</span></button>')
+    for s in shown:
+        pills += (f'<button type="button" class="mc-reach-pill" data-reach="{s}" aria-pressed="false" '
+                  f'onclick="mcReachPick(this)">{_reach_mark(s, 13)}{E(capreach.LABEL[s])}'
+                  f'<span>{counts[s]}</span></button>')
+    toolbar = (f'<div class="mc-reach-bar">'
+               f'<div class="mc-reach-switch" role="group" aria-label="Show capabilities by engine">{pills}</div>'
+               f'<div class="mc-reach-tools">'
+               f'<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorAdd()">'
+               f'{_icon("plus", 13)}Add a connector</button>'
+               f'<button type="button" class="mc-iconbtn" onclick="mcConnectorRefresh(this)" '
+               f'title="Import a connection from any engine">{_icon("refresh-cw",14)}</button>'
+               f'<span class="mc-connref-msg" style="font-size:11px;color:var(--text-muted)"></span></div></div>')
+    return f'<div class="mc-cap-region">{toolbar}{secs}</div>' + _REACH_JS
+
+
+from ..assets import CAPREACH_JS as _REACH_JS
+
+
 # The Capabilities page: User tab (above), System tab, and the Catalogue tab (catalogue.py,
 # Phase 2, 2.4) stitched into one page with client-side tab switching.
 def _realm_skills(realm, realm_root) -> str:
     tk = _realm_toolkit(realm_root)
     _hd = 'font-family:var(--font-heading);font-weight:600;font-size:16px;margin:0 0 10px'
-    _ctx = {"realm": realm, "realm_root": realm_root, "allow_refresh": True}
-    realm_grps = (f'{_tool_group("Connectors", "cap-connector", tk["connectors"], manage="realm", **_ctx)}'
-                  f'{_tool_group("Extensions", "puzzle", tk["extensions"], manage="realm", **_ctx)}'
-                  f'{_tool_group("Skills", "cap-skill", tk["skills"], manage="realm", **_ctx)}'
-                  f'{_tool_group("Plugins", "cap-plugin", tk["plugins"], manage="realm", **_ctx)}')
-    realm_region = f'<div class="mc-cap-region"><div style="{_hd}">Realm-wide</div>{realm_grps}</div>'
+    realm_region = _reach_sections(realm, realm_root, tk)
     # "Available to" rather than "All owners": a capability has no owner now, it has a list of
     # agents allowed to use it, and the filter should ask the question the page answers. Every
     # agent is listed, not only those with their own entries — the useful query is "what can

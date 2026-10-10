@@ -33,7 +33,7 @@ from .realmpages import (_health_square, _health7_header, _job_health7, _status_
                          _job_list, _job_cost_pill, _job_token_estimate)
 from .memoryview import _tab_memory, _agent_memory
 from .capabilities import (_tab_skills, _agent_toolkit, _realm_toolkit, _cap_manage_btn,
-    _tool_group, _tool_row, _toolkit_from)
+    _tool_group, _tool_row, _toolkit_from, _reach_hint)
 from ..assets import (AGENT_COLOR_JS as _AGENT_COLOR_JS, APPOINT_JS as _APPOINT_JS,
     ARTEFACTS_JS as _ARTEFACTS_JS, AUTONOMY_JS as _AUTONOMY_JS, FDROP_JS as _FDROP_JS,
     JOB_PROPOSAL_JS as _JOB_PROPOSAL_JS, JOBCAL_JS as _JOBCAL_JS, JOBS_FILTER_JS as _JOBS_FILTER_JS,
@@ -416,7 +416,8 @@ def _tab_configure(realm, realm_root, a) -> str:
             # the behavioural ones — it belongs to how the agent looks, not how it acts.
             f'<div style="grid-column:1 / 3"><label style="{lbl}">Agent colour — shows up in token usage breakdowns, etc.</label>{_agent_color_control(cur_color, "c-color", str(realm_root.resolve()) + ":" + a.id)}</div>'
             f'<div style="grid-column:1 / 3"><label style="{lbl}">Autonomy</label>{_autonomy_control(autonomy, "c-autonomy")}</div>'
-            f'<div><label style="{lbl}">Model</label><select id="c-model" data-provider-models style="{field}">{model_opts}</select></div>'
+            f'<div><label style="{lbl}">Model</label><select id="c-model" data-provider-models style="{field}">{model_opts}</select>'
+            f'{_reach_hint(realm_root, a.id, "c-model")}</div>'
             f'<div><label style="{lbl}">Effort</label><select id="c-effort" style="{field}">{effort_opts}</select></div>'
             f'<div style="grid-column:1 / 3"><label style="{lbl}">Verbosity</label>'
             f'<select id="c-verbosity" style="{field};max-width:340px">{verb_opts}</select>'

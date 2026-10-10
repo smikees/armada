@@ -1,5 +1,10 @@
 # Provider connections for connectors
 
+> **0.99.100:** engine reach supersedes parts of this design. One row reaches one service: provider-hosted
+> services are added per engine, a ChatGPT app is never linked onto a Claude connector or an open server,
+> and one-engine-at-a-time services are admitted only on their current engine. See
+> [CAPABILITIES_UPGRADE.md](CAPABILITIES_UPGRADE.md).
+
 ## Service discovery and connection design
 
 The Add dialog follows the existing ARMADA capability UI and the token contract in

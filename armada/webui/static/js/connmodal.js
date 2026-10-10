@@ -8,12 +8,34 @@ function mcConnectorSelect(id){
   const panel=document.getElementById('mc-conn-service-detail');panel.replaceChildren();
   const title=document.createElement('strong');title.textContent=service.name;panel.append(title);
   const summary=document.createElement('p');summary.textContent=service.description;panel.append(summary);
-  Object.entries(service.engines).forEach(([engine,note])=>{
-    const row=document.createElement('p'),label=document.createElement('b');
-    label.textContent=engine.charAt(0).toUpperCase()+engine.slice(1)+': ';row.append(label,document.createTextNode(note));panel.append(row);
-  });
+  // An open server is one connector for every engine. A provider-hosted service is a different
+  // service in each provider's account, so it is added for one engine at a time, as its own row
+  // (docs/dev/CAPABILITIES_UPGRADE.md). Gemini is shown, disabled, when it has no version.
+  if(service.endpoint){
+    const row=document.createElement('p');row.className='mc-conn-anyengine';
+    row.textContent='Works with every engine: one connector, and each engine signs in separately.';panel.append(row);
+  }else{
+    const group=document.createElement('div');group.className='mc-conn-engines';group.setAttribute('role','radiogroup');
+    group.setAttribute('aria-label','Which engine is this connection for?');
+    const heading=document.createElement('p');heading.textContent='Which engine is this connection for? Each engine has its own version.';
+    panel.append(heading);
+    [['claude','Claude','A connector in your Claude account.'],['codex','Codex','A native app in your ChatGPT account.'],
+     ['gemini','Gemini','No Gemini version of this service yet.']].forEach(([engine,label,fallback])=>{
+      const available=engine!=='gemini';
+      const option=document.createElement('label');option.className='mc-conn-engine';
+      if(!available)option.setAttribute('aria-disabled','true');
+      const input=document.createElement('input');input.type='radio';input.name='mc-conn-for';input.value=engine;
+      input.disabled=!available;input.checked=engine===(mcConnectorEngineChoice||'claude');
+      input.addEventListener('change',()=>{mcConnectorEngineChoice=engine;});
+      const text=document.createElement('span'),strong=document.createElement('strong'),note=document.createElement('small');
+      strong.textContent=label+(available?'':' · not available');note.textContent=(service.engines||{})[engine]||fallback;
+      text.append(strong,note);option.append(input,text);group.append(option);
+    });
+    panel.append(group);
+  }
   document.getElementById('mc-conn-add-submit').disabled=false;
 }
+let mcConnectorEngineChoice='claude';
 function mcConnectorSearch(){
   const query=document.getElementById('mc-conn-search').value.trim().toLowerCase();
   const category=document.getElementById('mc-conn-category').value,engine=document.getElementById('mc-conn-filter-engine').value;
@@ -98,6 +120,8 @@ async function mcConnectorSave(button){
     const data=await mcConnectorAction({action:mcConnectorTarget?'bind':'add',capability:mcConnectorTarget,
       account_label:document.getElementById('mc-conn-account').value,
       service:document.getElementById('mc-conn-mode').value==='native'?document.getElementById('mc-conn-service').value:'',
+      engine:document.getElementById('mc-conn-mode').value==='native'&&!mcConnectorTarget?
+        ((document.querySelector('input[name="mc-conn-for"]:checked')||{}).value||''):'',
       name:document.getElementById('mc-conn-name').value,url:existing?'':document.getElementById('mc-conn-url').value.trim(),
       provider:existing?document.getElementById('mc-conn-engine').value:'',
       server_name:existing?document.getElementById('mc-conn-registration').value:''});

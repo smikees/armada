@@ -34,7 +34,7 @@ Names and safe remote URLs only. Headers, env, OAuth and local commands stay pri
 
 A linked name cannot silently start pointing an agent at another service.
 
-### `save(realm_root, *, name='', url='', provider='', server_name='', capability='', service='', account_label='')`
+### `save(realm_root, *, name='', url='', provider='', server_name='', capability='', service='', account_label='', engine='')`
 
 Add a remote connector or explicitly link one existing engine registration.
 

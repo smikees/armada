@@ -12,6 +12,14 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.100** arranges capabilities by engine reach: Any engine, Claude only, Codex only and
+Gemini only, with a section switcher, Works-with strips and per-engine sign-in chips only where a
+capability can work. One-engine-at-a-time services (Interactive Brokers, or any the owner marks) carry a
+current engine, a previewed Move and enforcement in the execution policy. Model pickers show what an agent
+keeps on the chosen engine; runs name withheld capabilities to the agent. Provider-hosted connectors are
+added per engine, and realm format v4 splits rows that 0.99.99 linked to two services.
+[Implementation plan](dev/CAPABILITIES_UPGRADE.md) · [verification](dev/RELEASE_0_99_100.md).
+
 Version **0.99.99** adds service-first connector discovery, independent engine bindings and
 native Codex app admission. Account labels stay explicitly unverified, unlinking is scoped to
 one realm/engine, and model switches prompt connector review. The release also updates the

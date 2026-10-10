@@ -31,7 +31,7 @@ class CatalogueRoutes:
         self._send(200, webui.render_catalogue_results(
             reader.read(self.realm), self.realm, q=q.get("q", ""), source=q.get("source", ""),
             kind=q.get("kind", ""), author=q.get("author", ""), category=q.get("category", ""),
-            page=page))
+            reach=q.get("reach", ""), page=page))
 
     def _catalogue_refresh(self, body: dict) -> dict:
         """Re-read the mirrored sources now, rather than waiting for the daily job."""

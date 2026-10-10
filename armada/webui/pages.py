@@ -17,6 +17,7 @@ from ..assets import (INBOX_JS as _INBOX_JS_ASSET, STA2A_TOGGLE_JS as _STA2A_TOG
 # their names exactly as they did inside _core.
 globals().update({k: v for k, v in vars(_core).items() if not k.startswith('__')})
 from ._base import _J, _pill, _tone, _ask_alexander  # _J: JS-string-in-attribute escaping (5.8)
+from .capabilities import _reach_hint  # engine reach under the job's model picker
 import logging
 from ..util import swallowed
 log = logging.getLogger(__name__)
@@ -258,6 +259,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<div class="mc-h-card" style="margin-bottom:6px">Model and output</div>'
         f'<p style="font-size:13px;color:var(--text-muted)">Inherit the agent’s settings, or choose a combination for this job.</p>'
         f'<label style="{lbl}">Model</label><select id="j-model" style="{field}">{model_opts}</select>'
+        f'{_reach_hint(realm_root, a.id, "j-model", jc, job_id)}'
         f'<label style="{lbl}">Effort</label><select id="j-effort" style="{field}">{effort_opts}</select>'
         f'<label style="{lbl}">Output verbosity</label><select id="j-verbosity" style="{field}">{verb_opts}</select>'
         f'<p style="font-size:11.5px;color:var(--text-muted)">Verbosity controls how much the agent writes back. Run output and history are available in the Jobs list.</p>' + capture_settings)

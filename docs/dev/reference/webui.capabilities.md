@@ -37,11 +37,23 @@ Labelled Runs + Can-touch sections (small caption over its icons, per-ability ri
 
 Connection state shown as a plain icon + text (not a pill) next to the name — only for things that actually connect, or when a state needs attention.
 
-### `_provider_badges(it: dict)`
+### `_provider_badges(it: dict, engines=None)`
+
+Live sign-in chips, one per engine this connector can be used with right now.
+
+### `_reach_mark(scope: str, size: int=15)`
 
 —
 
-### `_connector_controls(it: dict)`
+### `_reach_badges(r)`
+
+The badges a card earns from its reach: single-engine, and one engine at a time.
+
+### `_reach_row(it: dict, kind: str, r, manage)`
+
+The expanded 'Works with' row: an engine strip, the reason, and Move for one-at-a-time.
+
+### `_connector_controls(it: dict, engines=None, reach=None)`
 
 —
 
@@ -101,11 +113,19 @@ A collapsible Advanced section (an expansion inside the expansion): granular per
 
 (coordinators, granted) — who can use this capability.
 
+### `_cap_reach(it: dict, kind: str)`
+
+capreach.Reach for a realm card, or None for a kind it doesn't describe.
+
+### `_cap_blocked_agents(realm_root, it: dict, kind: str, agents)`
+
+{agent id: engine} for agents whose current engine can't use this capability.
+
 ### `_cap_availto_label(realm, coords, granted)`
 
 The collapsed-row summary: 'Coordinator + 4 agents', or '4 agents' where there's no coordinator.
 
-### `_cap_availto_cell(realm, realm_root, it: dict)`
+### `_cap_availto_cell(realm, realm_root, it: dict, kind: str='')`
 
 —
 
@@ -148,6 +168,18 @@ One system skill: same visual language as a capability card, but locked — no t
 ### `_system_panel()`
 
 The System tab: what ARMADA runs on your behalf, and why you can't switch it off.
+
+### `_reach_hint(realm_root, agent_id: str, select_id: str, job: dict | None=None, job_id: str='')`
+
+The line under a model picker: what this agent (or job) can use on the chosen model's engine.
+
+### `util_read(realm_root, agent_id: str)`
+
+—
+
+### `_reach_sections(realm, realm_root, tk: dict)`
+
+The User tab's catalogue, grouped by which engines can use it (docs/dev/CAPABILITIES_UPGRADE.md).
 
 ### `_realm_skills(realm, realm_root)`
 

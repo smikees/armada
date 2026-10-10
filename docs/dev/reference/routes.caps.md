@@ -32,6 +32,10 @@ stays in serve.py, only the handler bodies moved.
 - `CapabilityRoutes._open_file(self, body: dict)` — Open an artifact with its default application (local, single-user app).
 - `CapabilityRoutes._delete_artefact(self, body: dict)` — Delete an artifact file from disk. The thread's record of it is left alone — history shouldn't silently rewrite itself; the row simply stops offering actions.
 - `CapabilityRoutes._cap_grant(self, body: dict)` — Map a realm capability to an agent — the owner doing it deliberately, from the Capabilities page. Recorded as via='user' so the thread rail won't call it new.
+- `CapabilityRoutes._get_engine_impact(self)` — What an agent (or one of its jobs) would lose on the engine a model choice implies.
+- `CapabilityRoutes._reach_agents(self, cap_id: str)` — [(agent id, display, engine)] for every agent that may use a capability.
+- `CapabilityRoutes._capability_move(self, body: dict)` — Move a one-engine-at-a-time capability to another engine (or preview the move).
+- `CapabilityRoutes._capability_exclusive(self, body: dict)` — The owner marks a capability as one engine at a time (or clears that mark).
 - `CapabilityRoutes._cap_revoke(self, body: dict)` — —
 - `CapabilityRoutes._cap_request_approve(self, body: dict)` — Approve what an agent asked for in a thread. The grant remembers that thread, which is what makes it show as new there.
 - `CapabilityRoutes._cap_request_reject(self, body: dict)` — —

@@ -163,15 +163,27 @@ def verify_registrations(requirements, registrations):
             raise ValueError(f'Connector {name} has different settings in this engine. Review its connection in Capabilities.')
 
 
-def save(realm_root, *, name='', url='', provider='', server_name='', capability='', service='', account_label=''):
-    """Add a remote connector or explicitly link one existing engine registration."""
+_ENGINE_ROW_LABEL = {'claude': 'Claude', 'codex': 'ChatGPT app'}
+
+
+def save(realm_root, *, name='', url='', provider='', server_name='', capability='', service='', account_label='',
+         engine=''):
+    """Add a remote connector or explicitly link one existing engine registration.
+
+    A provider-hosted service (Gmail, Google Drive…) is added for ONE engine: "Gmail · Claude" or
+    "Gmail · ChatGPT app". The two are different services behind one brand, so they never share a
+    row (docs/dev/CAPABILITIES_UPGRADE.md). An open server is one row for every engine.
+    """
     from . import capabilities
     if not isinstance(name, str) or len(name) > 120 or any(ord(c) < 32 for c in name):
         raise ValueError('Use a connector name of at most 120 characters.')
     if not isinstance(account_label, str) or len(account_label) > 80 or any(ord(c) < 32 for c in account_label):
         raise ValueError('Use an account label of at most 80 characters.')
     account_label = account_label.strip()
+    if engine not in ('', 'claude', 'codex'):
+        raise ValueError('Provider connectors can be added for Claude or Codex.')
     selected = None
+    reach = ''
     if service:
         entry = next((s for s in SERVICES if s['id'] == service), None)
         if entry is None:
@@ -181,12 +193,19 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
             if capability:
                 raise ValueError('Link an existing engine connection to this service.')
             url, service = entry['endpoint'], ''
-        if capability:
+        elif not capability:
+            if not engine:
+                raise ValueError('Choose which engine this connection is for: Claude or Codex.')
+            reach = engine
+            name = f"{entry['name']} · {_ENGINE_ROW_LABEL[engine]}" + (' · ' + account_label if account_label else '')
+        # Adding "<service> · ChatGPT app" calls no provider: Connect on its Codex row resolves the
+        # app later, so a realm can be set up before Codex is installed.
+        if service and capability:
             from . import codex_apps
             info = codex_apps.service(service, cwd=realm_root)
             provider, server_name = 'codex', 'app:' + info['app_id']
             selected = {'app_id': info['app_id']}
-        else:
+        elif service:
             provider = ''
     elif provider:
         from .codex_apps import valid_id
@@ -206,6 +225,18 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
         cap = next((r for r in rows if r.get('id') == capability), None) if capability else None
         if capability and cap is None:
             raise ValueError('Connector is no longer in this realm.')
+        if cap is not None and selected:
+            # One row reaches one service (docs/dev/CAPABILITIES_UPGRADE.md): a ChatGPT app never
+            # shares a row with a Claude connector or a public server, in either direction.
+            from . import capreach
+            current = capreach.bindings(cap)
+            servers = any('server_name' in r for r in current.values())
+            if selected.get('app_id') and (capreach.endpoint(cap) or servers or capreach.is_claude_import(cap)):
+                raise ValueError('This connector reaches a different service. Add the ChatGPT app as its own '
+                                 'connector: Add a connector, choose the service, then Codex.')
+            if not selected.get('app_id') and any('app_id' in r for r in current.values()):
+                raise ValueError('This connector is a ChatGPT app. Link other engines to the service\'s own '
+                                 'connector instead.')
         if selected:
             # One engine registration must never be granted through two logical capabilities.
             sid = selected.get('app_id') or (server_id(server_name) if provider == 'claude' else server_name)
@@ -242,7 +273,13 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
             cap['native_service'] = service
             if not capability:
                 cap['connection_type'] = 'provider-native'
-            cap['description'] = 'Provider connectors with separate engine sign-in and shared agent grants.'
+            cap['description'] = ('A native app in your ChatGPT account; only Codex models can use it.'
+                                  if reach == 'codex' else
+                                  'A connector in your Claude account; only Claude models can use it.'
+                                  if reach == 'claude' else
+                                  'A provider connector; each engine has its own version and sign-in.')
+        if reach:
+            cap['reach'] = reach
         if selected:
             cap.setdefault('provider_bindings', {})[provider] = ({'app_id': selected['app_id']}
                 if selected.get('app_id') else {'server_name': server_name, 'endpoint': selected['endpoint']})
@@ -276,15 +313,24 @@ def model_change_warning(realm_root, agent, before, after):
     """Explain a provider switch before saving; runtime preflight remains authoritative."""
     if before == after:
         return ''
-    from . import capabilities
+    from . import capabilities, capreach
+    lost = capreach.impact(realm_root, agent, after)
     policy = capabilities.execution_policy(realm_root, agent)
+    gone = {x['id'].lower() for x in lost}
     caps = [c for c in capabilities.catalogue(realm_root)['connectors'] if c.get('id') in policy.allowed_mcp_ids]
-    if not caps:
+    missing = [c.get('name') or c['id'] for c in caps
+               if str(c.get('id')).lower() not in gone and provider_cap(c, after).get('_unbound')]
+    if not lost and not missing:
         return ''
-    missing = [c.get('name') or c['id'] for c in caps if provider_cap(c, after).get('_unbound')]
-    message = f'This changes the engine from {before.title()} to {after.title()}. '
+    a = agent if isinstance(agent, dict) else {}
+    who = a.get('display') or (agent if isinstance(agent, str) else '') or 'This agent'
+    old, new = capreach.LABEL.get(before, before.title()), capreach.LABEL.get(after, after.title())
+    lines = [f'Moving from {old} to {new} changes what {who} can use.']
+    if lost:
+        lines += ['', f'Not available on {new}:'] + [f'• {x["why"]}' for x in lost]
     if missing:
-        message += 'Connect these services in the new engine before running: ' + ', '.join(missing) + '. '
-    message += ('Each engine has its own sign-in, account and available operations. Review the connector rows in '
-                'Capabilities; ARMADA will not transfer credentials or substitute another engine. Save this model choice?')
-    return message
+        lines += ['', f'Needs a {new} sign-in first: ' + ', '.join(missing) + '.']
+    lines += ['', 'Fix it in Capabilities: move a one-engine-at-a-time connection, add the '
+                  f'{new} version of a service, or keep the current model. ARMADA never copies '
+                  'sign-ins between engines. Save this model choice anyway?']
+    return '\n'.join(lines)

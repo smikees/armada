@@ -1,43 +1,70 @@
 # Capabilities
 
-## Add once, connect each engine
+## Which engines can use it
 
-Choose **Add a connector → Find a service** to search services, categories and engine support. ARMADA adds one
-service entry with separate connection controls for Claude, Codex and Gemini. You do not need
-another integration service or an ARMADA Google Cloud project for a provider's native connector.
+ARMADA lets each agent run on Claude, Codex or Gemini, and keeps its context when you change the
+model. Capabilities don't all travel that freely, so the Capabilities page is arranged by
+**reach**: which engines a capability works with.
 
-- **Claude:** Connect opens Claude's connector settings. Use the same account as Claude Code,
-  complete sign-in, then **Setup details → Link existing connection** to select its registration.
-- **Codex:** Connect opens the native plugin page. Review permissions, install and sign in using
-  the same account as Codex CLI, then **Recheck**. You can also install through `/plugins` in
-  Codex CLI. Native Google Drive includes Docs, Sheets and Slides workflows where available.
-- **Gemini:** native apps from Claude or Codex are not automatically available to Antigravity.
-  ARMADA shows this explicitly; link a compatible MCP connection if the service offers one.
+- **Any engine** — skills, local extensions and open servers (a public MCP address). Every engine
+  can use them; a connector still needs its own sign-in in each engine you use, shown on its row.
+- **Claude only / Codex only / Gemini only** — connectors that live inside one provider's account
+  (a Claude connector hosted by Anthropic, a ChatGPT app), and Claude Code plugins. Agents on
+  other engines can't use them.
 
-For an existing connector card, **Setup details → Choose native app** in its Codex row can link Google Drive or
-Gmail, Calendar, Slack or GitHub without replacing the Claude connection or changing agent grants. **Import an existing connection** imports other services already configured in an engine, including Codex native
-apps. **Custom MCP server (advanced)** adds a service's HTTPS MCP endpoint; the Catalogue offers
-more integrations. A website address is not an MCP endpoint.
+Use the switcher above the sections to show one reach at a time. Expand a card to see its
+**Works with** strip: which engines can use it now, and why the others can't.
 
-Each connector has one set of agent grants. **Setup details → Link existing connection** maps a differently named
-registration in an engine to that connector. Choose the intended service and account: matching
-names do not prove they reach the same account. ARMADA never copies credentials between engines
-or into the realm. Adding a connector does not grant it to every agent; the coordinator's access
-continues to follow its role.
+**One engine at a time.** Some services allow only one AI platform per account: connecting
+another disconnects the previous one (Interactive Brokers works this way). Such a capability shows
+**One engine at a time · on Claude** (or whichever engine it's on). Agents on other engines aren't
+offered it. To use it elsewhere, choose **Move to …** under Works with: ARMADA shows which agents
+gain and lose it before saving. Then sign in from the new engine; the service disconnects the old
+one itself. For a service ARMADA doesn't recognise, turn on **Advanced → One engine at a time**.
+
+Agent chips under **Available to** say when an agent's engine can't use the capability, and the
+agents list marks each agent's engine and how many of its grants that engine can't use. An agent's
+own Capabilities tab opens with the same summary.
+
+**Changing an agent's model.** Under the model field, a line says what the agent can still use on
+that model's engine, and updates as you choose. Saving a change that loses capabilities asks you to
+confirm, listing each one and why. During a run, anything granted but unavailable on the run's
+engine is withheld and named to the agent, so a job that needs it says exactly why.
+
+## Adding a connector
+
+Choose **Add a connector**, then find a service.
+
+- **An open server** (Notion, for example) is one connector for every engine. Connect each engine
+  you use from its row; each signs in separately.
+- **A service that lives in a provider's account** (Google Drive, Gmail, Calendar, Slack, GitHub)
+  is added for one engine: choose **Claude** or **Codex**. ARMADA creates "Gmail · Claude" or
+  "Gmail · ChatGPT app" and files it under that engine. Add both if agents on both engines need it.
+  - **Claude:** complete sign-in in Claude's connector settings, then **Setup details → Link
+    existing connection** to select its registration.
+  - **Codex:** ARMADA links the ChatGPT app. Review permissions, install and sign in using the
+    same account as Codex CLI, then **Recheck**.
+  - **Gemini:** apps from Claude or Codex are not available to Antigravity. Add an open server for
+    the service instead, if one exists.
+
+**Import an existing connection** imports services already configured in an engine.
+**Custom MCP server (advanced)** adds a service's HTTPS MCP endpoint; the Catalogue offers more.
+A website address is not an MCP endpoint.
+
+Each connector has one set of agent grants. **Setup details → Link existing connection** maps a
+differently named registration in an engine to a connector of the same server. Choose the intended
+service and account: matching names do not prove they reach the same service. ARMADA never copies
+credentials between engines or into the realm, and never puts two different services on one row.
+Adding a connector does not grant it to every agent; the coordinator's access follows its role.
 
 A grant permits the tools that the selected engine actually exposes, including write operations
-when available. Providers can expose different operations for the same service. A connected
-Drive badge alone does not prove document editing works through every engine.
-
-Codex native apps are enabled only for granted connectors during normal tool turns. Other apps
-remain disabled, and ARMADA verifies the actual thread's callable app inventory before sending
-the prompt. Inspectors and dry runs do not gain native apps. Missing or unexpected access blocks
-the turn. Approval defaults for explicitly linked connectors apply only to that invocation;
-per-tool restrictions remain in force, and shell approval policy is unchanged.
+when available. Codex native apps are enabled only for granted connectors during normal tool
+turns; other apps remain disabled, and ARMADA verifies the thread's callable app inventory before
+sending the prompt. Inspectors and dry runs do not gain native apps.
 
 ## Accounts and changing engines
 
-The picker includes Google Drive, Gmail, Google Calendar, Slack, GitHub and Notion. Other services
+The connector picker includes Google Drive, Gmail, Google Calendar, Slack, GitHub and Notion. Other services
 can be imported from an engine's directory or added by their trusted MCP endpoint. The list is
 curated guidance, not a promise that a service is available on every provider plan.
 
@@ -52,10 +79,8 @@ engine connections and agent grants, and does not sign out other clients. Re-lin
 to restore access. Revoke provider credentials in the provider's own settings when needed.
 
 Agent chips show their default engine's current connection status. Jobs can override that
-engine. Saving an agent or job model that changes engines prompts a connector review, including
-missing bindings. This is a configuration warning, not a live permissions test. Every run still
-checks the actual required connections. Realm defaults and automatic fallbacks also face runtime
-checks; ARMADA never reroutes connector calls to another engine or account.
+engine. The model warning is a configuration check, not a live permissions test: every run still
+checks the actual connections, and ARMADA never reroutes a connector call to another engine or account.
 
 ## Connection status and actions
 
@@ -85,8 +110,9 @@ Each row shows its status, reason and relevant action:
   status is not a promise that every service operation exists or has the required permission.
 - **App settings** takes you to a provider that needs installation, sign-in or reconnection.
 
-Several providers can connect to the same service at once. Connecting another provider does
-not replace your working connection or change which agents have access. Claude-managed
+Several engines can connect to the same open server at once, unless it is marked one engine at a
+time. Connecting another engine does not replace your working connection or change which agents
+have access. Claude-managed
 integrations without a reviewed portable endpoint show **Unavailable through this integration**,
 with options to use a compatible integration. A provider's **Registered · unverified** state
 means its configuration exists; it does not prove authorization or live tools. Gemini currently

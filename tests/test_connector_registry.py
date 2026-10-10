@@ -55,7 +55,7 @@ def test_unlink_blocks_legacy_fallback_and_keeps_other_engine_and_grant(realm, m
 
 
 def test_model_change_warns_only_when_granted_connectors_are_affected(realm):
-    cid = registry.save(realm, service='google-drive')['capability']
+    cid = registry.save(realm, service='google-drive', engine='claude')['capability']
     assert registry.model_change_warning(realm, 'reviewer', 'claude', 'codex') == ''
     capabilities.grant(realm, 'reviewer', cid)
     assert 'Google Drive' in registry.model_change_warning(realm, 'reviewer', 'claude', 'codex')
@@ -64,7 +64,7 @@ def test_model_change_warns_only_when_granted_connectors_are_affected(realm):
 
 def test_agent_model_change_is_not_partially_saved_before_review(realm):
     from armada.routes.agents import AgentRoutes
-    cid = registry.save(realm, service='gmail')['capability']
+    cid = registry.save(realm, service='gmail', engine='claude')['capability']
     capabilities.grant(realm, 'reviewer', cid)
     path = realm/'agents/reviewer/agent.json'
     before = path.read_bytes()
@@ -78,7 +78,7 @@ def test_agent_model_change_is_not_partially_saved_before_review(realm):
 
 def test_job_model_change_review_is_atomic(realm):
     from armada.routes.jobs import JobRoutes
-    cid = registry.save(realm, service='gmail')['capability']
+    cid = registry.save(realm, service='gmail', engine='claude')['capability']
     capabilities.grant(realm, 'reviewer', cid)
     path = realm/'agents/reviewer/jobs/check.json'
     util.write_json_atomic(path, {'id':'check', 'name':'Check', 'model':'claude-haiku-4-5'})
@@ -127,8 +127,11 @@ def test_import_does_not_claim_other_engines_support_a_private_connector(realm, 
     cap = capabilities.find(realm, cid)[1]
     assert runtime.codex_connection(cap, {}) == 'unsupported'
     assert runtime.gemini_connection(cap, {}) == 'unsupported'
-    with pytest.raises(capabilities.CapabilityPolicyError, match='Connect .* Codex'):
-        runner._prepare_agent_run(realm, 'reviewer', 'codex', True)
+    # Claude-only (0.99.100): withheld on Codex and named to the agent, instead of failing the turn.
+    from armada import capreach
+    assert capreach.reach('connectors', cap).scope == 'claude'
+    engine, _ = runner._prepare_agent_run(realm, 'reviewer', 'codex', True)
+    assert not engine.allowed_mcp_ids
 
 
 def test_cannot_grant_same_registration_through_two_cards(realm, monkeypatch):

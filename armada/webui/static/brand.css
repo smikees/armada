@@ -1043,3 +1043,63 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-thread-resize{position:absolute;right:2px;bottom:2px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--text-muted);cursor:nwse-resize;touch-action:none}
 .mc-thread-resize[hidden]{display:none}
 .mc-thread-resize:hover{color:var(--color-text)}
+/* Engine reach on Capabilities (capreach; docs/dev/CAPABILITIES_UPGRADE.md): a segmented switcher, */
+/* one section per reach, reach badges on cards, and the Works-with strip in the expanded panel.    */
+.mc-reach-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 20px}
+.mc-reach-switch{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--color-divider);border-radius:999px;background:var(--text-6)}
+.mc-reach-pill{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text-62);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
+.mc-reach-pill>span:last-child{font-weight:500;font-size:11px;color:var(--text-42);font-variant-numeric:tabular-nums}
+.mc-reach-pill:hover{color:var(--color-text)}
+.mc-reach-pill[aria-pressed="true"]{background:var(--color-bg);color:var(--color-text);box-shadow:var(--shadow-sm),0 0 0 1px var(--color-divider)}
+.mc-reach-pill:focus-visible{outline:2px solid var(--color-accent);outline-offset:1px}
+.mc-reach-pill .mc-reach-mark{display:inline-flex}
+.mc-reach-tools{margin-left:auto;display:flex;align-items:center;gap:8px}
+.mc-reach-sec{margin:0 0 32px}
+.mc-reach-sec[hidden]{display:none}
+.mc-reach-head{display:flex;gap:12px;align-items:flex-start;padding:0 0 12px;margin:0 0 14px;border-bottom:1px solid var(--color-divider)}
+.mc-reach-head>.mc-reach-mark{flex:none;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:var(--accent-13);color:var(--color-accent)}
+.mc-reach-title{font-family:var(--font-heading);font-weight:600;font-size:18px;margin:0;display:flex;align-items:center;gap:8px;line-height:1.2}
+.mc-reach-count{font-family:var(--font-body);font-size:11px;font-weight:600;color:var(--text-muted);background:var(--text-6);border-radius:999px;padding:1px 8px}
+.mc-reach-sub{margin:3px 0 0;font-size:12px;color:var(--text-muted);line-height:1.45;max-width:640px}
+.mc-reach-body>.mc-cap-grp{margin-bottom:20px!important}
+.mc-reach-empty{font-size:12px;color:var(--text-soft);padding:12px 14px;border:1px dashed var(--color-divider);border-radius:var(--r)}
+.mc-reach-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:1px 7px 1px 6px;border-radius:999px;background:var(--text-6);color:var(--text-62);white-space:nowrap}
+.mc-reach-badge.mc-reach-x{background:color-mix(in srgb,var(--status-warn) 14%,transparent);color:var(--status-warn)}
+.mc-reach-panel{min-width:0}
+.mc-reach-strip{display:flex;gap:6px;flex-wrap:wrap}
+.mc-reach-eng{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:3px 9px 3px 8px;border-radius:999px;border:1px solid var(--color-divider);color:var(--text-62)}
+.mc-reach-eng[data-state="ok"]{border-color:color-mix(in srgb,var(--status-ok) 45%,transparent);background:color-mix(in srgb,var(--status-ok) 9%,transparent);color:var(--color-text)}
+.mc-reach-eng[data-state="held"]{border-style:dashed}
+.mc-reach-eng[data-state="no"]{opacity:.55}
+.mc-reach-tick{display:inline-flex}
+.mc-reach-eng[data-state="ok"] .mc-reach-tick{color:var(--status-ok)}
+.mc-reach-why{margin:6px 0 0;font-size:12px;color:var(--text-muted);line-height:1.5}
+.mc-reach-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.mc-reach-warn{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;color:var(--status-warn);font-weight:600;white-space:nowrap}
+.mc-reach-cant{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;color:var(--status-warn);margin-left:2px;white-space:nowrap}
+.mc-roster-eng{display:inline-flex;color:var(--text-42);margin-left:2px}
+.mc-reach-summary{display:flex;gap:9px;align-items:flex-start;margin-top:10px;padding:9px 11px;border-radius:var(--r);font-size:12px;line-height:1.5;color:var(--color-text);border:1px solid var(--color-divider)}
+.mc-reach-summary[data-state="loses"]{border-color:color-mix(in srgb,var(--status-warn) 45%,transparent);background:color-mix(in srgb,var(--status-warn) 8%,transparent)}
+.mc-reach-summary ul{margin:4px 0 4px 16px;padding:0}
+.mc-reach-summary>svg{flex:none;margin-top:3px}
+.mc-reach-once{display:inline-flex;align-items:center;gap:7px;font-size:12px;cursor:pointer}
+.mc-reach-hint{margin-top:6px;font-size:11.5px;line-height:1.45;color:var(--text-muted);display:flex;gap:6px;align-items:flex-start}
+.mc-reach-hint>svg{flex:none;margin-top:2px}
+.mc-reach-hint[data-state="loses"] [data-text]{color:var(--status-warn);font-weight:600}
+.mc-reach-hint[data-state="ok"] [data-text]{color:var(--status-ok)}
+.mc-reach-hint ul{margin:3px 0 0 14px;padding:0}
+.mc-reach-hint ul[hidden]{display:none}
+.mc-cat-reach{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:1px 7px 1px 6px;border-radius:999px;background:var(--text-6);color:var(--text-62);white-space:nowrap}
+.mc-cat-reach[data-reach="any"]{background:color-mix(in srgb,var(--status-ok) 11%,transparent);color:var(--status-ok)}
+.mc-conn-engines{display:flex;flex-direction:column;gap:6px;margin:8px 0 2px}
+.mc-conn-engine{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border:1px solid var(--color-divider);border-radius:var(--r);cursor:pointer}
+.mc-conn-engine:has(input:checked){border-color:var(--color-accent);background:var(--accent-13)}
+.mc-conn-engine[aria-disabled="true"]{opacity:.55;cursor:default}
+.mc-conn-engine input{margin-top:3px}
+.mc-conn-engine small{display:block;color:var(--text-dim);font-size:11.5px;margin-top:1px}
+@media(prefers-reduced-motion:reduce){.mc-reach-pill{transition:none}}
+@media(max-width:700px){.mc-reach-tools{margin-left:0}.mc-reach-switch{flex-wrap:wrap;border-radius:var(--r)}}
+/* Inside an engine's own section the section already says it: the card keeps only the one-at-a-time badge. */
+.mc-reach-sec .mc-reach-badge:not(.mc-reach-x){display:none}
+/* OpenAI's mark is black artwork; on the dark theme it takes the ink colour so it stays visible. */
+.armada-dark .mc-reach-mark .mc-engine-logo[data-provider="codex"] .mc-engine-color svg{color:var(--color-text)!important}

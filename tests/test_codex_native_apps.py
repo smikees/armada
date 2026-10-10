@@ -20,9 +20,9 @@ def realm(tmp_path):
 
 def test_add_service_requires_no_codex_account_and_connect_links_native_app(realm, monkeypatch):
     monkeypatch.setattr(codex_apps, 'rpc', lambda *a, **kw: pytest.fail('Adding a service must not call a provider'))
-    cid = registry.save(realm, service='google-drive')['capability']
+    cid = registry.save(realm, service='google-drive', engine='codex')['capability']
     cap = capabilities.find(realm, cid)[1]
-    assert cap['provider_bindings'] == {}
+    assert cap['provider_bindings'] == {} and cap['reach'] == 'codex'
     assert runtime.connection_detail(cap, 'codex', 'unsupported')['action'] == 'connect'
     assert runtime.connection_detail(cap, 'claude', 'unsupported')['action'] == 'connect'
     assert runtime.connection_detail(cap, 'gemini', 'unsupported')['state'] == 'unsupported'
@@ -36,8 +36,10 @@ def test_add_service_requires_no_codex_account_and_connect_links_native_app(real
     assert not engine.allowed_mcp_ids and not engine.connector_requirements
     inspector, _ = runner._prepare_agent_run(realm, 'reviewer', 'codex', True, {'inspector': True})
     assert not inspector.allowed_app_ids
-    with pytest.raises(capabilities.CapabilityPolicyError, match='Connect .* Claude'):
-        runner._prepare_agent_run(realm, 'reviewer', 'claude', True)
+    # A Codex-only connector is withheld on Claude rather than failing the turn (capreach): the
+    # agent is told it is unavailable on that engine.
+    claude_engine, _ = runner._prepare_agent_run(realm, 'reviewer', 'claude', True)
+    assert cid not in (claude_engine.allowed_mcp_ids or ())
     capabilities.revoke(realm, 'reviewer', cid)
     runner._tool_grants(realm, 'reviewer', engine, True)
     assert not engine.allowed_app_ids
@@ -70,16 +72,19 @@ def test_native_import_preserves_one_logical_connector_and_duplicate_denial(real
     assert not capabilities.provider_policy(capabilities.execution_policy(realm, 'reviewer'), 'codex').allowed_app_ids
 
 
-def test_linking_native_app_preserves_existing_legacy_claude_connection(realm, monkeypatch):
+def test_a_native_app_is_never_linked_onto_a_claude_connector(realm, monkeypatch):
+    # One row reaches one service (0.99.100): the ChatGPT app gets its own Codex row instead.
     util.write_json_atomic(realm/'realm.json', {'toolkit': {'connectors': [
         {'id':'claude_ai_Google_Drive', 'name':'Google Drive'}]}})
+    before = (realm/'realm.json').read_bytes()
     monkeypatch.setattr(codex_apps, 'service', lambda *a, **kw: {'app_id': APP, 'name':'Google Drive'})
-    registry.save(realm, capability='claude_ai_Google_Drive', service='google-drive')
+    with pytest.raises(ValueError, match='its own connector'):
+        registry.save(realm, capability='claude_ai_Google_Drive', service='google-drive')
+    assert (realm/'realm.json').read_bytes() == before
     capabilities.grant(realm, 'reviewer', 'claude_ai_Google_Drive')
     policy=capabilities.execution_policy(realm,'reviewer')
     assert 'claude_ai_Google_Drive' in capabilities.provider_policy(policy,'claude').allowed_mcp_ids
-    assert capabilities.provider_policy(policy,'codex').allowed_app_ids == {APP}
-    assert not registry.provider_cap(capabilities.find(realm,'claude_ai_Google_Drive')[1],'claude').get('_unbound')
+    assert not capabilities.provider_policy(policy,'codex').allowed_app_ids
 
 
 @pytest.mark.parametrize('row', [{'app_id':'bad.id'}, {'app_id': APP, 'endpoint':'https://example.com'}, {'app_id': ['bad']}])

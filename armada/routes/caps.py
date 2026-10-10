@@ -40,7 +40,8 @@ class CapabilityRoutes:
                 return connector_registry.save(self.realm, name=body.get('name', ''), url=body.get('url', ''),
                     provider=provider or '', server_name=body.get('server_name', ''),
                     capability=str(body.get('capability') or '') if action == 'bind' else '',
-                    service=body.get('service', ''), account_label=body.get('account_label', ''))
+                    service=body.get('service', ''), account_label=body.get('account_label', ''),
+                    engine=str(body.get('engine') or ''))
             except (ValueError, OSError) as exc:
                 return {'ok': False, 'error': str(exc)}
         if provider not in ('claude', 'codex', 'gemini') or action not in ('setup', 'connect', 'authenticate'):
@@ -477,6 +478,116 @@ class CapabilityRoutes:
                 result["provider_connection"] = connector_runtime.codex_connection(
                     cap, connector_runtime.codex_inventory())
         return result
+
+    # ---- engine reach (capreach; docs/dev/CAPABILITIES_UPGRADE.md) ------------------------------
+
+    def _get_engine_impact(self):
+        """What an agent (or one of its jobs) would lose on the engine a model choice implies."""
+        from .. import capreach
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        agent = (q.get("agent") or [""])[0]
+        job_id = (q.get("job") or [""])[0]
+        model = (q.get("model") or [""])[0]
+        try:
+            aid = safe_seg(agent, "agent")
+            adir = Path(self.realm) / "agents" / aid
+            if not (adir / "agent.json").is_file():
+                return self._json(200, {"ok": False, "error": f"No agent '{agent}'."})
+            a = util.read_json_state(adir / "agent.json")
+            job = None
+            if job_id:
+                jp = adir / "jobs" / f"{safe_seg(job_id, 'job')}.json"
+                job = util.read_json_state(jp) if jp.is_file() else {}
+            engine = capreach.agent_engine(self.realm, a, job, model)
+            lost = capreach.impact(self.realm, aid, engine)
+            who = a.get("display") or aid
+            return self._json(200, {"ok": True, "engine": engine,
+                                    "label": capreach.LABEL.get(engine, engine), "lost": lost,
+                                    "text": capreach.impact_text(who, engine, lost)})
+        except (ValueError, OSError) as exc:
+            return self._json(200, {"ok": False, "error": str(exc)[:200]})
+
+    def _reach_agents(self, cap_id: str) -> list:
+        """[(agent id, display, engine)] for every agent that may use a capability."""
+        from .. import capabilities as caps
+        from ..engine.selection import engine_for
+        out = []
+        adir = Path(self.realm) / "agents"
+        for ap in sorted(adir.glob("*/agent.json")) if adir.is_dir() else []:
+            try:
+                a = util.read_json_state(ap)
+                if caps.may_use(self.realm, ap.parent.name, cap_id):
+                    out.append((ap.parent.name, a.get("display") or ap.parent.name,
+                                engine_for(self.realm, a)))
+            except (ValueError, OSError):
+                continue
+        return out
+
+    def _capability_move(self, body: dict) -> dict:
+        """Move a one-engine-at-a-time capability to another engine (or preview the move).
+
+        Only the realm's record changes. ARMADA never signs in or out on the owner's behalf: the new
+        engine still needs its own sign-in, and the service itself disconnects the old one when that
+        happens. Agents on the old engine stop being offered it from their next run.
+        """
+        from .. import capabilities as caps, capreach
+        cap_id = str(body.get("capability") or "")
+        engine = str(body.get("engine") or "")
+        if engine not in capreach.ENGINES:
+            return {"ok": False, "error": "Choose Claude, Codex or Gemini."}
+        kind, cap = caps.find(self.realm, cap_id)
+        if not cap:
+            return {"ok": False, "error": "That capability is no longer in this realm."}
+        r = capreach.reach(kind, cap)
+        if not r.exclusive:
+            return {"ok": False, "error": "This capability works on several engines at once; there is nothing to move."}
+        if engine not in r.engines:
+            return {"ok": False, "error": f"{cap.get('name') or cap_id} can't be used with {capreach.LABEL[engine]}."}
+        agents = self._reach_agents(cap_id)
+        name = cap.get("name") or cap_id
+        result = {"ok": True, "capability": cap.get("id") or cap_id, "name": name,
+                  "from": r.engine, "to": engine,
+                  "loses": [{"id": a, "name": d, "engine": e} for a, d, e in agents if e == r.engine and e != engine],
+                  "gains": [{"id": a, "name": d, "engine": e} for a, d, e in agents if e == engine and e != r.engine],
+                  "note": (f"After moving, sign in to {name} from {capreach.LABEL[engine]}. "
+                           f"{r.exclusive_why}")}
+        if body.get("preview") or engine == r.engine:
+            result["preview"] = True
+            return result
+        p = Path(self.realm) / "realm.json"
+        with util.file_lock(p):
+            js = util.read_json_state(p)
+            for it in ((js.get("toolkit") or {}).get(kind) or []):
+                if caps.cap_key(it) == caps.cap_key(cap):
+                    it["exclusive_engine"] = engine
+                    break
+            else:
+                return {"ok": False, "error": "That capability is no longer in this realm."}
+            util.write_json_atomic(p, js)
+        return result
+
+    def _capability_exclusive(self, body: dict) -> dict:
+        """The owner marks a capability as one engine at a time (or clears that mark)."""
+        from .. import capabilities as caps
+        cap_id = str(body.get("capability") or "")
+        kind, cap = caps.find(self.realm, cap_id)
+        if kind not in caps.MCP_KINDS or not cap:
+            return {"ok": False, "error": "Only connectors and extensions can be limited to one engine at a time."}
+        value = body.get("exclusive")
+        p = Path(self.realm) / "realm.json"
+        with util.file_lock(p):
+            js = util.read_json_state(p)
+            for it in ((js.get("toolkit") or {}).get(kind) or []):
+                if caps.cap_key(it) == caps.cap_key(cap):
+                    if value is None:
+                        it.pop("exclusive", None)
+                    else:
+                        it["exclusive"] = bool(value)
+                    break
+            else:
+                return {"ok": False, "error": "That capability is no longer in this realm."}
+            util.write_json_atomic(p, js)
+        return {"ok": True}
 
     def _cap_revoke(self, body: dict) -> dict:
         from .. import capabilities as caps

@@ -146,7 +146,7 @@ A live, authoritative snapshot of this agent's own proposals (pending/approved/r
 
 —
 
-### `_capabilities_context(realm_root: Path, agent_dir: Path)`
+### `_capabilities_context(realm_root: Path, agent_dir: Path, engine: str | None=None)`
 
 What this agent has, what else the realm has, and how to ask for the difference.
 
@@ -179,7 +179,7 @@ Tell the agent where its own output belongs.
 
 State the write agreement without claiming an isolation guarantee the providers lack.
 
-### `_tool_preamble(realm_root: Path, agent_dir: Path)`
+### `_tool_preamble(realm_root: Path, agent_dir: Path, engine: str | None=None)`
 
 Everything a tool-using turn should see before ARMADA's assembled core: host/path parity, the self-service job-proposal contract, a live status snapshot of this agent's proposals, the agent's capability inventory, and the write boundaries — memory, and where output belongs.
 

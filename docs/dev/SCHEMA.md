@@ -61,7 +61,7 @@ the hidden journal when backing up or restoring an interrupted thread; see
 ```jsonc
 {
   "name": "Example team",             // display name
-  "schema_version": 2,                // on-disk format version — see "Format versioning" below
+  "schema_version": 4,                // on-disk format version — see "Format versioning" below
   "owner": "Morgan",                  // kept in sync with user.name
   "template": "state",                // state | company | crew | scratch (drives default labels)
   "default_engine": "claude",
@@ -78,6 +78,8 @@ the hidden journal when backing up or restoring an interrupted thread; see
   },
   "sections": [ { "name": "...", "assets": "...", "entry": "index.html", "url": "..." } ],
   "toolkit": { "connectors": [...], "plugins": [...], "skills": [...] }
+  // capability fields read by capreach: optional "reach" (any|claude|codex|gemini) on rows created
+  // for one engine, "exclusive" (owner override) and "exclusive_engine" (after a Move)
 }
 ```
 
@@ -95,6 +97,8 @@ migration is logged and the realm still opens with the tolerant readers.
 |---|---|
 | 0 → 1 | none — stamps the version (v0.99.38) |
 | 1 → 2 | the internal rename `matcap` → `armada` (v0.99.56, ADR-010): command jobs' `-m matcap` → `-m armada`, the realm cache folder `.matcap/` → `.armada/`, and `MATCAP` in `env.App` → `ARMADA` |
+| 2 → 3 | legacy agents get a frozen `appointed` date, so saving a profile cannot reappoint them |
+| 3 → 4 | one connector row reaches one server (v0.99.100, [CAPABILITIES_UPGRADE](CAPABILITIES_UPGRADE.md)): a ChatGPT app binding mixed into a row that also stands for a Claude connector or a public server becomes its own Codex row, `<service> · ChatGPT app` with `reach: codex`; agents on Codex granted the original are granted the new row too |
 
 Adding a non-additive change to any realm file means: bump `CURRENT`, register the step, add a row
 here, and add a test in `tests/test_realm_format.py`. Steps must be idempotent (an interrupted one

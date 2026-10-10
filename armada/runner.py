@@ -121,8 +121,13 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
         from .connector_registry import provider_cap
         from .connector_runtime import codex_endpoint
         from .engine.mcp import registration_id, server_id
+        from .capreach import reach as _reach
         for cap in capabilities.catalogue(realm_root)['connectors']:
             if cap.get('id') not in policy.allowed_mcp_ids or not (cap.get('provider_bindings') or cap.get('connection_type') in ('provider-mcp', 'provider-native')):
+                continue
+            if eng.name in ('claude', 'codex', 'gemini') and not _reach('connectors', cap).available_on(eng.name):
+                # Out of this engine's reach, or held on another engine: withheld by provider_policy
+                # and named to the agent, not a reason to fail the whole turn.
                 continue
             actual = provider_cap(cap, eng.name)
             if actual.get('_unbound'):
@@ -682,7 +687,7 @@ def _cap_lines(inv: dict) -> list:
     return out
 
 
-def _capabilities_context(realm_root: Path, agent_dir: Path) -> str:
+def _capabilities_context(realm_root: Path, agent_dir: Path, engine: str | None = None) -> str:
     """What this agent has, what else the realm has, and how to ask for the difference.
 
     Two lists, never one. An agent shown a single merged inventory will reach for anything on it,
@@ -700,8 +705,24 @@ def _capabilities_context(realm_root: Path, agent_dir: Path) -> str:
         swallowed(log, '_capabilities_context: failed; returning a fallback')
         return ""
 
+    # Granted but not reachable on the engine this turn runs on (capreach). Listed separately and
+    # with the reason, so a job that needs one says exactly why instead of reporting a vague
+    # connection failure — and the agent doesn't waste the run reaching for a withheld tool.
+    blocked, eng = [], engine or ""
+    if eng:                               # a real provider turn; test engines have no reach
+        try:
+            from . import capreach
+            blocked = capreach.impact(realm_root, agent, eng)
+        except Exception:  # noqa — the context must never be the thing that fails a run
+            swallowed(log, '_capabilities_context: reach check failed; listing grants as usable')
+            blocked = []
+    if blocked:
+        gone = {(b["kind"], b["id"].lower()) for b in blocked}
+        mine = {k: [c for c in (v or []) if (k, str(c.get("id") or c.get("name") or "").lower()) not in gone]
+                for k, v in mine.items()}
+
     mine_lines, other_lines = _cap_lines(mine), _cap_lines(others)
-    if not mine_lines and not other_lines:
+    if not mine_lines and not other_lines and not blocked:
         return ""
 
     out = []
@@ -709,6 +730,16 @@ def _capabilities_context(realm_root: Path, agent_dir: Path) -> str:
         out.append("[Your capabilities — review these against the request and use any that are relevant]")
         out += mine_lines
         out.append("If the request calls for one of these, use it (or say which one you'd use and why).")
+    elif blocked:
+        out.append("[Your capabilities]\n- None that work on the engine this run uses.")
+    if blocked:
+        from .capreach import LABEL
+        out.append("")
+        out.append(f"[Granted to you, but NOT available on {LABEL.get(eng, eng)}, the engine this run uses]")
+        out += [f"- {b['name']}: {b['why']}" for b in blocked]
+        out.append("Their tools are withheld on this engine. If the task needs one, do not improvise a "
+                   "substitute: say which capability is unavailable and why, so the owner can switch "
+                   "your model or move the connection.")
     else:
         out.append("[Your capabilities]\n- None yet. You have not been granted any capability in "
                    "this realm.")
@@ -941,14 +972,14 @@ def _memory_boundary(agent_dir: Path) -> str:
         "Propose; the owner disposes.\n")
 
 
-def _tool_preamble(realm_root: Path, agent_dir: Path) -> str:
+def _tool_preamble(realm_root: Path, agent_dir: Path, engine: str | None = None) -> str:
     """Everything a tool-using turn should see before ARMADA's assembled core: host/path parity,
     the self-service job-proposal contract, a live status snapshot of this agent's proposals, the
     agent's capability inventory, and the write boundaries — memory, and where output belongs."""
     return (_host_preamble(realm_root) + "\n" + _jobs_capability(agent_dir)
             + _jobs_status_text(realm_root, agent_dir)
             + _inbox_capability(realm_root, agent_dir)
-            + _capabilities_context(realm_root, agent_dir)
+            + _capabilities_context(realm_root, agent_dir, engine)
             + _skill_registry_contract(agent_dir)
             + _publish_boundary(realm_root, agent_dir)
             + _memory_boundary(agent_dir))

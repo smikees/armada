@@ -282,6 +282,13 @@ ICONS['loader'] = '<path fill="none" stroke="currentColor" stroke-linecap="round
 
 
 ICONS['hook'] = '<path fill="currentColor" fill-rule="evenodd" d="M1 11.125a3.875 3.875 0 0 0 7 2.292a3.875 3.875 0 0 0 7-2.292V7.002l-1.28 1.28l-1.49 1.488a.75.75 0 0 0 1.061 1.061l.208-.208v.502a2.375 2.375 0 1 1-4.75 0v-5.24a2.501 2.501 0 1 0-1.5 0v5.24a2.375 2.375 0 1 1-4.75 0v-.502l.208.208a.75.75 0 1 0 1.06-1.06L2.28 8.281L1 7.002zM9 3.5a1 1 0 1 0-2 0a1 1 0 0 0 2 0" clip-rule="evenodd"/>'
+
+# Engine reach (capreach): "any engine" is three linked nodes; one-engine-at-a-time is a swap.
+ICONS["engines-any"] = ('<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" '
+                        'stroke-width="2"><circle cx="12" cy="5.5" r="2.6"/><circle cx="5.5" cy="17.5" r="2.6"/>'
+                        '<circle cx="18.5" cy="17.5" r="2.6"/><path d="m10.7 7.8-3.9 7.4M13.3 7.8l3.9 7.4M8.2 17.5h7.6"/></g>')
+ICONS["swap"] = ('<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" '
+                 'stroke-width="2"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></g>')
 _ICON_VB['hook'] = '0 0 16 16'
 
 

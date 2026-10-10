@@ -20,7 +20,11 @@ before the split, avoiding a module-level import cycle between the two.
 
 One catalogue entry.
 
-### `_cat_results(realm, realm_root, q: str='', source: str='', kind: str='', author: str='', category: str='', page: int=0)`
+### `_cat_reach_badge(e: dict)`
+
+Which engines can use this once added: any engine, or one (docs/dev/CAPABILITIES_UPGRADE.md).
+
+### `_cat_results(realm, realm_root, q: str='', source: str='', kind: str='', author: str='', category: str='', page: int=0, reach: str='')`
 
 The results area — re-rendered on its own whenever a filter changes.
 

@@ -47,6 +47,14 @@ A command job's `run` with `-m matcap` → `-m armada`, or None if it has no suc
 
 Freeze legacy appointment dates so saving a profile cannot reappoint its agent.
 
+### `_split_label(cap: dict)`
+
+The service name a split-off ChatGPT app row is called by.
+
+### `_m3_to_4(cfg: dict, realm_root: Path)`
+
+3 → 4: one connector row reaches one server (docs/dev/CAPABILITIES_UPGRADE.md).
+
 ### `version_of(cfg)`
 
 The version a parsed realm.json is at. Unstamped, the legacy "0.1", or unreadable → 0.

@@ -17,6 +17,7 @@ code; after that, go straight to the row that matches the task.
 | Work on the Google engine | [GEMINI_INTEGRATION.md](GEMINI_INTEGRATION.md) — CLI execution, scoped tools, authentication and accounting |
 | Change provider setup or Alexander preferences | [PROVIDER_ONBOARDING.md](PROVIDER_ONBOARDING.md) — browser login, App connections, model choices and acceptance |
 | Change background provider admission or system-job results | [PROVIDER_UPKEEP.md](PROVIDER_UPKEEP.md) — recipient auth, pending work, Telegram and skip/error semantics |
+| Change capabilities, connectors or which engines can use them | [CAPABILITIES_UPGRADE.md](CAPABILITIES_UPGRADE.md) — engine reach, one engine at a time, the v4 migration |
 | Add something users can extend without code | [EXTENSION_POINTS.md](EXTENSION_POINTS.md) — the add-on contract |
 | Draw anything | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), then [DESIGN_TOKENS.md](DESIGN_TOKENS.md) |
 | Work the UI polish backlog | [UI_AUDIT.md](UI_AUDIT.md); if you're the Haiku agent, [HAIKU_AGENT.md](HAIKU_AGENT.md) first |

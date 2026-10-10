@@ -40,8 +40,12 @@ def test_capability_card_waits_for_provider_specific_status(tmp_path):
     card = _cap_card(IBKR, kind="connectors", realm=SimpleNamespace(agents=[], members=[]),
                      realm_root=tmp_path)
     assert "Connected in Claude" not in card
+    # IBKR allows one AI platform at a time (capreach): only its current engine is checked, and
+    # the card says so instead of offering a Codex sign-in that would disconnect Claude.
     assert 'data-provider="claude"' in card
-    assert 'data-provider="codex"' in card
+    assert 'class="mc-conn-badge" data-cap="claude_ai_Interactive_Brokers_IBKR" data-provider="codex"' not in card
+    assert "One engine at a time · on Claude" in card
+    assert "Move to Codex" not in card          # read-only card: no manage scope
     assert "Checking connection" in card
     assert 'style="display:none"' in card  # actions stay hidden until the async status arrives
 
