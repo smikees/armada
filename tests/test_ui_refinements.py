@@ -1,4 +1,5 @@
 import threading
+import time
 import shutil
 import subprocess
 from pathlib import Path
@@ -39,6 +40,12 @@ def test_connector_probe_exception_is_an_explained_terminal_state(tmp_path, monk
     monkeypatch.setattr(connector_runtime, 'codex_live_inventory', lambda root: (_ for _ in ()).throw(RuntimeError('Startup lock busy')))
     monkeypatch.setattr(connector_runtime, 'claude_inventory', lambda: {})
     data = connector_runtime.connection_snapshot(tmp_path)
+    # Checks are asynchronous: scheduler load may leave the first response pending.
+    # Verify the terminal error, without assuming the worker completes in the initial join.
+    deadline = time.monotonic() + 3
+    while data['providers']['codex'] == 'checking' and time.monotonic() < deadline:
+        time.sleep(.01)
+        data = connector_runtime.connection_snapshot(tmp_path)
     assert data['providers']['codex'] == 'unknown'
     assert data['connectors']['ibkr']['errors']['codex'] == 'RuntimeError: Startup lock busy'
 

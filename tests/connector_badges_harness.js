@@ -4,11 +4,11 @@ const badges=['claude','codex','gemini'].map(provider=>{
   return {dataset:{cap:'ibkr',provider},title:'',mark,querySelector(){return mark;}};
 });
 let fetched=0;
-const context={document:{getElementById(){return {};},querySelectorAll(selector){
+const context={document:{getElementById(id){return id==='cap-pane-user'?{}:null;},querySelectorAll(selector){
   if(selector==='.mc-conn-badge')return badges;
   if(selector==='.mc-conn-badge[data-state="checking"]')return badges.filter(b=>b.dataset.state==='checking');
   return [];
-}},AbortSignal:{timeout(){}},Date,setTimeout,URLSearchParams,fetch:async()=>{
+}},sessionStorage:{getItem(){return null;}},AbortSignal:{timeout(){}},Date,setTimeout,URLSearchParams,fetch:async()=>{
   fetched++;return {ok:true,json:async()=>({providers:{claude:'ready',codex:'ready',gemini:'ready'},
     connectors:{ibkr:{claude:'failed',codex:'ready',gemini:'unknown'}},pending:false})};
 }};
