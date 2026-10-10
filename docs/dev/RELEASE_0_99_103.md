@@ -43,3 +43,34 @@ retained. Authenticode and clean Windows Sandbox acceptance are not claimed.
 
 Publication includes GitHub and https://armada.stamih.com. The quarantined older package must
 not simply be retried: the corrected version supersedes it through the normal update flow.
+
+## Published and recovered — 2026-10-10
+
+- Published normal/latest [v0.99.103](https://github.com/smikees/armada/releases/tag/v0.99.103)
+  from source `103688b5c9c3410969d6f88786d5af8572001edc` through the enforced maintenance publisher.
+- Full pinned suite: **3,604 passed, 5 skipped**. Both Windows Python configurations and the
+  relay checks passed in [exact-source CI](https://github.com/smikees/armada/actions/runs/38072864534).
+- Final native startup/recovery: 9 checks; launcher interruption recovery: 5; multi-window
+  sessions: 16; exact signed-package upgrade from 0.99.102: 69 checks, including Settings restoration.
+- Verified all public assets against local build hashes, the Ed25519 manifest signature,
+  source commit and all 341 packaged source files. The website was backed up and published;
+  public HTTPS content and the linked installer download were verified.
+- Repaired the owner's quarantined installation through the normal authenticated update API,
+  from 0.99.101 to 0.99.103. No active-work blockers were reported. The desktop acknowledged
+  startup, the scheduler ran, the monitor reported `complete`, and the health transaction committed.
+  Installed startup code matched the release, and saved preferences retained their exact hash.
+  The older quarantine was not bypassed or cleared to force another attempt at 0.99.102.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `ARMADA-Setup-0.99.103.exe` | `2caefa3a73420056cc443d39677f5b7c628067bf8cc60454a7eee7e1f3596ef0` |
+| `armada-0.99.103.zip` | `2b0053a6adb2c6c22a088086db782b3183c6d6213526d88db171d1b85ea55a71` |
+| `armada-update.json` | `e98a18b5098681711fdbe30578c18f2bc2842cd6613aaa53bbf338c3c39fcf11` |
+| `armada-update.json.sig` | `4193958eff6764d81ca689f0a50e3d0160b007fc8565268d37d9b57a3304581a` |
+| Website source `index.html` | `a09462556393b56633b47a61e975b5ba78af57b9582725b96a5a01dad4b1336d` |
+
+Local evidence: `build/publish103.log`, `build/release-evidence-0.99.103.json`,
+`build/startup-recovery-103-final.json`, `build/upgrade-0.99.103.json`,
+`build/public-0.99.103-verification.json`, `build/website-0.99.103-publication.json`,
+and the ignored `build/startup-incident-103/` diagnostics/recovery record.
+This evidence-only follow-up does not change the tagged application source.

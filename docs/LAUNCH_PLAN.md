@@ -16,6 +16,10 @@ Version **0.99.103** corrects false startup failures when restoring Settings or 
 without the optional icon helper, and preserves the saved route through authentication.
 Native startup and packaged update gates now cover these paths.
 [Incident and verification](dev/RELEASE_0_99_103.md). Owner acceptance milestones remain open.
+Published on GitHub and the website with 3,604 tests passing, exact-source Windows CI,
+9 native startup checks, 5 launcher recovery checks, 16 session checks and 69 upgrade checks.
+The owner installation was successfully repaired through the normal update API; its window
+and scheduler are healthy and saved preferences are unchanged.
 
 Version **0.99.102** fixes the Settings font sample, makes both font menus equally readable, and
 introduces a saved Default size that Ctrl+0 restores independently of shortcut adjustments.
