@@ -28,4 +28,20 @@ decisions: Opus 5.5 at low effort, all sources on by default, the filter-based b
 
 ## Results
 
-Recorded below when the maintenance publisher completes.
+Published 2026-10-10 as normal/latest [v0.99.104](https://github.com/smikees/armada/releases/tag/v0.99.104)
+from source `ee859e1`, through `tools/publish_release.py --maintenance-unsigned`.
+
+- Pinned isolated release gate: **3,615 passed, 5 skipped**.
+- [Exact-source CI](https://github.com/smikees/armada/actions/runs/38074700128) passed on the first attempt.
+- Native upgrade gate: 69 real-page, restart and cleanup checks passed, upgrading 0.99.103 to 0.99.104.
+- The owner's running app was not restarted.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `ARMADA-Setup-0.99.104.exe` | `379564b3988fc47dcaa89557a84c8f436fc59967ed636c435e75aa7db26dc43a` |
+| `armada-0.99.104.zip` | `ece9667c7f8ee199c9d0e5330e7ab9ebd76ad1066ca36e7eb1c211ec2722559e` |
+| `armada-update.json` | `bb0e74bea0bca7c4d5d68dc48a791a2843008655da460d73e41aea716797f780` |
+| `armada-update.json.sig` | `a79d4be3dc9be34bad770b994092c540f62d2b6adcb7769d3e90ff744180e489` |
+
+Website: `website/index.html` carries 0.99.104 in source. The FTPS upload runs with the owner's
+local credentials (`build/publish_website.py 0.99.104`); its verification is recorded here once done.
