@@ -270,8 +270,11 @@ def child(successor=None):
             for route in ('/settings','/docs','/agent/captain/threads','/alexander'):
                 response = js(window,'fetch('+json.dumps(route)+').then(async r=>({status:r.status,body:await r.text()}))')
                 check('authenticated real page '+route,response['status']==200 and '/static/brand.css' in response['body'])
-            for route in ('/settings','/docs','/agent/captain/threads'):
-                window.load_url(f'http://127.0.0.1:{info.get("port", app._app_url.split(":")[-1].strip("/"))}'+route)
+            for index, route in enumerate(('/settings','/docs','/agent/captain/threads')):
+                # WebView2's Source setter does not navigate to an identical URI,
+                # although pywebview clears its loaded event first. Force navigation
+                # when the restored startup page is already Settings.
+                window.load_url(f'http://127.0.0.1:{info.get("port", app._app_url.split(":")[-1].strip("/"))}'+route+f'?upgrade-probe={index}')
                 deadline = time.monotonic()+15
                 while time.monotonic()<deadline:
                     if window.evaluate_js('location.pathname')==route and window.evaluate_js("!!document.querySelector('link[href*=\"/static/brand.css\"]')"): break
