@@ -710,6 +710,25 @@ def _cat_other_ways() -> str:
             f'{_cat_bring_link()}{dirs}</section>')
 
 
+def _cat_other_ways_minimal() -> str:
+    """The two ways in that need no search: a link to review, or an MCP address you already have."""
+    address = (
+        f'<div class="mc-addway">'
+        f'<div class="mc-addway-h">{_icon("cap-connector",15)}<span>Add an MCP server by its address</span></div>'
+        f'<p class="mc-addway-p">From a service\u2019s own documentation (https://\u2026/mcp). One connector '
+        f'for every engine; each engine signs in to it separately.</p>'
+        f'<div class="mc-addway-form">'
+        f'<input id="cat-addr-name" class="mc-field" maxlength="120" placeholder="Name, e.g. Linear" '
+        f'aria-label="Connector name">'
+        f'<input id="cat-addr-url" class="mc-field" type="url" placeholder="https://mcp.example.com/mcp" '
+        f'aria-label="MCP server address" onkeydown="if(event.key===\'Enter\')mcCatAddAddress(this)">'
+        f'<button class="btn btn-secondary" onclick="mcCatAddAddress(this)">Add</button></div>'
+        f'<p id="cat-addr-msg" class="mc-addway-msg" role="status"></p></div>')
+    return (f'<section class="mc-addways" aria-labelledby="cat-other-h">'
+            f'<h3 id="cat-other-h" class="mc-addways-title">Already know what you want?</h3>'
+            f'{_cat_bring_link()}{address}</section>')
+
+
 def _cat_placeholder() -> str:
     """What sits where the results will go, until they arrive.
 

@@ -35,32 +35,39 @@ engine is withheld and named to the agent, so a job that needs it says exactly w
 
 ## Adding a capability
 
-Everything is added from the **Add a capability** tab. One search covers every source: services
-that live in an engine's own account, the open MCP registry, plugin marketplaces and skills. Use
-**Works with** to show only what agents on a given engine can use.
+Open **Add a capability** and tell Alexander what you need, in your own words: "a PDF viewer for
+Codex", "connectors already set up in Claude Code", "skills I made in other realms". He searches
+the sources switched on under **Sources** and lists what is most likely to help, with one or two
+lines on what he found. Each result shows which engines can use it, where it came from, and
+whether you already have it. A search takes from a few seconds to under a minute and runs on
+Claude Opus through your Claude account.
 
-- **Engine connectors** (Gmail, Google Drive, Google Calendar, Slack, GitHub) live in each
-  provider's account, and each engine has its own version. Their cards come first and have one
-  button per engine: **Add for Claude** creates "Gmail · Claude", **Add for Codex** creates
-  "Gmail · Codex". Add both if agents on both engines need it; a card shows which are already
-  here. Gemini can't use these; add an open server for the service instead, if one exists.
-  - **Claude:** add the service in Claude's connector settings with the account Claude Code uses,
-    then press **Connect** on its row. ARMADA links Claude's connector automatically.
-  - **Codex:** press **Connect**. ARMADA finds the ChatGPT app; review permissions, install and
-    sign in using the same account as Codex CLI, then **Recheck**.
-- **An open server** (Notion, or anything from the MCP registry) is one connector for every engine.
-  Connect each engine you use from its row; each signs in separately.
+**Sources** come in two groups, and you can switch any of them off:
 
-Not in the results? **Other ways to add**, below them:
+- **What you have:** this realm, your skills in other realms, what Claude Code already has set up,
+  and plugins already installed in your ChatGPT account.
+- **Where to find more:** engine connectors (Gmail, Google Drive… added per engine), ChatGPT's
+  plugin directory (read through Codex; Codex only), Claude plugin marketplaces, Anthropic's
+  skills, and the MCP registry (open to anyone and unreviewed).
 
-- **Add an MCP server by its address**: a name and the https address from the service's own
-  documentation. A website address is not an MCP endpoint.
-- **Already set up in Claude?**: brings connectors you added in Claude's settings, and servers
-  added to Claude Code, into the realm as they are.
-- **Bring a link**: an agent reviews a repository or package and reports what it found before you
-  add it.
-- Links to Claude's connector directory and ChatGPT's apps. Neither publishes a list ARMADA can
-  search, so connect a service there, then bring it in from Claude or add it above for Codex.
+What a result offers depends on what it is:
+
+- **Review & add**: an agent reads it first, as with Bring a link, and you add it after reading
+  the review.
+- **Add for Claude / Add for Codex**: an engine connector. Then press **Connect** on its row:
+  for Claude, add the service in Claude's connector settings and ARMADA links it; for Codex,
+  ARMADA finds the ChatGPT app.
+- **Add for Codex** on a ChatGPT plugin: creates "<plugin> · Codex". Install it in ChatGPT
+  (**Open in ChatGPT**) if you haven't, then press **Connect** on its row.
+- **Bring in from Claude**: brings what Claude Code already has into this realm.
+- **In this realm**: shows it on the User tab.
+
+Alexander can only show what a source returned; he can't install, grant or review anything.
+
+**Already know what you want?** Use **Bring a link** for a repository or package, or **Add an
+MCP server by its address** for a service whose documentation gives one. **Browse for yourself**
+links to Claude's and ChatGPT's directories, skills.sh, the MCP registry and others; bring a link
+back from any of them for a review.
 
 Each connector has one set of agent grants. **Setup details → Link existing connection** maps a
 differently named registration in an engine to that connector, for when the names don't match. Choose the intended

@@ -16,3 +16,7 @@ stays in serve.py, only the handler bodies moved.
 - `CatalogueRoutes._catalogue_add(self, body: dict)` — —
 - `CatalogueRoutes._catalogue_review(self, body: dict)` — —
 - `CatalogueRoutes._catalogue_add_link(self, body: dict)` — —
+- `CatalogueRoutes._smart_search(self, body: dict)` — —
+- `CatalogueRoutes._get_smart_search(self)` — —
+- `CatalogueRoutes._smart_search_warm(self, body: dict)` — —
+- `CatalogueRoutes._smart_search_add(self, body: dict)` — Add a ChatGPT plugin found by smart search as its own Codex row.

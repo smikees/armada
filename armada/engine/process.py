@@ -259,7 +259,7 @@ def supervise_command(args, *, timeout, cwd=None, env=None, on_proc=None, launch
     return result
 
 
-def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_proc=None):
+def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_proc=None, max_line=MAX_LINE):
     """Own one interactive newline-JSON CLI session until its terminal notification.
 
     `start(send)` sends initialization; `on_message(message, send)` may send dependent
@@ -284,9 +284,9 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
 
     def read_stdout():
         try:
-            while line := proc.stdout.readline(MAX_LINE + 1):
-                if len(line) > MAX_LINE:
-                    raise ValueError("CLI output line exceeded the 8 MiB limit")
+            while line := proc.stdout.readline(max_line + 1):
+                if len(line) > max_line:
+                    raise ValueError(f"CLI output line exceeded the {max_line // (1024 * 1024)} MiB limit")
                 put(("line", line))
         except Exception as exc:
             logging.getLogger(__name__).exception('CLI stdout reader failed')

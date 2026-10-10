@@ -32,6 +32,6 @@ Run one owned process; on_line receives complete lines and may reject malformed 
 
 Own a noninteractive command without parsing a provider protocol.
 
-### `supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_proc=None)`
+### `supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_proc=None, max_line=MAX_LINE)`
 
 Own one interactive newline-JSON CLI session until its terminal notification.

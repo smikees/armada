@@ -69,7 +69,7 @@ Fetch one registry server by name, normalised.
 
 One entry by key — from the mirrored index, or fetched from the registry if it lives there.
 
-### `add_to_realm(realm_root, key: str, entry: dict | None=None)`
+### `add_to_realm(realm_root, key: str, entry: dict | None=None, review: dict | None=None)`
 
 Put a catalogue entry into this realm's capability list.
 
@@ -80,6 +80,10 @@ Find the first balanced {...} object in free text and parse it.
 ### `review_url(url: str, engine: str='claude', timeout: int=300)`
 
 Ask an agent to run the capability-review protocol (system_skills/capability-review) against a link, and come back with a report the owner can read before deciding to add it.
+
+### `_review_fields(review: dict)`
+
+The trust fields a bring-a-link review puts on a record (shared with add_to_realm).
 
 ### `add_link_to_realm(realm_root, url: str, review: dict)`
 

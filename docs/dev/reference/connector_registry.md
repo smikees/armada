@@ -50,6 +50,10 @@ The curated services as Add a capability results, beside the mirrored sources.
 
 Add a remote connector or explicitly link one existing engine registration.
 
+### `add_codex_plugin(realm_root, plugin, *, name='', description='')`
+
+Add a ChatGPT plugin from the directory as its own Codex-only connector row.
+
 ### `unlink(realm_root, capability, provider)`
 
 Remove this realm's binding only; never revoke shared provider credentials.

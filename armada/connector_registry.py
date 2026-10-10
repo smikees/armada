@@ -178,7 +178,12 @@ def _row_service(cap: dict) -> str:
             tail = cid[len(prefix):].replace('_', ' ').strip().lower()
             return next((s['id'] for s in SERVICES if s['name'].lower() == tail), '')
     url = str(cap.get('mcp_url') or cap.get('command') or '').strip()
-    return next((s['id'] for s in SERVICES if s.get('endpoint') and s['endpoint'] == url), '')
+    by_url = next((s['id'] for s in SERVICES if s.get('endpoint') and s['endpoint'] == url), '')
+    if by_url:
+        return by_url
+    # Rows ARMADA named "<service> · <engine>" (or older "· native app" / "· ChatGPT app" ones).
+    name = str(cap.get('name') or '').lower()
+    return next((s['id'] for s in SERVICES if name.startswith(s['name'].lower() + ' · ')), '')
 
 
 def added_for(realm_root) -> dict:
@@ -237,7 +242,12 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
     if service:
         entry = next((s for s in SERVICES if s['id'] == service), None)
         if entry is None:
-            raise ValueError('Unknown provider connector.')
+            # Connect on a row added from the ChatGPT plugin directory: not one of the curated
+            # services, but the row already names its plugin, so only the app id is resolved here.
+            from .codex_apps import valid_plugin
+            if not capability or not valid_plugin(service):
+                raise ValueError('Unknown provider connector.')
+            entry = {'id': service, 'name': ''}
         name = entry['name'] + (' · ' + account_label if account_label else '')
         if not capability:
             have = added_for(realm_root).get(service, set())
@@ -332,8 +342,8 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
                 cap['service_id'] = entry_id
         if service:
             cap['native_service'] = service
-            if not capability:
-                cap['connection_type'] = 'provider-native'
+        if service and not capability:
+            cap['connection_type'] = 'provider-native'
             cap['description'] = ('A native app in your ChatGPT account; only Codex models can use it.'
                                   if reach == 'codex' else
                                   'A connector in your Claude account; only Claude models can use it.'
@@ -352,6 +362,43 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
         policy_bindings(cap)
         util.write_json_atomic(path, data)
     return {'ok': True, 'capability': cap['id']}
+
+
+def add_codex_plugin(realm_root, plugin, *, name='', description=''):
+    """Add a ChatGPT plugin from the directory as its own Codex-only connector row.
+
+    Nothing is installed here: install consent and sign-in are ChatGPT's, and Connect on the row
+    resolves the plugin's app (codex_apps.service) once it is installed there.
+    """
+    from . import capabilities, codex_apps
+    if not codex_apps.valid_plugin(plugin):
+        raise ValueError('Unknown ChatGPT plugin.')
+    label = (str(name or '').strip() or plugin)[:100]
+    have = added_for(realm_root).get(plugin, set())
+    if 'codex' in have or 'any' in have:
+        raise ValueError(f'{label} is already in this realm for Codex.')
+    path = Path(realm_root) / 'realm.json'
+    with util.file_lock(path):
+        data = util.read_json_state(path)
+        toolkit = data.setdefault('toolkit', {})
+        rows = toolkit.setdefault('connectors', [])
+        base = registration_id(f'{label} codex'.lower().replace(' ', '-'))
+        if base.startswith('-'):
+            base = 'armada' + base
+        used = {r.get('id') for kind in capabilities.KINDS for r in toolkit.get(kind, [])}
+        cid, i = base, 2
+        while cid in used:
+            cid, i = f'{base}-{i}', i + 1
+        cap = {'id': cid, 'name': f'{label} · Codex', 'source': 'custom', 'enabled': True,
+               'status': 'configured', 'runs': 'service', 'touch': ['network'],
+               'description': (str(description or '').strip()[:280]
+                               or 'A plugin in your ChatGPT account; only Codex models can use it.'),
+               'connection_type': 'provider-native', 'provider_bindings': {},
+               'native_service': plugin, 'reach': 'codex'}
+        policy_bindings(cap)
+        rows.append(cap)
+        util.write_json_atomic(path, data)
+    return {'ok': True, 'capability': cid}
 
 
 def unlink(realm_root, capability, provider):

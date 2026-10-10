@@ -68,6 +68,10 @@ Paste a link, an agent reviews it, the report is what decides whether to add it.
 
 Below the results: every way to add something the search didn't find, in one place.
 
+### `_cat_other_ways_minimal()`
+
+The two ways in that need no search: a link to review, or an MCP address you already have.
+
 ### `_cat_placeholder()`
 
 What sits where the results will go, until they arrive.

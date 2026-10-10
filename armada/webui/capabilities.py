@@ -1408,8 +1408,9 @@ def _realm_skills(realm, realm_root) -> str:
     sys_pane = f'<div id="cap-pane-system" style="display:none">{_system_panel()}</div>'
     # Local, not module-level: catalogue.py imports _KIND_SINGULAR/_cap_iconcluster/_cap_tier_why
     # back from this module, so a top-of-file import here would be a cycle (Phase 2, 2.4).
-    from .catalogue import _catalogue_pane, _CAT_JS
-    cat_pane = _catalogue_pane(realm, realm_root)
+    from .catalogue import _CAT_JS
+    from .smartsearch import smart_search_pane
+    cat_pane = smart_search_pane(realm, realm_root)
     # Re-opening a <details> doesn't re-run its CSS open animation: the panel element is never
     # re-created, so the animation only ever played on first expand. Restart it by hand on each
     # open (clear → force reflow → restore). `toggle` doesn't bubble, hence capture.

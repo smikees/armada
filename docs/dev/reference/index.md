@@ -117,6 +117,7 @@
 | [`setupfolder`](setupfolder.md) | Relocate an unfinished realm, preserving its files and machine registration. |
 | [`setupteam`](setupteam.md) | Edit a wizard's existing team without replacing its realm or agent histories. |
 | [`skills`](skills.md) | Skills/connectors provisioning (SPEC §6 / §14) — the manifest layer. |
+| [`smart_search`](smart_search.md) | Smart search for Add a capability: Alexander searches the sources the owner switched on. |
 | [`starter_generic_profiles`](starter_generic_profiles.md) | Full, role-based starter profiles for Company and Ship setup rosters. |
 | [`starter_profiles`](starter_profiles.md) | Bundled starter profiles, separate from personal realms and copied only at creation. |
 | [`startup`](startup.md) | Desktop activation and startup failure reporting, including console-free launches. |
@@ -164,6 +165,7 @@
 | [`webui.recovery`](webui.recovery.md) | A self-contained error screen: no realm/config reads, scripts or authenticated assets. |
 | [`webui.schedfmt`](webui.schedfmt.md) | Schedule / status / date-format helpers (carved from _core.py in Phase 3). |
 | [`webui.setup_wizard`](webui.setup_wizard.md) | The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide. |
+| [`webui.smartsearch`](webui.smartsearch.md) | Add a capability: smart search (Alexander), Bring a link, add by address, and where to browse. |
 | [`webui.thread_window`](webui.thread_window.md) | The ordinary conversation pane in Alexander's independent window frame. |
 | [`webui.threadsview`](webui.threadsview.md) | Threads / chat rendering (Layer 2, carved from _core.py in Phase 3). |
 | [`webui.welcome`](webui.welcome.md) | The first-run page (launch plan 5.3): what the app shows when there is no realm to open. |

@@ -47,6 +47,8 @@ class CatalogueRoutes:
         realm_root = self.realm
 
         def _after():
+            from .. import smart_search
+            smart_search.chatgpt_directory(refresh=True)   # smart search's ChatGPT plugin list
             catalogue.adopt(realm_root)
             catalogue.refresh_registry_count()
         threading.Thread(target=_after, daemon=True).start()
@@ -118,7 +120,55 @@ class CatalogueRoutes:
         review = body.get("review")
         if not url or not isinstance(review, dict):
             return {"ok": False, "error": "review this link before adding it"}
+        # A smart-search result names its catalogue entry: add that (a skill's files, a plugin's
+        # record) with the review's findings, rather than a bare link.
+        key = str(body.get("key") or "")
+        if key:
+            return catalogue.add_to_realm(self.realm, key, review=review)
         return catalogue.add_link_to_realm(self.realm, url, review)
+
+    # ---- smart search -------------------------------------------------------------------------
+    # Alexander's search runs in the background (an agent turn, tens of seconds); the page polls.
+
+    def _smart_search(self, body: dict) -> dict:
+        from .. import smart_search
+        q = str(body.get("q") or "").strip()
+        if not q:
+            return {"ok": False, "error": "Say what you're looking for."}
+        sources = [s for s in (body.get("sources") or []) if s in smart_search.SOURCE_IDS]
+        return {"ok": True, "id": smart_search.start(self.realm, q, sources)}
+
+    def _get_smart_search(self):
+        from .. import smart_search
+        from ..webui.smartsearch import render_results
+        st = smart_search.status(self._query().get("id", ""))
+        if st is None:
+            return self._json(404, {"ok": False, "error": "That search has expired. Search again."})
+        out = {"ok": True, "state": st["state"], "steps": st["steps"], "elapsed": st["elapsed"]}
+        if st["state"] == "done":
+            res = st["result"] or {}
+            out["result_ok"] = bool(res.get("ok"))
+            out["html"] = render_results(self.realm, res)
+        return self._json(200, out)
+
+    def _smart_search_warm(self, body: dict) -> dict:
+        from .. import smart_search
+        smart_search.warm()
+        return {"ok": True}
+
+    def _smart_search_add(self, body: dict) -> dict:
+        """Add a ChatGPT plugin found by smart search as its own Codex row."""
+        from .. import smart_search, connector_registry
+        plugin = str(body.get("plugin") or "")
+        d = smart_search.chatgpt_directory()
+        p = next((x for x in d.get("plugins") or [] if x.get("name") == plugin), None)
+        if p is None:
+            return {"ok": False, "error": "That plugin isn't in ChatGPT's directory any more. Search again."}
+        try:
+            return connector_registry.add_codex_plugin(self.realm, plugin, name=p.get("title") or plugin,
+                                                       description=p.get("short") or "")
+        except (ValueError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
 
     # ---- agent lifecycle -------------------------------------------------------------------
     # Retire and reinstate are one move in two directions; delete is the one that doesn't come

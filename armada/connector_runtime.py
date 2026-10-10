@@ -661,10 +661,8 @@ def connector_setup(cap: dict, provider: str) -> dict:
         return {"ok": False, "error": "Unknown connector provider."}
     cap = provider_cap(cap, provider)
     if cap.get('_native_app'):
-        service = cap.get('native_service')
-        from .connector_registry import NATIVE_SERVICES
-        url = (f'https://chatgpt.com/plugins/{service}?open_in_app' if service in NATIVE_SERVICES else
-               'https://chatgpt.com/apps')
+        from .codex_apps import plugin_url
+        url = plugin_url(cap.get('native_service'))
         return {'ok': True, 'web_url': url, 'guide_url': 'https://learn.chatgpt.com/docs/plugins',
                 'snippet': '', 'instructions': 'Open this native app using the same account as Codex CLI. Review its permissions, install and sign in there, then Recheck in ARMADA. You can also use /plugins in Codex CLI. No separate ARMADA OAuth client is needed.'}
     if cap.get('native_service') and provider == 'claude' and cap.get('_unbound'):

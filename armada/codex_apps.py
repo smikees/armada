@@ -7,7 +7,7 @@ from .engine.codex import CodexEngine, _feature_args
 from .engine.process import supervise_rpc
 
 
-def rpc(method, params, *, cwd=None, config=()):
+def rpc(method, params, *, cwd=None, config=(), max_line=None, timeout=45):
     engine = CodexEngine()
     launcher = engine._launcher()
     if not launcher:
@@ -35,8 +35,9 @@ def rpc(method, params, *, cwd=None, config=()):
             return True
         return False
 
+    extra = {'max_line': max_line} if max_line else {}
     result = supervise_rpc(launcher + ['app-server'] + _feature_args() +
-        ['-c', 'features.apps=true', *config], start=start, on_message=accept, timeout=45, cwd=cwd)
+        ['-c', 'features.apps=true', *config], start=start, on_message=accept, timeout=timeout, cwd=cwd, **extra)
     if not answer:
         raise ValueError(result.error or 'Codex did not return its native connector inventory.')
     return answer
@@ -55,9 +56,49 @@ def inventory(*, force=False, cwd=None):
     return rows
 
 
+_PLUGIN_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,100}')
+# Directory plugins backed by an app ARMADA can grant. The others bundle skills or workflows only.
+_APP_PLUGIN_IDS = ('plugin_asdk_app_', 'plugin_connector_', 'plugin_templated_apps_')
+MARKETPLACE = 'openai-curated-remote'
+
+
+def valid_plugin(name):
+    return isinstance(name, str) and bool(_PLUGIN_NAME.fullmatch(name))
+
+
+def plugin_url(name):
+    """The plugin's own page in ChatGPT, where its install consent and sign-in happen."""
+    return f'https://chatgpt.com/plugins/{name}?open_in_app' if valid_plugin(name) else 'https://chatgpt.com/plugins'
+
+
+def plugin_directory(*, cwd=None):
+    """The ChatGPT plugin directory (chatgpt.com/plugins) as Codex sees it, via `plugin/list`.
+
+    Returns (plugins, featured ids). Only app-backed plugins from OpenAI's curated marketplace,
+    because only those become a connector an agent can be granted. The answer is one JSON line of
+    about 13 MB, hence the larger line limit; smart_search caches it for a day.
+    """
+    result = rpc('plugin/list', {}, cwd=cwd, config=['-c', 'features.plugins=true'],
+                 max_line=64 * 1024 * 1024, timeout=120)
+    market = next((m for m in result.get('marketplaces') or [] if isinstance(m, dict)
+                   and m.get('name') == MARKETPLACE), None)
+    if market is None:
+        raise ValueError('Codex did not return the ChatGPT plugin directory.')
+    out = []
+    for p in market.get('plugins') or []:
+        if not isinstance(p, dict) or not valid_plugin(p.get('name')):
+            continue
+        if not str(p.get('remotePluginId') or '').startswith(_APP_PLUGIN_IDS):
+            continue
+        if p.get('availability') != 'AVAILABLE' or p.get('installPolicy') == 'NOT_AVAILABLE':
+            continue
+        out.append(p)
+    featured = [str(f) for f in result.get('featuredPluginIds') or [] if isinstance(f, str)]
+    return out, featured
+
+
 def service(plugin, *, cwd=None):
-    from .connector_registry import NATIVE_SERVICES
-    if plugin not in NATIVE_SERVICES:
+    if not valid_plugin(plugin):
         raise ValueError('Unknown provider connector.')
     result = rpc('plugin/read', {'pluginName': plugin,
         'remoteMarketplaceName': 'openai-curated-remote'}, cwd=cwd,
@@ -66,7 +107,7 @@ def service(plugin, *, cwd=None):
     if len(apps) != 1 or not valid_id(apps[0].get('id')):
         raise ValueError('This provider plugin does not expose one independently grantable connector.')
     return {'app_id': apps[0]['id'], 'name': apps[0].get('name') or plugin,
-            'install_url': f'https://chatgpt.com/plugins/{plugin}?open_in_app'}
+            'install_url': plugin_url(plugin)}
 
 
 def scoped_args(allowed, *, cwd=None):

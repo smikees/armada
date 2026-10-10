@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.104** makes Add a capability a search: Alexander searches the sources the owner
+switches on (what you have, and directories including ChatGPT’s plugins via Codex) and returns
+cards built only from what sources returned; adding still goes through review or the engine’s consent.
+[Design](dev/SMART_SEARCH.md) · [verification](dev/RELEASE_0_99_104.md).
+
 Version **0.99.103** corrects false startup failures when restoring Settings or another page
 without the optional icon helper, and preserves the saved route through authentication.
 Native startup and packaged update gates now cover these paths.

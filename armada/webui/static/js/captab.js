@@ -19,6 +19,7 @@ var h=document.getElementById("cap-actions");if(h)h.style.display=(t==="user")?"
 if(t==="catalogue"&&typeof mcCatFilter==="function"){
 var box=document.getElementById("cat-results");
 if(box&&box.dataset.pending){delete box.dataset.pending;mcCatFilter();}}
+if(t==="catalogue"&&typeof mcSsWarm==="function")mcSsWarm();
 try{sessionStorage.setItem("mcCapTab",t);}catch(e){}}
 mcCapTab((function(){try{return sessionStorage.getItem("mcCapTab")||"user";}
 catch(e){return "user";}})());

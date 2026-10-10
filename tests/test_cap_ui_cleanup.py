@@ -75,7 +75,7 @@ def test_adding_lives_only_in_add_a_capability(realm):
     """0.99.101: one place to add. The User tab has no add or import controls of its own."""
     html = UI._realm_skills(reader.read(str(realm)), realm)
     assert "mcConnectorRefresh" not in html and "mcConnectorAdd" not in html
-    assert "mcCatImportClaude" in html and "mcCatAddAddress" in html
+    assert "mcSmartSearch" in html and "mcCatAddAddress" in html and "mcCatReview" in html
 
 
 def test_the_sentence_does_not_offer_a_second_way(realm):

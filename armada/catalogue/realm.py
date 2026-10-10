@@ -510,7 +510,7 @@ def find(key: str) -> dict | None:
     return None
 
 
-def add_to_realm(realm_root, key: str, entry: dict | None = None) -> dict:
+def add_to_realm(realm_root, key: str, entry: dict | None = None, review: dict | None = None) -> dict:
     """Put a catalogue entry into this realm's capability list.
 
     Deliberately NOT the same as installing it. The realm catalogue is the record of what you have
@@ -590,6 +590,9 @@ def add_to_realm(realm_root, key: str, entry: dict | None = None) -> dict:
                 **({"setup_guide": e["setup_guide"], "setup_required": e.get("setup_required", ""),
                     "status": "planned"}
                    if e.get("setup_guide") else {}),
+                # Added from a smart-search result the owner had reviewed first: the reviewer
+                # actually read it, so its findings stand in for the local grep.
+                **(_review_fields(review) if isinstance(review, dict) and review.get("ok") else {}),
             })
             util.write_json_atomic(rp, js)
     except (OSError, ValueError) as err:
@@ -731,6 +734,21 @@ def review_url(url: str, engine: str = "claude", timeout: int = 300) -> dict:
         "warn": str(data.get("warn") or "").strip(),
         "confidence": str(data.get("confidence") or "").strip(),
     }
+
+
+def _review_fields(review: dict) -> dict:
+    """The trust fields a bring-a-link review puts on a record (shared with add_to_realm)."""
+    gist = str(review.get("recommendation") or review.get("summary") or "")
+    out = {"inspected": True, "inspect_note": gist[:200],
+           "recommendation": review.get("recommendation") or "",
+           "observed": review.get("summary") or "", "warn": review.get("warn") or ""}
+    if review.get("runs"):
+        out["runs"] = review["runs"]
+    if isinstance(review.get("touch"), list):
+        out["touch"] = review["touch"]
+    if review.get("risk") in _RISK_TIER:
+        out["tier"] = _RISK_TIER[review["risk"]]
+    return out
 
 
 def add_link_to_realm(realm_root, url: str, review: dict) -> dict:
