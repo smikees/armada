@@ -21,7 +21,7 @@ from unittest.mock import patch
 def run(output):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import webview
-    from armada import app, assets, icons, instance, local_auth, schedsvc, serve, startup, util
+    from armada import app, assets, instance, local_auth, schedsvc, serve, startup, util
     from armada.tray import Tray
     result = {'ok': False, 'checks': []}
     windows = []
@@ -29,11 +29,14 @@ def run(output):
     with tempfile.TemporaryDirectory(prefix='armada-startup-probe-', ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         (root/'home').mkdir()
+        (root/'data').mkdir()
+        (root/'data'/'desktop-state.json').write_text(
+            json.dumps({'route':'/resume', 'realm':'none'}), encoding='utf-8')
         class Fixture(serve.Handler):
             def _route_get(self):
                 path = self.path.split('?')[0]
-                if path == '/':
-                    self._send(200, '<!doctype html><html><head>'+assets.CSS_LINKS+icons._ICONS_JS+
+                if path in ('/', '/resume'):
+                    self._send(200, '<!doctype html><html><head>'+assets.CSS_LINKS+
                                '</head><body><main id="probe-home">Synthetic ARMADA home</main></body></html>')
                 elif path == '/settings':
                     raise RuntimeError('Synthetic Settings failure')
@@ -77,6 +80,9 @@ def run(output):
                 assert serve._launch_mode() == 'app'
                 result['checks'].append('owner, listener and authentication preserved; restart uses app')
                 window = windows[0]
+                assert window.evaluate_js('location.pathname') == '/resume'
+                assert window.evaluate_js('typeof window.mcIcon') == 'undefined'
+                result['checks'].append('saved page without optional icon helper starts and retains its route')
                 window.load_url(f"http://127.0.0.1:{before['port']}/settings")
                 wait_for(lambda: window.evaluate_js("!!document.querySelector('[data-armada-recovery=\"500\"]')"),
                          'Settings failure shows recovery page')

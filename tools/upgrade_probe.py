@@ -236,6 +236,8 @@ def child(successor=None):
                 time.sleep(.2)
                 info = js(window,"fetch('/api/instance').then(r=>r.json())")
             check('initial browser startup acknowledged',info.get('desktop_ready'))
+            if successor:
+                check('update restored Settings without a false rollback',window.evaluate_js('location.pathname')=='/settings')
             check(f"correct installed version: {info.get('version')} (expected {expected})",info['version']==expected)
             deadline = time.monotonic()+45
             while time.monotonic()<deadline:
@@ -304,6 +306,20 @@ def child(successor=None):
             if config.get('font_only'):
                 Path(config['output']).write_text(json.dumps({'ok':True,'checks':checks}),encoding='utf-8')
                 return
+            app.save_window_state()
+            check('selected thread persists in restart state',app.window_state().get('route','').startswith('/agent/captain/threads'))
+            # Restart from Settings too: it intentionally omits mcIcon. Checking only
+            # Overview/thread startup previously let a false rollback escape this gate.
+            window.load_url(app._app_url.rstrip('/')+'/settings')
+            deadline = time.monotonic()+15
+            while time.monotonic()<deadline:
+                if (window.evaluate_js('location.pathname')=='/settings' and
+                        window.evaluate_js('document.readyState')=='complete'): break
+                time.sleep(.1)
+            else: raise AssertionError('Settings did not finish loading before restart')
+            check('Settings has no optional icon helper',window.evaluate_js('typeof window.mcIcon')=='undefined')
+            app.save_window_state()
+            check('Settings persists as the update startup route',app.window_state().get('route','').startswith('/settings'))
             if not successor:
                 (home/'pre-update-checks.json').write_text(json.dumps(checks),encoding='utf-8')
                 result = js(window,"fetch('/api/check-update').then(r=>r.json())")
@@ -315,8 +331,6 @@ def child(successor=None):
             while (root/'.armada-update-health.json').exists() and time.monotonic()<deadline:time.sleep(.1)
             check('health transaction committed only with the real scheduler ready',
                   not (root/'.armada-update-health.json').exists() and schedsvc.ready())
-            app.save_window_state()
-            check('selected thread persists in restart state',app.window_state().get('route','').startswith('/agent/captain/threads'))
             deadline = time.monotonic()+15
             while time.monotonic()<deadline:
                 status = json.loads((home/'.armada/restart-status.json').read_text())

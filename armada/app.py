@@ -683,8 +683,17 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
             except Exception:
                 log.debug('Could not confirm a painted startup frame', exc_info=True)
             if navigating.is_set():
-                if not main.evaluate_js("!!document.querySelector('link[href*=\"/static/brand.css\"]')"):
-                    if not reauthenticated and main.evaluate_js("(document.body?.innerText||'').includes('Open ARMADA to access this local session.')"):
+                # The auth document redirects itself. Its loaded event can race with
+                # that redirect; treating it as a failed saved page loses the route.
+                document = main.evaluate_js("({auth:location.pathname === '/auth',"
+                    "complete:document.readyState === 'complete',"
+                    "shell:!!document.querySelector('link[href*=\"/static/brand.css\"]'),"
+                    "refused:(document.body?.innerText||'').includes('Open ARMADA to access this local session.'),"
+                    "shared:typeof window.mcFontSize?.get === 'function'})")
+                if not isinstance(document, dict) or document.get('auth') or not document.get('complete'):
+                    return
+                if not document.get('shell'):
+                    if not reauthenticated and document.get('refused'):
                         reauthenticated = True
                         from .local_auth import browser_url
                         main.load_url(browser_url(url))
@@ -695,12 +704,16 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                     return  # Auth/bootstrap and refusal pages are not a ready desktop.
                 from . import instance
                 from . import __version__, updater
-                if not main.evaluate_js("typeof window.mcIcon === 'function'"):
+                # CSS_LINKS loads this controller on every first-party page. mcIcon
+                # is optional: Settings and other page-shell routes don't include it.
+                if not document.get('shared'):
+                    log.warning('Desktop startup is waiting for the shared text controller')
                     return  # Shared UI code must initialize, as well as the HTML shell.
                 proof = _browser_result(main,"fetch('/api/instance',{credentials:'same-origin'}).then(async r=>({status:r.status,data:await r.json()}))")
                 if (not isinstance(proof, dict) or proof.get('status') != 200 or
                         proof.get('data', {}).get('nonce') != instance.current().get('nonce') or
                         proof.get('data', {}).get('version') != __version__):
+                    log.warning('Desktop startup could not verify the authenticated server identity')
                     return
                 instance.desktop_ready()
                 browser_ready.set()

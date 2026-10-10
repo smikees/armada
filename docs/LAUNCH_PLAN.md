@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.103** corrects false startup failures when restoring Settings or another page
+without the optional icon helper, and preserves the saved route through authentication.
+Native startup and packaged update gates now cover these paths.
+[Incident and verification](dev/RELEASE_0_99_103.md). Owner acceptance milestones remain open.
+
 Version **0.99.102** fixes the Settings font sample, makes both font menus equally readable, and
 introduces a saved Default size that Ctrl+0 restores independently of shortcut adjustments.
 The version row has improved alignment and spacing. [Verification](dev/RELEASE_0_99_102.md)
