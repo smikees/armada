@@ -15,8 +15,11 @@ const channels=[];
 class Channel{
   constructor(){channels.push(this);}postMessage(data){channels.filter(c=>c!==this).forEach(c=>c.onmessage?.({data}));}
 }
-function browser(){
+function browser(initial=13,baseline=13){
   const root=element(),body=element(),sample=element('17px'),em=element('1.2em'),select=element();select.value='13';
+  root.style.setProperty('--mc-font-reference',String(initial));
+  root.style.setProperty('--mc-font-default',String(baseline));select.value=String(baseline);
+  let serverDefault=baseline;
   const events={},windowEvents={},observers=[],calls=[],requests=[],nodes={'mc-font-size':select};
   root.querySelectorAll=()=>[sample,em];
   const rule=style('13px','important'),heading=style('26px');
@@ -32,7 +35,7 @@ function browser(){
     addEventListener:(key,fn)=>(windowEvents[key]??=[]).push(fn),
     dispatchEvent:event=>(windowEvents[event.type]||[]).forEach(fn=>fn(event)),
     fetch:(url,opts)=>{calls.push({url,body:opts?JSON.parse(opts.body):null});
-      return new Promise(resolve=>requests.push({url,resolve}));}};
+      return new Promise(resolve=>requests.push({url,body:opts?JSON.parse(opts.body):null,resolve}));}};
   ctx.window=ctx;vm.createContext(ctx);vm.runInContext(source,ctx);
   function key(key,code='',extra={}){
     const event={key,code,ctrlKey:true,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;},...extra};
@@ -40,7 +43,8 @@ function browser(){
   }
   async function complete(value,error='',index=0){
     const [request]=requests.splice(index,1);assert(request,'A request must be pending');
-    request.resolve({ok:!error,json:async()=>request.url==='/api/font-size'?{font_size:value}:{ok:!error,font_size:value,error}});
+    if(!error&&request.body?.font_size_default)serverDefault=request.body.font_size_default;
+    request.resolve({ok:!error,json:async()=>request.url==='/api/font-size'?{font_size:value,font_size_default:serverDefault}:{ok:!error,font_size:value,font_size_default:serverDefault,error}});
     for(let i=0;i<8;i++)await Promise.resolve();
   }
   return {ctx,key,complete,calls,requests,rule,heading,sample,em,observers,windowEvents,nodes,root,select};
@@ -55,7 +59,7 @@ async function run(){
   assert(!a.key('+','Equal',{altKey:true}).defaultPrevented);
   assert(!a.key('+','Equal',{isComposing:true}).defaultPrevented);
   assert(a.key('+','Equal').defaultPrevented);
-  assert.equal(a.ctx.mcFontSize.get(),14);assert.equal(a.select.value,'14');
+  assert.equal(a.ctx.mcFontSize.get(),14);assert.equal(a.select.value,'13','Shortcuts must not replace the default-size selection');
   assert.equal(a.calls[0].body.font_size,14);
   assert.equal(a.sample.value,'draft text','Shortcuts must preserve drafts');
   // Coalesce repeat events behind one in-flight save; the newest choice wins.
@@ -88,6 +92,20 @@ async function run(){
   c.ctx.mcFontSize.preview(14);c.windowEvents.focus.forEach(fn=>fn());
   c.key('+','Equal');await c.complete(15,'',1);await c.complete(14);
   assert.equal(c.ctx.mcFontSize.get(),15,'A delayed focus refresh must not overwrite a newer save');
+  const d=browser(20,18),e=browser(20,18);
+  d.key('0','Digit0');assert.equal(d.ctx.mcFontSize.get(),18);await d.complete(18);
+  d.select.value='22';d.ctx.mcFontSize.preview(22);
+  assert.equal(d.ctx.mcFontSize.getDefault(),18,'An unsaved preview must not change Ctrl+0');
+  const defaultSave=d.ctx.mcFontSize.saveDefault(22);await d.complete(22);await defaultSave;
+  assert.equal(d.calls.at(-1).body.font_size_default,22);
+  assert.equal(e.ctx.mcFontSize.getDefault(),22,'Companion receives the new reset target');
+  assert.equal(e.select.value,'22');
+  d.key('+','Equal');await d.complete(23);assert.equal(d.ctx.mcFontSize.getDefault(),22);
+  d.key('0','Numpad0');await d.complete(22);assert.equal(d.ctx.mcFontSize.get(),22);
+  const failed=d.ctx.mcFontSize.saveDefault(24);const rejection=assert.rejects(failed);
+  await d.complete(0,'Write failed');await rejection;
+  assert.equal(d.ctx.mcFontSize.getDefault(),22,'Failed saves preserve the reset target');
+  assert.equal(d.ctx.mcFontSize.get(),22);
   console.log('Keyboard, repeat/coalescing, persistence, failures, draft and companion checks passed');
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

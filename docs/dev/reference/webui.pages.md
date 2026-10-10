@@ -64,7 +64,7 @@ The realm's workspace root, and the state of its portability.
 
 ### `_font_picker()`
 
-App → Fonts (v0.99.62; to become part of themes). A face applies the moment it's picked — loaded first, then swapped, so nothing flashes — and is saved per machine.
+Preview font families and default size; the app's Save action persists them.
 
 ### `render_new_realm(realm, dark=False, embed=False)`
 

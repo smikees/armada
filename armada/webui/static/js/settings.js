@@ -20,7 +20,7 @@ function mcAppValues(){
 }
 const mcAppInitial=mcAppValues();
 window.addEventListener('armada-font-size',event=>{
-  if(event.detail.persisted)mcAppInitial.fontSize=event.detail.value;
+  if(event.detail.persisted)mcAppInitial.fontSize=event.detail.defaultSize;
 });
 // Preview on this page; the sticky Save persists it, and Cancel reloads the saved mode.
 function mcPreviewMode(mode){
@@ -68,7 +68,7 @@ async function mcSaveAppSettings(){
     for(const role of Object.keys(next.fonts)){
       if(next.fonts[role]!==old.fonts[role])await mcAppPost('/api/save-appearance',{font_role:role,font:next.fonts[role]});
     }
-    if(next.fontSize!==old.fontSize)await mcFontSize.save(next.fontSize);
+    if(next.fontSize!==old.fontSize)await mcFontSize.saveDefault(next.fontSize);
     if(next.tray!==old.tray)await mcAppPost('/api/tray-setting',{on:next.tray});
     if(next.auto!==old.auto)await mcAppPost('/api/update-auto',{on:next.auto});
     if(mcAppAlexanderEdited){
@@ -404,28 +404,16 @@ async function mcSaveChannels(){
   try{const r=await(await fetch('/api/save-channels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})).json();
     if(m)m.textContent=r.ok?'saved ✓':('error: '+(r.error||'failed'));}
   catch(e){if(m){m.style.color='var(--status-bad)';m.textContent='error: '+e;}}}
-// --- fonts (Appearance → Fonts, temporary, v0.99.62) --------------------------------------------
-// Load the face first, then swap the variable, so the page changes in one step instead of
-// flashing through a fallback; then save it for this machine.
-async function mcSetFont(sel){
+// Preview the sample only. Save/Cancel have the same meaning as the other appearance controls.
+async function mcPreviewFont(sel){
   const role=sel.dataset.role, slug=sel.value, fams=JSON.parse(sel.dataset.families);
   const fam=fams[slug], m=document.getElementById('mc-font-msg');
   if(m) m.textContent='loading…';
   try{
     const name=fam.split(',')[0];
     await Promise.all([400,500,600,700].map(w=>document.fonts.load(w+' 1em '+name)));
-  }catch(e){ /* a face that won't load falls back in the stack; still apply and save */ }
-  const isDefault=(role==='body'&&slug==='barlow')||(role==='heading'&&slug==='barlow-condensed');
-  // Both elements: the saved choice is declared on :root and on .armada-dark (the body, in dark
-  // mode), and the body's own declaration would otherwise win over one set on <html>.
-  for(const el of [document.documentElement, document.body]){
-    if(isDefault) el.style.setProperty('--font-'+role, role==='body'?'"Barlow", system-ui, sans-serif':'"Barlow Condensed", system-ui, sans-serif');
-    else el.style.setProperty('--font-'+role, fam);
-  }
-  try{
-    const r=await(await fetch('/api/save-appearance',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({font_role:role,font:slug})})).json();
-    if(m) m.textContent=r.ok?'saved':(r.error||'not saved');
-  }catch(e){ if(m) m.textContent='not saved: '+e; }
-  setTimeout(()=>{ if(m) m.textContent=''; },1600);
+  }catch(e){ /* Use the declared fallback if the font cannot load. */ }
+  if(sel.value!==slug)return; // A slower font load must not replace a newer choice.
+  document.querySelector('.mc-fontsample')?.style.setProperty('--font-'+role,fam);
+  if(m)m.textContent='Preview — Save to apply.';
 }

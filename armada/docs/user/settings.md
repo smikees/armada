@@ -36,11 +36,13 @@ you use them.
   the saved appearance.
 - **Appearance → Fonts** — choose separate font families for headings and body text (each
   option in the list is shown in its own face), and a
-  **Reference size** from 10 to 26 px (default **13 px**). Headings and smaller labels scale
+  **Default size** from 10 to 26 px (initially **13 px**). Headings and smaller labels scale
   proportionally; icons and images keep their dimensions. The size selector previews immediately;
-  Save keeps it and Cancel restores the saved size.
-  **Ctrl+** (or **Ctrl=**) increases the reference by 1 px, **Ctrl−** decreases it by 1 px,
-  and **Ctrl0** restores 13 px without changing your font families. Numpad shortcuts also work.
+  Save sets your default and Cancel restores the saved size. Font-family changes preview in
+  the sample box and apply throughout the app after Save.
+  **Ctrl+** (or **Ctrl=**) increases the current size by 1 px, **Ctrl−** decreases it by 1 px,
+  and **Ctrl+0** restores your saved default without changing your font families. Shortcut
+  adjustments never replace that default. Numpad shortcuts also work.
   Shortcuts save immediately, preserve conversation drafts and apply across realms and
   Alexander's window. If a save fails, ARMADA explains the failure and restores the saved size.
 - **Advanced → Keep Armada open in the tray when closing the window** — on by default.

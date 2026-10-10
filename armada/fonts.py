@@ -34,15 +34,24 @@ def reference_size() -> int:
     return value if type(value) is int and SIZE_MIN <= value <= SIZE_MAX else SIZE_DEFAULT
 
 
-def save_size(value) -> dict:
-    """Persist a validated whole-pixel reference without changing font families."""
+def default_size() -> int:
+    """Saved Ctrl+0 target; adopt the existing size for preferences from older versions."""
+    value = appconfig.get('font_size_default', reference_size())
+    return value if type(value) is int and SIZE_MIN <= value <= SIZE_MAX else SIZE_DEFAULT
+
+
+def save_size(value, *, default=None) -> dict:
+    """Save the current size, optionally replacing the independently stored reset target."""
     if type(value) is not int or not SIZE_MIN <= value <= SIZE_MAX:
         return {'ok':False, 'error':f'Font size must be a whole number from {SIZE_MIN} to {SIZE_MAX} px.'}
+    if default is not None and (type(default) is not int or not SIZE_MIN <= default <= SIZE_MAX):
+        return {'ok':False, 'error':f'Default size must be a whole number from {SIZE_MIN} to {SIZE_MAX} px.'}
+    baseline = default_size() if default is None else default
     try:
-        appconfig.save({'font_size':value})
+        appconfig.save({'font_size':value, 'font_size_default':baseline})
     except OSError as exc:
         return {'ok':False, 'error':str(exc)}
-    return {'ok':True, 'font_size':value}
+    return {'ok':True, 'font_size':value, 'font_size_default':baseline}
 
 
 def selected(role: str) -> str:
@@ -63,6 +72,8 @@ def style() -> str:
     size = reference_size()
     if size != SIZE_DEFAULT:
         parts += [f'--mc-font-reference:{size}', f'--mc-font-scale:{size / SIZE_DEFAULT:.8f}']
+    if default_size() != SIZE_DEFAULT:
+        parts.append(f'--mc-font-default:{default_size()}')
     return f"<style>:root,.armada-dark{{{';'.join(parts)}}}</style>" if parts else ""
 
 

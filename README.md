@@ -26,8 +26,8 @@ see what each one is being told before it answers.
 > **Status: beta, Windows only.** ARMADA is in a small invited beta. Expect rough edges — and
 > please report them.
 
-**Current release: [v0.99.101 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.101).**
-[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.101/ARMADA-Setup-0.99.101.exe)
+**Current release: [v0.99.102 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.102).**
+[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.102/ARMADA-Setup-0.99.102.exe)
 or browse [all releases](https://github.com/smikees/armada/releases).
 Upgrading from 0.99.81 or earlier requires running this full installer once to add
 browser-verified startup recovery. It preserves realms and settings. Later compatible
@@ -54,7 +54,7 @@ with error 4551. This is not the ordinary SmartScreen warning; it has no "Run an
 This beta does not fix that restriction; publisher signing remains pending. Keep Windows protections enabled.
 Packaged startup and update-recovery checks passed on the developer's machine. Clean Windows Sandbox GUI
 acceptance remains open because Microsoft's WebView2 prerequisite installer failed there;
-see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.101).
+see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.102).
 The installer is built with
 `tools/build_installer.py` ([ADR-009](docs/adr/ADR-009-installer.md)).
 

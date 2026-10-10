@@ -512,9 +512,10 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-support [data-msg].is-bad{color:var(--status-bad)}
 /* Appearance → Fonts (temporary, v0.99.62) */
 .mc-fontpick{display:flex;flex-direction:column;gap:3px;min-width:180px}
+.mc-fontpick .mc-fdrop-lbl,.mc-fontpick .mc-fdrop-menu a{font-size:14px}
 .mc-fontsizepick{display:flex;flex-direction:column;gap:3px;min-width:120px}
 .mc-font-size-notice{position:fixed;right:18px;bottom:18px;z-index:10000;padding:8px 12px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);box-shadow:var(--shadow-sm);font-size:13px;pointer-events:none}
-.mc-fontsample{margin-top:10px;padding:10px 12px;border-radius:var(--r);background:var(--color-sand-100);max-width:520px}
+.mc-fontsample{margin-top:10px;padding:10px 12px;border-radius:var(--r);background:var(--color-sand-100);max-width:520px;font-family:var(--font-body)}
 
 /* Logo pairs (brand._pair, v0.99.66): the dark-background artwork in dark mode, the standard one otherwise.
    !important because each <img> carries display:block inline. */
@@ -940,9 +941,10 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-select-dropdown[data-menu-side="up"]>.mc-fdrop-menu{top:auto;bottom:100%;margin-top:0;margin-bottom:4px}
 .mc-settings-main select[hidden],select[data-dropdown][hidden]{display:none!important}
 .mc-settings-path{display:block;white-space:normal;overflow-wrap:anywhere;user-select:text;font-size:12.5px;background:none;padding:2px 0}
-.mc-version-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.mc-version-heading{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:20px}
 .mc-version-label{display:flex;align-items:center;gap:6px;font-size:12.5px}
-.mc-version-label .mc-channel{align-self:center;transform:none;margin:0}
+.mc-version-label,.mc-version-changelog{transform:translateY(.2em)}
+.mc-version-label .mc-channel{align-self:center;transform:none;margin:0;padding-top:3px;padding-bottom:1px}
 .mc-version-changelog{cursor:pointer;font-size:12px;color:var(--color-accent);display:inline-flex;align-items:center;gap:4px}
 .mc-doc-layout{display:grid;grid-template-columns:190px minmax(0,760px) 270px;gap:24px;align-items:start;padding:18px 24px 24px;max-width:1400px}
 .mc-doc-nav{position:sticky;top:16px;max-height:calc(100vh - 100px);overflow:auto;min-width:0}

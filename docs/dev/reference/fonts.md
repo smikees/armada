@@ -15,9 +15,13 @@ fonts is byte-for-byte what it was before this setting existed.
 
 Reference text size in pixels; invalid saved preferences keep the design default.
 
-### `save_size(value)`
+### `default_size()`
 
-Persist a validated whole-pixel reference without changing font families.
+Saved Ctrl+0 target; adopt the existing size for preferences from older versions.
+
+### `save_size(value, *, default=None)`
+
+Save the current size, optionally replacing the independently stored reset target.
 
 ### `selected(role: str)`
 

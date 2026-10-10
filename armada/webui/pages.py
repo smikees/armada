@@ -964,32 +964,31 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
 
 
 def _font_picker() -> str:
-    """App → Fonts (v0.99.62; to become part of themes). A face applies the
-    moment it's picked — loaded first, then swapped, so nothing flashes — and is saved per machine."""
+    """Preview font families and default size; the app's Save action persists them."""
     from .. import fonts
-    chosen_size = fonts.reference_size()
+    chosen_size = fonts.default_size()
     size_options = ''.join(f'<option value="{size}"{" selected" if size == chosen_size else ""}>'
-                           f'{size} px{" (default)" if size == fonts.SIZE_DEFAULT else ""}</option>'
+                           f'{size} px</option>'
                            for size in range(fonts.SIZE_MIN, fonts.SIZE_MAX + 1))
     def sel(role, label):
         # Each option is set in its own face, so the open list is the preview: the custom dropdown
         # (fdrop.js) copies the option's font-family onto its row and onto the closed label.
-        opts = "".join(f'<option value="{E(k)}" style="font-family:{E(fonts.family(role, k))}"'
+        opts = "".join(f'<option value="{E(k)}" style="font-family:{E(fonts.family("body", k))}"'
                        f'{" selected" if k == fonts.selected(role) else ""}>{E(v)}</option>'
                        for k, v in fonts.CHOICES.items())
         fams = E(json.dumps({k: fonts.family(role, k) for k in fonts.CHOICES}))
         return (f'<label class="mc-fontpick"><span class="mc-hint">{label}</span>'
-                f'<select class="mc-field" data-role="{role}" data-families="{fams}" '
+                f'<select class="mc-field" data-role="{role}" data-families="{fams}" onchange="mcPreviewFont(this)" '
                 f'>{opts}</select></label>')
     return (f'<label class="mc-label">Fonts</label>'
             f'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
             f'{sel("heading", "Headings")}{sel("body", "Body text")}'
-            f'<label class="mc-fontsizepick"><span class="mc-hint">Reference size</span>'
+            f'<label class="mc-fontsizepick"><span class="mc-hint">Default size</span>'
             f'<select id="mc-font-size" class="mc-field" onchange="mcFontSize.preview(Number(this.value))">'
             f'{size_options}</select></label>'
             f'<span id="mc-font-msg" class="mc-hint"></span></div>'
-            f'<div class="mc-hint" style="margin-top:7px">Ctrl+ / Ctrl−: change by 1 px. Ctrl0: reset to '
-            f'{fonts.SIZE_DEFAULT} px. Shortcuts save immediately; headings and labels scale proportionally.</div>'
+            f'<div class="mc-hint" style="margin-top:7px">Ctrl+ / Ctrl−: change by 1 px. Ctrl+0: reset to your saved default. '
+            f'Save sets the default; shortcuts change the current size. Headings and labels scale proportionally.</div>'
             f'<div class="mc-fontsample mc-frame"><div class="mc-h-card" style="margin:0 0 4px">'
             f'The quick brown fox · Overview · Jobs</div>'
             f'<div style="font-size:12.5px">Agents, memories and scheduled jobs — 0123456789. '

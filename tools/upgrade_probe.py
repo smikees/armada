@@ -69,7 +69,7 @@ def font_checks(window, js, check):
         '<text id="font-chart-css" class="mc-md" font-size="9.5">2</text></svg>';
       document.body.appendChild(probe);return true;
     })""")
-    check('reference size saves through production API',js(window,'mcFontSize.save(18)')==18)
+    check('default size saves through production API',js(window,'mcFontSize.saveDefault(18)')==18)
     measured = window.evaluate_js("""({body:parseFloat(getComputedStyle(document.getElementById('font-body')).fontSize),
       inline:parseFloat(getComputedStyle(document.getElementById('font-inline')).fontSize),
       chart:parseFloat(getComputedStyle(document.getElementById('font-chart')).fontSize),
@@ -85,7 +85,7 @@ def font_checks(window, js, check):
         'parseFloat(getComputedStyle(document.getElementById("font-chart")).fontSize)')-11*18/13)<.01)
     check('icons retain original dimensions',measured['icon']==24)
     check('font changes preserve an unsaved draft',measured['draft']=='Unsaved draft')
-    for key, code, expected in [('+','Equal',19),('-','Minus',18),('0','Digit0',13),('=','Equal',14)]:
+    for key, code, expected in [('+','Equal',19),('-','Minus',18),('0','Digit0',18),('=','Equal',19)]:
         event = json.dumps({'key':key,'code':code,'ctrlKey':True,'bubbles':True,'cancelable':True})
         check('shortcut prevents native zoom '+key,window.evaluate_js(
             '!document.dispatchEvent(new KeyboardEvent("keydown",'+event+'))'))
@@ -98,7 +98,7 @@ def font_checks(window, js, check):
     check('fresh streamed text receives current size',js(window,"""new Promise(resolve=>{
       const text=document.createElement('p');text.style.fontSize='13px';
       document.getElementById('font-probe').appendChild(text);
-      setTimeout(()=>resolve(Math.abs(parseFloat(getComputedStyle(text).fontSize)-14)<.01),0);
+      setTimeout(()=>resolve(Math.abs(parseFloat(getComputedStyle(text).fontSize)-19)<.01),0);
     })"""))
     js(window,'mcFontSize.save(18)')
     window.evaluate_js('document.getElementById("font-probe").remove()')
@@ -299,7 +299,7 @@ def child(successor=None):
                 js(window,'mcFontSize.save(13)')
                 deadline=time.monotonic()+5
                 while time.monotonic()<deadline and app._alex_window.evaluate_js('mcFontSize.get()')!=13: time.sleep(.05)
-                check('Alexander receives default reset without reload',app._alex_window.evaluate_js('mcFontSize.get()')==13)
+                check('Alexander receives current size without reload',app._alex_window.evaluate_js('mcFontSize.get()')==13)
             app._alex_window.destroy()
             if config.get('font_only'):
                 Path(config['output']).write_text(json.dumps({'ok':True,'checks':checks}),encoding='utf-8')

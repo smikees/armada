@@ -3,7 +3,7 @@
 (function(){
   const DEFAULT=13,MIN=10,MAX=26,root=document.documentElement;
   const pixel=/^(\d+(?:\.\d+)?)px$/;
-  let current=DEFAULT,persisted=DEFAULT,pending=null,saving=false,waiters=[],noticeTimer;
+  let current=DEFAULT,persisted=DEFAULT,defaultSize=DEFAULT,pending=null,saving=false,waiters=[],noticeTimer,syncingSelect=false;
   const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('armada-font-size'):null;
   function valid(value){return Number.isInteger(value)&&value>=MIN&&value<=MAX;}
   function scaleDeclaration(style){
@@ -49,12 +49,17 @@
       node.style.setProperty('--mc-font-reference',String(value));
       node.style.setProperty('--mc-font-scale',String(value/DEFAULT));
     }
+    window.dispatchEvent(new CustomEvent('armada-font-size',{detail:{value,defaultSize,persisted:saved}}));
+  }
+  function setDefault(value){
+    if(!valid(value))return;
+    const previous=defaultSize;defaultSize=value;
     const select=document.getElementById('mc-font-size');
-    if(select&&Number(select.value)!==value){
-      select.value=String(value);
-      select.dispatchEvent(new Event('change',{bubbles:true}));
+    // Update another window's clean control, preserving an unsaved default-size selection.
+    if(select&&Number(select.value)===previous&&previous!==value){
+      select.value=String(value);syncingSelect=true;
+      try{select.dispatchEvent(new Event('change',{bubbles:true}));}finally{syncingSelect=false;}
     }
-    window.dispatchEvent(new CustomEvent('armada-font-size',{detail:{value,persisted:saved}}));
   }
   function notice(message,error=false){
     let node=document.getElementById('mc-font-size-notice');
@@ -69,14 +74,17 @@
     try{
       while(pending!==null){
         const target=pending;pending=null;
+        const body={font_size:target.value};
+        if(valid(target.defaultSize))body.font_size_default=target.defaultSize;
         const response=await fetch('/api/save-appearance',{method:'POST',keepalive:true,
-          headers:{'Content-Type':'application/json'},body:JSON.stringify({font_size:target})});
+          headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const result=await response.json();
         if(!response.ok||!result.ok||!valid(result.font_size))throw Error(result.error||'Font size was not saved.');
         persisted=result.font_size;
-        if(current===target&&pending===null)apply(persisted,true);
-        else window.dispatchEvent(new CustomEvent('armada-font-size',{detail:{value:persisted,persisted:true}}));
-        if(pending===null)channel?.postMessage({value:persisted});
+        setDefault(result.font_size_default);
+        if(current===target.value&&pending===null)apply(persisted,true);
+        else window.dispatchEvent(new CustomEvent('armada-font-size',{detail:{value:persisted,defaultSize,persisted:true}}));
+        if(pending===null)channel?.postMessage({value:persisted,defaultSize});
       }
       const complete=waiters;waiters=[];complete.forEach(item=>item.resolve(persisted));
     }catch(error){
@@ -84,9 +92,9 @@
       const failed=waiters;waiters=[];failed.forEach(item=>item.reject(error));
     }finally{saving=false;}
   }
-  function save(value){
+  function save(value,asDefault=false){
     if(!valid(value))return Promise.reject(Error(`Choose a whole size from ${MIN} to ${MAX} px.`));
-    apply(value);pending=value;
+    apply(value);pending={value,defaultSize:asDefault?value:pending?.defaultSize};
     const result=new Promise((resolve,reject)=>waiters.push({resolve,reject}));
     void drain();return result;
   }
@@ -95,14 +103,15 @@
     let value;
     if(['+','='].includes(event.key)||['Equal','NumpadAdd'].includes(event.code))value=Math.min(MAX,current+1);
     else if(event.key==='-'||['Minus','NumpadSubtract'].includes(event.code))value=Math.max(MIN,current-1);
-    else if(event.key==='0'||['Digit0','Numpad0'].includes(event.code))value=DEFAULT;
+    else if(event.key==='0'||['Digit0','Numpad0'].includes(event.code))value=defaultSize;
     else return;
     event.preventDefault();
-    notice(`Reference font size: ${value} px${value===DEFAULT?' (default)':''}`);
+    notice(`Font size: ${value} px${value===defaultSize?' (default)':''}`);
     // Shortcut persistence is independent of unsaved font-family/colour preferences.
     if(value!==current||value!==persisted)save(value).catch(()=>{});
   },true);
   if(channel)channel.onmessage=event=>{
+    setDefault(event.data?.defaultSize);
     if(!saving&&pending===null&&current===persisted&&valid(event.data?.value)){
       persisted=event.data.value;apply(persisted,true);
     }
@@ -113,14 +122,19 @@
     try{
       const response=await fetch('/api/font-size');if(!response.ok)return;
       const data=await response.json();
-      if(!saving&&persisted===previous&&current===persisted&&valid(data.font_size)){persisted=data.font_size;apply(persisted,true);}
+      if(!saving&&persisted===previous&&current===persisted&&valid(data.font_size)){
+        setDefault(data.font_size_default);persisted=data.font_size;apply(persisted,true);
+      }
     }catch(e){ /* Keep the saved reading while the local server is restarting. */ }
   }
   window.addEventListener('focus',refresh);
   function ready(){
     const initial=Number(getComputedStyle(root).getPropertyValue('--mc-font-reference'))||DEFAULT;
+    const baseline=Number(getComputedStyle(root).getPropertyValue('--mc-font-default'))||DEFAULT;
+    defaultSize=valid(baseline)?baseline:DEFAULT;
     persisted=valid(initial)?initial:DEFAULT;apply(persisted);scan(root);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ready,{once:true});else ready();
-  window.mcFontSize={preview:value=>apply(value),save,get:()=>current};
+  window.mcFontSize={preview:value=>{if(!syncingSelect)apply(value);},save,
+    saveDefault:value=>save(value,true),get:()=>current,getDefault:()=>defaultSize};
 })();

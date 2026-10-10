@@ -120,15 +120,19 @@ def test_font_preferences_are_authenticated_app_settings_independent_of_realm(ho
         request = urllib.request.Request(url+'/api/save-appearance',
             data=json.dumps({'font_size':17}).encode(), headers=headers)
         with urllib.request.urlopen(request) as response:
-            assert json.load(response) == {'ok':True,'font_size':17}
+            assert json.load(response) == {'ok':True,'font_size':17,'font_size_default':13}
         with urllib.request.urlopen(urllib.request.Request(url+'/api/font-size',headers=headers)) as response:
-            assert json.load(response) == {'font_size':17}
+            assert json.load(response) == {'font_size':17,'font_size_default':13}
+        request = urllib.request.Request(url+'/api/save-appearance',
+            data=json.dumps({'font_size':19,'font_size_default':19}).encode(), headers=headers)
+        with urllib.request.urlopen(request) as response:
+            assert json.load(response) == {'ok':True,'font_size':19,'font_size_default':19}
         request = urllib.request.Request(url+'/api/save-appearance',data=b'{"font_size":20}',
             headers={**headers,'Sec-Fetch-Site':'cross-site','Origin':'https://outside.test'})
         with pytest.raises(urllib.error.HTTPError) as denied:
             urllib.request.urlopen(request)
         assert denied.value.code == 403
-        assert fonts.reference_size() == 17
+        assert fonts.reference_size() == 19
     finally:
         server.shutdown();server.server_close();thread.join(timeout=5)
 
@@ -141,3 +145,26 @@ def test_font_size_keyboard_and_persistence_browser_controller():
     result = subprocess.run([node,str(Path(__file__).with_name('font_size_harness.js'))],
                             capture_output=True,text=True,timeout=15)
     assert result.returncode == 0, result.stderr
+
+
+def test_saved_default_is_independent_of_shortcuts_and_adopts_legacy_preference(home):
+    appconfig.save({'font_size':18})
+    assert fonts.default_size() == 18
+    fonts.save_size(20)
+    assert fonts.default_size() == 18
+    assert '--mc-font-default:18' in fonts.style()
+    fonts.save_size(22, default=22)
+    fonts.save_size(24)
+    assert fonts.default_size() == 22 and fonts.reference_size() == 24
+    from armada.webui.pages import _font_picker
+    picker = _font_picker()
+    assert 'Default size' in picker and 'Reference size' not in picker
+    assert '(default)' not in picker
+    assert '<option value="22" selected>' in picker
+
+
+@pytest.mark.parametrize('value', [True, '18', 9, 27, 18.5])
+def test_invalid_default_does_not_change_either_preference(home, value):
+    fonts.save_size(18, default=18)
+    assert not fonts.save_size(20, default=value)['ok']
+    assert fonts.reference_size() == fonts.default_size() == 18

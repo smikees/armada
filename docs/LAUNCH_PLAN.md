@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.102** fixes the Settings font sample, makes both font menus equally readable, and
+introduces a saved Default size that Ctrl+0 restores independently of shortcut adjustments.
+The version row has improved alignment and spacing. [Verification](dev/RELEASE_0_99_102.md)
+records the scope and publication checks; owner acceptance milestones remain open.
+
 Version **0.99.101** puts every way to add a capability on the Add a capability tab: engine connectors
 (Gmail, Google Drive…) are search results with Add for Claude and Add for Codex, and an MCP address, Claude
 import, Bring a link and the engines’ own directories sit below the results. Connectors set up in Claude are

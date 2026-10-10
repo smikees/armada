@@ -74,6 +74,16 @@ async function run(){
     choice.value='light';ctx.mcPreviewMode(choice.value);mediaEvents.forEach(fn=>fn());
     assert(!document.body.classList.contains('armada-dark'));
     assert.equal(calls.length,1);
+    const sample={style:{setProperty:(key,value)=>{sample[key]=value;}}};
+    document.fonts={load:async()=>[]};
+    document.querySelector=selector=>selector==='.mc-fontsample'?sample:null;
+    const select=element('roboto');select.dataset={role:'body',families:JSON.stringify({roboto:'"ARMADA Body Roboto", sans-serif'})};
+    assert.match(html,/onchange="mcPreviewFont\(this\)"/);
+    await ctx.mcPreviewFont(select);
+    assert.equal(sample['--font-body'],'"ARMADA Body Roboto", sans-serif');
+    assert.equal(calls.length,1,'A font preview must not save before the app Save action');
+    select.dataset.role='heading';await ctx.mcPreviewFont(select);
+    assert.equal(sample['--font-heading'],'"ARMADA Body Roboto", sans-serif');
   }
   console.log('ok');
 }
