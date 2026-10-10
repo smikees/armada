@@ -108,7 +108,12 @@ def test_native_splash_exists_before_waiting_for_server(ready):
             for callback in self.callbacks: callback()
     window = Mock(events=MagicMock())
     window.events.loaded = Event()
+    document = {'auth':False, 'complete':True, 'shell':True, 'shared':True, 'refused':False}
     def browser_proof(script, callback=None):
+        if script.startswith('({auth:'):
+            return dict(document)
+        if 'typeof window.mcIcon' in script:
+            return False  # Settings intentionally has no optional icon helper.
         if script.startswith("fetch('/api/instance'"):
             from armada import __version__, instance
             value = {'status':200,'data':{'version':__version__,'nonce':instance.current().get('nonce')}}
@@ -120,6 +125,14 @@ def test_native_splash_exists_before_waiting_for_server(ready):
     loader = Mock(finished=False)
     def navigated(url):
         loader.ready.assert_not_called()
+        # The auth bridge's loaded callback may observe either the auth document
+        # or its still-loading destination. Neither can acknowledge startup.
+        for state in ({'auth':True, 'complete':True}, {'auth':False, 'complete':False}):
+            document.update(state)
+            window.events.loaded.emit()
+            loader.ready.assert_not_called()
+            window.load_url.assert_called_once()
+        document.update(auth=False, complete=True)
         window.events.loaded.emit()
     window.load_url.side_effect = navigated
     order = []
