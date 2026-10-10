@@ -326,7 +326,7 @@ def connection_detail(cap, provider, state, error=""):
     if cap.get('native_service') and cap.get('_unbound') and state not in ('checking', 'realm_disabled', 'provider_disabled', 'unavailable'):
         return {'state': 'missing' if provider in ('claude', 'codex') else 'unsupported',
                 'reason': 'Connect the native app using your Codex account, then recheck here.' if provider == 'codex' else
-                    'Connect in Claude, then use Link connection to select its registration.' if provider == 'claude' else
+                    'Add it in Claude’s connector settings with the account Claude Code uses, then press Connect here: ARMADA links it.' if provider == 'claude' else
                     'This provider does not expose the same native app. Link an existing compatible MCP connection if available.',
                 'action': 'connect' if provider in ('claude', 'codex') else 'setup', 'server_id': ''}
     if (provider == 'codex' and state in ('missing', 'sign_in', 'configured', 'failed')
@@ -528,9 +528,30 @@ def connect_codex(cap: dict, realm_root=None) -> dict:
                                  on_finish=lambda: _login_finished(realm_root, 'codex'))
 
 
+def _link_claude_service(cap: dict, realm_root) -> dict | None:
+    """Bind a "<service> · Claude" row to Claude's own "claude.ai <service>" registration, if present."""
+    from . import connector_registry, capabilities
+    entry = next((s for s in connector_registry.SERVICES if s['id'] == cap.get('native_service')), None)
+    if entry is None or not realm_root:
+        return None
+    try:
+        connector_registry.save(realm_root, capability=cap['id'], provider='claude',
+                                server_name='claude.ai ' + entry['name'])
+        return capabilities.find(realm_root, cap['id'])[1]
+    except (OSError, ValueError):
+        return None
+
+
 def connect_claude(cap: dict, realm_root=None) -> dict:
     """Authenticate the existing Claude registration; never clone a cloud proxy."""
     from .engine.claude import ClaudeEngine
+    if cap.get('native_service') and provider_cap(cap, 'claude').get('_unbound'):
+        # Claude names an account connector "claude.ai <Service>". When it is already there, link
+        # it now rather than sending the owner to pick it from a list; otherwise open Claude's
+        # connector settings, and the next Connect finds it.
+        linked = _link_claude_service(cap, realm_root)
+        if linked is not None:
+            cap = linked
     cap = provider_cap(cap, 'claude')
     if cap.get('native_service') and cap.get('_unbound'):
         return open_native_setup(cap, 'claude')
@@ -648,7 +669,7 @@ def connector_setup(cap: dict, provider: str) -> dict:
                 'snippet': '', 'instructions': 'Open this native app using the same account as Codex CLI. Review its permissions, install and sign in there, then Recheck in ARMADA. You can also use /plugins in Codex CLI. No separate ARMADA OAuth client is needed.'}
     if cap.get('native_service') and provider == 'claude' and cap.get('_unbound'):
         return {'ok': True, 'web_url': 'https://claude.ai/settings/connectors', 'guide_url': guides['claude'],
-                'snippet': '', 'instructions': 'Connect this service in Claude using the same account as Claude Code. Then choose Link connection in this row and select its Claude registration. The operations available depend on Claude’s connector.'}
+                'snippet': '', 'instructions': 'Add this service in Claude’s connector settings using the same account as Claude Code, then press Connect here: ARMADA links Claude’s connector to this row. The operations available depend on Claude’s connector.'}
     endpoint = codex_endpoint(cap)
     sid = registration_id(cap.get("id"))
     data = {"ok": True, "guide_url": guides[provider], "snippet": "", "web_url": "",

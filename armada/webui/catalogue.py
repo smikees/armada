@@ -116,6 +116,58 @@ def _cat_card(e: dict, publisher: str, where: list, labels: dict, here: bool = F
             + f'</div><div>{btn}</div></div>')
 
 
+def _cat_engine_entries() -> list:
+    """The curated per-engine services as catalogue entries (connector_registry.catalogue_entries)."""
+    from .. import connector_registry
+    return connector_registry.catalogue_entries()
+
+
+def _cat_provider_card(e: dict, have: set) -> str:
+    """A service that lives in each engine's own account: one Add button per engine.
+
+    Gmail for Claude and Gmail for Codex are two different connectors behind one brand, so this card
+    adds them separately and says which are already here. An open server (Notion) is one connector
+    that every engine signs in to separately: one Add, like any other result.
+    """
+    from .. import capreach
+    sid = e["service"]
+    engines = e.get("engines") or []
+    btns = ""
+    if e.get("reach") == "any":
+        if have:
+            btns = ('<button class="btn btn-secondary btn-sm" disabled title="Already in this realm" '
+                    'style="opacity:.5">Added</button>')
+        else:
+            btns = (f'<button class="btn btn-secondary btn-sm" '
+                    f'onclick="mcCatAddService(this,{_J(sid)},\'\')">Add to realm</button>')
+        badge = (f'<span class="mc-cat-reach" data-reach="any" title="One connector; each engine signs in separately">'
+                 f'{_icon("engines-any", 11)}Any engine</span>')
+    else:
+        for eng in capreach.ENGINES:
+            label = capreach.LABEL[eng]
+            if eng not in engines:
+                btns += (f'<span class="mc-cat-eng is-off" title="{E(label)} has no version of this service">'
+                         f'{_icon(eng, 13)}{E(label)}: not available</span>')
+            elif eng in have or "any" in have:
+                btns += (f'<span class="mc-cat-eng is-added" title="Already in this realm for {E(label)}">'
+                         f'{_icon(eng, 13)}{_icon("check", 11)}Added for {E(label)}</span>')
+            else:
+                btns += (f'<button class="btn btn-secondary btn-sm mc-cat-eng-add" '
+                         f'title="{E((e.get("notes") or {}).get(eng, ""))}" '
+                         f'onclick="mcCatAddService(this,{_J(sid)},{_J(eng)})">'
+                         f'{_icon(eng, 13)}Add for {E(label)}</button>')
+        badge = (f'<span class="mc-cat-reach" data-reach="per-engine" title="Each engine has its own '
+                 f'version of this service, added and signed in to separately">'
+                 f'{_icon("swap", 11)}Added per engine</span>')
+    return (f'<div class="mc-cat-card mc-cat-svc mc-frame" data-service="{E(sid)}">'
+            f'<div class="mc-cat-svc-head">'
+            f'<span class="mc-cat-svc-ico" title="Connector">{_icon("cap-connector", 15)}</span>'
+            f'<span class="mc-cat-svc-name">{E(e["name"])}</span>{badge}'
+            f'{_cat_pill("Engine connector")}</div>'
+            f'<div class="mc-cat-svc-desc">{E(e.get("description") or "")}</div>'
+            f'<div class="mc-cat-svc-actions">{btns}</div></div>')
+
+
 def _cat_reach_badge(e: dict) -> str:
     """Which engines can use this once added: any engine, or one (docs/dev/CAPABILITIES_UPGRADE.md)."""
     from .. import capreach
@@ -146,7 +198,8 @@ def _cat_results(realm, realm_root, q: str = "", source: str = "", kind: str = "
     """
     from .. import catalogue as cat
     idx = cat.load()
-    entries = idx.get("entries") or []
+    engine_apps = _cat_engine_entries()
+    entries = (idx.get("entries") or []) + engine_apps
     labels = idx.get("source_labels") or {}
     hits = cat.search(entries, q=q, source=source, kind=kind, author=author, category=category)
 
@@ -172,9 +225,14 @@ def _cat_results(realm, realm_root, q: str = "", source: str = "", kind: str = "
     # only what every engine can use. Applied to both legs, after their own filters.
     if reach:
         from .. import capreach
-        keep = (lambda r: r == "any") if reach == "any" else (lambda r: r in ("any", reach))
-        hits = [e for e in hits if keep(capreach.entry_reach(e))]
-        reg = [e for e in reg if keep(capreach.entry_reach(e))]
+
+        def keep(e):
+            if e.get("reach") == "per-engine":        # one version per engine: kept for those engines
+                return reach in (e.get("engines") or [])
+            r = capreach.entry_reach(e)
+            return r == "any" if reach == "any" else r in ("any", reach)
+        hits = [e for e in hits if keep(e)]
+        reg = [e for e in reg if keep(e)]
 
     # One matching pass over everything on screen, so a live registry result gets the same
     # "already in your realms" mark the mirrored ones do.
@@ -184,16 +242,26 @@ def _cat_results(realm, realm_root, q: str = "", source: str = "", kind: str = "
     mine = set(_cat_installed(realm_root, hits + reg, only_here=True))
     # Alphabetical, on the name a card actually shows — not a claim about quality, just a stable,
     # explainable order (see test_suggested_is_not_a_popularity_claim in test_catalogue.py).
-    hits = sorted(hits + reg, key=lambda e: (e.get("name") or e.get("id") or "").lower())
+    # The engine connectors lead: they are the ones added straight into an engine's own account, and
+    # the reason someone types "gmail" here. Everything else stays alphabetical.
+    hits = sorted(hits + reg, key=lambda e: (e.get("source") != cat.ENGINE_APPS,
+                                             (e.get("name") or e.get("id") or "").lower()))
     total = len(hits)
     page = max(0, int(page or 0))
     shown = hits[page * _CAT_PAGE:(page + 1) * _CAT_PAGE]
-    cards = "".join(_cat_card(e, e.get("author") or "", inst.get(e["key"]) or [],
+    have = {}
+    if any(e.get("source") == cat.ENGINE_APPS for e in shown):
+        from .. import connector_registry
+        have = connector_registry.added_for(realm_root)
+    cards = "".join(_cat_provider_card(e, have.get(e["service"], set()))
+                    if e.get("source") == cat.ENGINE_APPS else
+                    _cat_card(e, e.get("author") or "", inst.get(e["key"]) or [],
                               labels, here=e["key"] in mine)
                     for e in shown)
     if not shown:
         cards = ('<div style="font-size:12.5px;color:var(--text-muted);padding:18px 0">'
-                 'Nothing matches. Try fewer filters, or a different word.</div>')
+                 'Nothing matches. Try fewer filters or a different word, or use one of the other '
+                 'ways to add below.</div>')
     pager = ""
     if total > _CAT_PAGE:
         last = (total - 1) // _CAT_PAGE
@@ -321,7 +389,7 @@ def _catalogue_pane(realm, realm_root) -> str:
            if not m.get("ok")]
     if bad:
         stale += " Couldn\u2019t reach: " + ", ".join(sorted(bad)) + "."
-    f = cat.facets(entries)
+    f = cat.facets(entries + _cat_engine_entries())
 
     def sel(sid, label, opts, width=""):
         # Only rendered when the facet has values. The sources disagree about what they carry —
@@ -363,26 +431,26 @@ def _catalogue_pane(realm, realm_root) -> str:
     reach_opts = [("any", "Every engine"), ("claude", "Works with Claude"),
                   ("codex", "Works with Codex"), ("gemini", "Works with Gemini")]
     faint = "var(--text-faint)"
-    bar = (f'<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px">'
-           f'<div style="position:relative;flex:0 0 200px">'
+    # Two lines, like the User tab: the search on its own, full width, then the filters with Works
+    # with first, and the catalogue's own refresh at the right end.
+    bar = (f'<div class="mc-capfilters">'
+           f'<div class="mc-capsearch" style="position:relative">'
            f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;'
            f'color:{faint}">{_icon("search",14)}</span>'
-           f'<input id="cat-q" oninput="mcCatFilterSoon()" placeholder="Search the catalogue\u2026" '
+           f'<input id="cat-q" oninput="mcCatFilterSoon()" '
+           f'placeholder="Search connectors, extensions, skills and plugins\u2026" '
            f'class="mc-field" style="padding-left:30px;padding-right:26px">'
            f'<span id="cat-q-x" onclick="mcCatClearSearch()" title="Clear" style="display:none;position:absolute;'
            f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:{faint}">{_icon("x",14)}</span></div>'
-           f'<span style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;'
-           f'color:{faint}">Filter</span>'
-           f'{sel("cat-reach", "Works with any", reach_opts, width="170px")}'
-           f'{sel("cat-source", "All sources", src_opts, width="170px")}'
+           f'<div class="mc-capfilter-row">'
+           f'{sel("cat-reach", "Works with any engine", reach_opts, width="190px")}'
            f'{sel("cat-kind", "All types", kind_opts, width="140px")}'
+           f'{sel("cat-source", "All sources", src_opts, width="170px")}'
            f'{sel("cat-author", "Any publisher", [(v, v) for v, n in f["author"][:40]], width="180px")}'
            f'{sel("cat-category", "Any category", [(v, v) for v, n in f["category"]], width="150px")}'
            f'<button id="cat-clear" onclick="mcCatClear()" style="display:none;align-items:center;gap:4px;'
            f'border:0;background:transparent;cursor:pointer;font-size:12px;color:var(--color-accent);'
            f'padding:6px 4px">{_icon("x",12)}Clear</button>'
-           # Refreshing the catalogue belongs with the controls that search it, at the right end of
-           # their row — there is room, and it was costing a line of its own above the info box.
            # margin-left:auto rather than a spacer, so on a narrow pane it wraps with the filters
            # instead of holding the row open.
            f'<div style="margin-left:auto;display:flex;align-items:center;gap:10px;flex:none">'
@@ -391,8 +459,7 @@ def _catalogue_pane(realm, realm_root) -> str:
            + f'<button class="btn btn-secondary btn-sm" style="'
            f'white-space:nowrap" '
            f'onclick="mcCatRefresh(this)">{_icon("refresh-cw",13)}Refresh catalogue</button>'
-           f'</div>'
-           f'</div>')
+           f'</div></div></div>')
     # One line per source, because "from several places" is not something anyone can act on — and
     # whether a thing was vetted by anybody is the single most useful fact about it here.
     # Just the info box: it runs the full width of the pane, and the refresh pair that used to sit
@@ -407,8 +474,8 @@ def _catalogue_pane(realm, realm_root) -> str:
     # Bring a link sits above the search bar, not below the results: ADR-004 calls it the headline
     # path, the one that reaches everything the two mirrored sources don't. It needs no network call
     # on render either — nothing happens until Review is clicked.
-    return (f'<div id="cap-pane-catalogue" style="display:none">{head}{_cat_bring_link()}{bar}'
-            f'{_cat_placeholder()}</div>')
+    return (f'<div id="cap-pane-catalogue" style="display:none">{head}{bar}'
+            f'{_cat_placeholder()}{_cat_other_ways()}</div>')
 
 
 _RISK_META = {"high": ("var(--status-bad)", "High risk"),
@@ -583,7 +650,7 @@ def _cat_bring_link() -> str:
         f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
         f'<span style="display:flex;flex:none;color:var(--color-accent-2)">{_icon("link",15)}</span>'
         f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">Bring a link</span>'
-        f'<span style="font-size:11px;color:{faint}">A repository, a package, an MCP server — anything the two sources above don’t carry</span>'
+        f'<span style="font-size:11px;color:{faint}">A repository, a package, an MCP server \u2014 anything the search doesn\u2019t carry</span>'
         f'</div>'
         f'<div style="font-size:12px;color:var(--text-muted);margin:2px 0 10px">'
         f'An agent reads it — not just the README — and reports what it actually found before Add is turned on. '
@@ -595,6 +662,52 @@ def _cat_bring_link() -> str:
         f'onclick="mcCatReview(this)">Review</button></div>'
         f'<div id="cat-review-out" style="margin-top:10px"></div>'
         f'</div>')
+
+
+def _cat_other_ways() -> str:
+    """Below the results: every way to add something the search didn't find, in one place.
+
+    This replaces the old "Add a connector" dialog on the User tab, which had its own short service
+    list, an import mode and a custom-server mode crammed into one form. The service list is now
+    part of the search above; what is left are the three things a search cannot do.
+    """
+    faint = "var(--text-faint)"
+    address = (
+        f'<div class="mc-addway">'
+        f'<div class="mc-addway-h">{_icon("cap-connector",15)}<span>Add an MCP server by its address</span></div>'
+        f'<p class="mc-addway-p">For a service whose documentation gives a remote MCP address '
+        f'(https://…/mcp). One connector for every engine; each engine signs in to it separately.</p>'
+        f'<div class="mc-addway-form">'
+        f'<input id="cat-addr-name" class="mc-field" maxlength="120" placeholder="Name, e.g. Linear" '
+        f'aria-label="Connector name">'
+        f'<input id="cat-addr-url" class="mc-field" type="url" placeholder="https://mcp.example.com/mcp" '
+        f'aria-label="MCP server address" onkeydown="if(event.key===\'Enter\')mcCatAddAddress(this)">'
+        f'<button class="btn btn-secondary" onclick="mcCatAddAddress(this)">Add</button></div>'
+        f'<p id="cat-addr-msg" class="mc-addway-msg" role="status"></p></div>')
+    claude = (
+        f'<div class="mc-addway">'
+        f'<div class="mc-addway-h">{_icon("claude",15)}<span>Already set up in Claude?</span></div>'
+        f'<p class="mc-addway-p">Connectors you added in Claude\u2019s settings, and servers added to '
+        f'Claude Code, can be brought into this realm as they are. They work with Claude; the ones '
+        f'with a public address work with every engine.</p>'
+        f'<div class="mc-addway-form"><button class="btn btn-secondary" onclick="mcCatImportClaude(this)">'
+        f'Bring in Claude\u2019s connectors</button></div>'
+        f'<p id="cat-import-msg" class="mc-addway-msg" role="status"></p></div>')
+    dirs = (
+        f'<div class="mc-addway">'
+        f'<div class="mc-addway-h">{_icon("search",15)}<span>Browse the engines\u2019 own directories</span></div>'
+        f'<p class="mc-addway-p">Neither publishes a list ARMADA can search. Connect a service there, '
+        f'then bring it in from Claude, or add the service above for Codex.</p>'
+        f'<div class="mc-addway-links">'
+        f'<a href="https://claude.ai/directory" target="_blank" rel="noopener">{_icon("claude",13)}Claude directory \u2197</a>'
+        f'<a href="https://chatgpt.com/apps" target="_blank" rel="noopener">{_icon("codex",13)}ChatGPT apps \u2197</a>'
+        f'</div></div>')
+    return (f'<section class="mc-addways" aria-labelledby="cat-other-h">'
+            f'<h3 id="cat-other-h" class="mc-addways-title">Other ways to add</h3>'
+            f'<div style="font-size:11.5px;color:{faint};margin:-4px 0 12px">Not in the results? '
+            f'Add it by address, have an agent review a link, or bring in what an engine already has.</div>'
+            f'<div class="mc-addways-grid">{address}{claude}</div>'
+            f'{_cat_bring_link()}{dirs}</section>')
 
 
 def _cat_placeholder() -> str:
@@ -621,7 +734,11 @@ def _cat_source_notes(idx: dict) -> list:
     from .. import catalogue as cat
     labels = idx.get("source_labels") or {}
     seen = {e.get("source") for e in (idx.get("entries") or [])}
-    out = []
+    out = [(cat.SOURCE_LABEL[cat.ENGINE_APPS],
+            "services that live in each engine\u2019s own account, like Gmail or Google Drive, which "
+            "ARMADA knows how to set up. Each engine has its own version, so you add it once per "
+            "engine. Neither Anthropic nor OpenAI publishes a directory ARMADA can search, so this "
+            "list is ARMADA\u2019s; anything with a public MCP server is in the MCP registry")]
     for s in sorted(x for x in seen if cat.is_marketplace(x)):
         who = "Anthropic" if s.endswith(":claude-plugins-official") else "its owner"
         out.append((cat.source_label(s, labels),

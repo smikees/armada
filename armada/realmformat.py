@@ -136,7 +136,7 @@ def _m3_to_4(cfg: dict, realm_root: Path) -> dict:
 
     0.99.99 let a ChatGPT app be bound to a row that also stood for a Claude connector or a public
     server, so one name claimed two different services. Each such app binding becomes its own Codex
-    row, "<service> · ChatGPT app". Agents granted the original that currently run on Codex are
+    row, "<service> · Codex". Agents granted the original that currently run on Codex are
     granted the new row too; original grants stay, so switching back loses nothing. Idempotent: a
     row without a mixed binding is left exactly as it is.
     """
@@ -166,7 +166,7 @@ def _m3_to_4(cfg: dict, realm_root: Path) -> dict:
         while nid.lower() in used:
             nid, n = f"{base}-chatgpt-app-{n}", n + 1
         used.add(nid.lower())
-        new = {"id": nid, "name": f"{label} · ChatGPT app", "source": "custom", "enabled": cap.get("enabled", True),
+        new = {"id": nid, "name": f"{label} · Codex", "source": "custom", "enabled": cap.get("enabled", True),
                "status": "configured", "runs": "service", "touch": ["network"], "reach": "codex",
                "description": "A native app in your ChatGPT account, split from "
                               f"“{cap.get('name') or cap.get('id')}” so each row reaches one service.",

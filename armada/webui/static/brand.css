@@ -267,26 +267,16 @@ details.mc-realmsw>summary::-webkit-details-marker{display:none}
 .mc-conn-badge[data-state="ready"],.mc-provider-status[data-state="ready"]{color:var(--status-ok)!important}
 .mc-conn-badge[data-state="failed"],.mc-conn-badge[data-state="sign_in"]{color:var(--status-bad)}
 .mc-conn-panel{min-width:0;font-size:12.5px}
-.mc-connector-picker{padding:20px;width:min(600px,92vw);max-height:90vh;overflow:hidden;font-size:12.5px;display:flex;flex-direction:column}
-.mc-conn-form-body{overflow:auto;min-height:0;padding:0 2px}
-.mc-conn-footer{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-divider)}
+.mc-connector-link{padding:20px;width:min(480px,92vw);font-size:12.5px;display:flex;flex-direction:column}
+.mc-connector-link .mc-field{width:100%;box-sizing:border-box}
+.mc-conn-footer{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--color-divider)}
 .mc-conn-footer .mc-conn-reason{margin-right:auto;max-height:90px;overflow:auto}
 .mc-conn-footer .btn{flex:none}
-.mc-connector-picker [hidden]{display:none!important}
-.mc-conn-filters{display:flex;gap:8px;margin:8px 0}
-.mc-conn-filters .mc-field{min-width:0;flex:1}
-.mc-conn-services{max-height:170px;overflow:auto;border-block:1px solid var(--color-divider);margin-bottom:12px}
-.mc-conn-service{display:flex;align-items:center;gap:10px;width:100%;padding:10px 8px;text-align:left;background:none;border:0;color:var(--color-text);font:inherit;cursor:pointer}
-.mc-conn-service+ .mc-conn-service{border-top:1px solid var(--color-divider)}
-.mc-conn-service>span{flex:1}.mc-conn-service small{display:block;color:var(--text-dim);margin-top:2px;font-size:12px}
-.mc-conn-service[aria-pressed="true"],.mc-conn-service:hover{background:var(--accent-13)}
-.mc-conn-service:focus-visible{outline:2px solid var(--color-accent);outline-offset:-2px}
-.mc-conn-service-detail{padding:0 0 12px;margin-bottom:12px;border-bottom:1px solid var(--color-divider);line-height:1.5}
-.mc-conn-service-detail p{margin:5px 0}.mc-conn-optional{font-weight:400;color:var(--text-dim)}
+.mc-conn-optional{font-weight:400;color:var(--text-dim)}
 .mc-conn-setup-actions{margin-bottom:8px}
 .mc-conn-agent-state{font-size:11px;color:var(--text-dim)}
 .mc-conn-agent-state[data-state="ready"]{color:var(--status-ok)}
-@media(max-width:600px){.mc-connector-picker{padding:16px}.mc-conn-filters{flex-direction:column}}
+@media(max-width:600px){.mc-connector-link{padding:16px}}
 .mc-conn-intro{margin:0 0 8px;color:var(--text-dim)}
 .mc-conn-detail{display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:8px 14px;align-items:start;padding:12px 0;border-top:1px solid var(--color-divider)}
 .mc-conn-provider{display:flex;gap:6px;align-items:center;padding-top:3px}
@@ -1045,7 +1035,11 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-thread-resize:hover{color:var(--color-text)}
 /* Engine reach on Capabilities (capreach; docs/dev/CAPABILITIES_UPGRADE.md): a segmented switcher, */
 /* one section per reach, reach badges on cards, and the Works-with strip in the expanded panel.    */
-.mc-reach-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 20px}
+.mc-capfilters{display:flex;flex-direction:column;gap:10px;margin:0 0 22px}
+.mc-capsearch{width:100%}
+.mc-capsearch .mc-field{width:100%}
+.mc-capfilter-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mc-capfilter-row>.mc-reach-switch{margin-right:4px}
 .mc-reach-switch{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--color-divider);border-radius:999px;background:var(--text-6)}
 .mc-reach-pill{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text-62);font:inherit;font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
 .mc-reach-pill>span:last-child{font-weight:500;font-size:11px;color:var(--text-42);font-variant-numeric:tabular-nums}
@@ -1053,7 +1047,6 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-reach-pill[aria-pressed="true"]{background:var(--color-bg);color:var(--color-text);box-shadow:var(--shadow-sm),0 0 0 1px var(--color-divider)}
 .mc-reach-pill:focus-visible{outline:2px solid var(--color-accent);outline-offset:1px}
 .mc-reach-pill .mc-reach-mark{display:inline-flex}
-.mc-reach-tools{margin-left:auto;display:flex;align-items:center;gap:8px}
 .mc-reach-sec{margin:0 0 32px}
 .mc-reach-sec[hidden]{display:none}
 .mc-reach-head{display:flex;gap:12px;align-items:flex-start;padding:0 0 12px;margin:0 0 14px;border-bottom:1px solid var(--color-divider)}
@@ -1091,14 +1084,39 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-reach-hint ul[hidden]{display:none}
 .mc-cat-reach{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:1px 7px 1px 6px;border-radius:999px;background:var(--text-6);color:var(--text-62);white-space:nowrap}
 .mc-cat-reach[data-reach="any"]{background:color-mix(in srgb,var(--status-ok) 11%,transparent);color:var(--status-ok)}
-.mc-conn-engines{display:flex;flex-direction:column;gap:6px;margin:8px 0 2px}
-.mc-conn-engine{display:flex;align-items:flex-start;gap:9px;padding:8px 10px;border:1px solid var(--color-divider);border-radius:var(--r);cursor:pointer}
-.mc-conn-engine:has(input:checked){border-color:var(--color-accent);background:var(--accent-13)}
-.mc-conn-engine[aria-disabled="true"]{opacity:.55;cursor:default}
-.mc-conn-engine input{margin-top:3px}
-.mc-conn-engine small{display:block;color:var(--text-dim);font-size:11.5px;margin-top:1px}
+/* Add a capability: engine connectors (one Add per engine) and the other ways to add. */
+.mc-cat-svc{border-radius:var(--r);padding:11px 13px;margin-bottom:8px;border-left:3px solid var(--color-accent)!important}
+.mc-cat-svc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mc-cat-svc-ico{display:flex;flex:none;color:var(--text-muted)}
+.mc-cat-svc-name{font-family:var(--font-heading);font-weight:600;font-size:13.5px}
+.mc-cat-svc-desc{font-size:12px;color:var(--text-muted);line-height:1.45;margin-top:4px;max-width:640px}
+.mc-cat-svc-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:9px}
+.mc-cat-svc-actions .btn{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.mc-cat-eng{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 10px;border-radius:999px;border:1px solid var(--color-divider);color:var(--text-62);white-space:nowrap}
+.mc-cat-eng.is-added{border-color:color-mix(in srgb,var(--status-ok) 45%,transparent);background:color-mix(in srgb,var(--status-ok) 9%,transparent);color:var(--color-text)}
+.mc-cat-eng.is-added svg:nth-of-type(2){color:var(--status-ok)}
+.mc-cat-eng.is-off{opacity:.55;border-style:dashed}
+.mc-cat-reach[data-reach="per-engine"]{background:var(--accent-13);color:var(--color-accent)}
+.mc-addways{margin:28px 0 8px;padding-top:18px;border-top:1px solid var(--color-divider)}
+.mc-addways-title{font-family:var(--font-heading);font-weight:600;font-size:16px;margin:0 0 8px}
+.mc-addways-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:0 0 12px}
+.mc-addway{border:1px solid var(--color-divider);border-radius:var(--r);padding:12px 14px;min-width:0}
+.mc-addways>.mc-addway{margin-top:12px}
+.mc-addway-h{display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-weight:600;font-size:14px}
+.mc-addway-h>svg{color:var(--color-accent-2);flex:none}
+.mc-addway-p{font-size:12px;color:var(--text-muted);line-height:1.5;margin:4px 0 10px}
+.mc-addway-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mc-addway-form .mc-field{flex:1 1 160px;min-width:0}
+.mc-addway-form #cat-addr-url{flex:2 1 220px}
+.mc-addway-msg{font-size:12px;color:var(--text-muted);margin:8px 0 0;min-height:0}
+.mc-addway-msg:empty{display:none}
+.mc-addway-msg[data-state="bad"]{color:var(--status-bad)}
+.mc-addway-msg[data-state="ok"]{color:var(--status-ok)}
+.mc-addway-links{display:flex;flex-wrap:wrap;gap:16px}
+.mc-addway-links a{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--color-accent-2);text-decoration:none}
+.mc-addway-links a:hover{text-decoration:underline}
 @media(prefers-reduced-motion:reduce){.mc-reach-pill{transition:none}}
-@media(max-width:700px){.mc-reach-tools{margin-left:0}.mc-reach-switch{flex-wrap:wrap;border-radius:var(--r)}}
+@media(max-width:700px){.mc-reach-switch{flex-wrap:wrap;border-radius:var(--r)}}
 /* Inside an engine's own section the section already says it: the card keeps only the one-at-a-time badge. */
 .mc-reach-sec .mc-reach-badge:not(.mc-reach-x){display:none}
 /* OpenAI's mark is black artwork; on the dark theme it takes the ink colour so it stays visible. */

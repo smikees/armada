@@ -53,9 +53,16 @@ def test_an_explicit_reach_wins_over_derivation():
     assert r.scope == "claude" and not r.available_on("codex")
 
 
-def test_a_public_endpoint_imported_from_claude_is_an_open_server():
+def test_a_connector_imported_from_claude_stays_claude_unless_it_is_portable():
+    # Its address is public, but other engines can't sign in to it without service-specific setup.
     cap = {"id": "claude.ai Gmail", "command": "https://gmailmcp.googleapis.com/mcp/v1"}
-    assert capreach.reach("connectors", cap).scope == "any"
+    assert capreach.reach("connectors", cap).scope == "claude"
+    # The same address added as an open server, or linked by the owner in another engine, is any.
+    assert capreach.reach("connectors", {"id": "gmail", "mcp_url": cap["command"]}).scope == "any"
+    linked = {**cap, "provider_bindings": {"codex": {"server_name": "gmail", "endpoint": cap["command"]}}}
+    assert capreach.reach("connectors", linked).scope == "any"
+    # A known one-engine-at-a-time service imported from Claude stays portable (it can be moved).
+    assert capreach.reach("connectors", IBKR).scope == "any"
 
 
 def test_interactive_brokers_is_one_engine_at_a_time_on_claude():
@@ -155,7 +162,7 @@ def test_a_mixed_row_is_split_and_codex_agents_keep_access(tmp_path):
     rows = {c["id"]: c for c in util.read_json_state(root / "realm.json")["toolkit"]["connectors"]}
     assert "codex" not in rows[DOCS["id"]]["provider_bindings"]
     new = rows["google-drive-chatgpt-app"]
-    assert new["name"] == "Google Drive · ChatGPT app" and new["reach"] == "codex"
+    assert new["name"] == "Google Drive · Codex" and new["reach"] == "codex"
     assert new["provider_bindings"] == {"codex": {"app_id": DOCS["provider_bindings"]["codex"]["app_id"]}}
     assert rows["gmail-app"] == APP                             # app-only rows are already one service
     grants = lambda a: [g["id"] for g in util.read_json_state(root / "agents" / a / "agent.json")["toolkit"]["connectors"]]
@@ -245,7 +252,7 @@ def test_a_codex_provider_service_binds_the_chatgpt_app_on_connect(tmp_path, mon
     root = _realm(tmp_path, [], {})
     cid = registry.save(root, service="gmail", engine="codex")["capability"]
     cap = capabilities.find(root, cid)[1]
-    assert cap["name"] == "Gmail · ChatGPT app" and cap["reach"] == "codex"
+    assert cap["name"] == "Gmail · Codex" and cap["reach"] == "codex"
     assert cap["provider_bindings"] == {}                   # no provider call when adding
     registry.save(root, capability=cid, service="gmail")    # what Connect on its Codex row does
     cap = capabilities.find(root, cid)[1]
@@ -253,7 +260,7 @@ def test_a_codex_provider_service_binds_the_chatgpt_app_on_connect(tmp_path, mon
     assert capreach.reach("connectors", cap).scope == "codex"
     # …and a Claude registration can't be linked onto the app's row.
     monkeypatch.setattr(registry, "inventory", lambda *a: [{"server_name": "claude.ai Gmail", "endpoint": ""}])
-    with pytest.raises(ValueError, match="ChatGPT app"):
+    with pytest.raises(ValueError, match="works only with Codex"):
         registry.save(root, provider="claude", server_name="claude.ai Gmail", capability=cid)
 
 
@@ -272,7 +279,7 @@ def test_capabilities_page_is_sectioned_by_reach(tmp_path):
     html = _reach_sections(_realm_obj(root, ["pacioli"]), root, tk)
     assert 'data-reach-sec="any"' in html and 'data-reach-sec="codex"' in html
     assert html.index('data-reach-sec="any"') < html.index('data-reach-sec="codex"')
-    assert 'class="mc-reach-switch"' in html and "Add a connector" in html
+    assert 'class="mc-reach-switch"' in html and "Add a connector" not in html
     assert "One engine at a time · on Claude" in html and "Codex only" in html
     assert "can't use it" in html                           # Pacioli is on Codex; IBKR is held on Claude
     assert "Move to Codex" in html and "Move to Gemini" in html
@@ -319,3 +326,41 @@ def test_catalogue_results_can_be_narrowed_to_what_an_engine_can_use(monkeypatch
     assert "A skill" in codex and "A plugin" not in codex
     every = page._cat_results(realm, tmp_path, reach="any")
     assert "A skill" in every and "A plugin" not in every
+
+
+# --------------------------------------------------------------------------- 0.99.101: adding
+
+def test_a_service_is_added_once_per_engine_and_an_address_once(tmp_path):
+    root = _realm(tmp_path, [], {})
+    registry.save(root, service="gmail", engine="claude")
+    with pytest.raises(ValueError, match="already in this realm for Claude"):
+        registry.save(root, service="gmail", engine="claude")
+    registry.save(root, service="gmail", engine="codex")          # Codex's version is another row
+    assert registry.added_for(root)["gmail"] == {"claude", "codex"}
+    registry.save(root, name="Linear", url="https://mcp.linear.app/mcp")
+    with pytest.raises(ValueError, match="already uses this address"):
+        registry.save(root, name="Linear again", url="https://mcp.linear.app/mcp")
+
+
+def test_a_claude_import_counts_as_the_service_added_for_claude(tmp_path):
+    root = _realm(tmp_path, [{"id": "claude.ai Gmail", "name": "claude.ai Gmail", "command": "https://gmail.mcp.claude.com/mcp"}], {})
+    assert registry.added_for(root)["gmail"] == {"claude"}
+    with pytest.raises(ValueError, match="already in this realm for Claude"):
+        registry.save(root, service="gmail", engine="claude")
+
+
+def test_add_a_capability_lists_engine_connectors_with_one_add_per_engine(tmp_path, monkeypatch):
+    from armada import catalogue as cat
+    from armada.catalogue import sources
+    from armada.webui import catalogue as ui
+    monkeypatch.setattr(sources, "search_registry", lambda q, sample=False: ([], ""))
+    monkeypatch.setattr(cat, "search_registry", lambda q, sample=False: ([], ""))
+    monkeypatch.setattr(cat, "load", lambda: {"entries": []})
+    root = _realm(tmp_path, [], {})
+    registry.save(root, service="gmail", engine="claude")
+    html = ui._cat_results(_realm_obj(root, []), root, q="mail")
+    assert 'data-service="gmail"' in html and "Added for Claude" in html
+    assert "mcCatAddService(this,&quot;gmail&quot;,&quot;codex&quot;)" in html or "Add for Codex" in html
+    assert "Gemini: not available" in html
+    assert 'data-service="gmail"' not in ui._cat_results(_realm_obj(root, []), root, q="mail", reach="any")
+    assert 'data-service="gmail"' in ui._cat_results(_realm_obj(root, []), root, q="mail", reach="codex")

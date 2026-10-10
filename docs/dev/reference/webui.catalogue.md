@@ -20,6 +20,14 @@ before the split, avoiding a module-level import cycle between the two.
 
 One catalogue entry.
 
+### `_cat_engine_entries()`
+
+The curated per-engine services as catalogue entries (connector_registry.catalogue_entries).
+
+### `_cat_provider_card(e: dict, have: set)`
+
+A service that lives in each engine's own account: one Add button per engine.
+
 ### `_cat_reach_badge(e: dict)`
 
 Which engines can use this once added: any engine, or one (docs/dev/CAPABILITIES_UPGRADE.md).
@@ -55,6 +63,10 @@ The report a bring-a-link review renders as — server-side, so it can reuse the
 ### `_cat_bring_link()`
 
 Paste a link, an agent reviews it, the report is what decides whether to add it.
+
+### `_cat_other_ways()`
+
+Below the results: every way to add something the search didn't find, in one place.
 
 ### `_cat_placeholder()`
 

@@ -493,7 +493,7 @@ def search(entries: list, q: str = "", source: str = "", kind: str = "",
             continue
         if category and e.get("category") != category:
             continue
-        if ql and ql not in f"{e.get('name','')} {e.get('id','')} {e.get('description','')}".lower():
+        if ql and ql not in f"{e.get('name','')} {e.get('id','')} {e.get('description','')} {e.get('aliases','')}".lower():
             continue
         out.append(e)
     return out

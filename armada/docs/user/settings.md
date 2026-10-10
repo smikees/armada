@@ -34,7 +34,8 @@ you use them.
 - **Appearance** — light, dark, or your system's colour mode, and the colour theme.
   Colour mode previews immediately on the settings page. Save keeps your choice; Cancel restores
   the saved appearance.
-- **Appearance → Fonts** — choose separate font families for headings and body text, and a
+- **Appearance → Fonts** — choose separate font families for headings and body text (each
+  option in the list is shown in its own face), and a
   **Reference size** from 10 to 26 px (default **13 px**). Headings and smaller labels scale
   proportionally; icons and images keep their dimensions. The size selector previews immediately;
   Save keeps it and Cancel restores the saved size.

@@ -54,7 +54,7 @@ function mcFDFromSelect(select,chevron){
       signature=key;
       const active=menu.contains(document.activeElement)?document.activeElement.dataset.val:null,scroll=menu.scrollTop;
       menu.replaceChildren();rows=options.map(o=>{
-        const row=document.createElement('a');row.textContent=o.textContent;row.dataset.val=o.value;
+        const row=document.createElement('a');row.textContent=o.textContent;row.dataset.val=o.value;if(o.style?.fontFamily)row.style.fontFamily=o.style.fontFamily;
         row.setAttribute('role','option');row.tabIndex=-1;
         const disabled=o.disabled||!!o.parentElement?.disabled;
         row.setAttribute('aria-disabled',String(disabled));if(disabled)row.classList.add('is-empty');
@@ -68,7 +68,7 @@ function mcFDFromSelect(select,chevron){
       menu.scrollTop=scroll;
       if(active!==null&&d.open)rows.find(r=>r.dataset.val===active&&r.getAttribute('aria-disabled')!=='true')?.focus();
     }
-    label.textContent=select.selectedOptions[0]?.textContent||'Choose an option';summary.title=label.textContent;
+    label.textContent=select.selectedOptions[0]?.textContent||'Choose an option';summary.title=label.textContent;if(label.style)label.style.fontFamily=select.selectedOptions[0]?.style?.fontFamily||'';
     d.dataset.val=select.value;d.classList.toggle('is-off',select.disabled);
     summary.setAttribute('aria-disabled',String(select.disabled));summary.tabIndex=select.disabled?-1:0;
     rows.forEach(row=>row.setAttribute('aria-selected',String(row.dataset.val===select.value)));

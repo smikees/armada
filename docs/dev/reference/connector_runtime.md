@@ -79,6 +79,10 @@ Old auto-discovery filed the model app itself as a user MCP connector.
 
 Register a reviewed realm endpoint and start Codex's own browser OAuth flow.
 
+### `_link_claude_service(cap: dict, realm_root)`
+
+Bind a "<service> · Claude" row to Claude's own "claude.ai <service>" registration, if present.
+
 ### `connect_claude(cap: dict, realm_root=None)`
 
 Authenticate the existing Claude registration; never clone a cloud proxy.

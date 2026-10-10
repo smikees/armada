@@ -163,7 +163,57 @@ def verify_registrations(requirements, registrations):
             raise ValueError(f'Connector {name} has different settings in this engine. Review its connection in Capabilities.')
 
 
-_ENGINE_ROW_LABEL = {'claude': 'Claude', 'codex': 'ChatGPT app'}
+_ENGINE_ROW_LABEL = {'claude': 'Claude', 'codex': 'Codex'}
+_ENGINE_NAME = {'claude': 'Claude', 'codex': 'Codex', 'gemini': 'Gemini'}
+
+
+def _row_service(cap: dict) -> str:
+    """The curated service a realm row stands for, if any ('' when it is something else)."""
+    sid = str(cap.get('native_service') or cap.get('service_id') or '')
+    if sid:
+        return sid
+    cid = str(cap.get('id') or '')
+    for prefix in ('claude.ai ', 'claude_ai_'):
+        if cid.lower().startswith(prefix):
+            tail = cid[len(prefix):].replace('_', ' ').strip().lower()
+            return next((s['id'] for s in SERVICES if s['name'].lower() == tail), '')
+    url = str(cap.get('mcp_url') or cap.get('command') or '').strip()
+    return next((s['id'] for s in SERVICES if s.get('endpoint') and s['endpoint'] == url), '')
+
+
+def added_for(realm_root) -> dict:
+    """{service id: set of engines it is already added for} — 'any' for an open server."""
+    from . import capabilities, capreach
+    out: dict = {}
+    try:
+        rows = capabilities.catalogue(realm_root).get('connectors') or []
+    except (OSError, ValueError):
+        return out
+    for cap in rows:
+        sid = _row_service(cap)
+        if sid:
+            out.setdefault(sid, set()).add(capreach.reach('connectors', cap).scope)
+    return out
+
+
+def catalogue_entries() -> list:
+    """The curated services as Add a capability results, beside the mirrored sources.
+
+    Provider-hosted services (Gmail, Google Drive…) have no public directory ARMADA can search:
+    Anthropic publishes none, and Codex's app directory sits behind a browser challenge. These are
+    the ones ARMADA knows how to set up per engine. Everything else with an MCP server is in the
+    MCP registry results.
+    """
+    out = []
+    for s in SERVICES:
+        engines = list(PROVIDERS) if s.get('endpoint') else ['claude', 'codex']
+        out.append({'key': 'engine-app:' + s['id'], 'id': s['id'], 'name': s['name'],
+                    'kind': 'connectors', 'source': 'engine-apps', 'category': s['category'],
+                    'description': s['description'], 'aliases': s.get('aliases', ''), 'author': '',
+                    'curated': 'armada', 'service': s['id'], 'engines': engines, 'notes': dict(s['engines']),
+                    'reach': 'any' if s.get('endpoint') else 'per-engine'})
+    return out
+
 
 
 def save(realm_root, *, name='', url='', provider='', server_name='', capability='', service='', account_label='',
@@ -171,7 +221,7 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
     """Add a remote connector or explicitly link one existing engine registration.
 
     A provider-hosted service (Gmail, Google Drive…) is added for ONE engine: "Gmail · Claude" or
-    "Gmail · ChatGPT app". The two are different services behind one brand, so they never share a
+    "Gmail · Codex". The two are different services behind one brand, so they never share a
     row (docs/dev/CAPABILITIES_UPGRADE.md). An open server is one row for every engine.
     """
     from . import capabilities
@@ -189,6 +239,12 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
         if entry is None:
             raise ValueError('Unknown provider connector.')
         name = entry['name'] + (' · ' + account_label if account_label else '')
+        if not capability:
+            have = added_for(realm_root).get(service, set())
+            want = 'any' if entry.get('endpoint') else engine
+            if want and (want in have or 'any' in have):
+                raise ValueError(f"{entry['name']} is already in this realm"
+                                 + ('.' if want == 'any' or 'any' in have else f' for {_ENGINE_NAME[want]}.'))
         if entry.get('endpoint'):
             if capability:
                 raise ValueError('Link an existing engine connection to this service.')
@@ -198,7 +254,7 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
                 raise ValueError('Choose which engine this connection is for: Claude or Codex.')
             reach = engine
             name = f"{entry['name']} · {_ENGINE_ROW_LABEL[engine]}" + (' · ' + account_label if account_label else '')
-        # Adding "<service> · ChatGPT app" calls no provider: Connect on its Codex row resolves the
+        # Adding "<service> · Codex" calls no provider: Connect on its Codex row resolves the
         # app later, so a realm can be set up before Codex is installed.
         if service and capability:
             from . import codex_apps
@@ -231,12 +287,13 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
             from . import capreach
             current = capreach.bindings(cap)
             servers = any('server_name' in r for r in current.values())
+            what = cap.get('name') or cap.get('id')
             if selected.get('app_id') and (capreach.endpoint(cap) or servers or capreach.is_claude_import(cap)):
-                raise ValueError('This connector reaches a different service. Add the ChatGPT app as its own '
-                                 'connector: Add a connector, choose the service, then Codex.')
+                raise ValueError(f'{what} is not the Codex version of this service, so Codex can\'t use it. '
+                                 'To use the service with Codex, add it for Codex in Add a capability.')
             if not selected.get('app_id') and any('app_id' in r for r in current.values()):
-                raise ValueError('This connector is a ChatGPT app. Link other engines to the service\'s own '
-                                 'connector instead.')
+                raise ValueError(f'{what} is the Codex version of this service and works only with Codex. '
+                                 'To use the service with another engine, add it for that engine in Add a capability.')
         if selected:
             # One engine registration must never be granted through two logical capabilities.
             sid = selected.get('app_id') or (server_id(server_name) if provider == 'claude' else server_name)
@@ -249,6 +306,10 @@ def save(realm_root, *, name='', url='', provider='', server_name='', capability
                                  else registration_id(facade.get('id', '')))
                     if other_sid == sid:
                         raise ValueError('This registration already belongs to another capability. Use that connector instead.')
+        if cap is None and url and not selected:
+            same = next((r for r in rows if url in (r.get('mcp_url'), r.get('command'))), None)
+            if same is not None:
+                raise ValueError(f"{same.get('name') or same.get('id')} already uses this address.")
         if cap is None:
             label = name.strip() or ((selected.get('label') or server_name) if selected else '')
             if not label:

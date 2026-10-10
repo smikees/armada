@@ -177,9 +177,13 @@ The line under a model picker: what this agent (or job) can use on the chosen mo
 
 —
 
-### `_reach_sections(realm, realm_root, tk: dict)`
+### `_reach_parts(realm, realm_root, tk: dict)`
 
 The User tab's catalogue, grouped by which engines can use it (docs/dev/CAPABILITIES_UPGRADE.md).
+
+### `_reach_sections(realm, realm_root, tk: dict)`
+
+The switcher and the sections together (the page places the switcher in its filter bar).
 
 ### `_realm_skills(realm, realm_root)`
 

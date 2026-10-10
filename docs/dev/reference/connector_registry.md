@@ -34,6 +34,18 @@ Names and safe remote URLs only. Headers, env, OAuth and local commands stay pri
 
 A linked name cannot silently start pointing an agent at another service.
 
+### `_row_service(cap: dict)`
+
+The curated service a realm row stands for, if any ('' when it is something else).
+
+### `added_for(realm_root)`
+
+{service id: set of engines it is already added for} — 'any' for an open server.
+
+### `catalogue_entries()`
+
+The curated services as Add a capability results, beside the mirrored sources.
+
 ### `save(realm_root, *, name='', url='', provider='', server_name='', capability='', service='', account_label='', engine='')`
 
 Add a remote connector or explicitly link one existing engine registration.

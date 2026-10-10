@@ -10,9 +10,11 @@ model. Capabilities don't all travel that freely, so the Capabilities page is ar
   can use them; a connector still needs its own sign-in in each engine you use, shown on its row.
 - **Claude only / Codex only / Gemini only** — connectors that live inside one provider's account
   (a Claude connector hosted by Anthropic, a ChatGPT app), and Claude Code plugins. Agents on
-  other engines can't use them.
+  other engines can't use them. A connector set up in Claude stays Claude only unless it also has
+  a public address another engine can use; to use the same service with Codex, add it for Codex.
 
-Use the switcher above the sections to show one reach at a time. Expand a card to see its
+The search box sits on its own line; below it, the engine switcher (All, Any engine, Claude,
+Codex, Gemini) shows one reach at a time, followed by the agent, type, source and risk filters. Expand a card to see its
 **Works with** strip: which engines can use it now, and why the others can't.
 
 **One engine at a time.** Some services allow only one AI platform per account: connecting
@@ -31,28 +33,37 @@ that model's engine, and updates as you choose. Saving a change that loses capab
 confirm, listing each one and why. During a run, anything granted but unavailable on the run's
 engine is withheld and named to the agent, so a job that needs it says exactly why.
 
-## Adding a connector
+## Adding a capability
 
-Choose **Add a connector**, then find a service.
+Everything is added from the **Add a capability** tab. One search covers every source: services
+that live in an engine's own account, the open MCP registry, plugin marketplaces and skills. Use
+**Works with** to show only what agents on a given engine can use.
 
-- **An open server** (Notion, for example) is one connector for every engine. Connect each engine
-  you use from its row; each signs in separately.
-- **A service that lives in a provider's account** (Google Drive, Gmail, Calendar, Slack, GitHub)
-  is added for one engine: choose **Claude** or **Codex**. ARMADA creates "Gmail · Claude" or
-  "Gmail · ChatGPT app" and files it under that engine. Add both if agents on both engines need it.
-  - **Claude:** complete sign-in in Claude's connector settings, then **Setup details → Link
-    existing connection** to select its registration.
-  - **Codex:** ARMADA links the ChatGPT app. Review permissions, install and sign in using the
-    same account as Codex CLI, then **Recheck**.
-  - **Gemini:** apps from Claude or Codex are not available to Antigravity. Add an open server for
-    the service instead, if one exists.
+- **Engine connectors** (Gmail, Google Drive, Google Calendar, Slack, GitHub) live in each
+  provider's account, and each engine has its own version. Their cards come first and have one
+  button per engine: **Add for Claude** creates "Gmail · Claude", **Add for Codex** creates
+  "Gmail · Codex". Add both if agents on both engines need it; a card shows which are already
+  here. Gemini can't use these; add an open server for the service instead, if one exists.
+  - **Claude:** add the service in Claude's connector settings with the account Claude Code uses,
+    then press **Connect** on its row. ARMADA links Claude's connector automatically.
+  - **Codex:** press **Connect**. ARMADA finds the ChatGPT app; review permissions, install and
+    sign in using the same account as Codex CLI, then **Recheck**.
+- **An open server** (Notion, or anything from the MCP registry) is one connector for every engine.
+  Connect each engine you use from its row; each signs in separately.
 
-**Import an existing connection** imports services already configured in an engine.
-**Custom MCP server (advanced)** adds a service's HTTPS MCP endpoint; the Catalogue offers more.
-A website address is not an MCP endpoint.
+Not in the results? **Other ways to add**, below them:
+
+- **Add an MCP server by its address**: a name and the https address from the service's own
+  documentation. A website address is not an MCP endpoint.
+- **Already set up in Claude?**: brings connectors you added in Claude's settings, and servers
+  added to Claude Code, into the realm as they are.
+- **Bring a link**: an agent reviews a repository or package and reports what it found before you
+  add it.
+- Links to Claude's connector directory and ChatGPT's apps. Neither publishes a list ARMADA can
+  search, so connect a service there, then bring it in from Claude or add it above for Codex.
 
 Each connector has one set of agent grants. **Setup details → Link existing connection** maps a
-differently named registration in an engine to a connector of the same server. Choose the intended
+differently named registration in an engine to that connector, for when the names don't match. Choose the intended
 service and account: matching names do not prove they reach the same service. ARMADA never copies
 credentials between engines or into the realm, and never puts two different services on one row.
 Adding a connector does not grant it to every agent; the coordinator's access follows its role.
@@ -64,9 +75,9 @@ sending the prompt. Inspectors and dry runs do not gain native apps.
 
 ## Accounts and changing engines
 
-The connector picker includes Google Drive, Gmail, Google Calendar, Slack, GitHub and Notion. Other services
-can be imported from an engine's directory or added by their trusted MCP endpoint. The list is
-curated guidance, not a promise that a service is available on every provider plan.
+Engine connectors cover Google Drive, Gmail, Google Calendar, Slack, GitHub and Notion. Other
+services can be brought in from Claude or added by their MCP address. The list is curated
+guidance, not a promise that a service is available on every provider plan.
 
 Give a service an optional **Personal** or **Work** label to distinguish connections. These are
 owner-provided labels, not verified account identities. Confirm the account during provider

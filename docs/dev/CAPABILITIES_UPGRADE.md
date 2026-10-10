@@ -146,3 +146,14 @@ Phase 2, later and separate: ARMADA passes the granted open servers into each ru
 (`--mcp-config` with `--strict-mcp-config` for Claude, `-c mcp_servers.*` for Codex) instead of
 reading each CLI's own registrations; unpacking plugins into skills and servers at install; listing
 the providers' own directories (ChatGPT apps, Anthropic's directory) in Add a capability.
+
+## 0.99.101 follow-up
+
+Owner review after release. Adding moved to one place, the Add a capability tab: the curated provider
+services became search results (source `engine-apps`, `connector_registry.catalogue_entries`) with one Add
+per engine and an Added state from `connector_registry.added_for`; the add-by-address form, the Claude import
+(the former refresh) and Bring a link sit below the results. The connector dialog is reduced to Link existing
+connection. No public directory exists for provider-hosted connectors: Anthropic publishes none, and Codex’s
+`app/list` directory call met a browser challenge when probed, so it is not used. A Claude import is Claude
+only unless it has a portable binding; Connect on a "<service> · Claude" row links `claude.ai <service>`
+automatically. New Codex rows are "<service> · Codex". [Verification](RELEASE_0_99_101.md).

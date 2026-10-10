@@ -29,6 +29,8 @@ MINE = "mine"
 # deciding whether to trust it, it is the opposite. Two sources rather than one badge, because
 # "show me everything that came off the internet" is the review you actually want to run.
 INSTALLED = "installed"
+# Services ARMADA knows how to set up in each engine's own account (connector_registry.SERVICES).
+ENGINE_APPS = "engine-apps"
 
 # A source is what you'd point at and name, so "marketplace" on its own isn't one: a machine can
 # have several, and which one an entry came from is the whole provenance story. Marketplace
@@ -42,6 +44,7 @@ SOURCE_LABEL = {
     SKILLS: "Anthropic skills",
     MINE: "Created by you",
     INSTALLED: "Installed by an agent",
+    ENGINE_APPS: "Engine connectors",
 }
 
 

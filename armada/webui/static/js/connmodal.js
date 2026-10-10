@@ -1,85 +1,8 @@
+// Link an existing engine connection to one connector row (Setup details → Link existing
+// connection). Adding is no longer done here: every way to add lives on the Add a capability tab.
 let mcConnectorTarget="",mcConnectorListGeneration=0,mcConnectorFocus=null;
-const mcConnectorCatalog=JSON.parse(document.getElementById('mc-conn-catalog')?.textContent||'[]');
+const MC_LINK_ENGINE={claude:"Claude",codex:"Codex",gemini:"Gemini"};
 function mcConnClose(){++mcConnectorListGeneration;document.getElementById("mc-conn-modal").style.display="none";if(mcConnectorFocus)mcConnectorFocus.focus();}
-function mcConnectorSelect(id){
-  const service=mcConnectorCatalog.find(s=>s.id===id);if(!service)return;
-  document.getElementById('mc-conn-service').value=id;
-  document.querySelectorAll('.mc-conn-service').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.service===id)));
-  const panel=document.getElementById('mc-conn-service-detail');panel.replaceChildren();
-  const title=document.createElement('strong');title.textContent=service.name;panel.append(title);
-  const summary=document.createElement('p');summary.textContent=service.description;panel.append(summary);
-  // An open server is one connector for every engine. A provider-hosted service is a different
-  // service in each provider's account, so it is added for one engine at a time, as its own row
-  // (docs/dev/CAPABILITIES_UPGRADE.md). Gemini is shown, disabled, when it has no version.
-  if(service.endpoint){
-    const row=document.createElement('p');row.className='mc-conn-anyengine';
-    row.textContent='Works with every engine: one connector, and each engine signs in separately.';panel.append(row);
-  }else{
-    const group=document.createElement('div');group.className='mc-conn-engines';group.setAttribute('role','radiogroup');
-    group.setAttribute('aria-label','Which engine is this connection for?');
-    const heading=document.createElement('p');heading.textContent='Which engine is this connection for? Each engine has its own version.';
-    panel.append(heading);
-    [['claude','Claude','A connector in your Claude account.'],['codex','Codex','A native app in your ChatGPT account.'],
-     ['gemini','Gemini','No Gemini version of this service yet.']].forEach(([engine,label,fallback])=>{
-      const available=engine!=='gemini';
-      const option=document.createElement('label');option.className='mc-conn-engine';
-      if(!available)option.setAttribute('aria-disabled','true');
-      const input=document.createElement('input');input.type='radio';input.name='mc-conn-for';input.value=engine;
-      input.disabled=!available;input.checked=engine===(mcConnectorEngineChoice||'claude');
-      input.addEventListener('change',()=>{mcConnectorEngineChoice=engine;});
-      const text=document.createElement('span'),strong=document.createElement('strong'),note=document.createElement('small');
-      strong.textContent=label+(available?'':' · not available');note.textContent=(service.engines||{})[engine]||fallback;
-      text.append(strong,note);option.append(input,text);group.append(option);
-    });
-    panel.append(group);
-  }
-  document.getElementById('mc-conn-add-submit').disabled=false;
-}
-let mcConnectorEngineChoice='claude';
-function mcConnectorSearch(){
-  const query=document.getElementById('mc-conn-search').value.trim().toLowerCase();
-  const category=document.getElementById('mc-conn-category').value,engine=document.getElementById('mc-conn-filter-engine').value;
-  const visible=[];
-  document.querySelectorAll('.mc-conn-service').forEach(b=>{
-    b.hidden=!(query.split(/\s+/).every(word=>b.dataset.search.includes(word))&&(!category||category===b.dataset.category)&&
-      (!engine||b.dataset.engines.split(' ').includes(engine))&&(!mcConnectorTarget||b.dataset.service!=='notion'));
-    if(!b.hidden)visible.push(b.dataset.service);
-  });
-  document.getElementById('mc-conn-empty').hidden=!!visible.length;
-  document.getElementById('mc-conn-service-detail').hidden=!visible.length;
-  document.getElementById('mc-conn-add-submit').disabled=!visible.length;
-  if(visible.length&&!visible.includes(document.getElementById('mc-conn-service').value))mcConnectorSelect(visible[0]);
-}
-function mcConnectorAdd(){
-  mcConnectorFocus=document.activeElement;
-  mcConnectorTarget="";
-  document.getElementById("mc-conn-mode").disabled=false;
-  document.getElementById("mc-conn-mode").value="native";
-  document.getElementById("mc-conn-engine").disabled=false;
-  document.getElementById("mc-conn-name-row").hidden=false;
-  document.getElementById("mc-conn-name").value="";
-  document.getElementById("mc-conn-url").value="";
-  document.getElementById('mc-conn-account').value='';
-  ['mc-conn-search','mc-conn-category','mc-conn-filter-engine'].forEach(id=>document.getElementById(id).value='');
-  mcConnectorSelect('google-drive');mcConnectorSearch();
-  document.getElementById("mc-conn-preset").value="";mcConnectorPreset();
-  document.getElementById("mc-conn-add-submit").textContent="Add connector";
-  document.getElementById("mc-conn-modal").style.display="flex";mcConnectorMode();
-  document.getElementById('mc-conn-search').focus();
-}
-function mcConnectorMode(){
-  const existing=document.getElementById("mc-conn-mode").value==="existing";
-  const native=document.getElementById("mc-conn-mode").value==="native";
-  ++mcConnectorListGeneration;
-  document.getElementById("mc-conn-existing").hidden=!existing;
-  document.getElementById("mc-conn-remote").hidden=existing||native;
-  document.getElementById("mc-conn-native").hidden=!native;
-  document.getElementById("mc-conn-name-row").hidden=native||!!mcConnectorTarget;
-  document.getElementById("mc-conn-add-status").textContent="";
-  document.getElementById('mc-conn-add-submit').disabled=false;
-  if(native)mcConnectorSearch();
-  if(existing)mcConnectorRegistrations();
-}
 async function mcConnectorAction(payload){
   const response=await fetch('/api/connector-action',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});
@@ -88,45 +11,39 @@ async function mcConnectorAction(payload){
   return data;
 }
 async function mcConnectorRegistrations(){
-  const generation=++mcConnectorListGeneration, provider=document.getElementById("mc-conn-engine").value;
+  const generation=++mcConnectorListGeneration,provider=document.getElementById("mc-conn-engine").value;
   const select=document.getElementById("mc-conn-registration"),status=document.getElementById("mc-conn-add-status");
-  select.replaceChildren(new Option("Loading connections…",""));select.disabled=true;
+  const submit=document.getElementById('mc-conn-add-submit');
+  select.replaceChildren(new Option("Loading connections…",""));select.disabled=true;submit.disabled=true;status.textContent='';
   try{
     const data=await mcConnectorAction({action:'inventory',provider});
     if(generation!==mcConnectorListGeneration)return;
     select.replaceChildren(new Option("Choose a connection…",""));
     data.registrations.forEach(row=>select.add(new Option(row.label||row.server_name,row.server_name)));
-    status.textContent=data.registrations.length?'':'No connections found in this engine. Connect the service there, then refresh this list.';
+    status.textContent=data.registrations.length?'':'No connections found in '+MC_LINK_ENGINE[provider]+'. Set the service up there first, then reopen this.';
   }catch(error){if(generation===mcConnectorListGeneration)status.textContent=error.message;}
-  finally{if(generation===mcConnectorListGeneration)select.disabled=false;}
+  finally{if(generation===mcConnectorListGeneration){select.disabled=false;submit.disabled=false;}}
 }
 function mcConnectorLink(button){
-  const row=button.closest('.mc-conn-detail');mcConnectorAdd();
-  mcConnectorTarget=row.dataset.cap;
-  document.getElementById('mc-conn-mode').value='existing';document.getElementById('mc-conn-mode').disabled=true;
-  document.getElementById('mc-conn-engine').value=row.dataset.provider;document.getElementById('mc-conn-engine').disabled=true;
-  document.getElementById('mc-conn-name-row').hidden=true;
-  document.getElementById('mc-conn-add-submit').textContent='Link connection';mcConnectorMode();
-}
-function mcConnectorNative(button){
-  const row=button.closest('.mc-conn-detail');mcConnectorAdd();mcConnectorTarget=row.dataset.cap;
-  document.getElementById('mc-conn-mode').disabled=true;
-  document.getElementById('mc-conn-add-submit').textContent='Link native app';mcConnectorMode();
+  const row=button.closest('.mc-conn-detail');
+  mcConnectorFocus=document.activeElement;mcConnectorTarget=row.dataset.cap;
+  const engine=row.dataset.provider;
+  document.getElementById('mc-conn-engine').value=engine;
+  document.getElementById('mc-conn-title').textContent='Link an existing '+MC_LINK_ENGINE[engine]+' connection';
+  document.getElementById('mc-conn-account').value='';
+  document.getElementById("mc-conn-modal").style.display="flex";
+  mcConnectorRegistrations();document.getElementById('mc-conn-registration').focus();
 }
 async function mcConnectorSave(button){
-  const existing=document.getElementById('mc-conn-mode').value==='existing';
+  const server=document.getElementById('mc-conn-registration').value,status=document.getElementById('mc-conn-add-status');
+  if(!server){status.textContent='Choose the connection to link.';return;}
   button.disabled=true;
   try{
-    const data=await mcConnectorAction({action:mcConnectorTarget?'bind':'add',capability:mcConnectorTarget,
+    const data=await mcConnectorAction({action:'bind',capability:mcConnectorTarget,
       account_label:document.getElementById('mc-conn-account').value,
-      service:document.getElementById('mc-conn-mode').value==='native'?document.getElementById('mc-conn-service').value:'',
-      engine:document.getElementById('mc-conn-mode').value==='native'&&!mcConnectorTarget?
-        ((document.querySelector('input[name="mc-conn-for"]:checked')||{}).value||''):'',
-      name:document.getElementById('mc-conn-name').value,url:existing?'':document.getElementById('mc-conn-url').value.trim(),
-      provider:existing?document.getElementById('mc-conn-engine').value:'',
-      server_name:existing?document.getElementById('mc-conn-registration').value:''});
+      provider:document.getElementById('mc-conn-engine').value,server_name:server});
     sessionStorage.setItem('armada.connector.focus',data.capability);location.reload();
-  }catch(error){document.getElementById('mc-conn-add-status').textContent=error.message;}
+  }catch(error){status.textContent=error.message;}
   finally{button.disabled=false;}
 }
 async function mcConnectorUnlink(button){
@@ -143,17 +60,6 @@ document.getElementById('mc-conn-modal')?.addEventListener('keydown',event=>{
   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
 });
-function mcConnectorPreset(){
-  const option=document.getElementById('mc-conn-preset').selectedOptions[0];
-  if(option.value){document.getElementById('mc-conn-name').value=option.dataset.name;
-    document.getElementById('mc-conn-url').value=option.dataset.url;}
-  document.getElementById('mc-conn-preset-note').textContent=option.dataset.note||'';
-  const guide=document.getElementById('mc-conn-preset-guide');guide.hidden=!option.dataset.guide;
-  if(option.dataset.guide)guide.href=option.dataset.guide;else guide.removeAttribute('href');
-}
-function mcConnectorRefresh(){
-  mcConnectorAdd();document.getElementById('mc-conn-mode').value='existing';mcConnectorMode();
-}
 
 const MC_CONN_LABEL={ready:"Connected",missing:"Not connected",failed:"Connection failed",
   checking:"Checking…",starting:"Preparing sign-in…",setup_required:"Setup required",sign_in:"Sign-in required",unavailable:"Provider unavailable",

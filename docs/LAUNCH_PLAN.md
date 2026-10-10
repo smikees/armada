@@ -12,6 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.101** puts every way to add a capability on the Add a capability tab: engine connectors
+(Gmail, Google Drive…) are search results with Add for Claude and Add for Codex, and an MCP address, Claude
+import, Bring a link and the engines’ own directories sit below the results. Connectors set up in Claude are
+Claude only unless portable; the User tab filters are on two lines; font choices preview in their own face.
+[Verification](dev/RELEASE_0_99_101.md).
+
 Version **0.99.100** arranges capabilities by engine reach: Any engine, Claude only, Codex only and
 Gemini only, with a section switcher, Works-with strips and per-engine sign-in chips only where a
 capability can work. One-engine-at-a-time services (Interactive Brokers, or any the owner marks) carry a

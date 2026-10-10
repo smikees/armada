@@ -108,73 +108,23 @@ _CAP_EDIT_MODAL = (
     + _CAPEDIT_JS)
 
 
-from ..connector_registry import PRESETS as _CONNECTOR_PRESETS, SERVICES as _CONNECTOR_SERVICES
-
 _CONNECTOR_MODAL = (
     '<div id="mc-conn-modal" class="mc-modal-ov" style="z-index:210" onclick="if(event.target===this)mcConnClose()">'
-    '<div class="mc-modal-box mc-connector-picker" role="dialog" aria-modal="true" aria-labelledby="mc-conn-title">'
-    '<div style="display:flex;align-items:center;margin-bottom:10px"><div style="font-family:var(--font-heading);'
-    'font-weight:600;font-size:17px" id="mc-conn-title">Add a connector</div>'
+    '<div class="mc-modal-box mc-connector-link" role="dialog" aria-modal="true" aria-labelledby="mc-conn-title">'
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px"><div style="font-family:var(--font-heading);'
+    'font-weight:600;font-size:17px" id="mc-conn-title">Link an existing connection</div>'
     '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcConnClose()">Close</button></div>'
-    '<div class="mc-conn-form-body">'
-    '<p class="mc-conn-intro">Choose a service. An open server works with every engine, each signing in '
-    'separately; a service that lives in a provider’s account is added for one engine and appears under '
-    'that engine on this page.</p>'
-    '<label class="mc-label" for="mc-conn-mode">Add from</label>'
-    '<select id="mc-conn-mode" class="mc-field" onchange="mcConnectorMode()">'
-    '<option value="native">Find a service</option><option value="existing">Import an existing connection</option>'
-    '<option value="remote">Custom MCP server (advanced)</option></select>'
-    '<div id="mc-conn-native"><label class="mc-label" for="mc-conn-search">Find a service</label>'
-    '<input id="mc-conn-search" class="mc-field" type="search" placeholder="Search services, email, documents…" oninput="mcConnectorSearch()">'
-    '<div class="mc-conn-filters"><select id="mc-conn-category" class="mc-field" aria-label="Service category" onchange="mcConnectorSearch()">'
-    '<option value="">All categories</option><option>Files &amp; documents</option><option>Email &amp; calendar</option>'
-    '<option>Communication</option><option>Development</option></select>'
-    '<select id="mc-conn-filter-engine" class="mc-field" aria-label="Engine support" onchange="mcConnectorSearch()">'
-    '<option value="">All engines</option><option value="claude">Claude</option><option value="codex">Codex</option><option value="gemini">Gemini</option></select></div>'
-    '<input id="mc-conn-service" type="hidden" value="google-drive">'
-    '<div id="mc-conn-services" class="mc-conn-services">'
-    + ''.join(f'<button type="button" class="mc-conn-service" data-service="{E(s["id"])}" '
-              f'data-search="{E((s["name"]+" "+s["aliases"]).lower())}" data-category="{E(s["category"])}" '
-              f'data-engines="{"claude codex gemini" if s.get("endpoint") else "claude codex"}" '
-              f'onclick="mcConnectorSelect(this.dataset.service)" aria-pressed="false">'
-              f'{_icon("cap-connector",16)}<span><strong>{E(s["name"])}</strong><small>{E(s["category"])} · '
-              f'{"Any engine" if s.get("endpoint") else "Claude or Codex, added per engine"}</small></span>'
-              f'{_icon("chevron-right",12)}</button>' for s in _CONNECTOR_SERVICES) + '</div>'
-    '<p id="mc-conn-empty" class="mc-conn-intro" hidden>No matching service here. Import a connection from your engine, '
-    'or use a custom MCP server.</p>'
-    '<div id="mc-conn-service-detail" class="mc-conn-service-detail" aria-live="polite"></div>'
-    '<p class="mc-conn-intro">Looking for another service? Browse '
-    '<a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">Claude’s connectors</a> or '
-    '<a href="https://chatgpt.com/apps" target="_blank" rel="noopener">Codex’s apps</a>, then import the connection.</p>'
-    '<script type="application/json" id="mc-conn-catalog">'
-    + json.dumps(_CONNECTOR_SERVICES, ensure_ascii=True).replace('<', '\\u003c') + '</script></div>'
-    '<label class="mc-label" for="mc-conn-account">Account or workspace label <span class="mc-conn-optional">(optional)</span></label>'
-    '<input id="mc-conn-account" class="mc-field" maxlength="80" placeholder="E.g. Personal or Work">'
-    '<p class="mc-conn-intro">A label for you, not a verified account. Confirm the account in each engine’s sign-in page. '
-    'Multiple accounts need separate connections supported by that engine.</p>'
-    '<div id="mc-conn-name-row"><label class="mc-label" for="mc-conn-name">Connector name</label>'
-    '<input id="mc-conn-name" class="mc-field" maxlength="120" placeholder="E.g. Google Docs or Notion"></div>'
-    '<div id="mc-conn-remote"><label class="mc-label" for="mc-conn-preset">Integration</label>'
-    '<select id="mc-conn-preset" class="mc-field" onchange="mcConnectorPreset()"><option value="">Custom MCP server</option>'
-    + ''.join(f'<option value="{E(key)}" data-name="{E(name)}" data-url="{E(url)}" data-guide="{E(guide)}" data-note="{E(note)}">{E(name)}{ " — advanced setup" if key != "notion" else " — official"}</option>'
-              for key, name, url, guide, note in _CONNECTOR_PRESETS if key == 'notion') + '</select>'
-    '<p id="mc-conn-preset-note" class="mc-conn-reason"></p>'
-    '<a id="mc-conn-preset-guide" target="_blank" rel="noopener" hidden>Integration setup guide ↗</a>'
-    '<label class="mc-label" for="mc-conn-url">MCP server URL</label>'
-    '<input id="mc-conn-url" class="mc-field" type="url" placeholder="https://service.example/mcp">'
-    '<p class="mc-conn-intro">Use an MCP endpoint from the service or a trusted integration. '
-    'A website URL is not an MCP endpoint. Each engine may need its own sign-in; some integrations require additional setup.</p></div>'
-    '<div id="mc-conn-existing" hidden><label class="mc-label" for="mc-conn-engine">Engine</label>'
-    '<select id="mc-conn-engine" class="mc-field" onchange="mcConnectorRegistrations()">'
-    '<option value="claude">Claude</option><option value="codex">Codex</option><option value="gemini">Gemini</option></select>'
-    '<label class="mc-label" for="mc-conn-registration">Existing connection</label>'
+    '<p class="mc-conn-intro">Use a connection this engine already has for this service. Only the '
+    'link is stored here; the sign-in stays in the engine. Matching names don’t prove two connections '
+    'are the same service or account, so choose the one you mean.</p>'
+    '<input type="hidden" id="mc-conn-engine" value="claude">'
+    '<label class="mc-label" for="mc-conn-registration">Connection</label>'
     '<select id="mc-conn-registration" class="mc-field"></select>'
-    '<p class="mc-conn-intro">Only this engine’s registration is linked. Credentials stay in the engine. '
-    'Choose the intended service and account; matching names do not prove they are the same.</p></div>'
-    '<button type="button" class="mc-cap-ico mc-conn-help" onclick="mcConnClose();mcCapTab(\'catalogue\')">Browse more integrations in Catalogue</button>'
-    '</div><div class="mc-conn-footer">'
+    '<label class="mc-label" for="mc-conn-account">Account label <span class="mc-conn-optional">(optional)</span></label>'
+    '<input id="mc-conn-account" class="mc-field" maxlength="80" placeholder="E.g. Personal or Work">'
+    '<div class="mc-conn-footer">'
     '<p id="mc-conn-add-status" role="status" class="mc-conn-reason"></p>'
-    '<button id="mc-conn-add-submit" class="btn btn-primary" onclick="mcConnectorSave(this)">Add connector</button>'
+    '<button id="mc-conn-add-submit" class="btn btn-primary" onclick="mcConnectorSave(this)">Link connection</button>'
     '</div></div></div>'
     + _CONNMODAL_JS)
 
@@ -462,7 +412,6 @@ def _connector_controls(it: dict, engines=None, reach=None) -> str:
             '</div><div class="mc-conn-setup" hidden>'
             '<div class="mc-conn-setup-actions">'
             '<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorLink(this)">Link existing connection</button>'
-            + ('<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorNative(this)">Choose native app</button>' if provider == 'codex' else '') +
             '<button type="button" class="mc-cap-ico" onclick="mcConnectorUnlink(this)">Unlink this engine</button></div>'
             '<p class="mc-conn-instructions"></p>'
             '<p class="mc-conn-tools"></p>'
@@ -1070,14 +1019,8 @@ def _tool_group(title: str, icon: str, realm_items, agent_items=None, manage=Non
                 'None yet.</div>')
     is_conn = title.lower() == "connectors"
     add = ""   # per-bucket "+ Add" removed — adding is handled by a separate section-wide flow
-    # Refresh pulls servers into the realm CATALOGUE, so it belongs to the realm page only. On an
-    # agent's page it read as "refresh this agent's connectors" and did something else entirely.
+    # Adding lives in one place now, the Add a capability tab; no group carries its own add/import.
     refresh = ""
-    if is_conn and manage and allow_refresh:
-        refresh = ('<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorAdd()">Add a connector</button>'
-                   f'<button type="button" class="mc-iconbtn" onclick="mcConnectorRefresh(this)" '
-                   f'title="Import a connection from any engine" style="margin-left:auto">{_icon("refresh-cw",14)}</button>'
-                   f'<span class="mc-connref-msg" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span>')
     desc = _CAP_DESC.get(title.lower(), "")
     if compact:
         head = (f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
@@ -1293,7 +1236,7 @@ _KIND_GROUPS = (("connectors", "Connectors", "cap-connector"), ("extensions", "E
                 ("skills", "Skills", "cap-skill"), ("plugins", "Plugins", "cap-plugin"))
 
 
-def _reach_sections(realm, realm_root, tk: dict) -> str:
+def _reach_parts(realm, realm_root, tk: dict) -> tuple[str, str]:
     """The User tab's catalogue, grouped by which engines can use it (docs/dev/CAPABILITIES_UPGRADE.md).
 
     One switcher above the sections (All · Any engine · Claude · Codex · Gemini) and one section per
@@ -1342,15 +1285,14 @@ def _reach_sections(realm, realm_root, tk: dict) -> str:
         pills += (f'<button type="button" class="mc-reach-pill" data-reach="{s}" aria-pressed="false" '
                   f'onclick="mcReachPick(this)">{_reach_mark(s, 13)}{E(capreach.LABEL[s])}'
                   f'<span>{counts[s]}</span></button>')
-    toolbar = (f'<div class="mc-reach-bar">'
-               f'<div class="mc-reach-switch" role="group" aria-label="Show capabilities by engine">{pills}</div>'
-               f'<div class="mc-reach-tools">'
-               f'<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorAdd()">'
-               f'{_icon("plus", 13)}Add a connector</button>'
-               f'<button type="button" class="mc-iconbtn" onclick="mcConnectorRefresh(this)" '
-               f'title="Import a connection from any engine">{_icon("refresh-cw",14)}</button>'
-               f'<span class="mc-connref-msg" style="font-size:11px;color:var(--text-muted)"></span></div></div>')
-    return f'<div class="mc-cap-region">{toolbar}{secs}</div>' + _REACH_JS
+    switch = f'<div class="mc-reach-switch" role="group" aria-label="Show capabilities by engine">{pills}</div>'
+    return switch, f'<div class="mc-cap-region">{secs}</div>' + _REACH_JS
+
+
+def _reach_sections(realm, realm_root, tk: dict) -> str:
+    """The switcher and the sections together (the page places the switcher in its filter bar)."""
+    switch, region = _reach_parts(realm, realm_root, tk)
+    return switch + region
 
 
 from ..assets import CAPREACH_JS as _REACH_JS
@@ -1361,7 +1303,7 @@ from ..assets import CAPREACH_JS as _REACH_JS
 def _realm_skills(realm, realm_root) -> str:
     tk = _realm_toolkit(realm_root)
     _hd = 'font-family:var(--font-heading);font-weight:600;font-size:16px;margin:0 0 10px'
-    realm_region = _reach_sections(realm, realm_root, tk)
+    reach_switch, realm_region = _reach_parts(realm, realm_root, tk)
     # "Available to" rather than "All owners": a capability has no owner now, it has a list of
     # agents allowed to use it, and the filter should ask the question the page answers. Every
     # agent is listed, not only those with their own entries — the useful query is "what can
@@ -1407,10 +1349,10 @@ def _realm_skills(realm, realm_root) -> str:
     # filter bar: search + owner (incl. realm-wide) + source + risk level. Same controls as the
     # Catalogue's and the Jobs page's — one filter bar in the app, not one per tab.
     faint = "var(--text-faint)"
-    search_box = (f'<div style="position:relative;flex:0 0 172px">'
+    search_box = (f'<div class="mc-capsearch" style="position:relative">'
                   f'<span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);display:flex;'
                   f'color:{faint}">{_icon("search",14)}</span>'
-                  f'<input id="cap-search" oninput="mcCapFilter()" placeholder="Search…" '
+                  f'<input id="cap-search" oninput="mcCapFilter()" placeholder="Search your capabilities…" '
                   f'class="mc-field" style="padding-left:30px;padding-right:26px">'
                   f'<span id="cap-search-x" onclick="mcCapSearchClear()" title="Clear" style="display:none;position:absolute;'
                   f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:{faint}">{_icon("x",14)}</span></div>')
@@ -1420,13 +1362,13 @@ def _realm_skills(realm, realm_root) -> str:
         return _filter_dropdown(sid, label, [(v, l, "") for v, l in rows],
                                 width=width, onpick="mcCapFilter")
 
-    filters = (f'<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 18px">{search_box}'
-               f'<span style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;'
-               f'color:{faint}">Filter</span>'
-               # No fixed widths, and short default labels. This bar shares its row with the
-               # legend column, which leaves it about 700px — five controls sized for their
-               # longest option wrapped onto a second line. Each is now as wide as the words it
-               # has to hold, and the menus below them are unchanged.
+    # Two lines: search on its own, full width; then the engine switcher followed by the dropdowns.
+    # The switcher hides whole sections and the dropdowns hide cards, so they compose; it reads
+    # first because "which engine" is the page's first question since 0.99.100.
+    filters = (f'<div class="mc-capfilters">{search_box}'
+               f'<div class="mc-capfilter-row">{reach_switch}'
+               # No fixed widths, and short default labels: each dropdown is as wide as the words
+               # it has to hold.
                # Who → what → state (DESIGN_SYSTEM §11, UI audit FI4): agent, then type and source,
                # then risk — the order the Jobs bar uses (owner, cadence, status).
                + capsel("cap-f-avail", "Any agent", avail_opts)
@@ -1442,7 +1384,7 @@ def _realm_skills(realm, realm_root) -> str:
                + f'<button id="cap-f-clear" onclick="mcCapFilterClear()" style="display:none;align-items:center;'
                f'gap:4px;border:0;background:transparent;cursor:pointer;font-size:12px;'
                f'color:var(--color-accent);padding:6px 4px">{_icon("x",12)}Clear</button>'
-               + f'</div>')
+               + f'</div></div>')
     filter_js = _CAPFILTER_JS
     scan_btn = (f'<button class="btn btn-secondary btn-sm" style="'
                 f'margin-right:8px" onclick="mcCapScan(this)">'

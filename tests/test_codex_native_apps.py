@@ -78,7 +78,7 @@ def test_a_native_app_is_never_linked_onto_a_claude_connector(realm, monkeypatch
         {'id':'claude_ai_Google_Drive', 'name':'Google Drive'}]}})
     before = (realm/'realm.json').read_bytes()
     monkeypatch.setattr(codex_apps, 'service', lambda *a, **kw: {'app_id': APP, 'name':'Google Drive'})
-    with pytest.raises(ValueError, match='its own connector'):
+    with pytest.raises(ValueError, match='add it for Codex'):
         registry.save(realm, capability='claude_ai_Google_Drive', service='google-drive')
     assert (realm/'realm.json').read_bytes() == before
     capabilities.grant(realm, 'reviewer', 'claude_ai_Google_Drive')

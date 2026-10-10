@@ -964,7 +964,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
 
 
 def _font_picker() -> str:
-    """Appearance → Fonts (temporary, v0.99.62; becomes part of themes/skins). A face applies the
+    """App → Fonts (v0.99.62; to become part of themes). A face applies the
     moment it's picked — loaded first, then swapped, so nothing flashes — and is saved per machine."""
     from .. import fonts
     chosen_size = fonts.reference_size()
@@ -972,14 +972,16 @@ def _font_picker() -> str:
                            f'{size} px{" (default)" if size == fonts.SIZE_DEFAULT else ""}</option>'
                            for size in range(fonts.SIZE_MIN, fonts.SIZE_MAX + 1))
     def sel(role, label):
-        opts = "".join(f'<option value="{E(k)}"{" selected" if k == fonts.selected(role) else ""}>{E(v)}</option>'
+        # Each option is set in its own face, so the open list is the preview: the custom dropdown
+        # (fdrop.js) copies the option's font-family onto its row and onto the closed label.
+        opts = "".join(f'<option value="{E(k)}" style="font-family:{E(fonts.family(role, k))}"'
+                       f'{" selected" if k == fonts.selected(role) else ""}>{E(v)}</option>'
                        for k, v in fonts.CHOICES.items())
         fams = E(json.dumps({k: fonts.family(role, k) for k in fonts.CHOICES}))
         return (f'<label class="mc-fontpick"><span class="mc-hint">{label}</span>'
                 f'<select class="mc-field" data-role="{role}" data-families="{fams}" '
                 f'>{opts}</select></label>')
-    return (f'<label class="mc-label">Fonts <span style="text-transform:none;letter-spacing:0">'
-            f'(trial — these will become part of themes)</span></label>'
+    return (f'<label class="mc-label">Fonts</label>'
             f'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
             f'{sel("heading", "Headings")}{sel("body", "Body text")}'
             f'<label class="mc-fontsizepick"><span class="mc-hint">Reference size</span>'

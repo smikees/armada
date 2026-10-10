@@ -163,6 +163,15 @@ def _connector_reach(cap: dict) -> tuple:
             return (hosted, f"{LABEL[hosted]} connector",
                     f"Hosted by the provider inside your {LABEL[hosted]} account; "
                     f"other engines can't reach it.")
+        if (is_claude_import(cap) and not known_one_at_a_time(cap)
+                and not any(p != "claude" for p in servers)):
+            # Claude set this up through your Claude account. Its address may be public, but
+            # getting another engine to sign in to it is service-specific (Google's servers need
+            # your own OAuth client, for one), so it is not promised to other engines. Add the
+            # service for them separately when it offers a route.
+            return ("claude", "Claude connector",
+                    "Set up through your Claude account. Other engines need their own version of "
+                    "this service; add it for them from Add a capability.")
         return ("any", "Open server",
                 "A public MCP server: every engine can use it, and each one signs in separately.")
     if is_claude_import(cap) or (len(servers) == 1 and "claude" in servers):

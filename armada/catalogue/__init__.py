@@ -50,7 +50,7 @@ own definition site, not at whatever re-imports its name afterwards.
 from __future__ import annotations
 
 from ._shared import (
-    MARKETPLACE, REGISTRY, SKILLS, MINE, INSTALLED, SOURCE_LABEL, _MARKETPLACE_NAMES,
+    MARKETPLACE, REGISTRY, SKILLS, MINE, INSTALLED, ENGINE_APPS, SOURCE_LABEL, _MARKETPLACE_NAMES,
     marketplace_source, is_marketplace, source_label, CURATED_OFFICIAL,
     CURATED_REGISTRY, _REGISTRY_URL, _SKILLS_API, _UA, _REGISTRY_LIMIT, _TIMEOUT,
     _REG_TTL, _dir, _index_path, _now, _get_json, _entry, _known_realms, _norm_id,
