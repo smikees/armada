@@ -17,6 +17,10 @@ native Codex app admission. Account labels stay explicitly unverified, unlinking
 one realm/engine, and model switches prompt connector review. The release also updates the
 public website's version and installer links. [Verification](dev/RELEASE_0_99_99.md) records
 the acceptance boundary and publication checks; owner milestones remain open.
+Publication passed 3,555 isolated tests (5 skipped), both exact-source Windows CI configurations,
+5 native recovery checks, 16 multi-window checks and 63 packaged upgrade checks. All public
+assets, the signed manifest and 338 packaged source files are verified. The website is live
+with matching 0.99.99 links and a verified installer download; the owner's app was not restarted.
 
 Version **0.99.98** fixes connector sign-in feedback and configuration copying.
 Google Drive in Codex explains its required client setup, CLI outcomes remain visible and
