@@ -49,3 +49,26 @@ The full Windows suite passed with the release changes in place: **3,589 tests p
 0 failed** (Python 3.12, offline fake transports). Publication evidence (exact-source CI, native
 session and packaged upgrade gates) is recorded under `build/release-evidence-0.99.100.json` when
 the maintenance publisher completes.
+
+## Published evidence — 2026-10-10
+
+- Published normal/latest [v0.99.100 release](https://github.com/smikees/armada/releases/tag/v0.99.100)
+  from source `a2191c3`, through `tools/publish_release.py --maintenance-unsigned`.
+- Pinned isolated release gate: **3,589 passed, 5 skipped**.
+- [Exact-source CI](https://github.com/smikees/armada/actions/runs/38053068761): the first attempt's
+  3.12.10 job failed one unrelated timing test (`test_artefacts_pagination`: its Node harness exceeded
+  15 seconds on the hosted runner; it passes locally and on the 3.12 job). The failed job was re-run
+  unchanged and passed; no gate was bypassed.
+- Native upgrade gate: 63 real-page, restart and cleanup checks passed, upgrading 0.99.99 to 0.99.100.
+- The owner's running app was not restarted.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `ARMADA-Setup-0.99.100.exe` | `7e0ed409b96af5a65ce5cd2f9a734057bfc864c5e8efb148abeb408550ac2473` |
+| `armada-0.99.100.zip` | `359fc8d7166bb99b525cafeefd488aa5c8969509d8d3d24722cea581ac342ec5` |
+| `armada-update.json` | `4100ca31d8d2f9614fd095d8cdfbe2bd8ed60cc89e92f4eff83c55f7d1f6e45f` |
+| `armada-update.json.sig` | `9c603c9c10587f8abee24c515bd2b548fb7ac071676763a6f73f74436e4f71e8` |
+
+Website: `website/index.html` carries the 0.99.100 version and links in source. Uploading it to
+armada.stamih.com needs the hosting FTPS credentials, which stay outside this repository; that
+upload and its HTTPS verification are recorded here once done.
