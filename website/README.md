@@ -15,5 +15,8 @@ and installer URL. The hosting provider appends its own `wsimg.com/traffic-asset
 monitoring script to HTML responses; it is not part of this source. Other public assets match
 the uploaded files byte for byte.
 
-When adopting a new app release, update the version and installer/release links in `index.html`
-together. Brand artwork is supplied by the project owner; font licenses ship in `assets/fonts/`.
+Every new app version must be published here as part of its release (standing owner instruction,
+2026-10-10). Update the version and installer/release links in `index.html` together, deploy them,
+and verify the public HTTPS page and download resolve to that same release before marking it
+complete. Routine release publication needs no additional confirmation. Brand artwork is supplied
+by the project owner; font licenses ship in `assets/fonts/`.

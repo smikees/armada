@@ -15,6 +15,10 @@ from ..util import swallowed
 log = logging.getLogger("armada.serve")
 
 
+class ConnectorChange(ValueError):
+    """A model change needs an owner review of its connector implications."""
+
+
 class JobRoutes:
     def _get_new_job(self):
         from .. import webui
@@ -140,6 +144,13 @@ class JobRoutes:
         if not p.exists():
             return {"ok": False, "error": f"no job {job}"}
         def change(jc):
+            if 'model' in body and not jc.get('inspector') and jc.get('kind') != 'command':
+                from ..engine.selection import engine_for
+                from ..connector_registry import model_change_warning
+                warning = model_change_warning(self.realm, agent, engine_for(self.realm, agent, jc),
+                    engine_for(self.realm, agent, {**jc, 'model': body.get('model', '')}))
+                if warning and body.get('confirm_connector_change') is not True:
+                    raise ConnectorChange(warning)
             if "retries" in body:
                 from ..job_retries import validate
                 jc["retries"] = validate(body["retries"])
@@ -199,6 +210,8 @@ class JobRoutes:
                 saved.setdefault('id', job)
                 approve(self.realm, agent, saved)
             return {"ok": True, "path": f"agents/{agent}/jobs/{job}.json"}
+        except ConnectorChange as exc:
+            return {'ok': False, 'connector_warning': str(exc)}
         except Exception as e:  # noqa
             swallowed(log, '_save_job: failed; error returned to the caller')
             return {"ok": False, "error": f"write: {e}"}

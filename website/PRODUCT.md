@@ -35,5 +35,7 @@ imagery must use real screenshots with permission to expose the content. Do not 
 realm content. ASSETS.md records the supplied originals and their byte-identical website copies.
 
 ## Publication boundary
-Target armada.stamih.com. the maintainer reviews the UI before website publication. FTP credentials
-must never appear in chat, source control, browser scripts or downloadable files.
+Target armada.stamih.com. Every new ARMADA version must also be published here; routine release
+version and download-link updates are owner-authorized as of 2026-10-10. Follow website/README.md
+and verify the public result. Unrelated UI redesigns remain subject to maintainer review. FTP
+credentials must never appear in chat, source control, browser scripts or downloadable files.

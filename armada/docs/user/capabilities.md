@@ -1,5 +1,64 @@
 # Capabilities
 
+## Add once, connect each engine
+
+Choose **Add a connector → Find a service** to search services, categories and engine support. ARMADA adds one
+service entry with separate connection controls for Claude, Codex and Gemini. You do not need
+another integration service or an ARMADA Google Cloud project for a provider's native connector.
+
+- **Claude:** Connect opens Claude's connector settings. Use the same account as Claude Code,
+  complete sign-in, then **Setup details → Link existing connection** to select its registration.
+- **Codex:** Connect opens the native plugin page. Review permissions, install and sign in using
+  the same account as Codex CLI, then **Recheck**. You can also install through `/plugins` in
+  Codex CLI. Native Google Drive includes Docs, Sheets and Slides workflows where available.
+- **Gemini:** native apps from Claude or Codex are not automatically available to Antigravity.
+  ARMADA shows this explicitly; link a compatible MCP connection if the service offers one.
+
+For an existing connector card, **Setup details → Choose native app** in its Codex row can link Google Drive or
+Gmail, Calendar, Slack or GitHub without replacing the Claude connection or changing agent grants. **Import an existing connection** imports other services already configured in an engine, including Codex native
+apps. **Custom MCP server (advanced)** adds a service's HTTPS MCP endpoint; the Catalogue offers
+more integrations. A website address is not an MCP endpoint.
+
+Each connector has one set of agent grants. **Setup details → Link existing connection** maps a differently named
+registration in an engine to that connector. Choose the intended service and account: matching
+names do not prove they reach the same account. ARMADA never copies credentials between engines
+or into the realm. Adding a connector does not grant it to every agent; the coordinator's access
+continues to follow its role.
+
+A grant permits the tools that the selected engine actually exposes, including write operations
+when available. Providers can expose different operations for the same service. A connected
+Drive badge alone does not prove document editing works through every engine.
+
+Codex native apps are enabled only for granted connectors during normal tool turns. Other apps
+remain disabled, and ARMADA verifies the actual thread's callable app inventory before sending
+the prompt. Inspectors and dry runs do not gain native apps. Missing or unexpected access blocks
+the turn. Approval defaults for explicitly linked connectors apply only to that invocation;
+per-tool restrictions remain in force, and shell approval policy is unchanged.
+
+## Accounts and changing engines
+
+The picker includes Google Drive, Gmail, Google Calendar, Slack, GitHub and Notion. Other services
+can be imported from an engine's directory or added by their trusted MCP endpoint. The list is
+curated guidance, not a promise that a service is available on every provider plan.
+
+Give a service an optional **Personal** or **Work** label to distinguish connections. These are
+owner-provided labels, not verified account identities. Confirm the account during provider
+sign-in. Separate accounts need separately addressable registrations in the engine; ARMADA
+does not create a second account session by renaming a connection. A registration can belong
+to only one realm capability, so two labels cannot accidentally grant the same connection twice.
+
+**Setup details → Unlink this engine** removes only that realm binding. It preserves other
+engine connections and agent grants, and does not sign out other clients. Re-link explicitly
+to restore access. Revoke provider credentials in the provider's own settings when needed.
+
+Agent chips show their default engine's current connection status. Jobs can override that
+engine. Saving an agent or job model that changes engines prompts a connector review, including
+missing bindings. This is a configuration warning, not a live permissions test. Every run still
+checks the actual required connections. Realm defaults and automatic fallbacks also face runtime
+checks; ARMADA never reroutes connector calls to another engine or account.
+
+## Connection status and actions
+
 Connectors show separate Claude, Codex and Gemini status badges. A spinner means the engine's
 check is pending; a saved connector entry alone is not proof of a working connection. Authorize
 each engine you intend to use. The bundled filesystem capability uses Gemini's native scoped
@@ -14,12 +73,16 @@ Each row shows its status, reason and relevant action:
 - **Connect / Sign in** starts that provider's supported authentication flow. Preparation and
   CLI errors are shown separately. **Open sign-in page** appears when the CLI supplies a URL,
   so you can open it if the browser did not appear. Codex registers reviewed direct MCP
-  endpoints; Claude authenticates its existing registration.
+  endpoints; Claude can register a direct endpoint or authenticate an existing registration.
+  Gemini registers the endpoint through Antigravity CLI. Its **Open sign-in controls** action
+  opens `/mcp`; select the server and choose Authenticate, then finish in your browser.
 - **Set up / Setup details** shows instructions for that provider, including a copyable
   Codex or Antigravity configuration and service-specific OAuth guidance where needed.
   **Copy configuration / Copy setup template** copies the displayed text and confirms success.
   A template's placeholders must be replaced before use. No copy button appears for empty text.
 - **Recheck** checks only the selected provider. An error includes a recovery action.
+- **Setup details** also displays verified tool names when the CLI exposes them. A connection
+  status is not a promise that every service operation exists or has the required permission.
 - **App settings** takes you to a provider that needs installation, sign-in or reconnection.
 
 Several providers can connect to the same service at once. Connecting another provider does
@@ -29,14 +92,9 @@ with options to use a compatible integration. A provider's **Registered · unver
 means its configuration exists; it does not prove authorization or live tools. Gemini currently
 uses this state because ARMADA cannot verify its live connector health.
 
-Google Drive's direct MCP endpoint is portable, but each client needs compatible OAuth setup.
-Google Drive rejects automatic client registration. Until Codex has its own pre-registered
-Google OAuth client ID, its row shows **Setup required**, with instructions and a template.
-Create and configure that OAuth client using the service guide and Codex's supported client
-options; register the exact callback URL printed by Codex. Copying the template alone does
-not register or authorize a client. Then choose **Sign in** and **Recheck**.
-See [Google's setup guide](https://developers.google.com/workspace/drive/api/guides/configure-mcp-server).
-Existing Claude credentials are never copied into Codex or Gemini.
+Advanced direct Google MCP endpoints have different OAuth requirements from the providers'
+native apps. If you deliberately configure one, follow its service-specific setup instructions.
+These requirements do not apply to the native Codex Google Drive plugin described above.
 
 The tools your agents can use — and, more importantly, where each came from, what it can reach,
 and who may use it.

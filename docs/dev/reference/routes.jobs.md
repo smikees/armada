@@ -5,6 +5,11 @@ Jobs: new/save/enable/delete a job, job detail, job calendar, run.
 Split out of serve.py (Phase 2, 2.3) — a pure move, no behaviour change; the route table
 stays in serve.py, only the handler bodies moved.
 
+### class `ConnectorChange`
+
+A model change needs an owner review of its connector implications.
+
+
 ### class `JobRoutes`
 
 —

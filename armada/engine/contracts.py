@@ -44,6 +44,7 @@ class ExecutionPolicy:
     allowed_mcp_ids: frozenset[str] = frozenset()
     writable_roots: tuple[str, ...] = ()
     network_access: bool = False
+    allowed_app_ids: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)

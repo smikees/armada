@@ -115,7 +115,22 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
     inspector = bool(job and job.get("inspector") is True and not command)
     policy = execution_policy(realm_root, agent_id) if (allow_tools or agent.get("allow_tools")) and not command and not inspector else None
     eng = _select_engine(realm_root, agent_id, engine, job)
+    connector_requirements = {}
     if policy:
+        from . import capabilities
+        from .connector_registry import provider_cap
+        from .connector_runtime import codex_endpoint
+        from .engine.mcp import registration_id, server_id
+        for cap in capabilities.catalogue(realm_root)['connectors']:
+            if cap.get('id') not in policy.allowed_mcp_ids or not (cap.get('provider_bindings') or cap.get('connection_type') in ('provider-mcp', 'provider-native')):
+                continue
+            actual = provider_cap(cap, eng.name)
+            if actual.get('_unbound'):
+                raise CapabilityPolicyError(f"Connect {cap.get('name', cap['id'])} to {eng.name.title()} in Capabilities before running this agent.")
+            if actual.get('_native_app'):
+                continue
+            sid = server_id(actual['id']) if eng.name == 'claude' else registration_id(actual['id'])
+            connector_requirements[sid] = codex_endpoint(actual)
         from .capabilities import provider_policy
         policy = provider_policy(policy, eng.name)
     from .engine.contracts import ExecutionPolicy
@@ -127,9 +142,11 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
         roots.append(work)
     roots.extend(grant.roots)
     binding = ExecutionPolicy(policy.allowed_mcp_ids if policy else frozenset(),
-                              () if inspector else tuple(dict.fromkeys(roots)), False if inspector else grant.network)
+                              () if inspector else tuple(dict.fromkeys(roots)), False if inspector else grant.network,
+                              policy.allowed_app_ids if policy else frozenset())
     if isinstance(eng, EngineAdapter):
         eng = eng.configure(binding)
+        eng.connector_requirements = connector_requirements
     else:  # legacy injected adapter compatibility
         eng.allowed_mcp_ids = binding.allowed_mcp_ids
     return eng, agent
@@ -269,6 +286,7 @@ def _tool_grants(realm_root, agent_id, eng, use_tools):
     """Refresh grants at launch, including revocations made during context assembly."""
     policy = execution_policy(realm_root, agent_id) if use_tools else None
     eng.allowed_mcp_ids = policy.allowed_mcp_ids if policy else frozenset()
+    eng.allowed_app_ids = frozenset()
     eng.native_filesystem_ids = policy.native_filesystem_ids if policy else frozenset()
     # Production adapters enforce MCP grants against their own effective inventory.
     # Catalogue IDs may be Claude-only display names, not executable Codex/Gemini
@@ -284,9 +302,11 @@ def _tool_grants(realm_root, agent_id, eng, use_tools):
                                       if server_id(sid) not in blocked)
         from .capabilities import provider_policy, CapabilityPolicy
         translated = provider_policy(CapabilityPolicy(
-            eng.allowed_mcp_ids, policy.denied_tools, policy.native_filesystem_ids), eng.name)
+            eng.allowed_mcp_ids, policy.denied_tools, policy.native_filesystem_ids,
+            policy.provider_bindings), eng.name)
         eng.allowed_mcp_ids = translated.allowed_mcp_ids
         eng.native_filesystem_ids = translated.native_filesystem_ids
+        eng.allowed_app_ids = translated.allowed_app_ids
     denied = list(policy.denied_tools) if policy and not inventory_gated else []
     if use_tools and getattr(eng, "name", "") == "claude":
         try:
@@ -311,7 +331,7 @@ def _record_used_capabilities(realm_root: Path, tool_names) -> None:
         m = re.match(r"mcp__([A-Za-z0-9_.\-]+)__", str(nm or ""))
         # Provider applications are system dependencies, not user connectors. Earlier
         # discovery created a phantom `codex` connector from this tool namespace.
-        if m and m.group(1).lower() not in ("claude", "codex", "gemini") and m.group(1) not in servers:
+        if m and m.group(1).lower() not in ("claude", "codex", "codex_apps", "gemini") and m.group(1) not in servers:
             servers.append(m.group(1))
     if not servers:
         return
@@ -324,6 +344,8 @@ def _record_used_capabilities(realm_root: Path, tool_names) -> None:
             from .engine.mcp import registration_id, server_id
             have |= {alias.lower() for c in conns for alias in
                      (registration_id(c.get("id", "")), server_id(c.get("id", ""))) if c.get("id")}
+            from .connector_registry import policy_bindings
+            have |= {actual.lower() for c in conns for _, _, actual in policy_bindings(c) if actual and not actual.startswith('app:')}
             added = False
             for srv in servers:
                 if srv.lower() in have:

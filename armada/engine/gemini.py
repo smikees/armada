@@ -142,6 +142,11 @@ class GeminiEngine(EngineAdapter):
         # Only provider-local configurations. Never transfer Claude/Codex credentials.
         try: inventory = json.loads((Path.home()/'.gemini/config/mcp_config.json').read_text(encoding='utf-8-sig')).get('mcpServers',{})
         except (OSError,ValueError): inventory = {}
+        if getattr(self, 'connector_requirements', None):
+            from ..connector_registry import verify_registrations
+            verify_registrations(self.connector_requirements, {
+                name: entry.get('serverUrl', '') for name, entry in inventory.items()
+                if isinstance(entry, dict) and not entry.get('disabled')})
         selected = []
         for sid in sorted(self.allowed_mcp_ids):
             if any(t in (f'mcp__{sid}',f'mcp__{sid}__*') for t in denied): continue

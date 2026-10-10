@@ -266,6 +266,8 @@ class CapabilityPolicy:
     # Recognized local filesystem extensions can use a provider's scoped native
     # file tools. Identity comes from the catalogue, never from a server-name guess.
     native_filesystem_ids: frozenset[str] = frozenset()
+    provider_bindings: tuple[tuple[str, str, str], ...] = ()
+    allowed_app_ids: frozenset[str] = frozenset()
 
 
 def _policy_json(path: Path) -> dict:
@@ -338,8 +340,13 @@ def execution_policy(realm_root, agent) -> CapabilityPolicy:
     native_filesystem = frozenset(
         c["id"] for c in cat["extensions"]
         if c.get("id") and c.get("extension_id") == "ant.dir.ant.anthropic.filesystem")
+    from .connector_registry import policy_bindings
+    try:
+        bindings = tuple(row for kind in MCP_KINDS for cap in cat[kind] for row in policy_bindings(cap))
+    except ValueError as exc:
+        raise CapabilityPolicyError(str(exc)) from exc
     return CapabilityPolicy(frozenset(allowed), tuple(f"mcp__{sid}" for sid in sorted(denied)),
-                            native_filesystem)
+                            native_filesystem, bindings)
 
 def denied_tool_patterns(realm_root, agent) -> list:
     """Compatibility facade for validated catalogue denials; adapters also gate their inventory."""
@@ -351,6 +358,19 @@ def provider_policy(policy: CapabilityPolicy, provider: str) -> CapabilityPolicy
     if provider not in ("claude", "codex", "gemini"):
         return policy
     from .engine.mcp import registration_id
+    if policy.provider_bindings:
+        mapping = {logical: actual for logical, engine, actual in policy.provider_bindings if engine == provider}
+        # Denials resolve through the same mapping; a denied alias always wins.
+        allowed = frozenset(mapping.get(sid, sid) for sid in policy.allowed_mcp_ids
+                            if mapping.get(sid, sid))
+        denied = tuple('mcp__' + mapping.get(t.removeprefix('mcp__'), t.removeprefix('mcp__'))
+                       for t in policy.denied_tools
+                       if mapping.get(t.removeprefix('mcp__'), t.removeprefix('mcp__')))
+        blocked_apps = {t.removeprefix('mcp__app:') for t in denied if t.startswith('mcp__app:')}
+        apps = frozenset(s.removeprefix('app:') for s in allowed if s.startswith('app:')) - blocked_apps
+        policy = CapabilityPolicy(frozenset(s for s in allowed if not s.startswith('app:')),
+            tuple(t for t in denied if not t.startswith('mcp__app:')), policy.native_filesystem_ids,
+            allowed_app_ids=apps if provider == 'codex' else frozenset())
     blocked = {registration_id(t.removeprefix("mcp__")) for t in policy.denied_tools}
     if provider == "claude":
         # Preserve the cloud/display registration and also admit the safe direct
@@ -360,7 +380,8 @@ def provider_policy(policy: CapabilityPolicy, provider: str) -> CapabilityPolicy
         return CapabilityPolicy(frozenset(allowed), policy.denied_tools, policy.native_filesystem_ids)
     allowed = {registration_id(sid) for sid in policy.allowed_mcp_ids} - blocked
     return CapabilityPolicy(frozenset(allowed), tuple("mcp__" + sid for sid in sorted(blocked)),
-                            frozenset(registration_id(sid) for sid in policy.native_filesystem_ids))
+                            frozenset(registration_id(sid) for sid in policy.native_filesystem_ids),
+                            allowed_app_ids=policy.allowed_app_ids)
 
 
 # --------------------------------------------------------------------------- requests

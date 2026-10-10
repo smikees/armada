@@ -28,10 +28,22 @@ class CapabilityRoutes:
 
     def _connector_action(self, body: dict) -> dict:
         """Provider setup/authentication, separate from the agent's logical grant."""
-        from .. import capabilities as caps, connector_runtime
+        from .. import capabilities as caps, connector_runtime, connector_registry
         provider = body.get('provider')
         action = body.get('action')
-        if provider not in ('claude', 'codex', 'gemini') or action not in ('setup', 'connect'):
+        if action in ('add', 'inventory', 'bind', 'unlink'):
+            try:
+                if action == 'unlink':
+                    return connector_registry.unlink(self.realm, str(body.get('capability') or ''), provider)
+                if action == 'inventory':
+                    return {'ok': True, 'registrations': connector_registry.inventory(provider, self.realm)}
+                return connector_registry.save(self.realm, name=body.get('name', ''), url=body.get('url', ''),
+                    provider=provider or '', server_name=body.get('server_name', ''),
+                    capability=str(body.get('capability') or '') if action == 'bind' else '',
+                    service=body.get('service', ''), account_label=body.get('account_label', ''))
+            except (ValueError, OSError) as exc:
+                return {'ok': False, 'error': str(exc)}
+        if provider not in ('claude', 'codex', 'gemini') or action not in ('setup', 'connect', 'authenticate'):
             return {"ok": False, "error": "Unknown connector action or provider."}
         kind, cap = caps.find(self.realm, str(body.get('capability') or ''))
         if kind != 'connectors' or not cap:
@@ -44,7 +56,10 @@ class CapabilityRoutes:
         if providers.status(provider, force=True).get('connected') is not True:
             return {"ok": False, "error": "Connect this provider in Settings → App first."}
         if provider == 'gemini':
-            return {"ok": False, "error": "Configure Gemini connectors in Antigravity, then recheck here."}
+            try:
+                return connector_runtime.connect_gemini(cap, self.realm, authenticate=action == 'authenticate')
+            except OSError:
+                return {'ok': False, 'error': 'Could not open Gemini sign-in controls. Open Antigravity and use /mcp.'}
         connect = connector_runtime.connect_claude if provider == 'claude' else connector_runtime.connect_codex
         return connect(cap, self.realm)
 

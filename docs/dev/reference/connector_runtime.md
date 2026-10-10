@@ -41,6 +41,12 @@ Verify startup in a gated, ephemeral thread without making a model request.
 
 Read Claude's current MCP health, without returning URLs or credentials.
 
+### class `_ClaudeInventory`
+
+Compatibility boolean inventory with endpoint evidence retained only in memory.
+
+- `_ClaudeInventory.__init__(self)` — —
+
 ### `claude_inventory()`
 
 —
@@ -76,6 +82,14 @@ Register a reviewed realm endpoint and start Codex's own browser OAuth flow.
 ### `connect_claude(cap: dict, realm_root=None)`
 
 Authenticate the existing Claude registration; never clone a cloud proxy.
+
+### `connect_gemini(cap, realm_root=None, *, authenticate=False)`
+
+Use the installed CLI's registration command and interactive /mcp authentication.
+
+### `open_native_setup(cap, provider)`
+
+The provider owns installation consent and OAuth; ARMADA never accepts either.
 
 ### `connector_setup(cap: dict, provider: str)`
 

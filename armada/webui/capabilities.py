@@ -108,18 +108,71 @@ _CAP_EDIT_MODAL = (
     + _CAPEDIT_JS)
 
 
+from ..connector_registry import PRESETS as _CONNECTOR_PRESETS, SERVICES as _CONNECTOR_SERVICES
+
 _CONNECTOR_MODAL = (
     '<div id="mc-conn-modal" class="mc-modal-ov" style="z-index:210" onclick="if(event.target===this)mcConnClose()">'
-    '<div class="mc-modal-box" style="padding:20px;width:min(500px,92vw)">'
+    '<div class="mc-modal-box mc-connector-picker" role="dialog" aria-modal="true" aria-labelledby="mc-conn-title">'
     '<div style="display:flex;align-items:center;margin-bottom:10px"><div style="font-family:var(--font-heading);'
-    'font-weight:600;font-size:17px">Add a connector</div>'
+    'font-weight:600;font-size:17px" id="mc-conn-title">Add a connector</div>'
     '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcConnClose()">Close</button></div>'
-    '<div style="font-size:12.5px;line-height:1.6">Add or authorise a connector in Claude, then use the '
-    '<b>refresh</b> icon next to Connectors to pull it in. For a Codex agent, expand the connector card and '
-    'connect it to Codex separately. Giving an agent access in ARMADA takes effect on its next run once its '
-    'model provider is connected.</div>'
-    '<div style="margin-top:14px;display:flex;gap:8px;align-items:center;justify-content:flex-end">'
-    '<button class="btn btn-primary" onclick="mcConnClose();mcConnectorRefresh(this)">Refresh from Claude</button>'
+    '<div class="mc-conn-form-body">'
+    '<p class="mc-conn-intro">One connector, separate connections for each engine. '
+    'Choose a service, then connect each engine you use with its own sign-in.</p>'
+    '<label class="mc-label" for="mc-conn-mode">Add from</label>'
+    '<select id="mc-conn-mode" class="mc-field" onchange="mcConnectorMode()">'
+    '<option value="native">Find a service</option><option value="existing">Import an existing connection</option>'
+    '<option value="remote">Custom MCP server (advanced)</option></select>'
+    '<div id="mc-conn-native"><label class="mc-label" for="mc-conn-search">Find a service</label>'
+    '<input id="mc-conn-search" class="mc-field" type="search" placeholder="Search services, email, documents…" oninput="mcConnectorSearch()">'
+    '<div class="mc-conn-filters"><select id="mc-conn-category" class="mc-field" aria-label="Service category" onchange="mcConnectorSearch()">'
+    '<option value="">All categories</option><option>Files &amp; documents</option><option>Email &amp; calendar</option>'
+    '<option>Communication</option><option>Development</option></select>'
+    '<select id="mc-conn-filter-engine" class="mc-field" aria-label="Engine support" onchange="mcConnectorSearch()">'
+    '<option value="">All engines</option><option value="claude">Claude</option><option value="codex">Codex</option><option value="gemini">Gemini</option></select></div>'
+    '<input id="mc-conn-service" type="hidden" value="google-drive">'
+    '<div id="mc-conn-services" class="mc-conn-services">'
+    + ''.join(f'<button type="button" class="mc-conn-service" data-service="{E(s["id"])}" '
+              f'data-search="{E((s["name"]+" "+s["aliases"]).lower())}" data-category="{E(s["category"])}" '
+              f'data-engines="{"claude codex gemini" if s.get("endpoint") else "claude codex"}" '
+              f'onclick="mcConnectorSelect(this.dataset.service)" aria-pressed="false">'
+              f'{_icon("cap-connector",16)}<span><strong>{E(s["name"])}</strong><small>{E(s["category"])}</small></span>'
+              f'{_icon("chevron-right",12)}</button>' for s in _CONNECTOR_SERVICES) + '</div>'
+    '<p id="mc-conn-empty" class="mc-conn-intro" hidden>No matching service here. Import a connection from your engine, '
+    'or use a custom MCP server.</p>'
+    '<div id="mc-conn-service-detail" class="mc-conn-service-detail" aria-live="polite"></div>'
+    '<p class="mc-conn-intro">Looking for another service? Browse '
+    '<a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">Claude’s connectors</a> or '
+    '<a href="https://chatgpt.com/apps" target="_blank" rel="noopener">Codex’s apps</a>, then import the connection.</p>'
+    '<script type="application/json" id="mc-conn-catalog">'
+    + json.dumps(_CONNECTOR_SERVICES, ensure_ascii=True).replace('<', '\\u003c') + '</script></div>'
+    '<label class="mc-label" for="mc-conn-account">Account or workspace label <span class="mc-conn-optional">(optional)</span></label>'
+    '<input id="mc-conn-account" class="mc-field" maxlength="80" placeholder="E.g. Personal or Work">'
+    '<p class="mc-conn-intro">A label for you, not a verified account. Confirm the account in each engine’s sign-in page. '
+    'Multiple accounts need separate connections supported by that engine.</p>'
+    '<div id="mc-conn-name-row"><label class="mc-label" for="mc-conn-name">Connector name</label>'
+    '<input id="mc-conn-name" class="mc-field" maxlength="120" placeholder="E.g. Google Docs or Notion"></div>'
+    '<div id="mc-conn-remote"><label class="mc-label" for="mc-conn-preset">Integration</label>'
+    '<select id="mc-conn-preset" class="mc-field" onchange="mcConnectorPreset()"><option value="">Custom MCP server</option>'
+    + ''.join(f'<option value="{E(key)}" data-name="{E(name)}" data-url="{E(url)}" data-guide="{E(guide)}" data-note="{E(note)}">{E(name)}{ " — advanced setup" if key != "notion" else " — official"}</option>'
+              for key, name, url, guide, note in _CONNECTOR_PRESETS if key == 'notion') + '</select>'
+    '<p id="mc-conn-preset-note" class="mc-conn-reason"></p>'
+    '<a id="mc-conn-preset-guide" target="_blank" rel="noopener" hidden>Integration setup guide ↗</a>'
+    '<label class="mc-label" for="mc-conn-url">MCP server URL</label>'
+    '<input id="mc-conn-url" class="mc-field" type="url" placeholder="https://service.example/mcp">'
+    '<p class="mc-conn-intro">Use an MCP endpoint from the service or a trusted integration. '
+    'A website URL is not an MCP endpoint. Each engine may need its own sign-in; some integrations require additional setup.</p></div>'
+    '<div id="mc-conn-existing" hidden><label class="mc-label" for="mc-conn-engine">Engine</label>'
+    '<select id="mc-conn-engine" class="mc-field" onchange="mcConnectorRegistrations()">'
+    '<option value="claude">Claude</option><option value="codex">Codex</option><option value="gemini">Gemini</option></select>'
+    '<label class="mc-label" for="mc-conn-registration">Existing connection</label>'
+    '<select id="mc-conn-registration" class="mc-field"></select>'
+    '<p class="mc-conn-intro">Only this engine’s registration is linked. Credentials stay in the engine. '
+    'Choose the intended service and account; matching names do not prove they are the same.</p></div>'
+    '<button type="button" class="mc-cap-ico mc-conn-help" onclick="mcConnClose();mcCapTab(\'catalogue\')">Browse more integrations in Catalogue</button>'
+    '</div><div class="mc-conn-footer">'
+    '<p id="mc-conn-add-status" role="status" class="mc-conn-reason"></p>'
+    '<button id="mc-conn-add-submit" class="btn btn-primary" onclick="mcConnectorSave(this)">Add connector</button>'
     '</div></div></div>'
     + _CONNMODAL_JS)
 
@@ -300,11 +353,14 @@ def _connector_controls(it: dict) -> str:
     sid = E(str(it.get("id") or it.get("name") or ""))
     rows = []
     for provider, label in (("claude", "Claude"), ("codex", "Codex"), ("gemini", "Gemini")):
+        account = (it.get('connection_labels') or {}).get(provider) or it.get('account_label')
         rows.append(
             f'<div class="mc-conn-detail" data-cap="{sid}" data-provider="{provider}" data-state="checking">'
             f'<div class="mc-conn-provider">{_icon(provider,16)}<strong>{label}</strong></div>'
             '<div class="mc-conn-observation"><span class="mc-conn-state" role="status">Checking connection…</span>'
-            '<p class="mc-conn-reason"></p></div>'
+            '<p class="mc-conn-reason"></p>'
+            + (f'<p class="mc-conn-reason">Label: {E(account)} · account not verified by ARMADA</p>' if account else '') +
+            '<p class="mc-conn-registration-name mc-conn-reason"></p></div>'
             '<div class="mc-conn-buttons">'
             '<button type="button" class="btn btn-secondary btn-sm mc-conn-action" style="display:none">Connect</button>'
             '<button type="button" class="btn btn-secondary btn-sm mc-conn-recheck" disabled '
@@ -312,17 +368,23 @@ def _connector_controls(it: dict) -> str:
             '<a class="btn btn-secondary btn-sm mc-conn-login" target="_blank" rel="noopener" hidden>Open sign-in page</a>'
             '<button type="button" class="mc-cap-ico mc-conn-help" onclick="mcConnectorSetup(this)">Setup details</button>'
             '</div><div class="mc-conn-setup" hidden>'
+            '<div class="mc-conn-setup-actions">'
+            '<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorLink(this)">Link existing connection</button>'
+            + ('<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorNative(this)">Choose native app</button>' if provider == 'codex' else '') +
+            '<button type="button" class="mc-cap-ico" onclick="mcConnectorUnlink(this)">Unlink this engine</button></div>'
             '<p class="mc-conn-instructions"></p>'
+            '<p class="mc-conn-tools"></p>'
             '<pre class="mc-conn-snippet" hidden></pre>'
             '<p class="mc-conn-copy-status" role="status"></p>'
             '<div class="mc-conn-setup-actions">'
             '<button type="button" class="btn btn-secondary btn-sm mc-conn-copy" hidden onclick="mcConnectorCopy(this)">Copy configuration</button>'
-            '<a class="mc-conn-web" target="_blank" rel="noopener" hidden>Open Claude connectors</a>'
+            '<a class="mc-conn-web" target="_blank" rel="noopener" hidden>Open provider connectors</a>'
             '<a class="mc-conn-guide" target="_blank" rel="noopener" hidden>Provider setup guide ↗</a>'
             '<a class="mc-conn-service-guide" target="_blank" rel="noopener" hidden>Service OAuth setup ↗</a>'
             '</div></div></div>')
     return ('<div class="mc-conn-panel"><p class="mc-conn-intro">Connect each provider you use. '
-            'Connections can coexist; agent access is shared.</p>' + ''.join(rows) + '</div>')
+            'Connections can coexist; agent access is shared. Review each integration’s permissions before linking it. '
+            'Unlinking here leaves its sign-in in the engine intact.</p>' + ''.join(rows) + '</div>')
 _KIND_SINGULAR = {"connectors": "Connector", "extensions": "Extension",
                   "skills": "Skill", "plugins": "Plugin"}
 
@@ -592,7 +654,13 @@ def _cap_availto_chips(realm, realm_root, it: dict, kind: str) -> str:
                 f'<span style="display:inline-flex;color:var(--text-38)">'
                 f'{_icon("pin",11)}</span></span>')
     for a in granted:
+        readiness = ''
+        if kind == 'connectors':
+            from ..engine.selection import engine_for
+            readiness = (f'<span class="mc-conn-agent-state" data-cap="{cid}" '
+                         f'data-provider="{E(engine_for(realm_root, a.id))}">Checking engine…</span>')
         out += (f'<span style="{chip}">{_portrait(realm_root, a, 18)}{E(a.display)}'
+                f'{readiness}'
                 f'<span onclick="mcCapRemoveAgent(event,\'{cid}\',{_J(a.id)})" title="Remove access" '
                 f'style="cursor:pointer;display:inline-flex;padding:1px;border-radius:50%;'
                 f'color:var(--text-faint)">{_icon("x",11)}</span></span>')
@@ -846,8 +914,9 @@ def _tool_group(title: str, icon: str, realm_items, agent_items=None, manage=Non
     # agent's page it read as "refresh this agent's connectors" and did something else entirely.
     refresh = ""
     if is_conn and manage and allow_refresh:
-        refresh = (f'<button type="button" class="mc-iconbtn" onclick="mcConnectorRefresh(this)" '
-                   f'title="Refresh connectors from Claude" style="margin-left:auto">{_icon("refresh-cw",14)}</button>'
+        refresh = ('<button type="button" class="btn btn-secondary btn-sm" onclick="mcConnectorAdd()">Add a connector</button>'
+                   f'<button type="button" class="mc-iconbtn" onclick="mcConnectorRefresh(this)" '
+                   f'title="Import a connection from any engine" style="margin-left:auto">{_icon("refresh-cw",14)}</button>'
                    f'<span class="mc-connref-msg" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span>')
     desc = _CAP_DESC.get(title.lower(), "")
     if compact:

@@ -19,8 +19,11 @@ The maintainer approves acceptance milestones; passing tests alone do not comple
   Do not restart the user's app merely to publish a release.
 - Run the pinned isolated release gate. Regenerate module references and intentionally changed
   golden pages, reviewing every diff. Keep version, changelog, docs and release metadata current.
-- Publish signed update assets and the installer under the release procedure. Website deployment
-  is a separate authorized action. Windows publisher signing is distinct from update signing.
+- Publish signed update assets and the installer under the release procedure. Every new version
+  must also be published on https://armada.stamih.com, with matching version and download links.
+  Routine release website publication is owner-authorized (2026-10-10); verify the public page
+  and installer link before calling the release complete. Windows publisher signing is distinct
+  from update signing.
 
 ## Repository map
 

@@ -42,7 +42,12 @@ async function mcSaveJob(agent,job){
     approve_dry_run_scripts:document.getElementById('j-dry-approve').checked,
     dry_run_command:document.getElementById('j-dry-command').value.trim()};
   const m=document.getElementById('j-savemsg'); m.textContent='saving…';
-  try{const r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+  try{let r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+    if(r.connector_warning){
+      if(!await mcConfirm('Review connector access',r.connector_warning,{ok:'Save model choice'})){m.textContent='Model change not saved.';return;}
+      payload.confirm_connector_change=true;
+      r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+    }
     m.textContent=r.ok?'saved ✓ · '+(r.path||''):'error: '+(r.error||'failed'); m.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';
     if(r.ok)document.getElementById('j-dry-approve').checked=false;
   }catch(e){m.textContent='error: '+e;}

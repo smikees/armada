@@ -59,6 +59,7 @@ class EngineAdapter(ABC):
         engine.allowed_mcp_ids = policy.allowed_mcp_ids
         engine.writable_roots = policy.writable_roots
         engine.network_access = policy.network_access
+        engine.allowed_app_ids = policy.allowed_app_ids
         return engine
 
     def execute(self, request: RunRequest, *, on_event: EventSink | None = None,

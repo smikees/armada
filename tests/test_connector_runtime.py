@@ -178,7 +178,7 @@ def test_portable_drive_name_is_stable_and_does_not_collide():
 @pytest.mark.parametrize('provider', ['claude', 'codex', 'gemini'])
 def test_independent_provider_actions_and_reasons(provider):
     detail = connector_runtime.connection_detail(IBKR, provider, 'missing')
-    assert detail['action'] == ('connect' if provider == 'codex' else 'setup')
+    assert detail['action'] == 'connect'
     assert provider.title() in detail['reason']
     assert connector_runtime.connection_detail(DRIVE, provider, 'provider_disabled')['action'] == 'provider_settings'
     assert connector_runtime.connection_detail(DRIVE, provider, 'realm_disabled')['action'] == ''

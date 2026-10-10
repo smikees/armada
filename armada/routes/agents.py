@@ -499,6 +499,12 @@ class AgentRoutes:
             # Locked: capabilities.py writes grants into this same file under the same lock (4.3 L4).
             with util.file_lock(aj):
                 ac = util.read_json_state(aj)
+                from ..engine.selection import engine_for
+                from ..connector_registry import model_change_warning
+                warning = model_change_warning(self.realm, ac, engine_for(self.realm, ac),
+                    engine_for(self.realm, {**ac, 'model': body.get('model', '')}))
+                if warning and body.get('confirm_connector_change') is not True:
+                    return {'ok': False, 'connector_warning': warning}
                 if "is_inspector" in body:
                     from .. import inspection
                     inspection.approve(self.realm, agent, body["is_inspector"])

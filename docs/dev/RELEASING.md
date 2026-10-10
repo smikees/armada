@@ -2,7 +2,16 @@
 
 Current procedure for the Windows beta, updated for v0.99.98. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
-[GitHub Releases](https://github.com/smikees/armada/releases). Website publication is separate.
+[GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
+on [armada.stamih.com](https://armada.stamih.com).
+
+Standing maintainer instruction, 2026-10-10: every new version must also be published on the
+website. Routine release updates to its version, release information and installer/download links
+are authorized as part of publishing a release; no separate confirmation is needed. Follow
+[the website deployment procedure](../../website/README.md), then verify the public HTTPS page
+and its installer link match the released version. A release is incomplete until both GitHub and
+the website are current. This supersedes earlier requirements for separate website-release
+authorization, without authorizing unrelated redesigns or announcements.
 
 ## 1. Before
 
@@ -200,7 +209,8 @@ The standard public build path requires publisher signing; the account is not ye
 Update manifests are Ed25519-signed; these are separate guarantees.
 Test clean-machine installation using the sandbox procedure
 above when changing packaging, launcher or runtime dependencies. Do not restart a user's running
-app merely to publish a release. Announcements and website deployment need their own authorization.
+app merely to publish a release. Announcements need their own authorization; routine website
+release publication is covered by the standing 2026-10-10 instruction above.
 
 ### 2026-10-04: owner-authorized unsigned 0.99.75 publication
 

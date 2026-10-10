@@ -30,8 +30,10 @@
 | [`catalogue.sources`](catalogue.sources.md) | The catalogue's three mirrored/queried sources — Claude plugin marketplaces, the MCP registry, anthropics/skills, and the skills you wrote yourself — normalised |
 | [`cli`](cli.md) | ARMADA command-line entry points for desktop launch, realm management, execution and diagnostics. |
 | [`clock`](clock.md) | One place the app asks what time it is. |
+| [`codex_apps`](codex_apps.md) | Codex-native connected apps, discovered through the CLI's app-server protocol. |
 | [`codex_usage`](codex_usage.md) | Account-wide OpenAI limits through Codex's authenticated app-server protocol. |
 | [`connector_login`](connector_login.md) | Bounded connector OAuth attempts; CLI output and authorization URLs stay in memory. |
+| [`connector_registry`](connector_registry.md) | Logical connectors with explicit provider-local registrations; no credential copying. |
 | [`connector_runtime`](connector_runtime.md) | Provider-specific MCP connections for realm capabilities. |
 | [`covenant`](covenant.md) | One shared governing document, named for the realm's chosen vocabulary. |
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |

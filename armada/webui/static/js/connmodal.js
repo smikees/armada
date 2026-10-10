@@ -1,16 +1,134 @@
-function mcConnClose(){document.getElementById("mc-conn-modal").style.display="none";}
-function mcConnectorAdd(){document.getElementById("mc-conn-modal").style.display="flex";}
-async function mcConnectorRefresh(el){
-  const m=document.querySelector(".mc-connref-msg");
-  if(m)m.textContent="checking Claude…";
+let mcConnectorTarget="",mcConnectorListGeneration=0,mcConnectorFocus=null;
+const mcConnectorCatalog=JSON.parse(document.getElementById('mc-conn-catalog')?.textContent||'[]');
+function mcConnClose(){++mcConnectorListGeneration;document.getElementById("mc-conn-modal").style.display="none";if(mcConnectorFocus)mcConnectorFocus.focus();}
+function mcConnectorSelect(id){
+  const service=mcConnectorCatalog.find(s=>s.id===id);if(!service)return;
+  document.getElementById('mc-conn-service').value=id;
+  document.querySelectorAll('.mc-conn-service').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.service===id)));
+  const panel=document.getElementById('mc-conn-service-detail');panel.replaceChildren();
+  const title=document.createElement('strong');title.textContent=service.name;panel.append(title);
+  const summary=document.createElement('p');summary.textContent=service.description;panel.append(summary);
+  Object.entries(service.engines).forEach(([engine,note])=>{
+    const row=document.createElement('p'),label=document.createElement('b');
+    label.textContent=engine.charAt(0).toUpperCase()+engine.slice(1)+': ';row.append(label,document.createTextNode(note));panel.append(row);
+  });
+  document.getElementById('mc-conn-add-submit').disabled=false;
+}
+function mcConnectorSearch(){
+  const query=document.getElementById('mc-conn-search').value.trim().toLowerCase();
+  const category=document.getElementById('mc-conn-category').value,engine=document.getElementById('mc-conn-filter-engine').value;
+  const visible=[];
+  document.querySelectorAll('.mc-conn-service').forEach(b=>{
+    b.hidden=!(query.split(/\s+/).every(word=>b.dataset.search.includes(word))&&(!category||category===b.dataset.category)&&
+      (!engine||b.dataset.engines.split(' ').includes(engine))&&(!mcConnectorTarget||b.dataset.service!=='notion'));
+    if(!b.hidden)visible.push(b.dataset.service);
+  });
+  document.getElementById('mc-conn-empty').hidden=!!visible.length;
+  document.getElementById('mc-conn-service-detail').hidden=!visible.length;
+  document.getElementById('mc-conn-add-submit').disabled=!visible.length;
+  if(visible.length&&!visible.includes(document.getElementById('mc-conn-service').value))mcConnectorSelect(visible[0]);
+}
+function mcConnectorAdd(){
+  mcConnectorFocus=document.activeElement;
+  mcConnectorTarget="";
+  document.getElementById("mc-conn-mode").disabled=false;
+  document.getElementById("mc-conn-mode").value="native";
+  document.getElementById("mc-conn-engine").disabled=false;
+  document.getElementById("mc-conn-name-row").hidden=false;
+  document.getElementById("mc-conn-name").value="";
+  document.getElementById("mc-conn-url").value="";
+  document.getElementById('mc-conn-account').value='';
+  ['mc-conn-search','mc-conn-category','mc-conn-filter-engine'].forEach(id=>document.getElementById(id).value='');
+  mcConnectorSelect('google-drive');mcConnectorSearch();
+  document.getElementById("mc-conn-preset").value="";mcConnectorPreset();
+  document.getElementById("mc-conn-add-submit").textContent="Add connector";
+  document.getElementById("mc-conn-modal").style.display="flex";mcConnectorMode();
+  document.getElementById('mc-conn-search').focus();
+}
+function mcConnectorMode(){
+  const existing=document.getElementById("mc-conn-mode").value==="existing";
+  const native=document.getElementById("mc-conn-mode").value==="native";
+  ++mcConnectorListGeneration;
+  document.getElementById("mc-conn-existing").hidden=!existing;
+  document.getElementById("mc-conn-remote").hidden=existing||native;
+  document.getElementById("mc-conn-native").hidden=!native;
+  document.getElementById("mc-conn-name-row").hidden=native||!!mcConnectorTarget;
+  document.getElementById("mc-conn-add-status").textContent="";
+  document.getElementById('mc-conn-add-submit').disabled=false;
+  if(native)mcConnectorSearch();
+  if(existing)mcConnectorRegistrations();
+}
+async function mcConnectorAction(payload){
+  const response=await fetch('/api/connector-action',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload),signal:AbortSignal.timeout(65000)});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'Connector action failed.');
+  return data;
+}
+async function mcConnectorRegistrations(){
+  const generation=++mcConnectorListGeneration, provider=document.getElementById("mc-conn-engine").value;
+  const select=document.getElementById("mc-conn-registration"),status=document.getElementById("mc-conn-add-status");
+  select.replaceChildren(new Option("Loading connections…",""));select.disabled=true;
   try{
-    const r=await(await fetch("/api/refresh-connectors",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scope:"realm"})})).json();
-    if(r.ok){
-      if(r.added>0)location.reload();
-      else if(m)m.textContent=r.found?("up to date · "+r.found+" found"):"no MCP connectors found in Claude";
-      mcCapConnectionsRefresh();
-    }else if(m)m.textContent="error: "+(r.error||"failed");
-  }catch(e){if(m)m.textContent="error: "+e;}
+    const data=await mcConnectorAction({action:'inventory',provider});
+    if(generation!==mcConnectorListGeneration)return;
+    select.replaceChildren(new Option("Choose a connection…",""));
+    data.registrations.forEach(row=>select.add(new Option(row.label||row.server_name,row.server_name)));
+    status.textContent=data.registrations.length?'':'No connections found in this engine. Connect the service there, then refresh this list.';
+  }catch(error){if(generation===mcConnectorListGeneration)status.textContent=error.message;}
+  finally{if(generation===mcConnectorListGeneration)select.disabled=false;}
+}
+function mcConnectorLink(button){
+  const row=button.closest('.mc-conn-detail');mcConnectorAdd();
+  mcConnectorTarget=row.dataset.cap;
+  document.getElementById('mc-conn-mode').value='existing';document.getElementById('mc-conn-mode').disabled=true;
+  document.getElementById('mc-conn-engine').value=row.dataset.provider;document.getElementById('mc-conn-engine').disabled=true;
+  document.getElementById('mc-conn-name-row').hidden=true;
+  document.getElementById('mc-conn-add-submit').textContent='Link connection';mcConnectorMode();
+}
+function mcConnectorNative(button){
+  const row=button.closest('.mc-conn-detail');mcConnectorAdd();mcConnectorTarget=row.dataset.cap;
+  document.getElementById('mc-conn-mode').disabled=true;
+  document.getElementById('mc-conn-add-submit').textContent='Link native app';mcConnectorMode();
+}
+async function mcConnectorSave(button){
+  const existing=document.getElementById('mc-conn-mode').value==='existing';
+  button.disabled=true;
+  try{
+    const data=await mcConnectorAction({action:mcConnectorTarget?'bind':'add',capability:mcConnectorTarget,
+      account_label:document.getElementById('mc-conn-account').value,
+      service:document.getElementById('mc-conn-mode').value==='native'?document.getElementById('mc-conn-service').value:'',
+      name:document.getElementById('mc-conn-name').value,url:existing?'':document.getElementById('mc-conn-url').value.trim(),
+      provider:existing?document.getElementById('mc-conn-engine').value:'',
+      server_name:existing?document.getElementById('mc-conn-registration').value:''});
+    sessionStorage.setItem('armada.connector.focus',data.capability);location.reload();
+  }catch(error){document.getElementById('mc-conn-add-status').textContent=error.message;}
+  finally{button.disabled=false;}
+}
+async function mcConnectorUnlink(button){
+  const row=button.closest('.mc-conn-detail');button.disabled=true;
+  try{await mcConnectorAction({action:'unlink',capability:row.dataset.cap,provider:row.dataset.provider});
+    sessionStorage.setItem('armada.connector.focus',row.dataset.cap);location.reload();
+  }catch(error){row.querySelector('.mc-conn-instructions').textContent=error.message;button.disabled=false;}
+}
+document.getElementById('mc-conn-modal')?.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){event.preventDefault();mcConnClose();}
+  if(event.key!=='Tab')return;
+  const controls=Array.from(event.currentTarget.querySelectorAll('button,input,select,a[href]')).filter(el=>!el.disabled&&el.getClientRects().length);
+  const first=controls[0],last=controls.at(-1);
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+});
+function mcConnectorPreset(){
+  const option=document.getElementById('mc-conn-preset').selectedOptions[0];
+  if(option.value){document.getElementById('mc-conn-name').value=option.dataset.name;
+    document.getElementById('mc-conn-url').value=option.dataset.url;}
+  document.getElementById('mc-conn-preset-note').textContent=option.dataset.note||'';
+  const guide=document.getElementById('mc-conn-preset-guide');guide.hidden=!option.dataset.guide;
+  if(option.dataset.guide)guide.href=option.dataset.guide;else guide.removeAttribute('href');
+}
+function mcConnectorRefresh(){
+  mcConnectorAdd();document.getElementById('mc-conn-mode').value='existing';mcConnectorMode();
 }
 
 const MC_CONN_LABEL={ready:"Connected",missing:"Not connected",failed:"Connection failed",
@@ -22,6 +140,10 @@ const MC_CONN_PROVIDERS={claude:"Claude",codex:"Codex",gemini:"Gemini"};
 function mcCapConnectionState(cap,provider,state,supported,error,detail){
   const full=MC_CONN_LABEL[state]||MC_CONN_LABEL.unknown;
   const reason=(detail&&detail.reason)||error||"";
+  document.querySelectorAll('.mc-conn-agent-state').forEach(el=>{
+    if(el.dataset.cap===cap&&el.dataset.provider===provider){el.dataset.state=state;
+      el.textContent=MC_CONN_PROVIDERS[provider]+': '+full;el.title=reason;}
+  });
   document.querySelectorAll(".mc-conn-badge").forEach(function(b){
     if(b.dataset.cap!==cap||b.dataset.provider!==provider)return;
     b.dataset.state=state;b.title=MC_CONN_PROVIDERS[provider]+": "+full+(reason?" — "+reason:"");
@@ -42,6 +164,11 @@ function mcCapConnectionState(cap,provider,state,supported,error,detail){
     d.dataset.state=state;
     const label=d.querySelector(".mc-conn-state");if(label)label.textContent=full;
     const note=d.querySelector(".mc-conn-reason");if(note)note.textContent=reason;
+    const registration=d.querySelector('.mc-conn-registration-name');
+    if(registration)registration.textContent=detail&&detail.server_id?'Registration: '+detail.server_id:'';
+    const tools=d.querySelector('.mc-conn-tools');
+    if(tools)tools.textContent=detail&&detail.tool_names&&detail.tool_names.length?
+      'Verified tool names: '+detail.tool_names.join(', '):'This check does not establish which read or write operations are available. Verify the tools before relying on them.';
     const recheck=d.querySelector(".mc-conn-recheck");
     if(recheck&&!recheck.dataset.busy)recheck.disabled=state==="checking";
     const login=d.querySelector(".mc-conn-login");
@@ -60,6 +187,9 @@ function mcCapConnectionState(cap,provider,state,supported,error,detail){
     if(action==="connect"){
       button.textContent=state==="missing"?"Connect":"Sign in";
       button.onclick=()=>mcProviderConnect(button);button.style.display="inline-flex";
+    }else if(action==="authenticate"){
+      button.textContent="Open sign-in controls";
+      button.onclick=()=>mcProviderConnect(button,null,null,"authenticate");button.style.display="inline-flex";
     }else if(action==="setup"){
       button.textContent=state==="unsupported"?"View options":"Set up";
       button.onclick=()=>mcConnectorSetup(button);button.style.display="inline-flex";
@@ -122,7 +252,7 @@ async function mcCodexRecheck(button,id){return mcProviderRecheck(button,"codex"
 
 async function mcConnectorRequest(detail,action){
   const response=await fetch("/api/connector-action",{method:"POST",headers:{"Content-Type":"application/json"},
-    signal:AbortSignal.timeout(action==="connect"?60000:10000),
+    signal:AbortSignal.timeout(["connect","authenticate"].includes(action)?60000:10000),
     body:JSON.stringify({capability:detail.dataset.cap,provider:detail.dataset.provider,action})});
   const data=await response.json();
   if(!response.ok||!data.ok){
@@ -131,16 +261,17 @@ async function mcConnectorRequest(detail,action){
   }
   return data;
 }
-async function mcProviderConnect(button,provider,id){
+async function mcProviderConnect(button,provider,id,action="connect"){
   const detail=button.closest(".mc-conn-detail");if(!detail)return;
   if(provider)detail.dataset.provider=provider;if(id)detail.dataset.cap=id;
   const note=detail.querySelector(".mc-conn-reason");
   button.disabled=true;button.dataset.busy="1";
   if(note)note.textContent="Preparing "+MC_CONN_PROVIDERS[detail.dataset.provider]+" sign-in…";
   try{
-    const data=await mcConnectorRequest(detail,"connect");
+    const data=await mcConnectorRequest(detail,action);
     delete button.dataset.busy;
     mcCapConnectionState(detail.dataset.cap,detail.dataset.provider,data.state||"starting",true,"",data);
+    if(data.login_url)return; // Keep the provider sign-in link visible until the owner rechecks.
     await mcCapConnectionsRefresh(true,detail.dataset.provider);
   }catch(e){
     delete button.dataset.busy;
@@ -198,4 +329,11 @@ async function mcConnectorCopy(button){
   }catch(e){status.textContent="Could not copy. Select the configuration text and copy it manually.";}
   finally{button.disabled=false;}
 }
-if(document.getElementById("cap-pane-user"))mcCapConnectionsRefresh();
+if(document.getElementById("cap-pane-user")){
+  mcCapConnectionsRefresh();
+  const focus=sessionStorage.getItem('armada.connector.focus');
+  if(focus){sessionStorage.removeItem('armada.connector.focus');
+    const row=Array.from(document.querySelectorAll('.mc-conn-detail')).find(el=>el.dataset.cap===focus);
+    if(row){const card=row.closest('details');if(card){card.open=true;card.scrollIntoView({block:'center'});}}
+  }
+}

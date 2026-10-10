@@ -284,6 +284,15 @@ class ClaudeEngine(EngineAdapter):
         if result.returncode or result.stderr.strip():
             raise ValueError("Could not inspect Claude MCP configuration; refusing to run without capability gating.")
         names = _mcp_inventory(result.stdout)
+        if getattr(self, 'connector_requirements', None):
+            from ..connector_registry import verify_registrations
+            entries = {}
+            for line in result.stdout.splitlines():
+                if ':' in line and ' - ' in line:
+                    name, detail = line.split(':', 1)
+                    if name.strip() in connected_names(result.stdout):
+                        entries[_mcp_server_id(name.strip())] = detail.rsplit(' - ', 1)[0].strip()
+            verify_registrations(self.connector_requirements, entries)
         allowed = set(self.allowed_mcp_ids or ())
         patterns = set(denied or ())
         blocked = []

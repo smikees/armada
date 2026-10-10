@@ -24,10 +24,15 @@ async function mcSaveAgent(agent){
     soul:document.getElementById('c-soul').value, tenets:document.getElementById('c-tenets').value};
   const m=document.getElementById('c-savemsg'), btn=document.getElementById('c-save');
   m.style.color='var(--text-muted)'; m.textContent='saving…'; if(btn)btn.disabled=true;
-  try{const r=await (await fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+  try{let r=await (await fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+    if(r.connector_warning){
+      if(!await mcConfirm('Review connector access',r.connector_warning,{ok:'Save model choice'})){m.textContent='Model change not saved.';return;}
+      payload.confirm_connector_change=true;
+      r=await (await fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
+    }
     if(r.ok){mcSavedTick(r);}else{m.textContent='error: '+(r.error||'failed'); m.style.color='var(--status-bad)';}
   }catch(e){m.textContent='error: '+e; m.style.color='var(--status-bad)';}
-  if(btn)btn.disabled=false;
+  finally{if(btn)btn.disabled=false;}
 }
 // Saving used to navigate away, which is the wrong answer for a page you edit in several passes:
 // you lost your scroll position and had to come back in to make the next change. It now stays put

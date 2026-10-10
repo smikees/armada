@@ -12,6 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.99** adds service-first connector discovery, independent engine bindings and
+native Codex app admission. Account labels stay explicitly unverified, unlinking is scoped to
+one realm/engine, and model switches prompt connector review. The release also updates the
+public website's version and installer links. [Verification](dev/RELEASE_0_99_99.md) records
+the acceptance boundary and publication checks; owner milestones remain open.
+
 Version **0.99.98** fixes connector sign-in feedback and configuration copying.
 Google Drive in Codex explains its required client setup, CLI outcomes remain visible and
 clipboard controls provide real templates and a fallback. [Verification](dev/RELEASE_0_99_98.md)
