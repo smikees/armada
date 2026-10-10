@@ -16,6 +16,10 @@ Version **0.99.102** fixes the Settings font sample, makes both font menus equal
 introduces a saved Default size that Ctrl+0 restores independently of shortcut adjustments.
 The version row has improved alignment and spacing. [Verification](dev/RELEASE_0_99_102.md)
 records the scope and publication checks; owner acceptance milestones remain open.
+Published with 3,602 tests passing (5 skipped), both exact-source Windows CI configurations,
+5 recovery checks, 16 multi-window checks and 63 packaged upgrade checks. Public downloads,
+the update signature and all 341 packaged source files are verified. The website is live with
+matching 0.99.102 links and a verified installer download. The owner's app was not restarted.
 
 Version **0.99.101** puts every way to add a capability on the Add a capability tab: engine connectors
 (Gmail, Google Drive…) are search results with Add for Claude and Add for Codex, and an MCP address, Claude
