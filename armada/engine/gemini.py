@@ -142,23 +142,36 @@ class GeminiEngine(EngineAdapter):
         # Only provider-local configurations. Never transfer Claude/Codex credentials.
         try: inventory = json.loads((Path.home()/'.gemini/config/mcp_config.json').read_text(encoding='utf-8-sig')).get('mcpServers',{})
         except (OSError,ValueError): inventory = {}
+        withheld = set()
         if getattr(self, 'connector_requirements', None):
-            from ..connector_registry import verify_registrations
-            verify_registrations(self.connector_requirements, {
+            from ..connector_registry import unavailable_registrations, record_unavailable
+            issues = unavailable_registrations(self.connector_requirements, {
                 name: entry.get('serverUrl', '') for name, entry in inventory.items()
                 if isinstance(entry, dict) and not entry.get('disabled')})
+            record_unavailable(self, issues)
+            withheld = {r['server'] for r in issues}
         selected = []
         for sid in sorted(self.allowed_mcp_ids):
+            if sid in withheld: continue
             if any(t in (f'mcp__{sid}',f'mcp__{sid}__*') for t in denied): continue
             # The recognized filesystem extension is fulfilled by native tools,
             # under this run's approved roots, not its legacy MCP command/paths.
             if sid in self.native_filesystem_ids: continue
             entry = inventory.get(sid)
             if not isinstance(entry,dict) or entry.get('disabled'):
-                raise ValueError(f'Connector {sid} is not configured for Gemini. Connect it in Antigravity CLI before using it with this provider.')
+                from ..connector_registry import record_unavailable
+                record_unavailable(self, [{'server': sid, 'state': 'missing', 'tool_names': [],
+                    'error': 'Not configured or disabled in Gemini. Connect it in Capabilities.'}])
+                continue
             selected.append({**entry,'name':sid})
+        if getattr(self, 'connector_tools', None):
+            selected.append({**self.connector_tools.server_config, 'name': self.connector_tools.server_name})
         return selected
     def _agent(self,system,allow_tools,denied):
+        connectors = self._connectors(denied) if allow_tools else []
+        if allow_tools and getattr(self, 'connector_unavailable', None):
+            from .mcp_runtime import prompt as connector_prompt
+            system += connector_prompt(self.connector_unavailable)
         selected = list(_FILE_TOOLS) if allow_tools else []
         # Native file tools implement the filesystem capability, so enforce its
         # grants here rather than relying on catalogue-derived MCP deny patterns.
@@ -188,7 +201,7 @@ class GeminiEngine(EngineAdapter):
         config = {'name':'armada-turn','description':'Current Armada request with explicit tool and memory boundaries.',
             'mainAgent':True,'subagent':False,'inheritMcp':False,'inheritCustomizations':False,
             'excludeDefaultComponents':True,'commandExecutionPolicy':'off','tools':selected,
-            'mcpServers':self._connectors(denied) if allow_tools else []}
+            'mcpServers':connectors}
         # JSON is valid YAML and prevents instructions from becoming frontmatter directives.
         if allow_tools and self.allowed_mcp_ids & self.native_filesystem_ids:
             system += ('\n\n[Filesystem capability for this Gemini turn]\n'

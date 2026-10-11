@@ -14,7 +14,7 @@ Bounded connector OAuth attempts; CLI output and authorization URLs stay in memo
 
 —
 
-### `begin(key, argv, cwd=None, env=None, on_finish=None)`
+### `begin(key, argv, cwd=None, env=None, on_finish=None, *, interactive=False)`
 
 —
 

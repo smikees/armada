@@ -102,7 +102,7 @@ def test_claude_health_icon_does_not_prove_connection(monkeypatch, health):
     monkeypatch.setattr(ClaudeEngine, '_launcher', lambda self: ['claude'])
     monkeypatch.setattr(connector_runtime.subprocess, 'run', lambda *a, **kw: SimpleNamespace(
         returncode=0, stdout=f'claude.ai Interactive Brokers (IBKR): https://broker.invalid - {health}\n'))
-    assert connector_runtime.claude_connection(IBKR, connector_runtime.claude_inventory()) == 'failed'
+    assert connector_runtime.claude_connection(IBKR, connector_runtime.claude_inventory()) == ('sign_in' if 'authentication' in health else 'failed')
 
 
 def test_add_timeout_after_config_write_continues_to_sign_in(monkeypatch):

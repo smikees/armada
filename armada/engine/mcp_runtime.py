@@ -51,5 +51,5 @@ def prompt(rows) -> str:
             lines.append(f"{row['server']}: ready. Tool names: " + ", ".join(row["tool_names"]))
         else:
             lines.append(f"{row['server']}: {row['state']}. Exact startup error: {row['error']}")
-    lines.append("If a required connector is unavailable, report this recorded error; do not call it a broker outage or invent a successful read. Preserve incomplete evidence and risk gates.")
+    lines.append("Unavailable connectors do not prevent unrelated conversation. Their tools are withheld; use ARMADA's connect_connector tool to prepare setup when asked, and let the owner complete sign-in. Newly connected tools load on the next turn. If this task requires an unavailable connector, report the recorded error and the incomplete task; never invent a successful read or publication. Preserve incomplete evidence and risk gates.")
     return "\n".join(lines)

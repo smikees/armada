@@ -226,7 +226,7 @@ def test_native_windows_reuse_close_reopen_and_separate_realms(realm, tmp_path, 
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for script checks")
-@pytest.mark.parametrize("harness", ["thread_sync_harness.js", "thread_window_open_harness.js", "thread_chat_harness.js"])
+@pytest.mark.parametrize("harness", ["thread_sync_harness.js", "thread_window_open_harness.js", "thread_chat_harness.js", "chat_outcome_harness.js"])
 def test_browser_window_interactions(harness):
     result = subprocess.run(["node", str(Path(__file__).with_name(harness))],
                             capture_output=True, text=True, timeout=15)

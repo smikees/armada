@@ -176,7 +176,7 @@ function mcCtxInit(){
   });
 }
 mcCtxInit();
-// Put a green 'Done' marker at the bottom of the newest assistant reply. It stays until the next
+// Show the persisted outcome at the bottom of the newest assistant reply. It stays until the next
 // prompt is sent (mcChat clears it). Only one exists at a time.
 function mcMarkDone(){
   document.querySelectorAll('#mc-turns .mc-done').forEach(e=>e.remove());
@@ -185,7 +185,10 @@ function mcMarkDone(){
   const t=ts[ts.length-1]; if(!t)return;
   const body=t.querySelector('.mc-body'); const col=body?body.parentNode:t;
   const d=document.createElement('div'); d.className='mc-done';
-  d.innerHTML=MC_DONE_ICON+'<span>Done</span>';
+  const outcome=t.dataset.status||'ok';
+  const label=outcome==='error'||outcome==='failed'?'Failed':outcome==='stopped'?'Stopped':outcome==='warn'?'Completed with warnings':'Done';
+  if(label!=='Done')d.style.color=label==='Failed'?'var(--status-bad)':'var(--status-warn)';
+  d.innerHTML=(label==='Done'?MC_DONE_ICON:window.mcIcon(label==='Failed'?'warning-tri':'info-circle',14))+'<span>'+label+'</span>';
   const acts=col.querySelector('.mc-turn-actions');
   if(acts)col.insertBefore(d,acts); else col.appendChild(d);
 }

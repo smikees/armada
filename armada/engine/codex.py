@@ -297,11 +297,14 @@ class CodexEngine(EngineAdapter):
             raise ValueError("Invalid Codex MCP inventory; refusing a tool turn.") from exc
         if not isinstance(servers, list):
             raise ValueError("Unexpected Codex MCP inventory.")
+        withheld = set()
         if allow_tools and getattr(self, 'connector_requirements', None):
-            from ..connector_registry import verify_registrations
-            verify_registrations(self.connector_requirements, {
+            from ..connector_registry import unavailable_registrations, record_unavailable
+            issues = unavailable_registrations(self.connector_requirements, {
                 s.get('name'): (s.get('transport') or {}).get('url', '') for s in servers
                 if isinstance(s, dict) and s.get('enabled', True) and isinstance(s.get('transport'), dict)})
+            record_unavailable(self, issues)
+            withheld = {r['server'] for r in issues}
         args = []
         denied = {str(p).removeprefix("mcp__").removesuffix("__*") for p in (denied or [])}
         seen = set()
@@ -312,7 +315,7 @@ class CodexEngine(EngineAdapter):
                     or ("enabled" in server and type(server["enabled"]) is not bool)):
                 raise ValueError("Invalid Codex MCP inventory; refusing a tool turn.")
             seen.add(server["name"])
-            if server["name"] in (self.allowed_mcp_ids or ()) and server["name"] not in denied and allow_tools:
+            if server["name"] in (self.allowed_mcp_ids or ()) and server["name"] not in denied | withheld and server.get('enabled', True) and allow_tools:
                 granted.add(server["name"])
             if not server.get("enabled", True):
                 continue
@@ -323,11 +326,15 @@ class CodexEngine(EngineAdapter):
                 # Codex's explicit per-tool policies still override this server default.
                 args += ['-c', f'mcp_servers.{sid}.default_tools_approval_mode="approve"']
             if sid and (not allow_tools or sid in denied or
-                        sid not in (self.allowed_mcp_ids or ())):
+                        sid not in granted):
                 if not re.fullmatch(r"[A-Za-z0-9_-]+", sid):
                     raise ValueError(f"Rename Codex MCP server {sid!r} using letters, numbers, _ or - so Armada can gate it.")
                 args += ["-c", f"mcp_servers.{sid}.enabled=false"]
         self._turn_mcp_ids = tuple(sorted(granted))
+        if allow_tools and getattr(self, 'connector_tools', None):
+            from ..connector_tools import codex_args
+            args += codex_args(self.connector_tools)
+            self._turn_mcp_ids += (self.connector_tools.server_name,)
         return args
 
     def _args(self, model, allow_tools, effort, denied, cwd=None, verbosity=None):
@@ -416,6 +423,9 @@ class CodexEngine(EngineAdapter):
         try:
             args = self._args(model, allow_tools, effort, disallowed_tools, cwd=run_cwd,
                               verbosity=verbosity)
+            if allow_tools and getattr(self, 'connector_unavailable', None):
+                from .mcp_runtime import prompt as connector_prompt
+                system += connector_prompt(self.connector_unavailable)
             def accept(line):
                 from .raw_results import loads_event
                 event = loads_event(line)
@@ -465,7 +475,11 @@ class CodexEngine(EngineAdapter):
             native_apps = frozenset(getattr(self, 'allowed_app_ids', ())) if allow_tools and not getattr(self, 'managed_tools', None) else frozenset()
             if native_apps:
                 from ..codex_apps import scoped_args
-                args += scoped_args(native_apps, cwd=run_cwd)
+                from ..connector_registry import record_unavailable
+                app_issues = []
+                args += scoped_args(native_apps, cwd=run_cwd, unavailable=app_issues)
+                record_unavailable(self, app_issues)
+                native_apps -= frozenset(row['server'].removeprefix('app:') for row in app_issues)
             if env and env.get("ARMADA_RAW_DIR"):
                 args += ["-c", "shell_environment_policy.set.ARMADA_RAW_DIR=" + json.dumps(env["ARMADA_RAW_DIR"])]
             if not allow_tools or getattr(self, "managed_tools", None):
@@ -478,7 +492,7 @@ class CodexEngine(EngineAdapter):
             else:
                 args += self._mcp_args(allow_tools, disallowed_tools, cwd=run_cwd)
             state = _AppStream(emit, model_id(model) or "codex:default", cwd)
-            readiness = []
+            readiness = list(getattr(self, 'connector_unavailable', []))
             pending_servers = list(self._turn_mcp_ids)
             if pending_servers:
                 from .mcp_runtime import startup_lock
@@ -514,6 +528,7 @@ class CodexEngine(EngineAdapter):
                     else:
                         begin_turn(send)
             def accept(message, send):
+                nonlocal native_apps
                 if "id" in message and "method" in message:
                     # The thread is configured for no approvals. Fail closed if a server request
                     # still arrives, rather than silently granting a shell/MCP action.
@@ -525,7 +540,10 @@ class CodexEngine(EngineAdapter):
                     from ..codex_apps import verify_snapshot
                     if message.get('error'):
                         raise ValueError('Codex could not verify native connector permissions. Update Codex CLI and recheck.')
-                    verify_snapshot(message.get('result', {}), native_apps)
+                    missing = verify_snapshot(message.get('result', {}), native_apps, allow_unavailable=True)
+                    readiness.extend({'server': 'app:' + sid, 'state': 'missing', 'tool_names': [],
+                        'error': 'Native connector has no callable tools in this thread. Complete sign-in.'} for sid in sorted(missing))
+                    native_apps -= missing
                     begin_turn(send)
                     return False
                 if rid == 4:
@@ -533,8 +551,6 @@ class CodexEngine(EngineAdapter):
                     sid = pending_servers.pop(0)
                     row = connector_status(sid, message)
                     readiness.append(row)
-                    if sid in getattr(self, 'connector_requirements', {}) and row['state'] != 'ready':
-                        raise ValueError(f"Required connector {sid} is unavailable: {row['error']}")
                     emit({"kind": "tool_result", "id": "mcp-startup-" + sid,
                           "content": (f"Ready: {len(row['tool_names'])} callable tools" if row["state"] == "ready" else row["error"]),
                           "is_error": row["state"] != "ready"})

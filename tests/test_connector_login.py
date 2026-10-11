@@ -1,6 +1,7 @@
 """OAuth outcomes are observed, bounded and never inferred from process launch."""
 import threading
 import time
+import subprocess
 
 import pytest
 from armada import connector_login as login
@@ -109,3 +110,36 @@ def test_terminal_states_expire_without_retaining_login_urls(monkeypatch):
         'finished': time.monotonic()-901}
     assert login.state('expired') == {}
     assert not login._attempts
+
+
+@pytest.mark.skipif(login.os.name != 'nt', reason='Windows provider terminal')
+@pytest.mark.parametrize('outcome', ['success', 'failure', 'timeout'])
+def test_interactive_oauth_uses_owned_terminal_and_observes_exit(monkeypatch, outcome):
+    finished = threading.Event()
+    calls = []
+    class Process:
+        killed = False
+        def wait(self, timeout):
+            calls.append(('wait', timeout))
+            if outcome == 'timeout' and not self.killed:
+                raise subprocess.TimeoutExpired(['claude'], timeout)
+            return 0 if outcome == 'success' else 1
+        def kill(self):
+            self.killed = True
+            calls.append(('kill',))
+    def launch(argv, **kwargs):
+        assert argv == ['claude', 'mcp', 'login', 'docs']
+        assert kwargs['creationflags'] == subprocess.CREATE_NEW_CONSOLE
+        assert not {'stdin', 'stdout', 'stderr'} & set(kwargs)
+        return Process()
+    monkeypatch.setattr(login.subprocess, 'Popen', launch)
+    result = login.begin('interactive', ['claude', 'mcp', 'login', 'docs'],
+                         interactive=True, on_finish=finished.set)
+    assert finished.wait(3)
+    final = login.state('interactive')
+    assert final['state'] == ('configured' if outcome == 'success' else 'failed')
+    assert not final['login_url']
+    assert ('wait', 300) in calls
+    if outcome == 'timeout':
+        assert ('kill',) in calls and ('wait', 10) in calls
+        assert 'timed out' in final['reason']

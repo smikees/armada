@@ -12,6 +12,10 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.108** lets chats continue with unavailable connector tools withheld, adds
+owner-assisted connector setup in normal chats, fixes Claude HTTP/SSE sign-in checks and displays
+the saved reply outcome in both thread views. [Verification](dev/RELEASE_0_99_108.md).
+
 Version **0.99.107** tells agents whether a turn is a conversation, a one-off request or a scheduled
 job run, so job-ending rules in profiles stay in jobs; Armada II starts at 13 px, the ready sound moves to
 Advanced, and inspector agents carry a scan mark. [Verification](dev/RELEASE_0_99_107.md).

@@ -284,15 +284,18 @@ class ClaudeEngine(EngineAdapter):
         if result.returncode or result.stderr.strip():
             raise ValueError("Could not inspect Claude MCP configuration; refusing to run without capability gating.")
         names = _mcp_inventory(result.stdout)
-        if getattr(self, 'connector_requirements', None):
-            from ..connector_registry import verify_registrations
-            entries = {}
-            for line in result.stdout.splitlines():
-                if ':' in line and ' - ' in line:
-                    name, detail = line.split(':', 1)
-                    if name.strip() in connected_names(result.stdout):
-                        entries[_mcp_server_id(name.strip())] = detail.rsplit(' - ', 1)[0].strip()
-            verify_registrations(self.connector_requirements, entries)
+        from .mcp import claude_rows
+        from ..connector_registry import unavailable_registrations, record_unavailable
+        rows = claude_rows(result.stdout)
+        entries = {_mcp_server_id(row['name']): row['endpoint'] for row in rows}
+        issues = unavailable_registrations(getattr(self, 'connector_requirements', {}), entries)
+        for row in rows:
+            sid = _mcp_server_id(row['name'])
+            if not row['ready'] and (sid in self.allowed_mcp_ids or row['name'] in self.allowed_mcp_ids):
+                issues.append({'server': sid, 'state': row['state'], 'tool_names': [],
+                               'error': 'Sign-in is required.' if row['state'] == 'sign_in' else 'This connector failed its CLI health check.'})
+        record_unavailable(self, issues)
+        withheld = {row['server'] for row in issues}
         allowed = set(self.allowed_mcp_ids or ())
         patterns = set(denied or ())
         blocked = []
@@ -302,16 +305,19 @@ class ClaudeEngine(EngineAdapter):
             if sid in identities:
                 raise ValueError("Ambiguous Claude MCP server identities; rename the colliding servers.")
             identities[sid] = name
-            if (name not in allowed and sid not in allowed) or f"mcp__{sid}" in patterns or f"mcp__{name}" in patterns:
+            if (name not in allowed and sid not in allowed) or sid in withheld or f"mcp__{sid}" in patterns or f"mcp__{name}" in patterns:
                 blocked.append({"serverName": name})
                 patterns.add(f"mcp__{sid}")
-        if not allowed:
+        if not allowed and not getattr(self, 'connector_tools', None):
             patterns.add("mcp__*")
         admitted = set(names) - {row['serverName'] for row in blocked}
         _recover_auth_cache(connected_names(result.stdout) & admitted, probe_started)
         args = ["--settings", json.dumps({"deniedMcpServers": blocked})]
         if patterns:
             args += ["--disallowedTools", *sorted(patterns)]
+        if getattr(self, 'connector_tools', None):
+            from ..connector_tools import claude_args
+            args += claude_args(self.connector_tools)
         return args
 
     # --- launcher resolution ---
@@ -448,6 +454,9 @@ class ClaudeEngine(EngineAdapter):
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             from .startup import failed
             return failed(str(exc), code="connector_discovery", model=model or "")
+        if allow_tools and getattr(self, 'connector_unavailable', None):
+            from .mcp_runtime import prompt as connector_prompt
+            system += connector_prompt(self.connector_unavailable)
         # The prompt goes on STDIN, not argv: a long thread as a command-line arg overflows Windows'
         # ~32K command-line limit (WinError 206). `claude -p` with no positional prompt reads stdin.
         args = ["-p", "--output-format", "json"]
@@ -539,6 +548,9 @@ class ClaudeEngine(EngineAdapter):
             from .startup import failed
             emit({"kind": "error", "error": str(exc)})
             return failed(str(exc), code="connector_discovery", model=model or "")
+        if allow_tools and getattr(self, 'connector_unavailable', None):
+            from .mcp_runtime import prompt as connector_prompt
+            system += connector_prompt(self.connector_unavailable)
         # prompt via STDIN (see run(): keeps a long thread off the command line — WinError 206)
         args = ["-p", "--output-format", "stream-json", "--verbose",
                 "--include-partial-messages"]

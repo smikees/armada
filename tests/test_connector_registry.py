@@ -48,8 +48,9 @@ def test_unlink_blocks_legacy_fallback_and_keeps_other_engine_and_grant(realm, m
     assert cid in policy.allowed_mcp_ids
     assert not capabilities.provider_policy(policy, 'claude').allowed_mcp_ids
     assert capabilities.provider_policy(policy, 'codex').allowed_mcp_ids == {'documents'}
-    with pytest.raises(capabilities.CapabilityPolicyError, match='Connect'):
-        runner._prepare_agent_run(realm, 'reviewer', 'claude', True)
+    engine, _ = runner._prepare_agent_run(realm, 'reviewer', 'claude', True)
+    assert not engine.allowed_mcp_ids
+    assert engine.connector_unavailable[0]['state'] == 'missing'
     registry.save(realm, provider='claude', server_name='documents', capability=cid)
     assert not registry.provider_cap(capabilities.find(realm, cid)[1], 'claude').get('_unbound')
 
@@ -152,7 +153,7 @@ def test_denied_alias_beats_granted_logical_binding(realm, monkeypatch):
 
 
 @pytest.mark.parametrize('provider', registry.PROVIDERS)
-def test_configuration_changes_fail_before_tool_execution(provider, tmp_path, monkeypatch):
+def test_configuration_changes_withhold_the_connector_without_blocking_chat(provider, tmp_path, monkeypatch):
     engine = {'claude': claude.ClaudeEngine, 'codex': codex.CodexEngine, 'gemini': gemini.GeminiEngine}[provider]()
     engine.connector_requirements = {'docs': 'https://approved.example/mcp'}
     engine.allowed_mcp_ids = {'docs'}
@@ -170,8 +171,16 @@ def test_configuration_changes_fail_before_tool_execution(provider, tmp_path, mo
         util.write_json_atomic(Path.home()/'.gemini/config/mcp_config.json', {'mcpServers': {
             'docs': {'serverUrl': 'https://changed.example/mcp'}}})
         call = lambda: engine._connectors([])
-    with pytest.raises(ValueError, match='different settings'):
-        call()
+    result = call()
+    assert engine.connector_unavailable[0]['state'] == 'different'
+    if provider == 'claude':
+        settings = json.loads(result[result.index('--settings') + 1])
+        assert settings['deniedMcpServers'] == [{'serverName': 'docs'}]
+    elif provider == 'codex':
+        assert 'mcp_servers.docs.enabled=false' in result
+        assert not engine._turn_mcp_ids
+    else:
+        assert result == []
 
 
 def test_inventory_drops_headers_oauth_env_and_private_urls(monkeypatch):

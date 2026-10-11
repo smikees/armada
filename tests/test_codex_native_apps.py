@@ -101,8 +101,11 @@ def test_native_binding_never_authorizes_claude_namespace():
 def test_grant_never_reenables_owner_disabled_native_app(monkeypatch):
     monkeypatch.setattr(codex_apps, 'inventory', lambda **kw: [])
     monkeypatch.setattr(codex_apps, 'rpc', lambda *a, **kw: {'config': {'apps': {APP: {'enabled': False}}}})
-    with pytest.raises(ValueError, match='disabled in Codex'):
-        codex_apps.scoped_args({APP})
+    issues = []
+    args = codex_apps.scoped_args({APP}, unavailable=issues)
+    assert f'apps.{APP}.enabled=false' in args
+    assert not any(arg == f'apps.{APP}.enabled=true' for arg in args)
+    assert issues[0]['server'] == 'app:' + APP
 
 
 def test_native_ids_cover_both_documented_runtime_families():
@@ -112,7 +115,7 @@ def test_native_ids_cover_both_documented_runtime_families():
 
 
 def test_scoped_overrides_disable_ambient_and_configured_apps_without_erasing_tool_rules(monkeypatch):
-    monkeypatch.setattr(codex_apps, 'inventory', lambda **kw: [{'id': APP}, {'id': OTHER}])
+    monkeypatch.setattr(codex_apps, 'inventory', lambda **kw: [{'id': APP, 'callable': True}, {'id': OTHER, 'callable': True}])
     monkeypatch.setattr(codex_apps, 'rpc', lambda *a, **kw: {'config': {'apps': {
         'configured_alias': {'enabled': True}, APP: {'tools': {'delete': {'enabled': False}}}}}})
     args = codex_apps.scoped_args({APP})

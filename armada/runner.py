@@ -116,6 +116,7 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
     policy = execution_policy(realm_root, agent_id) if (allow_tools or agent.get("allow_tools")) and not command and not inspector else None
     eng = _select_engine(realm_root, agent_id, engine, job)
     connector_requirements = {}
+    unavailable = []
     if policy:
         from . import capabilities
         from .connector_registry import provider_cap
@@ -131,7 +132,9 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
                 continue
             actual = provider_cap(cap, eng.name)
             if actual.get('_unbound'):
-                raise CapabilityPolicyError(f"Connect {cap.get('name', cap['id'])} to {eng.name.title()} in Capabilities before running this agent.")
+                unavailable.append({'server': cap.get('name', cap['id']), 'state': 'missing', 'tool_names': [],
+                                    'error': 'No linked connection for this engine. Use connect_connector or Capabilities to connect it.'})
+                continue
             if actual.get('_native_app'):
                 continue
             sid = server_id(actual['id']) if eng.name == 'claude' else registration_id(actual['id'])
@@ -152,6 +155,7 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
     if isinstance(eng, EngineAdapter):
         eng = eng.configure(binding)
         eng.connector_requirements = connector_requirements
+        eng.connector_unavailable = unavailable
     else:  # legacy injected adapter compatibility
         eng.allowed_mcp_ids = binding.allowed_mcp_ids
     return eng, agent
@@ -308,7 +312,7 @@ def _tool_grants(realm_root, agent_id, eng, use_tools):
         from .capabilities import provider_policy, CapabilityPolicy
         translated = provider_policy(CapabilityPolicy(
             eng.allowed_mcp_ids, policy.denied_tools, policy.native_filesystem_ids,
-            policy.provider_bindings), eng.name)
+            policy.provider_bindings, engine_scope=policy.engine_scope), eng.name)
         eng.allowed_mcp_ids = translated.allowed_mcp_ids
         eng.native_filesystem_ids = translated.native_filesystem_ids
         eng.allowed_app_ids = translated.allowed_app_ids
@@ -334,6 +338,8 @@ def _record_used_capabilities(realm_root: Path, tool_names) -> None:
     servers = []
     for nm in (tool_names or []):
         m = re.match(r"mcp__([A-Za-z0-9_.\-]+)__", str(nm or ""))
+        if m and m.group(1).startswith(('armada_setup_', 'armada_managed')):
+            continue  # Invocation-local host tools are not realm connectors.
         # Provider applications are system dependencies, not user connectors. Earlier
         # discovery created a phantom `codex` connector from this tool namespace.
         if m and m.group(1).lower() not in ("claude", "codex", "codex_apps", "gemini") and m.group(1) not in servers:
@@ -740,7 +746,7 @@ def _capabilities_context(realm_root: Path, agent_dir: Path, engine: str | None 
         out.append("Their tools are withheld on this engine. If the task needs one, do not improvise a "
                    "substitute: say which capability is unavailable and why, so the owner can switch "
                    "your model or move the connection.")
-    else:
+    elif not mine_lines:
         out.append("[Your capabilities]\n- None yet. You have not been granted any capability in "
                    "this realm.")
 

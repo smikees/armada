@@ -34,6 +34,14 @@ Names and safe remote URLs only. Headers, env, OAuth and local commands stay pri
 
 A linked name cannot silently start pointing an agent at another service.
 
+### `unavailable_registrations(requirements, registrations)`
+
+Withhold individual missing/mismatched registrations without stopping a conversation.
+
+### `record_unavailable(engine, rows)`
+
+Invocation-local evidence, without endpoints or credentials.
+
 ### `_row_service(cap: dict)`
 
 The curated service a realm row stands for, if any ('' when it is something else).

@@ -72,6 +72,11 @@ class EngineAdapter(ABC):
             result = self.run(**request.kwargs())
             if result.output:
                 safe_emit(on_event, {"kind": "text", "text": result.output})
+        unavailable = getattr(self, 'connector_unavailable', [])
+        if unavailable:
+            evidence = {r['server']: r for r in unavailable}
+            evidence.update({r['server']: r for r in result.raw.get('connector_runtime', [])})
+            result.raw['connector_runtime'] = list(evidence.values())
         if result.usage.cost_usd is None:
             from ..token_cost import estimate
             result.usage.cost_usd = estimate(result.model, result.usage.as_dict())

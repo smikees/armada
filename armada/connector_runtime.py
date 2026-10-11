@@ -225,18 +225,8 @@ def _claude_rows(realm_root=None) -> list[dict] | None:
         return None
     if result.returncode:
         return None
-    connected = connected_names(result.stdout)
-    found = []
-    for line in re.sub(r'\x1b\[[0-9;]*m', '', result.stdout).splitlines():
-        if ":" not in line or " - " not in line:
-            continue
-        name, detail = line.split(":", 1)
-        key = _identity(name)
-        if key:
-            address = detail.rsplit(' - ', 1)[0].strip()
-            found.append({"name": name.strip(), "ready": name.strip() in connected,
-                          'endpoint': address, 'remote': address.startswith(('https://', 'http://'))})
-    return found
+    from .engine.mcp import claude_rows
+    return claude_rows(result.stdout)
 
 
 class _ClaudeInventory(dict):
@@ -244,6 +234,7 @@ class _ClaudeInventory(dict):
     def __init__(self):
         super().__init__()
         self.endpoints = {}
+        self.states = {}
 
 
 def claude_inventory() -> dict[str, bool | None] | None:
@@ -255,6 +246,7 @@ def claude_inventory() -> dict[str, bool | None] | None:
         key = _identity(row["name"])
         found[key] = None if key in found else row["ready"]
         found.endpoints[key] = row.get('endpoint', '')
+        found.states[key] = row.get('state', 'ready' if row['ready'] else 'failed')
     return found
 
 
@@ -272,7 +264,7 @@ def claude_connection(cap: dict, inventory: dict[str, bool | None] | None) -> st
             actual = getattr(inventory, 'endpoints', {}).get(key)
             if cap.get('_bound_registration') and actual and codex_endpoint(cap) and actual != codex_endpoint(cap):
                 return 'different'
-            return "ready" if inventory[key] else "failed"
+            return "ready" if inventory[key] else getattr(inventory, 'states', {}).get(key, "failed")
     return "missing"
 
 
@@ -596,7 +588,7 @@ def connect_claude(cap: dict, realm_root=None) -> dict:
     from . import connector_login
     return connector_login.begin(_login_key(realm_root, cap, 'claude'),
                                  launcher + ["mcp", "login", matches[0]["name"]], cwd=realm_root, env=engine._env(),
-                                 on_finish=lambda: _login_finished(realm_root, 'claude'))
+                                 on_finish=lambda: _login_finished(realm_root, 'claude'), interactive=True)
 
 
 _gemini_signins = {}

@@ -92,6 +92,23 @@ Agent chips show their default engine's current connection status. Jobs can over
 engine. The model warning is a configuration check, not a live permissions test: every run still
 checks the actual connections, and ARMADA never reroutes a connector call to another engine or account.
 
+## Asking your agent to connect
+
+In a normal chat, ask your agent to check or connect a capability already approved for it.
+The agent can start the engine’s supported connection flow; you complete browser/provider
+sign-in yourself. Claude may open its own sign-in terminal as well as the browser. Credentials
+stay with the provider. After sign-in, ask again: newly connected data tools load on the next turn.
+
+An agent cannot add an arbitrary server, change its endpoint, enable a disabled realm capability
+or grant itself access through these tools. It can request your approval for an existing realm
+capability; a coordinator can request access for another agent. Scheduled jobs, inspectors and
+dry runs do not receive these connector setup tools.
+
+Missing or signed-out connections do not end a conversation. Their tools are withheld, and the
+agent can continue unrelated work. If the requested task needs the unavailable connection, the
+agent must explain that it could not complete it; it must not invent data or claim a successful
+read or delivery. Malformed permissions and ungranted tools still stop a turn for safety.
+
 ## Connection status and actions
 
 Connectors show separate Claude, Codex and Gemini status badges. A spinner means the engine's

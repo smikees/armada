@@ -302,13 +302,13 @@ def _attachments_html(att, aid: str, thread: str) -> str:
     return f'<div class="mc-att-row">{"".join(out)}</div>'
 
 
-def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True) -> str:
+def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="") -> str:
     content = E(str(raw).strip())
     when = str(ts)[11:16]
     tpl = f'<template class="mc-raw">{content}</template>'
     if role == "assistant":
         body = _render_segments(seg) if seg else f'<div class="mc-body mc-md">{_md(str(raw).strip())}</div>'
-        return (f'<div class="mc-turn" data-role="assistant" data-idx="{idx}" style="margin-bottom:12px">'
+        return (f'<div class="mc-turn" data-role="assistant" data-status="{E(status)}" data-idx="{idx}" style="margin-bottom:12px">'
                 f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av or _bust(28, coord)}</div>'
                 f'<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
                 f'<div class="mc-body">{body}</div>'
@@ -589,7 +589,7 @@ def _render_turns(realm_root, a, selected: str) -> str:
             continue
         turns += _turn(m.get("role", ""), m.get("content", ""), str(m.get("ts", "")),
                        i, i == last_user, a.id, selected, a.display, a.is_coordinator,
-                       av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"))
+                       av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"), status=m.get('status', ''))
     # An owner message with nothing after it. Either the agent is working on it right now — in
     # which case the page has to say so, because the reply is arriving over an event stream this
     # page load knows nothing about — or the run died without answering, and saying that is far

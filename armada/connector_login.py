@@ -1,9 +1,12 @@
 """Bounded connector OAuth attempts; CLI output and authorization URLs stay in memory."""
 import atexit
 import logging
+import os
 import re
+import subprocess
 import threading
 import time
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 from .engine.process import supervise
@@ -48,7 +51,7 @@ def state(key):
         return {k: item[k] for k in ('state', 'reason', 'login_url')}
 
 
-def begin(key, argv, cwd=None, env=None, on_finish=None):
+def begin(key, argv, cwd=None, env=None, on_finish=None, *, interactive=False):
     with _lock:
         if _closing:
             return {'ok': False, 'state': 'failed', 'error': 'ARMADA is shutting down.'}
@@ -71,8 +74,24 @@ def begin(key, argv, cwd=None, env=None, on_finish=None):
                     item.update(state='sign_in', reason='The CLI provided a sign-in page. Open it if your browser did not appear, then recheck.', login_url=url)
                     item['changed'].set()
         try:
-            result = supervise(argv, prompt='', on_line=output, timeout=300, cwd=cwd,
-                               env=env, on_proc=own)
+            if interactive and os.name == 'nt':
+                # Claude's current MCP OAuth command refuses piped stdin. Its own terminal
+                # opens the browser and handles any redirect prompt; ARMADA never reads it.
+                process = subprocess.Popen(argv, cwd=cwd, env=env, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                own(process)
+                with _lock:
+                    item.update(state='sign_in', reason='Complete connector sign-in in your browser. The provider’s sign-in window handles any additional prompt.')
+                    item['changed'].set()
+                try:
+                    code = process.wait(timeout=300)
+                    result = SimpleNamespace(returncode=code, error='', stderr='', timed_out=False, cancelled=False)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=10)
+                    result = SimpleNamespace(returncode=1, error='Connector sign-in timed out. Retry when ready.', stderr='', timed_out=True, cancelled=False)
+            else:
+                result = supervise(argv, prompt='', on_line=output, timeout=300, cwd=cwd,
+                                   env=env, on_proc=own)
             error = _error((result.error if result.timed_out or result.cancelled else result.stderr or result.error) or '')
             with _lock:
                 if result.error or result.returncode != 0:

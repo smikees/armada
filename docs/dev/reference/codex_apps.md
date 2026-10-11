@@ -30,10 +30,10 @@ The ChatGPT plugin directory (chatgpt.com/plugins) as Codex sees it, via `plugin
 
 —
 
-### `scoped_args(allowed, *, cwd=None)`
+### `scoped_args(allowed, *, cwd=None, unavailable=None)`
 
 Invocation-only app policy. Preserve per-tool restrictions in the owner's config.
 
-### `verify_snapshot(result, allowed)`
+### `verify_snapshot(result, allowed, *, allow_unavailable=False)`
 
 Check the actual thread before sending any prompt to the model. Never trust UI metadata.

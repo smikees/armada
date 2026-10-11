@@ -163,6 +163,25 @@ def verify_registrations(requirements, registrations):
             raise ValueError(f'Connector {name} has different settings in this engine. Review its connection in Capabilities.')
 
 
+def unavailable_registrations(requirements, registrations):
+    """Withhold individual missing/mismatched registrations without stopping a conversation."""
+    rows = []
+    for name, expected in requirements.items():
+        state = 'missing' if name not in registrations else 'different' if expected and registrations[name] != expected else ''
+        if state:
+            reason = ('Not connected or disabled in this engine. Connect it in Capabilities.' if state == 'missing'
+                      else 'Registration settings differ from the approved endpoint. Review its connection in Capabilities.')
+            rows.append({'server': name, 'state': state, 'tool_names': [], 'error': reason})
+    return rows
+
+
+def record_unavailable(engine, rows):
+    """Invocation-local evidence, without endpoints or credentials."""
+    old = {r['server']: r for r in getattr(engine, 'connector_unavailable', [])}
+    old.update({r['server']: r for r in rows})
+    engine.connector_unavailable = list(old.values())
+
+
 _ENGINE_ROW_LABEL = {'claude': 'Claude', 'codex': 'Codex'}
 _ENGINE_NAME = {'claude': 'Claude', 'codex': 'Codex', 'gemini': 'Gemini'}
 

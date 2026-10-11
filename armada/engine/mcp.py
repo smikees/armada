@@ -33,3 +33,19 @@ def connected_names(text: str) -> frozenset[str]:
             if re.fullmatch(r'(?:[✓✔√]\ufe0f?\s*)?connected', state):
                 names.add(name)
     return frozenset(names)
+
+
+def claude_rows(text: str) -> list[dict]:
+    """Parse real CLI health lines; transport labels are not part of the address."""
+    connected = connected_names(text)
+    rows = []
+    for line in re.sub(r'\x1b\[[0-9;]*m', '', text).splitlines():
+        name, separator, detail = line.strip().partition(': ')
+        if not separator or ' - ' not in detail:
+            continue
+        address, state = detail.rsplit(' - ', 1)
+        address = re.sub(r'\s+\((?:HTTP|SSE|WebSocket|WS)\)$', '', address.strip(), flags=re.I)
+        rows.append({'name': name, 'endpoint': address, 'ready': name in connected,
+                     'state': 'ready' if name in connected else 'sign_in' if 'authentication' in state.lower() else 'failed',
+                     'remote': address.startswith(('https://', 'http://'))})
+    return rows

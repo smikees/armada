@@ -13,3 +13,7 @@ Claude-managed connectors use a collapsed, prefixed tool namespace.
 ### `connected_names(text: str)`
 
 Names with an explicit Connected health result, never inferred from an icon.
+
+### `claude_rows(text: str)`
+
+Parse real CLI health lines; transport labels are not part of the address.

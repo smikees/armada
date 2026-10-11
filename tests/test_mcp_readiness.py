@@ -37,6 +37,7 @@ for line in sys.stdin:
        .replace('NETWORK',repr(network)), encoding='utf-8')
     engine=CodexEngine()
     engine.allowed_mcp_ids={'broker'}
+    engine.connector_requirements={'broker': {'endpoint': 'https://broker.example/mcp'}}
     engine._turn_mcp_ids=('broker',)
     engine.network_access=network
     monkeypatch.setattr(engine,'_launcher',lambda:[sys.executable,'-u',str(script)])

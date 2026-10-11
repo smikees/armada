@@ -110,14 +110,21 @@ def service(plugin, *, cwd=None):
             'install_url': plugin_url(plugin)}
 
 
-def scoped_args(allowed, *, cwd=None):
+def scoped_args(allowed, *, cwd=None, unavailable=None):
     """Invocation-only app policy. Preserve per-tool restrictions in the owner's config."""
     if any(not valid_id(sid) for sid in allowed):
         raise ValueError('Invalid native connector grant.')
     rows = inventory(cwd=cwd)
     config = rpc('config/read', {'includeLayers': False}, cwd=cwd).get('config', {}).get('apps') or {}
-    if any(isinstance(config.get(sid), dict) and config[sid].get('enabled') is False for sid in allowed):
-        raise ValueError('A granted native connector is disabled in Codex. Enable it there before running this agent.')
+    blocked = {sid for sid in allowed if isinstance(config.get(sid), dict) and config[sid].get('enabled') is False}
+    callable_ids = {r['id'] for r in rows if r.get('callable')}
+    blocked |= set(allowed) - callable_ids
+    if blocked and unavailable is None:
+        raise ValueError('A granted native connector is unavailable in Codex. Enable it and sign in before using it.')
+    if unavailable is not None:
+        unavailable.extend({'server': 'app:' + sid, 'state': 'missing', 'tool_names': [],
+                            'error': 'Native connector is disabled or has no callable tools. Connect it in Capabilities.'} for sid in sorted(blocked))
+    allowed = set(allowed) - blocked
     ids = {r['id'] for r in rows} | (set(config) - {'_default'}) | set(allowed)
     args = ['-c', 'features.apps=true', '-c', 'apps._default.enabled=false']
     for sid in sorted(ids):
@@ -131,7 +138,7 @@ def scoped_args(allowed, *, cwd=None):
     return args
 
 
-def verify_snapshot(result, allowed):
+def verify_snapshot(result, allowed, *, allow_unavailable=False):
     """Check the actual thread before sending any prompt to the model. Never trust UI metadata."""
     rows = result.get('apps')
     if not isinstance(rows, list) or any(not isinstance(r, dict) or not valid_id(r.get('id'))
@@ -141,4 +148,6 @@ def verify_snapshot(result, allowed):
     if callable_ids - set(allowed):
         raise ValueError('Codex exposed an ungranted native connector; the turn was blocked.')
     if set(allowed) - callable_ids:
-        raise ValueError('A required native Codex connector is unavailable. Sign in or recheck it in Capabilities.')
+        if not allow_unavailable:
+            raise ValueError('A required native Codex connector is unavailable. Sign in or recheck it in Capabilities.')
+    return frozenset(set(allowed) - callable_ids)
