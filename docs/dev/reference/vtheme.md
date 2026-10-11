@@ -33,3 +33,7 @@ The :root override body for a theme, or '' for the default/unknown (inherits bra
 ### `theme_style(theme_id: str)`
 
 A <style> tag to drop after the base stylesheets, or '' for the default theme.
+
+### `preferences(theme_id: str)`
+
+A theme's initial typography. Selecting a theme is one atomic settings change.

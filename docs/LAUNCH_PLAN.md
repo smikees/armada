@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.106** adds the optional Armada II theme: IBM Plex typography, 15 px starting size,
+softer corners and muted job status colors, with live previews in Settings. A quiet Windows
+desktop-ready cue plays once per launch and can be disabled in Settings.
+[Verification](dev/RELEASE_0_99_106.md).
+
 Version **0.99.105** refines Add a capability after owner review: search as the main column, one
 link field (repositories, skills, MCP addresses) in a side panel, Review before every add, and
 "In this realm" as status text with Go to buttons. [Verification](dev/RELEASE_0_99_105.md).

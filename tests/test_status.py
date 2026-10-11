@@ -40,7 +40,7 @@ def test_color_maps_to_css_vars_and_idle_fallback():
     assert status.color("ok") == "var(--status-ok)"
     assert status.color("quiet") == "var(--status-ok)"
     assert status.color("warn") == "var(--status-warn)"
-    assert status.color("running") == "var(--color-accent-2)"
+    assert status.color("running") == "var(--status-running)"
     assert status.color("error") == "var(--status-bad)"
     assert status.color("scheduled") == "var(--status-idle)"
     # unknown / empty → idle grey, never a crash

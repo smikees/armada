@@ -15,7 +15,7 @@ function mcAppValues(){
   return {channels:{inapp:checked('st-ch-inapp'),desktop:checked('st-ch-desktop'),telegram:checked('st-ch-telegram')},
     mode:document.querySelector('input[name="mc-mode"]:checked')?.value||'system',
     theme:document.querySelector('.mc-themecard[data-selected="true"]')?.dataset.themeId||'',
-    fonts:fonts,fontSize:Number(byId('mc-font-size')?.value||13),tray:checked('st-keep-tray'),auto:checked('st-update-auto'),
+    fonts:fonts,fontSize:Number(byId('mc-font-size')?.value||13),startupSound:checked('st-startup-sound'),tray:checked('st-keep-tray'),auto:checked('st-update-auto'),
     alexander:{model:byId('alexander-model')?.value||'',effort:byId('alexander-effort')?.value||'',verbosity:byId('alexander-verbosity')?.value||'standard'}};
 }
 const mcAppInitial=mcAppValues();
@@ -41,11 +41,28 @@ function mcSelectTheme(id){
   document.querySelectorAll('.mc-themecard').forEach(el=>{
     const on=el.dataset.themeId===id;
     el.dataset.selected=on?'true':'false';
+    el.setAttribute('aria-pressed',String(on));
     el.style.borderColor=on?'var(--color-accent)':'var(--color-divider)';
     el.style.background=on?'var(--color-accent-100)':'';
     const label=el.querySelector('[data-theme-caption]');
     if(label)label.textContent=on?'selected':'\u200b';
   });
+  const card=document.querySelector('.mc-themecard[data-theme-id="'+id+'"]');
+  if(!card?.dataset.themeFonts)return;
+  let style=document.getElementById('mc-vtheme');
+  if(!style){style=document.createElement('style');style.id='mc-vtheme';document.head.appendChild(style);}
+  style.textContent=card.dataset.themeCss||'';
+  const preset=JSON.parse(card.dataset.themeFonts);
+  document.querySelectorAll('.mc-fontpick select').forEach(select=>{
+    select.value=preset['font_'+select.dataset.role];select.dispatchEvent(new Event('change',{bubbles:true}));
+    const families=JSON.parse(select.dataset.families);
+    document.documentElement.style.setProperty('--font-'+select.dataset.role,families[select.value]);
+    document.body.style.setProperty('--font-'+select.dataset.role,families[select.value]);
+  });
+  const size=document.getElementById('mc-font-size');
+  if(size){size.value=String(preset.font_size_default);size.dispatchEvent(new Event('change',{bubbles:true}));}
+  const hint=document.getElementById('mc-font-msg');
+  if(hint)hint.textContent='Preview — Save to apply.';
 }
 async function mcAppPost(url,body){
   const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -66,9 +83,10 @@ async function mcSaveAppSettings(){
     if(next.mode!==old.mode)await mcAppPost('/api/save-appearance',{mode:next.mode});
     if(next.theme&&next.theme!==old.theme)await mcAppPost('/api/save-appearance',{theme:next.theme});
     for(const role of Object.keys(next.fonts)){
-      if(next.fonts[role]!==old.fonts[role])await mcAppPost('/api/save-appearance',{font_role:role,font:next.fonts[role]});
+      if(next.theme!==old.theme||next.fonts[role]!==old.fonts[role])await mcAppPost('/api/save-appearance',{font_role:role,font:next.fonts[role]});
     }
-    if(next.fontSize!==old.fontSize)await mcFontSize.saveDefault(next.fontSize);
+    if(next.theme!==old.theme||next.fontSize!==old.fontSize)await mcFontSize.saveDefault(next.fontSize);
+    if(next.startupSound!==old.startupSound)await mcAppPost('/api/save-appearance',{startup_sound:next.startupSound});
     if(next.tray!==old.tray)await mcAppPost('/api/tray-setting',{on:next.tray});
     if(next.auto!==old.auto)await mcAppPost('/api/update-auto',{on:next.auto});
     if(mcAppAlexanderEdited){

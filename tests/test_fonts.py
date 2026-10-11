@@ -16,8 +16,8 @@ def home(tmp_path, monkeypatch):
     return tmp_path
 
 
-def test_six_families_and_the_design_defaults():
-    assert len(fonts.CHOICES) == 6
+def test_font_families_and_the_design_defaults():
+    assert len(fonts.CHOICES) == 7
     assert fonts.DEFAULTS == {"body": "barlow", "heading": "barlow-condensed"}
 
 

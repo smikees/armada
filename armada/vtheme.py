@@ -9,6 +9,7 @@ the accent token scales, reskinning the whole UI without touching any component.
 Per-app (global): the chosen theme id lives in appconfig (~/.armada/config.json).
 """
 from __future__ import annotations
+from pathlib import Path
 
 DEFAULT = "armada"
 
@@ -47,6 +48,8 @@ def _scale(prefix: str, base: str) -> str:
 # id -> {name, accent, accent2}. armada is the built-in (empty override).
 THEMES: dict[str, dict] = {
     "armada": {"name": "ARMADA", "accent": "#0b3f86", "accent2": "#12a3b8"},
+    "armada-ii": {"name": "Armada II", "accent": "#0b3f86", "accent2": "#12a3b8",
+                  "fonts": {"body": "ibm-plex-sans", "heading": "ibm-plex-sans"}, "size": 15},
     "ember":  {"name": "Ember",  "accent": "#b4531f", "accent2": "#c99230"},
     "forest": {"name": "Forest", "accent": "#2f6d4f", "accent2": "#6a9b3f"},
     "plum":   {"name": "Plum",   "accent": "#6a3d9a", "accent2": "#b0559a"},
@@ -64,6 +67,8 @@ def theme_css(theme_id: str) -> str:
     if theme_id == DEFAULT or theme_id not in THEMES:
         return ""
     t = THEMES[theme_id]
+    if theme_id == "armada-ii":
+        return (Path(__file__).parent / "webui" / "static" / "armada-ii.css").read_text(encoding="utf-8")
     return ":root{" + _scale("--color-accent", t["accent"]) + ";" \
            + _scale("--color-accent-2", t["accent2"]) + "}"
 
@@ -72,3 +77,11 @@ def theme_style(theme_id: str) -> str:
     """A <style> tag to drop after the base stylesheets, or '' for the default theme."""
     css = theme_css(theme_id)
     return f'<style id="mc-vtheme">{css}</style>' if css else ""
+
+
+def preferences(theme_id: str) -> dict:
+    """A theme's initial typography. Selecting a theme is one atomic settings change."""
+    t = THEMES.get(theme_id, THEMES[DEFAULT])
+    return {"theme": theme_id, "font_body": t.get("fonts", {}).get("body", "barlow"),
+            "font_heading": t.get("fonts", {}).get("heading", "barlow-condensed"),
+            "font_size": t.get("size", 13), "font_size_default": t.get("size", 13)}

@@ -469,7 +469,7 @@ def _job_created_ts(realm_root, agent_id: str, job_id: str, jc: dict) -> str:
     return back if r > b else born
 
 
-_RUNNING_COLOR = "var(--color-accent-2)"                                            # theme teal
+_RUNNING_COLOR = "var(--status-running)"  # dedicated status token, independent of brand accents
 _UNSCHEDULED_COLOR = "var(--text-8)"
 _HEALTH_STYLES = {
     "Success":       "background:color-mix(in srgb,var(--status-ok) 22%,var(--color-bg))",   # light green
@@ -491,6 +491,7 @@ def _health_swatch(label: str, size: int = 10, cls: str = "") -> str:
     flat-colour table and so was still showing the palette from two revisions ago."""
     from ..icons import ICON_MISSED
     c = f' class="{cls}"' if cls else ""
+    c += f' data-job-state="{E(label.lower())}"'
     # Missed is a glyph in the strip, so it has to be the same glyph here — a legend or a menu
     # showing a swatch for a mark the row draws differently is worse than showing nothing.
     if label == "Missed":
@@ -542,7 +543,7 @@ def _health_legend_chips(exclude=()) -> str:
     for label in _HEALTH_LEGEND_ORDER:
         if label in exclude:
             continue
-        chips += (f'<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;'
+        chips += (f'<span class="mc-health-legend" data-job-state="{E(label.lower())}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;'
                   f'color:var(--text-dim)">'
                   f'{_health_swatch(label)}{label}</span>')
     return chips
@@ -558,7 +559,7 @@ def _health_square(label: str, tooltip: str, size: int = 11, margin: bool = True
         return (f'<i title="{E(tooltip)}" style="display:inline-flex;width:{size}px;height:{size}px;'
                 f'box-sizing:border-box;{"margin-right:2px;" if margin else ""}'
                 f'color:var(--status-bad)">{ICON_MISSED.format(s=size)}</i>')
-    return (f'<i title="{E(tooltip)}" style="display:inline-block;width:{size}px;height:{size}px;border-radius:2px;'
+    return (f'<i data-job-state="{E(label.lower())}" title="{E(tooltip)}" style="display:inline-block;width:{size}px;height:{size}px;border-radius:2px;'
             f'box-sizing:border-box;{"margin-right:2px;" if margin else ""}{_HEALTH_STYLES.get(label, "")}"></i>')
 
 

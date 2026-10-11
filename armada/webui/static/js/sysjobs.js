@@ -42,6 +42,7 @@
                  (j.status==='skipped'?'Not scheduled':(j.last_run?'Success':'Scheduled'))));
       const st=window.MC_HEALTH[lbl];
       if(sq&&st){
+        sq.dataset.jobState=lbl.toLowerCase();
         sq.setAttribute('style','display:inline-block;width:11px;height:11px;border-radius:2px;'
           +'box-sizing:border-box;margin-right:2px;'+st);
         const ti=sq.getAttribute('title')||'';

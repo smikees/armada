@@ -416,6 +416,11 @@ class SettingsRoutes:
         theme: both are properties of this machine."""
         from .. import appconfig, vtheme
         from ..webui import layout as _layout
+        if 'startup_sound' in body:
+            if type(body['startup_sound']) is not bool:
+                return {"ok": False, "error": "Startup sound must be on or off."}
+            appconfig.save({'startup_sound': body['startup_sound']})
+            return {"ok": True}
         if 'font_size' in body:
             from .. import fonts
             return fonts.save_size(body['font_size'], default=body.get('font_size_default'))
@@ -432,7 +437,7 @@ class SettingsRoutes:
         if theme not in vtheme.THEMES:
             return {"ok": False, "error": "unknown theme"}
         try:
-            appconfig.save({"theme": theme})
+            appconfig.save(vtheme.preferences(theme))
             return {"ok": True}
         except Exception as e:  # noqa
             swallowed(log, '_save_appearance: failed; error returned to the caller')

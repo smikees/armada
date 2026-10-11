@@ -32,7 +32,7 @@ _ALIASES = {
 COLOR = {
     SUCCESS: "var(--status-ok)", QUIET: "var(--status-ok)",
     WARN: "var(--status-warn)", FAILED: "var(--status-bad)",
-    RUNNING: "var(--color-accent-2)", MISSED: "var(--status-idle)",
+    RUNNING: "var(--status-running)", MISSED: "var(--status-idle)",
     SCHEDULED: "var(--status-idle)", IDLE: "var(--status-idle)",
 }
 _IDLE_COLOR = "var(--status-idle)"

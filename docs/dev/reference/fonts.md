@@ -2,9 +2,10 @@
 
 The app's font faces — a temporary Appearance setting (v0.99.62), to become part of themes/skins.
 
-Six families, each selectable for body text and for headings. The faces themselves, and the
+Seven families, each selectable for body text and for headings. The faces themselves, and the
 measured size/line-metric corrections that let one replace another without the layout breaking,
-are generated into static/fonts.css by tools/build_fonts.py; this module only knows the choices,
+are generated into static/fonts.css by tools/build_fonts.py and tools/build_armada_ii_fonts.py;
+this module only knows the choices,
 the defaults, and how to say "use these" to a page.
 
 Per machine, like the colour theme: stored in appconfig as `font_body` / `font_heading`. The

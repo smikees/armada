@@ -718,6 +718,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                 instance.desktop_ready()
                 browser_ready.set()
                 loader.ready()
+                from . import startup_sound
+                startup_sound.play()
                 if saved.get('draft') and main.evaluate_js('location.pathname+location.search') == saved.get('route'):
                     main.evaluate_js("(()=>{const e=document.getElementById('mc-msg');if(e&&!e.value){e.value="+json.dumps(saved['draft'])+";e.dispatchEvent(new Event('input'));}})()")
                 threading.Thread(target=_confirm_startup_health, daemon=True).start()

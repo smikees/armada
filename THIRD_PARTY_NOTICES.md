@@ -47,6 +47,22 @@ proxy-tools ships no licence file of its own, and its package metadata says MIT,
 Each font's licence ships beside it in `armada/webui/static/fonts/` (`OFL-<family>.txt`). The four
 added in v0.99.62 are selectable under Settings → App → Appearance → Fonts.
 
+## IBM Plex fonts
+
+Armada II adds IBM Plex Sans and IBM Plex Mono, Copyright IBM Corp., licensed under
+the SIL Open Font License 1.1. The original license texts ship beside the subset WOFF2
+files as `OFL-ibm-plex-sans.txt` and `OFL-ibm-plex-mono.txt`.
+
+## Startup sound
+
+"MUSCStngr_Cinematic Logo Design.Impact.Bright Chord.High Blip_EM" by newlocknew,
+https://freesound.org/people/newlocknew/sounds/851333/,
+licensed under Creative Commons Attribution-NonCommercial 4.0 International:
+https://creativecommons.org/licenses/by-nc/4.0/.
+The recording is embedded as ARMADA's desktop-ready cue and played at reduced volume;
+the audio file is unmodified. This asset has a noncommercial restriction independent of
+ARMADA's software license; commercial distribution requires separate permission or replacement.
+
 ## Icons
 
 The app's icons are SVG paths inlined from these sets (via Iconify), each unchanged apart from

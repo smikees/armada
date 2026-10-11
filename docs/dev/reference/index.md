@@ -121,6 +121,7 @@
 | [`starter_generic_profiles`](starter_generic_profiles.md) | Full, role-based starter profiles for Company and Ship setup rosters. |
 | [`starter_profiles`](starter_profiles.md) | Bundled starter profiles, separate from personal realms and copied only at creation. |
 | [`startup`](startup.md) | Desktop activation and startup failure reporting, including console-free launches. |
+| [`startup_sound`](startup_sound.md) | Quiet desktop-ready cue |
 | [`startup_splash`](startup_splash.md) | Loading artwork inside the main window, including while WebView2 starts. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
 | [`support`](support.md) | Send exactly the approved, redacted report through ARMADA's public relay. |

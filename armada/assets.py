@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 # updating, old chat behaviour) until an unrelated CSS edit happened to bump the version.
 try:
     _sd = Path(__file__).resolve().parent / "webui" / "static"
-    _assets = [_sd / "brand.css", _sd / "industry.css", _sd / "fonts.css", *(_sd / "js").glob("*.js")]
+    _assets = [*(_sd.glob("*.css")), *(_sd / "js").glob("*.js")]
     CSSV = "?v=" + str(int(max(p.stat().st_mtime for p in _assets if p.exists())))
 except Exception:  # noqa
     swallowed(log, '<module>: failed; using a default')

@@ -1,8 +1,9 @@
 """The app's font faces — a temporary Appearance setting (v0.99.62), to become part of themes/skins.
 
-Six families, each selectable for body text and for headings. The faces themselves, and the
+Seven families, each selectable for body text and for headings. The faces themselves, and the
 measured size/line-metric corrections that let one replace another without the layout breaking,
-are generated into static/fonts.css by tools/build_fonts.py; this module only knows the choices,
+are generated into static/fonts.css by tools/build_fonts.py and tools/build_armada_ii_fonts.py;
+this module only knows the choices,
 the defaults, and how to say "use these" to a page.
 
 Per machine, like the colour theme: stored in appconfig as `font_body` / `font_heading`. The
@@ -20,6 +21,7 @@ CHOICES = {                       # slug -> label (the label is the family name 
     "nunito-sans": "Nunito Sans",
     "quicksand": "Quicksand",
     "roboto": "Roboto",
+    "ibm-plex-sans": "IBM Plex Sans",
 }
 DEFAULTS = {"body": "barlow", "heading": "barlow-condensed"}
 KEYS = {"body": "font_body", "heading": "font_heading"}
@@ -30,7 +32,7 @@ SIZE_MAX = 26
 
 def reference_size() -> int:
     """Reference text size in pixels; invalid saved preferences keep the design default."""
-    value = appconfig.get('font_size', SIZE_DEFAULT)
+    value = appconfig.get('font_size', 15 if appconfig.get('theme') == 'armada-ii' else SIZE_DEFAULT)
     return value if type(value) is int and SIZE_MIN <= value <= SIZE_MAX else SIZE_DEFAULT
 
 
@@ -55,8 +57,9 @@ def save_size(value, *, default=None) -> dict:
 
 
 def selected(role: str) -> str:
-    v = str(appconfig.get(KEYS[role], DEFAULTS[role]) or DEFAULTS[role])
-    return v if v in CHOICES else DEFAULTS[role]
+    default = "ibm-plex-sans" if appconfig.get("theme") == "armada-ii" else DEFAULTS[role]
+    v = str(appconfig.get(KEYS[role], default) or default)
+    return v if v in CHOICES else default
 
 
 def family(role: str, slug: str) -> str:
@@ -68,7 +71,8 @@ def style() -> str:
     """A <style> block overriding --font-body / --font-heading, or "" for the design's own fonts.
     Declared on :root and .armada-dark alike, like every token the dark mode re-declares."""
     parts = [f"--font-{role}:{family(role, selected(role))}"
-             for role in ("body", "heading") if selected(role) != DEFAULTS[role]]
+             for role in ("body", "heading")
+             if selected(role) != DEFAULTS[role] or appconfig.get("theme") == "armada-ii"]
     size = reference_size()
     if size != SIZE_DEFAULT:
         parts += [f'--mc-font-reference:{size}', f'--mc-font-scale:{size / SIZE_DEFAULT:.8f}']

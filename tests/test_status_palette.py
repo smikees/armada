@@ -23,8 +23,8 @@ def test_success_is_the_legends_success_colour():
 
 
 def test_running_is_the_legends_running_colour():
-    assert status.color("running") == "var(--color-accent-2)"
-    assert _var(widgets._HEALTH_STYLES["Running"]) == "var(--color-accent-2)"
+    assert status.color("running") == "var(--status-running)"
+    assert _var(widgets._HEALTH_STYLES["Running"]) == "var(--status-running)"
 
 
 def test_success_and_running_are_not_the_same_colour():

@@ -132,10 +132,10 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
                 f'<div id="mc-realmlist" style="position:absolute;top:100%;left:0;z-index:50;min-width:210px;background:var(--color-bg);'
                 f'border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:6px;margin-top:4px">'
                 f'<div style="font-size:11px;color:var(--text-muted);padding:4px 8px">loading…</div></div></details>')
-    return (f'<div style="display:flex;align-items:center;gap:22px;padding:0 24px;'
+    return (f'<div class="mc-mainnav" style="display:flex;align-items:center;gap:22px;padding:0 24px;'
             f'border-bottom:1px solid var(--color-divider);flex:none">'
             f'<a href="/" style="text-decoration:none;display:flex;align-items:center;gap:7px">{LOGO}</a>{switcher}'
-            f'<div style="display:flex;gap:18px;align-items:stretch;align-self:stretch">{tab_html}{usr_sep}</div>'
+            f'<div class="mc-navtabs" style="display:flex;gap:18px;align-items:stretch;align-self:stretch">{tab_html}{usr_sep}</div>'
             f'<div style="margin-left:auto;display:flex;align-items:center;align-self:stretch;gap:16px">'
             # Bell opens the notification centre in place. It used to navigate to /approvals, which
             # meant losing your page to check whether anything had happened.

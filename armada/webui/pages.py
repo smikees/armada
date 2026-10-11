@@ -811,18 +811,20 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         theme_cards += (
             # Fixed width + a reserved caption line: the card must not resize when it becomes
             # selected, or picking a theme reflows the whole grid under the cursor.
-            f'<div class="mc-themecard" data-theme-id="{_tid}" data-selected="{"true" if _sel else "false"}" onclick="mcSelectTheme(\'{_tid}\')" title="{E(_t["name"])}" '
+            f'<button type="button" class="mc-themecard" data-theme-id="{_tid}" data-selected="{"true" if _sel else "false"}" '
+            f'aria-pressed="{"true" if _sel else "false"}" data-theme-css="{E(vtheme.theme_css(_tid))}" '
+            f'data-theme-fonts="{E(json.dumps(vtheme.preferences(_tid)))}" onclick="mcSelectTheme(\'{_tid}\')" title="{E(_t["name"])}" '
             f'style="cursor:pointer;border:1px solid {"var(--color-accent)" if _sel else "var(--color-divider)"};'
             f'border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;gap:9px;'
-            f'width:140px;box-sizing:border-box;flex:none;'
+            f'width:140px;box-sizing:border-box;flex:none;font:inherit;color:inherit;text-align:left;'
             f'{"background:var(--color-accent-100)" if _sel else ""}">'
             f'<span style="width:30px;height:30px;border-radius:50%;flex:none;'
             f'background:linear-gradient(135deg,{_a} 0 50%,{_a2} 50% 100%)"></span>'
-            f'<div style="min-width:0">'
-            f'<div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;'
-            f'text-overflow:ellipsis">{E(_t["name"])}</div>'
-            f'<div data-theme-caption style="font-size:11px;color:var(--text-muted);white-space:nowrap">'
-            f'{"selected" if _sel else "&#8203;"}</div></div></div>')
+            f'<span style="min-width:0">'
+            f'<span style="display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;'
+            f'text-overflow:ellipsis">{E(_t["name"])}</span>'
+            f'<span data-theme-caption style="display:block;font-size:11px;color:var(--text-muted);white-space:nowrap">'
+            f'{"selected" if _sel else "&#8203;"}</span></span></button>')
 
     _mode = _layout.appearance_mode()
     appearance = (
@@ -837,9 +839,11 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
                   f'<span style="display:flex;color:var(--text-dim)">{_icon(ic,15)}</span>{lab}</label>'
                   for v, lab, ic in [("light", "Light", "sun"), ("dark", "Dark", "moon"), ("system", "System", "monitor")])
         + '</div>'
-        f'<label class="mc-label">Colour theme</label>'
+        f'<label class="mc-label">Theme</label>'
         f'<div style="display:flex;gap:10px;flex-wrap:wrap">{theme_cards}</div>'
-        + _font_picker())
+        + _font_picker()
+        + f'<label class="mc-startup-sound"><input id="st-startup-sound" type="checkbox" '
+          f'{"checked" if appconfig.get("startup_sound", True) else ""}>Play a quiet sound when ARMADA is ready</label>')
 
     # Channels live here (per machine); *which events* notify stays with the realm.
     def chan(cid, label, desc, on, disabled=False, soon=False):
@@ -992,7 +996,11 @@ def _font_picker() -> str:
             f'<div class="mc-fontsample mc-frame"><div class="mc-h-card" style="margin:0 0 4px">'
             f'The quick brown fox · Overview · Jobs</div>'
             f'<div style="font-size:12.5px">Agents, memories and scheduled jobs — 0123456789. '
-            f'<b>Bold</b>, <span style="font-weight:500">medium</span>, regular.</div></div>')
+            f'<b>Bold</b>, <span style="font-weight:500">medium</span>, regular.</div>'
+            f'<div class="mc-theme-status-set">'
+            + ''.join(f'<span class="mc-theme-status" data-job-state="{state}">{label}</span>'
+                      for state, label in [('success','Success'),('running','Running'),('scheduled','Scheduled'),
+                                           ('warning','Warning'),('failed','Failed')]) + '</div></div>')
 
 
 def render_new_realm(realm, dark=False, embed=False) -> str:

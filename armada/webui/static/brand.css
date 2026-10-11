@@ -7,6 +7,7 @@
 --color-accent-2-100:#e2f5f8;--color-accent-2-200:#bfeaf0;--color-accent-2-300:#8dd8e2;--color-accent-2-400:#56c1d0;--color-accent-2-500:#12a3b8;--color-accent-2-600:#0e849a;--color-accent-2-700:#0b667a;--color-accent-2-800:#084a59;--color-accent-2-900:#05303a;
 --status-ok:#2e9c6a;--status-warn:#d08a1c;--status-bad:#c9463d;--status-idle:#98989b;
 --color-sand-100:#e9e9ea;--color-sand-200:#dfdfe1;--color-sand-300:#d0d0d3;--color-sand-500:#b3b3b7;--color-sand-700:#6d6d71;--color-sand-900:#3a3a3d;--r:4px}
+:root,.armada-dark{--status-running:var(--color-accent-2)}
 
 /* Derived tokens: a colour faded toward transparent. Declared on BOTH :root and .armada-dark, on
    purpose. A custom property's var() is resolved where the property is declared, not where it is
@@ -516,6 +517,15 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-fontsizepick{display:flex;flex-direction:column;gap:3px;min-width:120px}
 .mc-font-size-notice{position:fixed;right:18px;bottom:18px;z-index:10000;padding:8px 12px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);box-shadow:var(--shadow-sm);font-size:13px;pointer-events:none}
 .mc-fontsample{margin-top:10px;padding:10px 12px;border-radius:var(--r);background:var(--color-sand-100);max-width:520px;font-family:var(--font-body)}
+.mc-theme-status-set{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.mc-theme-status{display:inline-flex;align-items:center;padding:3px 7px;border-radius:var(--r);font-size:11px;font-weight:500}
+.mc-theme-status[data-job-state="success"]{background:var(--status-ok-16);color:var(--status-ok)}
+.mc-theme-status[data-job-state="running"]{background:var(--color-accent-2);color:white}
+.mc-theme-status[data-job-state="warning"]{background:var(--status-warn-16);color:var(--status-warn)}
+.mc-theme-status[data-job-state="failed"]{background:var(--status-bad-16);color:var(--status-bad)}
+.mc-theme-status[data-job-state="scheduled"]{border:1px solid var(--color-accent-2);color:var(--color-accent-2)}
+.mc-startup-sound{display:flex;align-items:center;gap:8px;margin-top:16px;font-size:12.5px;cursor:pointer}
+.mc-startup-sound input{margin:0}
 
 /* Logo pairs (brand._pair, v0.99.66): the dark-background artwork in dark mode, the standard one otherwise.
    !important because each <img> carries display:block inline. */
