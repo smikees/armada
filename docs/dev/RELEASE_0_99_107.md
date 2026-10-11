@@ -36,4 +36,21 @@ runs, so nothing that reads results changes.
 
 ## Results
 
-Recorded below when the maintenance publisher completes.
+Published 2026-10-11 as normal/latest [v0.99.107](https://github.com/smikees/armada/releases/tag/v0.99.107)
+from source `ec99949`, through `tools/publish_release.py --maintenance-unsigned` (exact-source Windows
+CI passed before the build).
+
+- Pinned isolated release gate: **3,639 passed, 5 skipped**.
+- Native WebView2: 16 multi-window session checks passed; native upgrade gate: 69 real-page, restart
+  and cleanup checks passed, upgrading 0.99.106 to 0.99.107.
+- The owner's running app was not restarted.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `ARMADA-Setup-0.99.107.exe` | `32e4355f22e0040c4de64c0284db27e68a3724e52c037363a9718b4ca1140d80` |
+| `armada-0.99.107.zip` | `ec6f342818bfe35dbd7f9ff9bded70a2b38793bba7d0e77bf408b52b965593aa` |
+| `armada-update.json` | `5aacc247ac864efdfe8157fb14072f3354637bf70c5d30d30b5707cd7d284bbd` |
+| `armada-update.json.sig` | `2dc76d70dc44ca597c45534b5c8b1afeb95a451991da451723ef6a3a9c911da7` |
+
+Website: `website/index.html` carries 0.99.107 in source; the owner's FTPS upload and its
+verification are recorded here once done.
