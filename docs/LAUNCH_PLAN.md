@@ -12,6 +12,10 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.107** tells agents whether a turn is a conversation, a one-off request or a scheduled
+job run, so job-ending rules in profiles stay in jobs; Armada II starts at 13 px, the ready sound moves to
+Advanced, and inspector agents carry a scan mark. [Verification](dev/RELEASE_0_99_107.md).
+
 Version **0.99.106** adds the optional Armada II theme: IBM Plex typography, 15 px starting size,
 softer corners and muted job status colors, with live previews in Settings. A quiet Windows
 desktop-ready cue plays once per launch and can be disabled in Settings.

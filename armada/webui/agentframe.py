@@ -17,7 +17,7 @@ from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMI
     _model_is_claude)
 from .schedfmt import (_DOW_NAME, _humanize, _cadence_bucket, _status_bucket, _STATUS_FILTERS,
     _CADENCE_FILTERS, _next_run_dt, _job_next_dt, _ordinal, _next_hint, _fmt_ts)
-from .agentbits import _coord_mark
+from .agentbits import _coord_mark, _inspector_mark
 from .agentbits import (_activity_dot, _agent_activity, _agent_busy, _agent_has_unread,
     _agent_model_effort, _agent_stored_color, _autonomy_badge, _autonomy_of, _avatar_file, _bust,
     _goals_cell, _has_pending_proposals, _health7, _model_chip, _model_chip_label, _model_mark,
@@ -90,6 +90,7 @@ def _agent_header(realm, realm_root, a) -> str:
             f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
             f'<span class="mc-h-page is-agent">{E(a.display)}</span>'
             + (_coord_mark(20) if coord else "")
+            + _inspector_mark(realm_root, a.id, 20)
             + f'{_autonomy_badge(_autonomy_of(realm_root, a.id), 16)}{model_pill}{gear}</div>'
             f'<div style="margin-top:3px">{role}{sep}{profile}</div></div></div>')
 

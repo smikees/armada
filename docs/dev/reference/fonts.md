@@ -12,6 +12,10 @@ Per machine, like the colour theme: stored in appconfig as `font_body` / `font_h
 defaults are the design's own (Barlow, Barlow Condensed) and emit nothing, so a page in the default
 fonts is byte-for-byte what it was before this setting existed.
 
+### `_adopt_armada_ii_13()`
+
+Armada II started at 15 px in 0.99.106; from 0.99.107 it starts at 13 px like every theme.
+
 ### `reference_size()`
 
 Reference text size in pixels; invalid saved preferences keep the design default.

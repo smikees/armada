@@ -17,7 +17,7 @@ from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMI
     _model_is_claude)
 from .schedfmt import (_DOW_NAME, _humanize, _cadence_bucket, _sysjob_cadence_bucket, _status_bucket,
     _STATUS_FILTERS, _CADENCE_FILTERS, _next_run_dt, _job_next_dt, _ordinal, _next_hint, _fmt_ts)
-from .agentbits import _week_filter_bucket, _FILTER_BACK_DAYS, _coord_mark
+from .agentbits import _week_filter_bucket, _FILTER_BACK_DAYS, _coord_mark, _inspector_mark
 from .agentbits import (_activity_dot, _agent_activity, _agent_busy, _agent_has_unread,
     _agent_model_effort, _agent_stored_color, _autonomy_badge, _autonomy_of, _avatar_file, _bust,
     _goals_cell, _jobs_cell, _has_pending_proposals, _health7, _model_chip, _model_chip_label, _model_mark,
@@ -267,6 +267,8 @@ def _realm_ministers(realm, realm_root, today) -> str:
         # Was a word-shaped pill beside the name. The role is a property of the agent and it shows
         # up in four lists; the laurel says it once, in the space a badge takes.
         coordtag = (' ' + _coord_mark(16, tip=True)) if a.is_coordinator else ''
+        inspector = _inspector_mark(realm_root, a.id, 16)
+        coordtag += (' ' + inspector) if inspector else ''
         profile = (f'<div style="font-size:11.5px;color:var(--text-dim);font-style:italic;'
                    f'margin-top:8px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden">{E(a.leader)}</div>') if a.leader else ""
         # Appointed sits under the avatar, icon over date. It was pushed to the far end of the

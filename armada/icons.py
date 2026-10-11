@@ -287,6 +287,11 @@ ICONS['hook'] = '<path fill="currentColor" fill-rule="evenodd" d="M1 11.125a3.87
 ICONS["engines-any"] = ('<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" '
                         'stroke-width="2"><circle cx="12" cy="5.5" r="2.6"/><circle cx="5.5" cy="17.5" r="2.6"/>'
                         '<circle cx="18.5" cy="17.5" r="2.6"/><path d="m10.7 7.8-3.9 7.4M13.3 7.8l3.9 7.4M8.2 17.5h7.6"/></g>')
+# Boxicons "scan-search" (MIT), marks an agent with inspector tools.
+ICONS["scan-search"] = ('<path fill="currentColor" d="M7 11.5c0 2.48 2.02 4.5 4.5 4.5c.88 0 1.69-.26 2.39-.7l1.91 '
+                        '1.91l1.41-1.41l-1.91-1.91c.44-.69.7-1.51.7-2.39C16 9.02 13.98 7 11.5 7S7 9.02 7 11.5M11.5 '
+                        '9a2.5 2.5 0 0 1 0 5a2.5 2.5 0 0 1 0-5M5 5h4V3H5c-1.1 0-2 .9-2 2v4h2zm0 16h4v-2H5v-4H3v4c0 '
+                        '1.1.9 2 2 2m16-6h-2v4h-4v2h4c1.1 0 2-.9 2-2zm0-10c0-1.1-.9-2-2-2h-4v2h4v4h2z"/>')
 ICONS["swap"] = ('<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" '
                  'stroke-width="2"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></g>')
 _ICON_VB['hook'] = '0 0 16 16'

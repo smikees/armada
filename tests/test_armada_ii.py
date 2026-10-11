@@ -16,7 +16,7 @@ def test_theme_selection_saves_typography_together_and_keeps_other_preferences()
     assert handler._save_appearance({'theme':'armada-ii'})['ok']
     assert appconfig.get('theme') == 'armada-ii'
     assert fonts.selected('body') == fonts.selected('heading') == 'ibm-plex-sans'
-    assert fonts.reference_size() == fonts.default_size() == 15
+    assert fonts.reference_size() == fonts.default_size() == 13
     assert appconfig.get('appearance') == 'dark' and appconfig.get('startup_sound') is False
     assert appconfig.get('unrelated') == 'retained'
     assert handler._save_appearance({'theme':'armada'})['ok']
@@ -27,7 +27,7 @@ def test_theme_selection_saves_typography_together_and_keeps_other_preferences()
 def test_theme_defaults_work_when_only_the_theme_is_present():
     appconfig.save({'theme':'armada-ii'})
     assert fonts.selected('body') == fonts.selected('heading') == 'ibm-plex-sans'
-    assert fonts.reference_size() == fonts.default_size() == 15
+    assert fonts.reference_size() == fonts.default_size() == 13
 
 
 def test_old_default_faces_can_override_the_new_theme():
@@ -88,3 +88,11 @@ def test_sound_asset_and_mono_faces_are_packaged():
     assert (static/'fonts/OFL-ibm-plex-mono.txt').is_file()
     for weight in (400,500,600,700):
         assert (static/f'fonts/ibm-plex-mono-{weight}.woff2').is_file()
+
+
+def test_armada_ii_moves_from_its_old_15px_start_to_13px_once():
+    """0.99.106 started Armada II at 15 px; 0.99.107 starts it at 13 px. A size chosen later stays."""
+    appconfig.save({'theme':'armada-ii', 'font_size':15, 'font_size_default':15})
+    assert fonts.reference_size() == fonts.default_size() == 13
+    fonts.save_size(15, default=15)
+    assert fonts.reference_size() == 15                  # the owner's own choice is not moved again

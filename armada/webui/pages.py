@@ -841,9 +841,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         + '</div>'
         f'<label class="mc-label">Theme</label>'
         f'<div style="display:flex;gap:10px;flex-wrap:wrap">{theme_cards}</div>'
-        + _font_picker()
-        + f'<label class="mc-startup-sound"><input id="st-startup-sound" type="checkbox" '
-          f'{"checked" if appconfig.get("startup_sound", True) else ""}>Play a quiet sound when ARMADA is ready</label>')
+        + _font_picker())
 
     # Channels live here (per machine); *which events* notify stays with the realm.
     def chan(cid, label, desc, on, disabled=False, soon=False):
@@ -1699,6 +1697,7 @@ def _app_advanced(updater, realm_root="") -> str:
             'copy, so it never updates itself; the switch applies once ARMADA is installed.</div>')
     from .. import appconfig
     tray_on = appconfig.get("keep_in_tray", True) is not False
+    sound_on = appconfig.get("startup_sound", True) is not False
     return ('<details class="mc-frame" id="st-app-advanced" style="border-radius:var(--r);padding:14px 16px;margin-bottom:14px">'
             '<summary style="cursor:pointer;font-family:var(--font-heading);font-weight:600;font-size:15px">Advanced</summary>'
             '<div style="margin-top:12px;display:flex;align-items:flex-start;gap:12px">'
@@ -1711,6 +1710,14 @@ def _app_advanced(updater, realm_root="") -> str:
             'When off, closing Armada stops future scheduled jobs until you open it again.</div>'
             '<span id="mc-tray-msg" style="font-size:11.5px;color:var(--text-muted)"></span>'
             '</div></div>'
+            '<div style="margin-top:12px;display:flex;align-items:flex-start;gap:12px">'
+            f'<label class="mc-toggle" title="{"On" if sound_on else "Off"}">'
+            f'<input type="checkbox" id="st-startup-sound" {"checked" if sound_on else ""}>'
+            '<span class="mc-toggle-sl"></span></label>'
+            '<div><div style="font-size:12.5px;font-weight:600">Play a quiet sound when ARMADA is ready</div>'
+            '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.5;margin-top:2px">'
+            'Once, when the Windows app finishes loading. Not on navigation, detached threads or '
+            'restoring from the tray.</div></div></div>'
             '<div style="margin-top:12px;display:flex;align-items:flex-start;gap:12px">'
             f'<label class="mc-toggle" title="{"On" if on else "Off"}">'
             f'<input type="checkbox" id="st-update-auto" {"checked" if on else ""}>'

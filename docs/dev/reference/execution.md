@@ -32,6 +32,10 @@ Exclusive in-process admission and owned activity marker, including early cancel
 - `RunSession.close(self)` — —
 - `RunSession.__exit__(self, *args)` — —
 
+### `turn_kind_note(scheduled_job: bool, task, thread: str)`
+
+Tell the agent what kind of turn this is, so job-only instructions stay in jobs.
+
 ### class `TurnRequest`
 
 —

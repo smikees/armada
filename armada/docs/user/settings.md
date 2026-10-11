@@ -34,17 +34,17 @@ you use them.
 - **Appearance** — light, dark, or your system's colour mode, and the theme.
   Colour mode previews immediately on the settings page. Save keeps your choice; Cancel restores
   the saved appearance.
-- **Armada II** — IBM Plex Sans for headings and body text, starting at 15 px; IBM Plex Mono
+- **Armada II** — IBM Plex Sans for headings and body text, starting at 13 px; IBM Plex Mono
   for code, times, token counts and paths. Controls have softer corners. Jobs use muted green
   for Success, blue for Running, amber for Warning and red for Failed; Scheduled has a dashed
   outline. Light and dark modes each have a readable palette. Selecting a theme previews it
   and its default typography. Save applies your selections; Cancel discards the preview.
   You can adjust the font families and size before saving. Selecting another theme restores
   that theme's starting fonts and size.
-- **Play a quiet sound when ARMADA is ready** — a short cue at 12% track volume when the
+- **Advanced → Play a quiet sound when ARMADA is ready** (on by default) — a short cue at 12% track volume when the
   Windows desktop finishes loading. It plays once per launch, including a restart, and does
   not repeat when navigating, opening detached threads or restoring ARMADA from the tray.
-  Turn it off here to silence future launches. Playback does not change system volume.
+  Switch it off to silence future launches. Playback does not change system volume.
 - **Appearance → Fonts** — choose separate font families for headings and body text (each
   option in the list is shown in its own face), and a
   **Default size** from 10 to 26 px (initially **13 px**). Headings and smaller labels scale

@@ -150,6 +150,10 @@ The same week strip, for a job that runs on an INTERVAL rather than at a time of
 
 The status bucket the filters should match, read from the week strip the row already draws.
 
+### `_inspector_mark(realm_root, agent_id: str, size: int=15)`
+
+Boxicons scan-search beside an inspector agent's name; '' for everyone else.
+
 ### `_coord_mark(size: int=15, tip: bool=False)`
 
 The coordinator's laurel, for beside an agent's name.

@@ -729,6 +729,21 @@ _COORD_TIP = ("A coordinator agent has realm-wide visibility and is added automa
               "every goal.")
 
 
+def _inspector_mark(realm_root, agent_id: str, size: int = 15) -> str:
+    """Boxicons scan-search beside an inspector agent's name; '' for everyone else."""
+    from pathlib import Path
+    from .. import util
+    try:
+        cfg = util.read_json_state(Path(realm_root) / "agents" / str(agent_id) / "agent.json")
+    except Exception:  # silent-ok: an unreadable agent.json just shows no mark; the page reports it elsewhere
+        return ""
+    if cfg.get("is_inspector") is not True:
+        return ""
+    return (f'<span class="mc-inspector-mark" title="Inspector: can test jobs and models in dry runs" '
+            f'aria-label="Inspector" style="display:inline-flex;flex:none;align-items:center;'
+            f'color:var(--color-accent-2);cursor:help">{_icon("scan-search", size)}</span>')
+
+
 def _coord_mark(size: int = 15, tip: bool = False) -> str:
     """The coordinator's laurel, for beside an agent's name.
 

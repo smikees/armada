@@ -524,8 +524,6 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-theme-status[data-job-state="warning"]{background:var(--status-warn-16);color:var(--status-warn)}
 .mc-theme-status[data-job-state="failed"]{background:var(--status-bad-16);color:var(--status-bad)}
 .mc-theme-status[data-job-state="scheduled"]{border:1px solid var(--color-accent-2);color:var(--color-accent-2)}
-.mc-startup-sound{display:flex;align-items:center;gap:8px;margin-top:16px;font-size:12.5px;cursor:pointer}
-.mc-startup-sound input{margin:0}
 
 /* Logo pairs (brand._pair, v0.99.66): the dark-background artwork in dark mode, the standard one otherwise.
    !important because each <img> carries display:block inline. */

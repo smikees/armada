@@ -49,7 +49,7 @@ def _scale(prefix: str, base: str) -> str:
 THEMES: dict[str, dict] = {
     "armada": {"name": "ARMADA", "accent": "#0b3f86", "accent2": "#12a3b8"},
     "armada-ii": {"name": "Armada II", "accent": "#0b3f86", "accent2": "#12a3b8",
-                  "fonts": {"body": "ibm-plex-sans", "heading": "ibm-plex-sans"}, "size": 15},
+                  "fonts": {"body": "ibm-plex-sans", "heading": "ibm-plex-sans"}, "size": 13},
     "ember":  {"name": "Ember",  "accent": "#b4531f", "accent2": "#c99230"},
     "forest": {"name": "Forest", "accent": "#2f6d4f", "accent2": "#6a9b3f"},
     "plum":   {"name": "Plum",   "accent": "#6a3d9a", "accent2": "#b0559a"},

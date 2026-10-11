@@ -30,9 +30,26 @@ SIZE_MIN = 10
 SIZE_MAX = 26
 
 
+def _adopt_armada_ii_13() -> None:
+    """Armada II started at 15 px in 0.99.106; from 0.99.107 it starts at 13 px like every theme.
+
+    Moves a saved 15 px (size and Ctrl+0 target) that came from choosing the theme to 13 px, once.
+    A size picked afterwards is the owner's and stays.
+    """
+    if appconfig.get('theme') != 'armada-ii' or appconfig.get('armada_ii_size_13'):
+        return
+    updates = {'armada_ii_size_13': True}
+    if appconfig.get('font_size_default') == 15:
+        updates['font_size_default'] = SIZE_DEFAULT
+        if appconfig.get('font_size') == 15:
+            updates['font_size'] = SIZE_DEFAULT
+    appconfig.save(updates)
+
+
 def reference_size() -> int:
     """Reference text size in pixels; invalid saved preferences keep the design default."""
-    value = appconfig.get('font_size', 15 if appconfig.get('theme') == 'armada-ii' else SIZE_DEFAULT)
+    _adopt_armada_ii_13()
+    value = appconfig.get('font_size', SIZE_DEFAULT)
     return value if type(value) is int and SIZE_MIN <= value <= SIZE_MAX else SIZE_DEFAULT
 
 

@@ -17,7 +17,7 @@ from .consumption import (_MODEL_CLR, _MODEL_FALLBACK, _model_color, _MODEL_FAMI
     _model_is_claude)
 from .schedfmt import (_DOW_NAME, _humanize, _cadence_bucket, _status_bucket, _STATUS_FILTERS,
     _CADENCE_FILTERS, _next_run_dt, _ordinal, _next_hint, _fmt_ts)
-from .agentbits import _coord_mark
+from .agentbits import _coord_mark, _inspector_mark
 from .agentbits import (_activity_dot, _agent_activity, _agent_busy, _agent_has_unread,
     _agent_model_effort, _agent_stored_color, _autonomy_badge, _autonomy_of, _avatar_file, _bust,
     _goals_cell, _jobs_cell, _has_pending_proposals, _health7, _model_chip, _model_chip_label, _model_mark,
@@ -56,6 +56,7 @@ def _reg_row(a, realm_root: Path, today: datetime.date, coord: bool = False, rea
             f'<div><div style="display:flex;align-items:center;gap:6px">'
             f'<span style="font-family:var(--font-heading);font-weight:600;font-size:15px;line-height:1.1" title="{E(a.leader)}">{E(a.display)}</span>'
             + (_coord_mark(14) if coord else "")
+            + _inspector_mark(realm_root, a.id, 14)
             # Autonomy rides with the name rather than holding a 70px column of its own. It is an
             # icon, it is a property of the agent, and the week strip needed the room more.
             + f'<span style="display:inline-flex;flex:none">{autonomy}</span></div>'
