@@ -75,7 +75,7 @@ interesting false one.
   --job-scheduled-border:#877256;--job-scheduled-ink:#e1cfb5;
 }
 body{font-variant-numeric:tabular-nums}
-code,pre,kbd,samp,[style*=&quot;monospace&quot;],.mc-limit-pct,.mc-limit-reset{font-family:var(--font-mono)!important}
+code,pre,kbd,samp,.mono,[style*=&quot;monospace&quot;],.mc-limit-pct,.mc-limit-reset,.mc-kpi-v,[data-next-cell],.mc-job-runlink{font-family:var(--font-mono)!important}
 .mc-pill,.mc-chip,.mc-cap-frozen,.mc-cap-living{border-radius:6px}
 .mc-theme-status{display:inline-flex;align-items:center;padding:4px 8px;font-size:12px;font-weight:500;line-height:1.5;border-radius:6px}
 [data-job-state=&quot;success&quot;]{background:var(--job-success-bg)!important;color:var(--job-success-ink)!important}
@@ -89,6 +89,7 @@ code,pre,kbd,samp,[style*=&quot;monospace&quot;],.mc-limit-pct,.mc-limit-reset{f
 i[data-job-state]{border-radius:3px!important}
 .mc-fontsample{background:var(--color-bg)}
 .armada-dark .btn-danger,.armada-dark .mc-count.is-warn{color:#1c2025}
+.armada-dark .mc-themecard[data-selected=&quot;true&quot;]{background:color-mix(in srgb,var(--color-accent) 12%,var(--color-bg))!important}
 .mc-mainnav{flex-wrap:wrap;gap:0 20px!important}
 .mc-navtabs{flex-wrap:wrap;max-width:100%;gap:0 18px!important}
 @media(max-width:1180px){.mc-navtabs{order:3;flex-basis:100%}}

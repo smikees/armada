@@ -21,7 +21,7 @@
   --job-scheduled-border:#877256;--job-scheduled-ink:#e1cfb5;
 }
 body{font-variant-numeric:tabular-nums}
-code,pre,kbd,samp,[style*="monospace"],.mc-limit-pct,.mc-limit-reset{font-family:var(--font-mono)!important}
+code,pre,kbd,samp,.mono,[style*="monospace"],.mc-limit-pct,.mc-limit-reset,.mc-kpi-v,[data-next-cell],.mc-job-runlink{font-family:var(--font-mono)!important}
 .mc-pill,.mc-chip,.mc-cap-frozen,.mc-cap-living{border-radius:6px}
 .mc-theme-status{display:inline-flex;align-items:center;padding:4px 8px;font-size:12px;font-weight:500;line-height:1.5;border-radius:6px}
 [data-job-state="success"]{background:var(--job-success-bg)!important;color:var(--job-success-ink)!important}
