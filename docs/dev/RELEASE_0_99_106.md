@@ -33,3 +33,27 @@ fallbacks remain intact. Release gates and publication evidence are recorded aft
 
 The maintenance beta continues the existing recorded unsigned-installer distribution;
 Ed25519 update signing and all application/native upgrade gates remain mandatory.
+
+## Published evidence
+
+- Published October 11, 2026, from `acc69da558433858add4f74c8d0ba3308ec1efdf`:
+  https://github.com/smikees/armada/releases/tag/v0.99.106.
+- Isolated local release gate: 3,632 passed, 5 skipped. Exact-source Windows CI passed
+  both pinned Python 3.12 variants and the PHP relay check:
+  https://github.com/smikees/armada/actions/runs/38142844535.
+- Native launcher recovery passed all five interruption points; WebView2 passed 16
+  multi-window session checks. Packaged upgrade from 0.99.105 passed all 69 real-page,
+  restart and cleanup checks against the exact signed candidate.
+- Fresh public downloads verified all four asset hashes, the Ed25519 manifest signature,
+  the update archive hash, and byte-for-byte contents of all 358 committed app files.
+- Installer SHA-256:
+  `732f113a09e284879c82090d268344cc9ef04739dced5c40d5a1aa518ae24c7c`.
+- https://armada.stamih.com/ updated with a backed-up, certificate-verified FTPS swap;
+  public HTTPS page and installer download verified against local release files.
+- The owner explicitly approved publishing this unsigned Windows beta installer and
+  signed update. No owner app restart was required to publish.
+
+The first full-suite run exposed a test assumption that all bundled fonts are selectable
+body fonts. IBM Plex Mono is intentionally bundled only for data/code, and already had
+its correct attribution and OFL notice. The test now resolves that family separately,
+while continuing to require attribution and the original license for every bundled font.
