@@ -15,6 +15,9 @@ The current release is recorded in the [README](../README.md),
 Version **0.99.108** lets chats continue with unavailable connector tools withheld, adds
 owner-assisted connector setup in normal chats, fixes Claude HTTP/SSE sign-in checks and displays
 the saved reply outcome in both thread views. [Verification](dev/RELEASE_0_99_108.md).
+Published on GitHub and the website with 3,657 tests passing, exact-source Windows CI,
+5 recovery, 16 session and 69 upgrade checks. All public assets and the signed package
+are verified; the owner’s running app was not restarted.
 
 Version **0.99.107** tells agents whether a turn is a conversation, a one-off request or a scheduled
 job run, so job-ending rules in profiles stay in jobs; Armada II starts at 13 px, the ready sound moves to

@@ -54,3 +54,33 @@ update through the unified release gate. Windows publisher signing remains pendi
 exact-source Windows CI, staged native session/recovery, packaged upgrade and public website
 verification must pass before the release is complete. The owner's app is not restarted merely
 to publish. Final publication evidence is recorded after the enforced gate succeeds.
+
+
+## Publication evidence
+
+Published 2026-10-11 as normal/latest
+[v0.99.108](https://github.com/smikees/armada/releases/tag/v0.99.108) from source
+`112e4f3c723d2fe71168091851452a7f275c1a1c` through
+`tools/publish_release.py --maintenance-unsigned`.
+
+- Pinned isolated full release gate: **3,657 passed, 5 skipped**.
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/38157234698)
+  passed before artifact staging.
+- Compiled native launcher: all 5 interruption/recovery checks passed.
+- Staged WebView2: all 16 multi-window session checks passed.
+- Compatible signed upgrade from 0.99.107: all 69 real-page/restart/cleanup checks passed.
+- Downloaded all 4 public assets and verified their sizes, SHA-256 values and update signature.
+  The signed package contains exactly the 359 tracked application files, byte for byte.
+- [armada.stamih.com](https://armada.stamih.com/) deployed with certificate-verified FTPS,
+  backup and verified temporary upload before rename. Public HTTPS page and installer download
+  match the local release. Website source SHA-256:
+  `16b3e56c2bc94a7154a2f757aff761eecfddfabe0a363ce47704b41f0373310c`.
+- The owner's running application was not restarted. EODHD sign-in was verified separately;
+  neither the provider smoke tests nor schema check read financial data.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `armada-0.99.108.zip` | `d6a35f57450918da37f0f948ab936f178f90490b50fc638bde0c5a3d762825eb` |
+| `ARMADA-Setup-0.99.108.exe` | `0d7290d93665f4508c80d877da21515be98aa2573d7880ca2f7619ca43f9b189` |
+| `armada-update.json` | `f65d6e62fa69b551b581baf8be8cd8b72bb89499e9e208ec6247dd62e6826f3e` |
+| `armada-update.json.sig` | `a21e8f4ba4b997ae875b714a47dd176dbf8b56020388f7c95c46c52c21d6289b` |
