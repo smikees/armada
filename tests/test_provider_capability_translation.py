@@ -12,10 +12,17 @@ from armada.engine.contracts import RunRequest, validate_request
 IBKR = 'claude_ai_Interactive_Brokers_IBKR'
 
 
+def portable(cid):
+    """Explicit public endpoint and independently linked Codex registration, not a Claude-only import."""
+    from armada.engine.mcp import registration_id
+    url='https://broker.example/mcp'
+    return {'id':cid,'mcp_url':url,'provider_bindings':{'codex':{'server_name':registration_id(cid),'endpoint':url}}}
+
+
 @pytest.fixture
 def realm(tmp_path):
     util.write_json_atomic(tmp_path/'realm.json', {'name': 'Mixed providers', 'toolkit': {
-        'connectors': [{'id': IBKR}, {'id': 'claude.ai Gmail'}, {'id': 'claude.ai Claude Docs'}],
+        'connectors': [portable(IBKR), {'id': 'claude.ai Gmail'}, {'id': 'claude.ai Claude Docs'}],
         'extensions': [{'id': 'revoked', 'enabled': False}]}})
     util.write_json_atomic(tmp_path/'agents/finance/agent.json', {'id': 'finance', 'model': 'gpt-6-astra',
         'allow_tools': True, 'toolkit': {'connectors': [{'id': IBKR}], 'extensions': [{'id': 'revoked'}]}})
@@ -30,12 +37,13 @@ def test_codex_mixed_catalogue_never_becomes_individual_tool_denials(realm, monk
     monkeypatch.setattr(engine, '_execution_probe', lambda *a: {"ok": True, "reason": ""})
     launches = []
     monkeypatch.setattr(engine, '_probe', lambda *a, **kw: SimpleNamespace(returncode=0,
-        stdout=json.dumps([{'name': IBKR}, {'name': 'ambient'}, {'name': 'revoked'}])))
+        stdout=json.dumps([{'name': IBKR,'transport':{'url':'https://broker.example/mcp'}}, {'name': 'ambient'}, {'name': 'revoked'}])))
     def stream(self, **kw):
         validate_request('codex', self.capabilities, RunRequest('', '', disallowed_tools=tuple(kw['disallowed_tools'])))
         args = self._mcp_args(True, kw['disallowed_tools'])
         assert self.allowed_mcp_ids == {IBKR}
-        assert self._turn_mcp_ids == (IBKR,)
+        setup=getattr(self,'connector_tools',None)
+        assert self._turn_mcp_ids == (IBKR,) + ((setup.server_name,) if setup else ())
         assert 'mcp_servers.ambient.enabled=false' in args
         assert 'mcp_servers.revoked.enabled=false' in args
         assert f'mcp_servers.{IBKR}.enabled=false' not in args
@@ -126,7 +134,7 @@ def test_portable_registration_keeps_grant_and_revocation(provider, tmp_path, mo
     from armada.engine import get_engine
     from armada.engine.mcp import registration_id
     cid = 'claude.ai Google Drive'
-    util.write_json_atomic(tmp_path/'realm.json', {'toolkit': {'connectors': [{'id': cid}]}})
+    util.write_json_atomic(tmp_path/'realm.json', {'toolkit': {'connectors': [portable(cid)]}})
     util.write_json_atomic(tmp_path/'agents/steve/agent.json', {'id': 'steve', 'toolkit': {'connectors': [{'id': cid}]}})
     engine = get_engine(provider)
     runner._tool_grants(tmp_path, 'steve', engine, True)
@@ -149,7 +157,7 @@ def test_codex_portable_registration_is_admitted_while_ambient_servers_are_disab
     from armada.engine.mcp import registration_id
     cid = 'claude.ai Google Drive'
     sid = registration_id(cid)
-    util.write_json_atomic(tmp_path/'realm.json', {'toolkit': {'connectors': [{'id': cid}]}})
+    util.write_json_atomic(tmp_path/'realm.json', {'toolkit': {'connectors': [portable(cid)]}})
     util.write_json_atomic(tmp_path/'agents/steve/agent.json', {'id': 'steve', 'toolkit': {'connectors': [{'id': cid}]}})
     engine = codex.CodexEngine()
     runner._tool_grants(tmp_path, 'steve', engine, True)
@@ -160,6 +168,18 @@ def test_codex_portable_registration_is_admitted_while_ambient_servers_are_disab
     assert 'mcp_servers.ambient.enabled=false' in args
     assert f'mcp_servers.{registration_id("claude.ai Google/Drive")}.enabled=false' in args
     assert engine._turn_mcp_ids == (sid,)
+
+
+@pytest.mark.parametrize('provider',['claude','codex','gemini'])
+def test_refreshing_grants_never_admits_a_claude_only_connection(tmp_path,provider):
+    from armada.engine import get_engine
+    from armada.engine.mcp import registration_id
+    cid='claude.ai Google Drive'
+    util.write_json_atomic(tmp_path/'realm.json',{'toolkit':{'connectors':[{'id':cid}]}})
+    util.write_json_atomic(tmp_path/'agents/a/agent.json',{'id':'a','toolkit':{'connectors':[{'id':cid}]}})
+    engine=get_engine(provider)
+    runner._tool_grants(tmp_path,'a',engine,True)
+    assert (registration_id(cid) in engine.allowed_mcp_ids)==(provider=='claude')
 
 
 @pytest.mark.parametrize('provider', ['claude', 'codex', 'gemini'])

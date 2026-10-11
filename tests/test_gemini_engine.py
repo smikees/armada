@@ -183,10 +183,16 @@ def test_unsupported_requirements_fail_before_launch(engine, monkeypatch, tmp_pa
     with pytest.raises(ValueError,match=message): engine.run_stream('','',cwd=tmp_path,**kwargs)
 
 
-def test_missing_assigned_connector_fails_closed(engine, tmp_path):
+def test_missing_assigned_connector_is_withheld_without_aborting_unrelated_work(engine, monkeypatch, tmp_path):
     engine.allowed_mcp_ids=frozenset({'ibkr'})
-    with pytest.raises(ValueError,match='not configured for Gemini'):
-        engine.run_stream('','',cwd=tmp_path,allow_tools=True)
+    def inspect(args, kwargs):
+        content=(Path(kwargs['cwd'])/'.agents/agents/armada-turn.md').read_text()
+        assert json.loads(content.split('---')[1])['mcpServers']==[]
+        assert 'Not configured or disabled in Gemini' in content
+    stream(monkeypatch,[final('Unrelated answer')],inspect=inspect)
+    result=engine.run_stream('','',cwd=tmp_path,allow_tools=True)
+    assert result.ok and result.output=='Unrelated answer'
+    assert engine.connector_unavailable[0]['state']=='missing'
 
 
 @pytest.mark.parametrize('path',['chat','job'])
@@ -207,14 +213,20 @@ def test_real_filesystem_extension_maps_to_scoped_native_tools(engine, monkeypat
         launches.append(args)
         content = (Path(kwargs['cwd'])/'.agents/agents/armada-turn.md').read_text()
         front = json.loads(content.split('---')[1])
-        assert front['mcpServers'] == []  # No Google MCP setup or ambient legacy command.
+        servers=front['mcpServers']
+        if path=='chat':
+            assert len(servers)==1 and servers[0]['name'].startswith('armada_setup_')
+            assert Path(servers[0]['args'][0]).name=='managed_mcp.py'
+        else:
+            assert servers==[]
+        # No Google MCP connection or ambient legacy command is admitted.
         effective = enabled and granted
         assert bool(set(front['tools']) & set(g._FILE_TOOLS)) is effective
         project = args[args.index('--project')+1]
         config = json.loads((Path.home()/'.gemini/config/projects'/f'{project}.json').read_text())
         allowed = config['permissionGrants']['permissionGrants']['allow']
-        assert not any(s.startswith('mcp(') for s in allowed)
-        assert allowed == ([f'write_file({own.as_posix()})',f'write_file({tmp_path.as_posix()})'] if effective else [])
+        assert [s for s in allowed if s.startswith('mcp(')]==[f"mcp({s['name']}/*)" for s in servers]
+        assert [s for s in allowed if not s.startswith('mcp(')] == ([f'write_file({own.as_posix()})',f'write_file({tmp_path.as_posix()})'] if effective else [])
         assert ('No separate filesystem connector login is needed' in content) is effective
     stream(monkeypatch,[final('PONG\nARMADA_JOB_RESULT: SUCCESS')],inspect=inspect)
     result = (runner.chat(tmp_path,'health','main','Test ping',engine='auto') if path=='chat'
@@ -228,8 +240,12 @@ def test_filesystem_server_name_alone_never_bypasses_mcp_configuration(engine, t
     util.write_json_atomic(tmp_path/'agents/a/agent.json',{'id':'a','toolkit':{'extensions':[{'id':'filesystem'}]}})
     denied = runner._tool_grants(tmp_path,'a',engine,True)
     assert not engine.native_filesystem_ids
-    with pytest.raises(ValueError,match='not configured for Gemini'):
-        engine.run_stream('','',cwd=tmp_path/'agents/a',allow_tools=True,disallowed_tools=denied)
+    assert engine._connectors(denied)==[]
+    assert engine.connector_unavailable[0]['state']=='missing'
+    agent=engine._agent('',True,denied)
+    assert json.loads(agent.split('---')[1])['mcpServers']==[]
+    assert 'Filesystem capability for this Gemini turn' not in agent
+    assert not engine.writable_roots
 
 
 def test_provider_local_connectors_are_explicitly_selected(engine):

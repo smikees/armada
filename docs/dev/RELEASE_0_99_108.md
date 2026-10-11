@@ -12,6 +12,8 @@ configuration conflict. Its installed OAuth command also requires an interactive
   individually. Invocation-local evidence and model context explain the missing operations.
   Invalid permissions, ambiguous identities, malformed inventories and ungranted callable
   native apps still fail closed. No disabled connection is implicitly re-enabled.
+  Refreshing grants preserves engine reach, so a Claude-only connector cannot reappear on
+  another provider through legacy alias translation.
 - Claude inventory parsing strips recognised transport suffixes and retains authentication
   state. Windows sign-in uses the provider's owned interactive console, observes exit status
   and kills the attempt at its five-minute deadline. ARMADA does not read the console or tokens.
@@ -33,10 +35,19 @@ configuration conflict. Its installed OAuth command also requires an interactive
   cancellation, audit redaction, interactive sign-in exit/timeout and browser outcome labels.
 - Installed Claude, Codex and Gemini CLIs each called the new broker's `list_connectors` in a
   synthetic realm and returned the expected empty list. No business connector data was used.
+- A real Claude turn admitted EODHD as connected with 100 tool schemas after owner sign-in;
+  no EODHD data tool was called. The existing owner grants were preserved.
 - Native thread-window probe: all 76 checks passed, including shared live/terminal transcripts,
   cancellation from either view and reopen/disconnect behavior.
 - Existing release model preferences were checked against the connected providers' catalogues;
   all preferred IDs are present. No agent or job model was changed.
+
+The first full gate correctly refused publication on 16 legacy assertions. Those fixtures
+assumed Claude-hosted connectors were portable without another provider binding, or that
+normal chats had no host setup broker. Updated fixtures declare public endpoints and independent
+bindings; new assertions retain filesystem boundaries and explicitly reject cross-provider
+use of Claude-only connections. Focused Gemini/translation validation then passed all 62 tests.
+A fresh exact-source full gate is required for the corrected test commit.
 
 Publication uses the continuing owner-authorized unsigned Windows beta installer and signed
 update through the unified release gate. Windows publisher signing remains pending. Full suite,
