@@ -1,6 +1,6 @@
 # Smart search (Add a capability)
 
-Status: released in 0.99.104 after an owner trial; decisions below confirmed by the owner.
+Status: released in 0.99.104; refined in 0.99.105 (layout, one link field, Review before add).
 
 ## Shape
 

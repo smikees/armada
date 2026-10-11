@@ -1184,3 +1184,21 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-ss-dirico{display:flex;color:var(--color-accent-2);padding-top:1px}
 .mc-addways .mc-frame{margin-bottom:12px!important}
 @media(max-width:700px){.mc-ss-card{grid-template-columns:auto minmax(0,1fr)}.mc-ss-actions{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center}}
+/* 0.99.105: search is the main column; a link and the directories sit in a side panel. */
+.mc-ss-layout{display:flex;gap:28px;align-items:flex-start}
+.mc-ss-main{flex:1;min-width:0}
+.mc-ss-side{flex:none;width:320px;position:sticky;top:16px;display:flex;flex-direction:column;gap:14px}
+.mc-ss-side-sec{border:1px solid var(--color-divider);border-radius:var(--r);padding:12px 14px}
+.mc-ss-side-h{display:flex;align-items:center;gap:7px;font-family:var(--font-heading);font-weight:600;font-size:14px;margin:0 0 4px}
+.mc-ss-side-h>svg{color:var(--color-accent-2)}
+.mc-ss-side-p{font-size:11.5px;color:var(--text-muted);line-height:1.45;margin:0 0 10px}
+.mc-ss-linkform{display:flex;gap:6px}
+.mc-ss-linkform .mc-field{flex:1;min-width:0}
+.mc-ss-linkout:empty{display:none}
+.mc-ss-linkout{margin-top:14px}
+.mc-ss-side .mc-ss-dirs{display:flex;flex-direction:column;gap:2px}
+.mc-ss-side .mc-ss-dir{border:0;padding:6px 6px;border-radius:8px}
+.mc-ss-side .mc-ss-dir:hover{background:var(--text-6)}
+.mc-ss-side .mc-ss-dir small{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.mc-ss-inrealm{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--status-ok);white-space:nowrap}
+@media(max-width:1100px){.mc-ss-layout{flex-direction:column}.mc-ss-side{width:auto;position:static}}

@@ -92,3 +92,23 @@ var mcSsWarmed=0;
 // Claude Code's list health-checks every server (seconds); start it while the owner is typing.
 function mcSsWarm(){if(mcSsWarmed)return;mcSsWarmed=1;fetch("/api/smart-search-warm",{method:"POST"}).catch(function(){});}
 if(document.getElementById("cap-pane-catalogue")&&document.getElementById("cap-pane-catalogue").style.display!=="none")mcSsWarm();
+// Review for a result already on this computer (one of your skills): ARMADA checks its files,
+// then the card offers Add to realm, like any other review.
+async function mcSsCheck(b,key){
+  var card=b.closest(".mc-ss-card"),box=card.querySelector(".mc-ss-review");
+  b.disabled=true;var was=b.textContent;b.textContent="Checking\u2026";
+  try{
+    var r=await(await fetch("/api/smart-search-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:key})})).json();
+    if(!r||!r.ok){box.innerHTML='<p class="mc-ss-error">'+mcSsEsc((r&&r.error)||"Could not check it.")+'</p>';}
+    else{window._mcCatReview={url:"",review:r.review,key:key};box.innerHTML=r.html||"";}
+  }catch(e){box.innerHTML='<p class="mc-ss-error">Could not check it: '+mcSsEsc(e)+'</p>';}
+  b.disabled=false;b.textContent=was;
+}
+// The Sources menu closes on a click outside it, and on Escape.
+document.addEventListener("click",function(e){
+  document.querySelectorAll("details.mc-ss-sources[open]").forEach(function(d){if(!d.contains(e.target))d.removeAttribute("open");});
+});
+document.addEventListener("keydown",function(e){
+  if(e.key!=="Escape")return;
+  document.querySelectorAll("details.mc-ss-sources[open]").forEach(function(d){d.removeAttribute("open");d.querySelector("summary").focus();});
+});

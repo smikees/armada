@@ -480,7 +480,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
         "/api/catalogue-reveal": "_catalogue_reveal",
         "/api/catalogue-review": "_catalogue_review", "/api/catalogue-add-link": "_catalogue_add_link",
         "/api/smart-search": "_smart_search", "/api/smart-search-add": "_smart_search_add",
-        "/api/smart-search-warm": "_smart_search_warm",
+        "/api/smart-search-warm": "_smart_search_warm", "/api/smart-search-check": "_smart_search_check",
         "/api/agent-retire": "_agent_retire", "/api/agent-reinstate": "_agent_reinstate",
         "/api/agent-delete": "_agent_delete",
         "/api/realm-preflight": "_realm_preflight", "/api/set-workspace": "_set_workspace",

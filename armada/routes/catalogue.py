@@ -118,13 +118,19 @@ class CatalogueRoutes:
         from .. import catalogue
         url = str(body.get("url") or "").strip()
         review = body.get("review")
-        if not url or not isinstance(review, dict):
+        if not isinstance(review, dict):
             return {"ok": False, "error": "review this link before adding it"}
         # A smart-search result names its catalogue entry: add that (a skill's files, a plugin's
         # record) with the review's findings, rather than a bare link.
         key = str(body.get("key") or "")
         if key:
             return catalogue.add_to_realm(self.realm, key, review=review)
+        if not url:
+            return {"ok": False, "error": "review this link before adding it"}
+        # An MCP server's own address becomes a working connector for every engine, carrying the
+        # review; anything else is recorded from the review as before.
+        if _looks_like_mcp(url):
+            return _add_mcp_address(self.realm, url, review)
         return catalogue.add_link_to_realm(self.realm, url, review)
 
     # ---- smart search -------------------------------------------------------------------------
@@ -151,6 +157,24 @@ class CatalogueRoutes:
             out["html"] = render_results(self.realm, res)
         return self._json(200, out)
 
+    def _smart_search_check(self, body: dict) -> dict:
+        """Review a catalogue entry already on this computer (one of your skills) by its files."""
+        from .. import catalogue
+        from ..webui.catalogue import _cat_review_card
+        e = catalogue.find(str(body.get("key") or ""))
+        if not e:
+            return {"ok": False, "error": "That isn't in the catalogue any more. Search again."}
+        look = catalogue.inspect(e)
+        where = str((e.get("install") or {}).get("origin_note") or "this computer")
+        detail = str(look.get("detail") or "")
+        review = {"ok": True, "name": e.get("name") or e.get("id"), "kind": e.get("kind") or "skills",
+                  "publisher": e.get("author") or "", "runs": look.get("runs") or "",
+                  "touch": look.get("touch") or [], "risk": "",
+                  "recommendation": (f"Checked from its files on {where}: {detail}." if detail else
+                                     f"Checked from its files on {where}."),
+                  "summary": detail, "warn": "", "confidence": "files read locally"}
+        return {"ok": True, "review": review, "html": _cat_review_card(review)}
+
     def _smart_search_warm(self, body: dict) -> dict:
         from .. import smart_search
         smart_search.warm()
@@ -174,3 +198,34 @@ class CatalogueRoutes:
     # Retire and reinstate are one move in two directions; delete is the one that doesn't come
     # back. See armada/agentops.py for why retirement is a folder move rather than a flag.
 
+
+def _looks_like_mcp(url: str) -> bool:
+    """An address a service publishes for its MCP server, rather than a page or a repository."""
+    from urllib.parse import urlsplit
+    from .. import connector_registry
+    if not connector_registry.endpoint(url):
+        return False
+    parts = urlsplit(url)
+    path = parts.path.rstrip("/").lower()
+    host = parts.netloc.lower()
+    if "github.com" in host:
+        return False
+    return path.endswith(("/mcp", "/sse")) or "/mcp/" in path + "/" or host.startswith("mcp.")
+
+
+def _add_mcp_address(realm_root, url: str, review: dict) -> dict:
+    from .. import connector_registry, util
+    from ..catalogue.realm import _review_fields
+    name = str(review.get("name") or "").strip()[:120] or url
+    try:
+        res = connector_registry.save(realm_root, name=name, url=url)
+    except (ValueError, OSError) as exc:
+        return {"ok": False, "error": str(exc)}
+    path = Path(realm_root) / "realm.json"
+    with util.file_lock(path):
+        data = util.read_json_state(path)
+        for row in (data.get("toolkit") or {}).get("connectors") or []:
+            if row.get("id") == res.get("capability"):
+                row.update(_review_fields(review))
+        util.write_json_atomic(path, data)
+    return {"ok": True, "id": res.get("capability"), "name": name, "kind": "connectors"}

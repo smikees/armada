@@ -18,5 +18,14 @@ stays in serve.py, only the handler bodies moved.
 - `CatalogueRoutes._catalogue_add_link(self, body: dict)` — —
 - `CatalogueRoutes._smart_search(self, body: dict)` — —
 - `CatalogueRoutes._get_smart_search(self)` — —
+- `CatalogueRoutes._smart_search_check(self, body: dict)` — Review a catalogue entry already on this computer (one of your skills) by its files.
 - `CatalogueRoutes._smart_search_warm(self, body: dict)` — —
 - `CatalogueRoutes._smart_search_add(self, body: dict)` — Add a ChatGPT plugin found by smart search as its own Codex row.
+
+### `_looks_like_mcp(url: str)`
+
+An address a service publishes for its MCP server, rather than a page or a repository.
+
+### `_add_mcp_address(realm_root, url: str, review: dict)`
+
+—

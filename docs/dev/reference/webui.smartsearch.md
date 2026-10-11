@@ -14,6 +14,10 @@ Every result card is built from a record a source returned; Alexander only picks
 
 —
 
+### `_link_box()`
+
+One field for any link: a repository, package or skill, or an MCP server's address.
+
 ### `smart_search_pane(realm, realm_root)`
 
 —

@@ -12,6 +12,10 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.105** refines Add a capability after owner review: search as the main column, one
+link field (repositories, skills, MCP addresses) in a side panel, Review before every add, and
+"In this realm" as status text with Go to buttons. [Verification](dev/RELEASE_0_99_105.md).
+
 Version **0.99.104** makes Add a capability a search: Alexander searches the sources the owner
 switches on (what you have, and directories including ChatGPT’s plugins via Codex) and returns
 cards built only from what sources returned; adding still goes through review or the engine’s consent.

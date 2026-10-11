@@ -52,7 +52,8 @@ Claude Opus through your Claude account.
 
 What a result offers depends on what it is:
 
-- **Review & add**: an agent reads it first, as with Bring a link, and you add it after reading
+- **Review**: nothing new is added straight from a result. A link is read by an agent, as with any
+  link you paste; one of your own skills is checked from its files. **Add to realm** appears on
   the review.
 - **Add for Claude / Add for Codex**: an engine connector. Then press **Connect** on its row:
   for Claude, add the service in Claude's connector settings and ARMADA links it; for Codex,
@@ -60,25 +61,16 @@ What a result offers depends on what it is:
 - **Add for Codex** on a ChatGPT plugin: creates "<plugin> · Codex". Install it in ChatGPT
   (**Open in ChatGPT**) if you haven't, then press **Connect** on its row.
 - **Bring in from Claude**: brings what Claude Code already has into this realm.
-- **In this realm**: shows it on the User tab.
+- **In this realm**: already here; **Go to skill** (or connector, plugin, extension) shows it on
+  the User tab.
 
 Alexander can only show what a source returned; he can't install, grant or review anything.
 
-**Already know what you want?** Use **Bring a link** for a repository or package, or **Add an
-MCP server by its address** for a service whose documentation gives one. **Browse for yourself**
-links to Claude's and ChatGPT's directories, skills.sh, the MCP registry and others; bring a link
-back from any of them for a review.
-
-Each connector has one set of agent grants. **Setup details → Link existing connection** maps a
-differently named registration in an engine to that connector, for when the names don't match. Choose the intended
-service and account: matching names do not prove they reach the same service. ARMADA never copies
-credentials between engines or into the realm, and never puts two different services on one row.
-Adding a connector does not grant it to every agent; the coordinator's access follows its role.
-
-A grant permits the tools that the selected engine actually exposes, including write operations
-when available. Codex native apps are enabled only for granted connectors during normal tool
-turns; other apps remain disabled, and ARMADA verifies the thread's callable app inventory before
-sending the prompt. Inspectors and dry runs do not gain native apps.
+**Have a link?** In the panel beside the search, paste a repository, package, skill or an MCP
+server's address and choose **Review**. An agent reads it and reports before **Add to realm** is
+offered; an MCP server's address is added as a connector for every engine, each signing in
+separately. **Browse for yourself** below it links to Claude's and ChatGPT's directories,
+skills.sh, the MCP registry and others; paste a link back from any of them.
 
 ## Accounts and changing engines
 

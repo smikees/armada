@@ -122,7 +122,8 @@ def test_add_a_capability_is_search_link_and_directories(realm):
     assert 'id="ss-q"' in pane and "mcSmartSearch" in pane and "smartsearch.js" in pane
     assert all(f'value="{s}"' in pane for s in ss.SOURCE_IDS)          # every source can be switched
     assert "https://chatgpt.com/plugins" in pane and "https://claude.com/plugins" in pane
-    assert "Bring a link" in pane and "cat-addr-url" in pane
+    assert 'id="cat-link"' in pane and "Have a link?" in pane and "cat-addr-url" not in pane
+    assert pane.index('class="mc-ss-main"') < pane.index('class="mc-ss-side"')
     assert 'id="cat-q"' not in pane and 'id="cat-reach"' not in pane     # the old browser is gone
 
 
@@ -134,3 +135,37 @@ def test_smartsearch_script_is_valid_javascript():
         pytest.skip("Node required")
     path = Path(ss.__file__).parent / "webui" / "static" / "js" / "smartsearch.js"
     subprocess.run([node, "--check", str(path)], check=True)
+
+
+def test_cards_say_in_realm_as_text_and_only_review_new_things(realm):
+    from armada.webui.smartsearch import _actions
+    have = ss.search(realm, "realm", "pdf")[0]
+    html = _actions(have)
+    assert 'class="mc-ss-inrealm"' in html and "Go to skill" in html and "<button" in html
+    assert html.index("In this realm") < html.index("<button")          # the label is text, not the button
+    assert ">Review<" in _actions(ss.search(realm, "anthropic-skills", "pdf")[0])
+    mine = _actions(ss.search(realm, "my-skills", "")[0])
+    assert ">Review<" in mine and "mcSsCheck" in mine and "Add to realm" not in mine
+
+
+def test_a_local_skill_is_checked_before_add_and_a_pasted_mcp_address_becomes_a_connector(realm, monkeypatch):
+    from armada.routes.catalogue import CatalogueRoutes, _looks_like_mcp
+    from armada import catalogue as cat
+    h = CatalogueRoutes.__new__(CatalogueRoutes)
+    h.realm = realm
+    monkeypatch.setattr(cat, "find", lambda key: {"key": key, "id": "humanizer", "name": "Humanizer",
+                                                   "kind": "skills", "source": "mine", "install": {}})
+    out = h._smart_search_check({"key": "mine/skills/humanizer"})
+    assert out["ok"] and out["review"]["name"] == "Humanizer" and "Add to realm" in out["html"]
+    assert _looks_like_mcp("https://mcp.linear.app/mcp") and _looks_like_mcp("https://api.example.com/v1/sse")
+    assert not _looks_like_mcp("https://github.com/acme/mcp-server") and not _looks_like_mcp("https://example.com/docs")
+    review = {"ok": True, "name": "Linear", "kind": "connectors", "runs": "service", "touch": ["network"],
+              "risk": "medium", "recommendation": "Linear's official server.", "summary": "Hosted by Linear."}
+    res = h._catalogue_add_link({"url": "https://mcp.linear.app/mcp", "review": review})
+    cap = capabilities.find(realm, res["id"])[1]
+    assert cap["mcp_url"] == "https://mcp.linear.app/mcp" and cap["inspected"] and cap["observed"] == "Hosted by Linear."
+
+
+def test_sources_menu_closes_on_outside_click_or_escape():
+    js = (Path(ss.__file__).parent / "webui" / "static" / "js" / "smartsearch.js").read_text(encoding="utf-8")
+    assert 'details.mc-ss-sources[open]' in js and "!d.contains(e.target)" in js and '"Escape"' in js

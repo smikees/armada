@@ -41,35 +41,52 @@ def _sources_panel() -> str:
 def _directories() -> str:
     from .. import smart_search as ss
     rows = "".join(
-        f'<a class="mc-ss-dir" href="{E(url)}" target="_blank" rel="noopener">'
-        f'<span class="mc-ss-dirico">{_icon(icon, 15)}</span>'
-        f'<span><strong>{E(name)} ↗</strong><small>{E(desc)}</small></span></a>'
+        f'<a class="mc-ss-dir" href="{E(url)}" target="_blank" rel="noopener" title="{E(desc)}">'
+        f'<span class="mc-ss-dirico">{_icon(icon, 14)}</span>'
+        f'<span><strong>{E(name)} \u2197</strong><small>{E(desc)}</small></span></a>'
         for name, url, icon, desc in ss.DIRECTORIES)
-    return (f'<section class="mc-addways" aria-labelledby="ss-dirs-h">'
-            f'<h3 id="ss-dirs-h" class="mc-addways-title">Browse for yourself</h3>'
-            f'<p class="mc-addway-p" style="margin-top:-2px">Found something there? Bring its link back here '
-            f'for a review before anything is added. Engine connectors and plugins install in the engine; '
-            f'smart search then finds them under what you have.</p>'
+    return (f'<section class="mc-ss-side-sec" aria-labelledby="ss-dirs-h">'
+            f'<h3 id="ss-dirs-h" class="mc-ss-side-h">{_icon("search", 14)}Browse for yourself</h3>'
+            f'<p class="mc-ss-side-p">Found something? Paste its link above for a review. Connectors and '
+            f'plugins you install in an engine show up in search under what you have.</p>'
             f'<div class="mc-ss-dirs">{rows}</div></section>')
 
 
+def _link_box() -> str:
+    """One field for any link: a repository, package or skill, or an MCP server's address.
+
+    It replaces Bring a link and Add an MCP server by its address. Everything is reviewed before
+    Add to realm; an MCP address is then added as a working connector for every engine.
+    """
+    return (f'<section class="mc-ss-side-sec" aria-labelledby="ss-link-h">'
+            f'<h3 id="ss-link-h" class="mc-ss-side-h">{_icon("link", 14)}Have a link?</h3>'
+            f'<p class="mc-ss-side-p">A repository, a package, a skill, or an MCP server\u2019s address '
+            f'(https://\u2026/mcp). An agent reviews it before you decide to add it; that takes a minute or two.</p>'
+            f'<div class="mc-ss-linkform">'
+            f'<input id="cat-link" class="mc-field" placeholder="https://\u2026" aria-label="Link to review" '
+            f'onkeydown="if(event.key===\'Enter\')mcCatReview(this)">'
+            f'<button class="btn btn-secondary" onclick="mcCatReview(this)">Review</button></div></section>')
+
+
 def smart_search_pane(realm, realm_root) -> str:
-    from .catalogue import _cat_other_ways_minimal
     examples = "".join(f'<button type="button" class="mc-ss-ex" onclick="mcSsExample(this)">{E(x)}</button>'
                        for x in _EXAMPLES)
-    box = (f'<section class="mc-ss" aria-labelledby="ss-h">'
-           f'<h3 id="ss-h" class="mc-ss-title"><img src="/static/alexander.png" alt="" class="mc-ss-av">'
-           f'Ask Alexander to find it</h3>'
-           f'<form class="mc-ss-box" onsubmit="mcSmartSearch(event)">'
-           f'<span class="mc-ss-boxico">{_icon("search", 16)}</span>'
-           f'<input id="ss-q" class="mc-field" maxlength="500" autocomplete="off" '
-           f'placeholder="Describe what you need, or ask what you already have" aria-label="What do you need?">'
-           f'<button id="ss-go" type="submit" class="btn btn-primary">Search</button></form>'
-           f'<div class="mc-ss-row"><div class="mc-ss-exs"><span>Try</span>{examples}</div>{_sources_panel()}</div>'
-           f'<div id="ss-out" class="mc-ss-out" aria-live="polite"></div></section>')
+    main = (f'<section class="mc-ss" aria-labelledby="ss-h">'
+            f'<h3 id="ss-h" class="mc-ss-title"><img src="/static/alexander.png" alt="" class="mc-ss-av">'
+            f'Ask Alexander to find it</h3>'
+            f'<form class="mc-ss-box" onsubmit="mcSmartSearch(event)">'
+            f'<span class="mc-ss-boxico">{_icon("search", 16)}</span>'
+            f'<input id="ss-q" class="mc-field" maxlength="500" autocomplete="off" '
+            f'placeholder="Describe what you need, or ask what you already have" aria-label="What do you need?">'
+            f'<button id="ss-go" type="submit" class="btn btn-primary">Search</button></form>'
+            f'<div class="mc-ss-row"><div class="mc-ss-exs"><span>Try</span>{examples}</div>{_sources_panel()}</div>'
+            # A pasted link's review lands here, in the wide column, not in the side panel.
+            f'<div id="cat-review-out" class="mc-ss-linkout"></div>'
+            f'<div id="ss-out" class="mc-ss-out" aria-live="polite"></div></section>')
+    side = f'<aside class="mc-ss-side">{_link_box()}{_directories()}</aside>'
     from ..assets import js
-    return (f'<div id="cap-pane-catalogue" style="display:none">{box}'
-            f'{_cat_other_ways_minimal()}{_directories()}</div>' + js("smartsearch"))
+    return (f'<div id="cap-pane-catalogue" style="display:none"><div class="mc-ss-layout">'
+            f'<div class="mc-ss-main">{main}</div>{side}</div></div>' + js("smartsearch"))
 
 
 # --------------------------------------------------------------------------- results
@@ -78,14 +95,17 @@ def _actions(r: dict) -> str:
     a = r.get("action") or {}
     t = a.get("type")
     if r.get("have") == "realm" or t == "in-realm":
-        return (f'<button class="btn btn-secondary btn-sm" title="Already in this realm: show it on the User tab" '
-                f'onclick="mcSsShow({_J(r["name"])})">{_icon("check", 12)}In this realm</button>')
+        what = _KIND_SINGULAR.get(r.get("kind") or "", "it").lower()
+        return (f'<span class="mc-ss-inrealm">{_icon("circle-check", 13)}In this realm</span>'
+                f'<button class="btn btn-secondary btn-sm" title="Show it on the User tab" '
+                f'onclick="mcSsShow({_J(r["name"])})">Go to {E(what)}</button>')
+    # Nothing new is added straight from a result: Review first, and the review offers Add to realm.
     if t == "review":
         return (f'<button class="btn btn-secondary btn-sm" '
-                f'onclick="mcSsReview(this,{_J(a.get("url", ""))},{_J(a.get("key", ""))})">Review &amp; add</button>')
+                f'onclick="mcSsReview(this,{_J(a.get("url", ""))},{_J(a.get("key", ""))})">Review</button>')
     if t == "add":
-        return (f'<button class="btn btn-secondary btn-sm" onclick="mcCatAdd(this,{_J(a.get("key", ""))})">'
-                f'Add to realm</button>')
+        return (f'<button class="btn btn-secondary btn-sm" '
+                f'onclick="mcSsCheck(this,{_J(a.get("key", ""))})">Review</button>')
     if t == "engine":
         from .. import connector_registry
         svc = next((s for s in connector_registry.SERVICES if s["id"] == a.get("service")), None)
@@ -145,7 +165,9 @@ def _card(r: dict) -> str:
             + (f'<span class="mc-ss-have">{_icon("circle-check", 12)}{E(have)}</span>' if have else "")
             + '</div>'
             + (f'<p class="mc-ss-why">{E(r["why"])}</p>' if r.get("why") else "")
-            + (f'<p class="mc-ss-desc">{E(r.get("description") or "")}</p>' if r.get("description") else "")
+            # A YAML block marker ("|", ">") read as a description is no description at all.
+            + (f'<p class="mc-ss-desc">{E(r.get("description") or "")}</p>'
+               if any(ch.isalnum() for ch in str(r.get("description") or "")) else "")
             + (f'<p class="mc-ss-meta">{" · ".join(meta)}</p>' if meta else "")
             + f'<div class="mc-ss-review"></div></div>'
             f'<div class="mc-ss-actions">{_actions(r)}</div></article>')
