@@ -87,7 +87,7 @@ def test_foreign_native_session_cannot_write_to_the_thread(realm):
 def test_pending_and_raw_provider_items_never_become_saved_replies(realm):
     call,transport=start(realm)
     transport.emit('thread/realtime/itemAdded',{'item':{'type':'message','text':'not canonical'}})
-    transport.emit('thread/realtime/transcript/delta',{'delta':'unfinished'})
+    transport.emit('thread/realtime/transcript/delta',{'role':'user','delta':'unfinished'})
     transport.emit('thread/realtime/item/completed',{'item':{'type':'realtimeSessionStarted'}})
     assert len(Thread(realm/'agents/a')._messages())==2
 
@@ -264,7 +264,8 @@ def test_native_signaling_uses_sealed_context_and_verified_protocol(monkeypatch)
         request=sent[-1]
         assert request['method']=='thread/realtime/start'
         assert request['params']['transport']=={'type':'webrtc','sdp':'v=0\r\noffer'}
-        assert request['params']['clientManagedHandoffs'] is True
+        assert request['params']['clientManagedHandoffs'] is False
+        assert 'notify=[]' in args
         assert request['params']['initialItems']==[{'role':'user','text':'Cobalt'}]
         on_message({'id':99,'method':'item/tool/call','params':{}},sent.append)
         assert sent[-1]['error']['code']==-32601
@@ -272,13 +273,47 @@ def test_native_signaling_uses_sealed_context_and_verified_protocol(monkeypatch)
             on_message({'method':'thread/realtime/transcript/done','params':{'threadId':'wrong'}},sent.append)
         on_message({'method':'thread/realtime/transcript/done','params':{
             'threadId':'native-thread','role':'assistant','text':'Cobalt.'}},sent.append)
-        with pytest.raises(ValueError,match='cannot start an action'):
-            on_message({'method':'turn/started','params':{}},sent.append)
+        on_message({'method':'turn/started','params':{'threadId':'native-thread','turn':{'id':'reasoning'}}},sent.append)
+        on_message({'method':'item/started','params':{'threadId':'native-thread','item':{'type':'reasoning'}}},sent.append)
+        on_message({'method':'turn/completed','params':{'threadId':'native-thread','turn':{'id':'reasoning'}}},sent.append)
+        with pytest.raises(ValueError,match='A tool was requested'):
+            on_message({'method':'item/started','params':{'threadId':'native-thread','item':{'type':'commandExecution'}}},sent.append)
         return ProcessResult(returncode=0)
     monkeypatch.setattr(codex_voice,'supervise_rpc',supervised)
     transport.run('v=0\r\noffer','Conversation only',[{'role':'user','text':'Cobalt'}],
                   'codex:default',lambda *args:seen.append(args),lambda p:None)
     assert seen[0][0]=='thread/realtime/transcript/done'
+    assert [event[0] for event in seen[1:]] == ['turn/started','turn/completed']
+
+
+def test_voice_speech_is_live_shared_and_final_replaces_preview(realm):
+    call,transport=start(realm)
+    transport.emit('thread/realtime/transcript/delta',{'role':'user','delta':'A spoken <question>'})
+    state=thread_windows.state(realm,'a','main')
+    assert 'A spoken &lt;question&gt;' in state['html'] and 'Recognizing speech' in state['html']
+    assert len(Thread(realm/'agents/a')._messages()) == 2
+    from armada.webui.thread_window import render
+    assert 'A spoken &lt;question&gt;' in render(realm,'a','main')
+    transport.emit('turn/started',{})
+    assert call.snapshot()['thinking']
+    transport.segment('user','A spoken question?','final-user')
+    assert call.snapshot()['partial_transcript']==[]
+    assert thread_windows.state(realm,'a','main')['html'].count('A spoken question?')==2  # body and copy template
+    transport.emit('turn/completed',{})
+    assert not call.snapshot()['thinking']
+    call.stop();assert call.finished.wait(2)
+    assert len(Thread(realm/'agents/a')._messages()) == 3
+
+
+def test_interrupted_voice_keeps_received_speech_marked_incomplete(realm):
+    call,transport=start(realm)
+    transport.emit('thread/realtime/transcript/delta',{'role':'user','delta':'My question'})
+    transport.emit('thread/realtime/transcript/delta',{'role':'assistant','delta':'The beginning of a reply'})
+    call.stop();assert call.finished.wait(2)
+    records=Thread(realm/'agents/a')._messages()[-2:]
+    assert [r['content'] for r in records] == ['My question','The beginning of a reply']
+    assert all(r['transcription_incomplete'] for r in records)
+    assert 'Incomplete transcript' in thread_windows.state(realm,'a','main')['html']
 
 
 def test_scoped_routes_cannot_stop_another_call_or_accept_client_transcripts(realm):

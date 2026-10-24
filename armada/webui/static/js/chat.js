@@ -183,6 +183,7 @@ function mcMarkDone(){
   if(document.querySelector('#mc-turns [data-role="pending"]'))return;
   const ts=[...document.querySelectorAll('#mc-turns .mc-turn[data-role="assistant"]')];
   const t=ts[ts.length-1]; if(!t)return;
+  if(t.dataset.transcription==='1')return;
   const body=t.querySelector('.mc-body'); const col=body?body.parentNode:t;
   const d=document.createElement('div'); d.className='mc-done';
   const outcome=t.dataset.status||'ok';

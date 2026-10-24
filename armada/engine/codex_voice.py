@@ -12,8 +12,9 @@ from .process import supervise_rpc
 
 
 class CodexVoice:
-    def __init__(self):
+    def __init__(self, *, mode='voice'):
         self.engine = CodexEngine()
+        self.mode = mode
         self.send = None
         self.thread_id = None
 
@@ -25,7 +26,15 @@ class CodexVoice:
             args = _feature_args() + self.engine._mcp_args(False, (), cwd=folder)
             for feature in ('shell_tool', 'unified_exec', 'image_generation', 'view_image', 'code_mode'):
                 args += ['-c', f'features.{feature}=false']
-            args += ['-c', 'web_search="disabled"', '-c', 'project_doc_max_bytes=0']
+            args += ['-c', 'web_search="disabled"', '-c', 'project_doc_max_bytes=0', '-c', 'notify=[]']
+            backend = (instructions + '\nYou are the backing reasoning model for this voice conversation. '
+                       'A voice handoff is ordinary conversation, not a tool action or a request to launch '
+                       'another agent. Answer the underlying tutoring question, explanation or calculation '
+                       'yourself without tools. Do not refuse merely because the owner asked the voice '
+                       'interface to consult its reasoning backend. File, shell, web, connector and other '
+                       'external actions remain unavailable.')
+            if self.mode == 'dictation':
+                backend = instructions
 
             def start(send):
                 self.send = send
@@ -47,7 +56,7 @@ class CodexVoice:
                     send({'method': 'initialized', 'params': {}})
                     params = {'cwd': folder, 'approvalPolicy': 'never', 'sandbox': 'read-only',
                               'ephemeral': True, 'serviceName': 'armada',
-                              'baseInstructions': instructions, 'developerInstructions': instructions}
+                              'baseInstructions': backend, 'developerInstructions': backend}
                     if model_id(model):
                         params['model'] = model_id(model)
                     send({'id': 2, 'method': 'thread/start', 'params': params})
@@ -55,13 +64,23 @@ class CodexVoice:
                     self.thread_id = message['result']['thread']['id']
                     send({'id': 3, 'method': 'thread/realtime/start', 'params': {
                         'threadId': self.thread_id, 'version': 'v3', 'outputModality': 'audio',
-                        'clientManagedHandoffs': True, 'flushTranscriptTailOnSessionEnd': False,
+                        # This controls BACKEND RESPONSE forwarding, not whether speech
+                        # may delegate a question. Let Codex return its restricted answer.
+                        'clientManagedHandoffs': False, 'flushTranscriptTailOnSessionEnd': False,
                         'transport': {'type': 'webrtc', 'sdp': offer},
                         'includeStartupContext': False, 'initialItems': history,
-                        'prompt': instructions, 'realtimeStartInstructions': instructions,
+                        'prompt': instructions, 'realtimeStartInstructions': backend,
                         'realtimeEndInstructions': 'The owner ended voice. Do not start work or modify files.'}})
-                elif message.get('method') == 'turn/started':
-                    raise ValueError('Voice preview cannot start an action. End voice and use normal chat.')
+                elif message.get('method') in ('turn/started', 'turn/completed', 'item/started'):
+                    params = message.get('params') or {}
+                    if params.get('threadId') != self.thread_id:
+                        raise ValueError('Codex emitted voice data for another conversation.')
+                    if message['method'] == 'item/started':
+                        kind = (params.get('item') or {}).get('type')
+                        if kind not in ('userMessage', 'agentMessage', 'reasoning', 'plan', 'contextCompaction'):
+                            raise ValueError('A tool was requested in conversation-only voice. Use normal chat for actions.')
+                    else:
+                        emit(message['method'], params)
                 elif message.get('method', '').startswith('thread/realtime/'):
                     params = message.get('params') or {}
                     if params.get('threadId') != self.thread_id:

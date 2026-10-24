@@ -9,6 +9,8 @@
   const draft=document.getElementById('mc-dictation-text'),done=document.getElementById('mc-dictation-done');
   const mute=document.getElementById('mc-voice-mute'),end=document.getElementById('mc-voice-end');
   const audio=document.getElementById('mc-voice-audio'),play=document.getElementById('mc-voice-play');
+  const inputState=document.getElementById('mc-voice-input'),meter=document.getElementById('mc-voice-meter');
+  const inputLabel=document.getElementById('mc-voice-input-label');
   const destination={agent:box.dataset.agent,thread:box.dataset.thread};
   let call=null,remote=null,busy=false,ending=false,timer=null,generation=0;
 
@@ -32,6 +34,7 @@
     end.hidden=ending||!call&&!foreign;end.textContent=dict?'Cancel':'End call';
     mute.hidden=dict||foreign||!call;mute.disabled=!call?.connected;
     done.hidden=!call||!dict;done.disabled=!call?.connected||!!call?.finishing;
+    inputState.hidden=!call?.connected||ending;
     if(call||foreign){
       title.textContent=dict?'Dictation':'Voice chat preview';
       help.textContent=dict?'Speech to draft text · via Codex · review before sending':'Conversation only · audio uses your Codex connection';
@@ -42,6 +45,15 @@
     if(typeof mcSyncSend==='function')mcSyncSend();
   }
   function receive(owned,state){
+    if(owned.mode==='voice'){
+      owned.thinking=!!state?.thinking;
+      if(call===owned&&owned.connected&&!owned.muted){
+        const last=state?.partial_transcript?.at(-1);
+        note(owned.thinking?'Thinking · you can keep speaking':last?.role==='assistant'?'Replying…':
+          last?.role==='user'?'Speech recognized · live in thread':'Listening · you can speak naturally');
+      }
+      return;
+    }
     if(owned.mode!=='dictation'||typeof state?.draft!=='string')return;
     if(owned.text!==state.draft){owned.text=state.draft;owned.lastText=Date.now();}
     draft.textContent=owned.text;draft.hidden=!owned.text;
@@ -56,8 +68,35 @@
     return true;
   }
   function release(owned){
+    clearInterval(owned.meterTimer);owned.meterSource?.disconnect();owned.analyser?.disconnect();
+    owned.audioContext?.close().catch(()=>{});
+    meter.style.setProperty('--mic-level','0');meter.setAttribute('aria-valuenow','0');
     owned.stream?.getTracks().forEach(track=>track.stop());owned.peer?.close();
     audio.pause();audio.srcObject=null;play.hidden=true;
+  }
+  function observeMicrophone(owned){
+    const Context=window.AudioContext||window.webkitAudioContext;
+    if(!Context){inputLabel.textContent='Microphone on · level unavailable';return;}
+    try{
+      const context=owned.audioContext=new Context(),analyser=owned.analyser=context.createAnalyser();
+      analyser.fftSize=256;const samples=new Uint8Array(analyser.fftSize);
+      owned.meterSource=context.createMediaStreamSource(owned.stream);owned.meterSource.connect(analyser);
+      context.resume().catch(()=>{});
+      const update=()=>{
+        if(call!==owned)return;
+        const paused=owned.muted||owned.finishing;
+        let level=0;
+        if(!paused&&context.state==='running'){
+          analyser.getByteTimeDomainData(samples);
+          level=Math.sqrt(samples.reduce((sum,value)=>sum+((value-128)/128)**2,0)/samples.length);
+        }
+        const strength=Math.min(100,Math.round(level*500));
+        meter.style.setProperty('--mic-level',String(strength/100));meter.setAttribute('aria-valuenow',String(strength));
+        inputLabel.textContent=paused?'Microphone off':context.state!=='running'?'Microphone on · level unavailable':
+          level>.015?'Sound detected':'Microphone on · quiet';
+      };
+      owned.meterTimer=setInterval(update,100);update();
+    }catch(e){inputLabel.textContent='Microphone on · level unavailable';}
   }
   async function finish(message='Voice chat ended',error=false,keepalive=false,save=false){
     const owned=call,id=owned?.id||remote?.id,mode=(call||remote)?.mode;
@@ -118,6 +157,7 @@
     try{
       const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
       owned.stream=stream;if(revision!==generation){release(owned);return;}
+      observeMicrophone(owned);
       note('Connecting to Codex…');
       const peer=owned.peer=new RTCPeerConnection();stream.getTracks().forEach(track=>peer.addTrack(track,stream));
       peer.createDataChannel('oai-events');

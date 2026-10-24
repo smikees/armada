@@ -2,7 +2,8 @@
 
 One opt-in native voice preview, bound to an ARMADA realm, agent and thread.
 
-Only canonical Codex transcript segments are persisted. Audio and SDP are never saved.
+Final Codex transcripts are persisted; interrupted native speech is marked incomplete.
+Audio and SDP are never saved.
 The ordinary run registry owns cancellation; a browser lease bounds disconnected calls.
 
 ### `_key(root, agent, thread)`
@@ -22,7 +23,7 @@ The ordinary run registry owns cancellation; a browser lease bounds disconnected
 —
 
 - `VoiceCall.__init__(self, root, agent, thread, offer, *, transport=None, mode='voice')` — —
-- `VoiceCall._transcript(self, item)` — —
+- `VoiceCall._transcript(self, item, *, incomplete=False)` — —
 - `VoiceCall.event(self, method, params)` — —
 - `VoiceCall.snapshot(self, *, owner=False)` — —
 - `VoiceCall.discard(self)` — —

@@ -97,14 +97,20 @@ Choose **Voice chat** beside the message box. Allow microphone access to
 start a hands-free conversation. **Mute** switches off microphone input while replies remain
 audible; **End call** closes it from either thread view. Only the
 window that started the call owns the microphone; the other view can end the call.
+The microphone meter reacts to actual input sound. "Sound detected" confirms microphone
+activity, while words appearing in the thread confirm speech recognition. Mute clears the
+meter. The call can show "Thinking" while the backing Codex model answers a question.
 
 This proof of concept uses Codex's native realtime voice model and existing Codex sign-in.
 It carries the agent's core context and recent conversation, but the speaking model is separate
 from the agent's configured text model. It is **conversation only**: no files, shell, web,
 connectors, messages or jobs. End voice to ask for actions in normal chat.
 
-Final spoken transcripts are saved in the same thread as typed messages and appear in both
-views. ARMADA does not record audio; your browser sends live microphone audio to Codex.
+Your speech and the agent's spoken replies appear live in the same thread in both views.
+Final transcripts replace the live text and remain after reopening the thread. If a call ends
+before transcription finishes, text already received is kept with an "Incomplete transcript"
+label. Dictated drafts still enter the thread only when you send them.
+ARMADA does not record audio; your browser sends live microphone audio to Codex.
 Voice usage is marked unconfirmed when Codex does not report accounting. The experimental
 protocol was verified with Codex CLI 0.157.1; older versions or accounts without native voice
 support may fail to connect. There is no API-key or paid-service fallback.

@@ -1,6 +1,7 @@
 """One opt-in native voice preview, bound to an ARMADA realm, agent and thread.
 
-Only canonical Codex transcript segments are persisted. Audio and SDP are never saved.
+Final Codex transcripts are persisted; interrupted native speech is marked incomplete.
+Audio and SDP are never saved.
 The ordinary run registry owns cancellation; a browser lease bounds disconnected calls.
 """
 from __future__ import annotations
@@ -51,8 +52,10 @@ class VoiceCall:
         self.mode = mode
         self.draft = []
         self.partial_draft = ''
+        self.partial_transcript = []
+        self.thinking = False
         self.discarded = False
-        self.transport = transport or CodexVoice()
+        self.transport = transport or CodexVoice(mode=mode)
         self.offer = offer
         self.sdp = ''
         self.error = ''
@@ -74,7 +77,7 @@ class VoiceCall:
         self.last_role = None
         self.conversation_turn = None
 
-    def _transcript(self, item):
+    def _transcript(self, item, *, incomplete=False):
         if item.get('type') != 'transcriptSegment':
             return
         sid, iid, role, text = (item.get(k) for k in ('realtimeSessionId', 'id', 'role', 'text'))
@@ -84,6 +87,11 @@ class VoiceCall:
             raise ValueError('Invalid voice transcript segment.')
         if iid in self.seen or not text.strip():
             return
+        if self.mode == 'voice' and not incomplete:
+            for index, part in enumerate(self.partial_transcript):
+                if part['role'] == role:
+                    self.partial_transcript.pop(index)
+                    break
         self.characters += len(text)
         if self.characters > 100000:
             raise ValueError('Voice preview reached its transcript limit. Start a new call.')
@@ -106,6 +114,8 @@ class VoiceCall:
         record = {
             'role': role, 'ts': stamp, 'content': text, 'voice_session': self.id,
             'voice_item': iid, 'mode': 'voice'}
+        if incomplete:
+            record['transcription_incomplete'] = True
         if self.conversation_turn:
             record['turn'] = self.conversation_turn
         Thread(self.root/'agents'/self.agent, self.thread)._write(record)
@@ -125,16 +135,29 @@ class VoiceCall:
                 self.sdp = sdp
                 self.state = 'active'
                 self.changed.set()
-            elif method == 'thread/realtime/transcript/delta' and self.mode == 'dictation':
+            elif method == 'thread/realtime/transcript/delta':
+                role, delta = params.get('role'), params.get('delta')
+                if role not in ('user', 'assistant') or not isinstance(delta, str):
+                    raise ValueError('Invalid speech transcript segment.')
+                if self.mode == 'voice':
+                    if not self.partial_transcript or self.partial_transcript[-1]['role'] != role:
+                        self.partial_transcript.append({'role': role, 'text': ''})
+                    part = self.partial_transcript[-1]
+                    if len(part['text']) + len(delta) > 16000 or self.characters + sum(
+                            len(p['text']) for p in self.partial_transcript) + len(delta) > 100000:
+                        raise ValueError('Voice preview reached its transcript limit. Start a new call.')
+                    part['text'] += delta
+                    return
                 # Native incremental USER speech is safe to preview as an unsent,
                 # editable draft. A final segment replaces, rather than duplicates, it.
                 if params.get('role') == 'user' and not self.discarded:
-                    delta = params.get('delta')
                     if not isinstance(delta, str) or len(self.partial_draft)+len(delta) > 16000:
                         raise ValueError('Invalid dictation transcript segment.')
                     if self.characters+len(self.partial_draft)+len(delta) > 100000:
                         raise ValueError('Dictation reached its text limit. Finish this draft first.')
                     self.partial_draft += delta
+            elif method in ('turn/started', 'turn/completed'):
+                self.thinking = method == 'turn/started'
             elif method == 'thread/realtime/item/completed':
                 item = params.get('item') or {}
                 if item.get('type') == 'transcriptSegment' and self.transcript_protocol != 'done':
@@ -160,6 +183,9 @@ class VoiceCall:
             state = {'id': self.id, 'state': self.state, 'error': self.error, 'mode': self.mode,
                     'reason': self.reason, 'active': not self.finished.is_set(),
                     'records': self.records, 'conversation_only': True}
+            if self.mode == 'voice':
+                state['partial_transcript'] = [dict(part) for part in self.partial_transcript if part['text'].strip()]
+                state['thinking'] = self.thinking
             if owner and self.mode == 'dictation':
                 state['draft'] = ' '.join(self.draft + ([self.partial_draft.strip()] if self.partial_draft.strip() else []))
             return state
@@ -233,6 +259,17 @@ class VoiceCall:
             log.warning('Codex voice preview failed: %s', self.error)
         finally:
             with self.guard:
+                # Native deltas can be all that survived a dropped connection or an
+                # immediate Stop. Keep them explicitly incomplete, never as a final
+                # provider transcript, and never persist unsent dictation.
+                if self.mode == 'voice':
+                    pending, self.partial_transcript = self.partial_transcript, []
+                    for index, part in enumerate(pending):
+                        try:
+                            self._transcript({'type': 'transcriptSegment', 'realtimeSessionId': self.native_session,
+                                'id': f'incomplete-{index}', **part}, incomplete=True)
+                        except (ValueError, OSError):
+                            log.exception('Could not preserve interrupted voice transcript')
                 self.sdp = self.offer = ''
                 self.state = 'error' if self.error else 'ended'
             self.session.close()

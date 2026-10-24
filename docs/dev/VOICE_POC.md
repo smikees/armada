@@ -19,8 +19,10 @@ by ARMADA. Future protocol/account changes can make this experimental feature un
 
 In an actual V3 call, the CLI emitted `thread/realtime/transcript/delta` and
 `thread/realtime/transcript/done` (`threadId`, `role`, `text`). Final parts lack item IDs; they
-are consumed once in order from the owned, non-replayed stdio connection. Deltas and browser
-transcript fragments are never durable. The alternative schema's canonical
+are consumed once in order from the owned, non-replayed stdio connection. Native deltas are
+provisional shared UI text; if interrupted, their remaining text is saved with an explicit
+incomplete-transcription marker. Browser-authored transcript fragments are never accepted.
+The alternative schema's canonical
 `thread/realtime/item/completed` / `transcriptSegment` is also supported with native-session
 validation and item deduplication. A call consumes only one final protocol, avoiding double saves.
 
@@ -60,10 +62,16 @@ draft preservation, explicit Send, Cancel, and shared-window controls.
   call excludes typed runs in its thread; only one voice call may own a microphone app-wide.
 - No tool execution, general RPC proxy or client-authored transcript endpoint. Ambient MCP,
   apps, plugins, hooks, shell, web, computer/browser tools and images are disabled. Provider
-  requests for tools/approval are refused; normal action turns abort the preview. The native
-  thread is read-only in an empty directory. `clientManagedHandoffs` is enabled, and transcript
+  requests for tools/approval are refused; non-conversation tool items abort the preview. A
+  normal `turn/started` is a reasoning handoff, not proof of tool execution. The native
+  thread is read-only in an empty directory. `clientManagedHandoffs` is false so backend
+  responses return to voice automatically; notifications are disabled, and transcript
   tail forwarding is disabled. The live voice model is separate from the configured text model.
-- Only final transcript text is appended atomically through the shared Thread store. Audio,
+- Final transcript text is appended atomically through the shared Thread store. Native deltas
+  appear provisionally through that same renderer; final segments replace them without a second
+  message. Remaining native text at call termination is marked `transcription_incomplete` and
+  saved in order. Dictation remains an unsent private draft and follows neither persistence path.
+  Live/incomplete assistant text never gets a misleading Done badge. Audio,
   SDP and raw provider events are not persisted. Reports record duration, final-part count and
   unknown usage, rather than inventing token/cost figures.
 - Consecutive final fragments on each side share a spoken-exchange ID. The Thread store groups
@@ -74,6 +82,19 @@ draft preservation, explicit Send, Cancel, and shared-window controls.
   The browser stops its tracks immediately on local End/page leave and on the next state poll
   after remote Stop. Server snapshots are shared by main and detached views.
 - Signaling and transcripts are bounded. Errors use the existing credential/URL redaction.
+- A local Web Audio analyser measures microphone sound without recording or playing it.
+  Its level meter is distinct from recognized text. Mute/finish shows zero; End disconnects
+  the analyser, clears its timer and closes its AudioContext. No fake listening animation.
+
+## Voice handoff correction
+
+The first release treated every `turn/started` as an external action and killed the CLI.
+The generated schema and upstream implementation show that `clientManagedHandoffs` controls
+backend **responses**, not admission of voice delegations. The corrected adapter admits
+thread-scoped conversation turns under the existing disabled-tool/read-only configuration,
+forwards their responses, and retains the tool/approval boundary. Backend-specific instructions
+distinguish answering a delegated question from launching a subagent; dictation has separate
+instructions. Live transcript text and a measured microphone meter make capture visible.
 
 ## Reproduce
 

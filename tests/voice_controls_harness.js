@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const source=fs.readFileSync(path.join(__dirname,'../armada/webui/static/js/thread_voice.js'),'utf8');
 function view(){
   const elements={},events={},timers=[];let clock=0;
-  function element(id){return elements[id]||=({id,dataset:{},style:{},hidden:false,disabled:false,value:'',textContent:'',selectionStart:0,selectionEnd:0,
+  function element(id){return elements[id]||=({id,dataset:{},style:{setProperty(k,v){this[k]=v;}},hidden:false,disabled:false,value:'',textContent:'',selectionStart:0,selectionEnd:0,
     addEventListener(type,fn){this[type]=fn;},setAttribute(name,value){this[name]=value;},dispatchEvent(){this.inputs=(this.inputs||0)+1;},
     setRangeText(text,start,end){this.value=this.value.slice(0,start)+text+this.value.slice(end);},focus(){},pause(){},play(){this.played=true;return Promise.resolve();}});}
   element('mc-turns').dataset={agent:'ada',thread:'main'};
@@ -17,7 +17,7 @@ function view(){
   const ctx={document:{getElementById:element,addEventListener:(n,f)=>events[n]=f},navigator:{mediaDevices:{getUserMedia:async()=>stream}},
     crypto:{randomUUID:()=> '123456781234123412341234567890ab'},RTCPeerConnection:Peer,Event:class{},Date:{now:()=>clock},
     mcIcon:()=>'',mcSyncSend(){},mcThreadChanged(){},addEventListener:(n,f)=>events[n]=f,
-    setTimeout(fn,ms){if(ms===250){clock+=250;Promise.resolve().then(fn);}else timers.push(fn);return timers.length;},clearTimeout(){},
+    setTimeout(fn,ms){if(ms===250){clock+=250;Promise.resolve().then(fn);}else timers.push(fn);return timers.length;},clearTimeout(){},clearInterval(){},
     state:{active:true,draft:'spoken words',mode:'dictation'},requests:[],
     fetch:async(url,opts)=>{const body=JSON.parse(opts.body);ctx.requests.push({url,body});
       if(ctx.fail)throw Error('Connection failed');
@@ -51,6 +51,23 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
   const e=view();e.ctx.state.mode='voice';await e.element('mc-voice').click();await settle();
   assert(e.element('mc-voice-audio').played);e.element('mc-voice-mute').click();assert(!e.track.enabled);
   e.element('mc-voice-mute').click();assert(e.track.enabled);await e.element('mc-voice-end').click();assert(e.track.stopped);
+
+  const metered=view();let meterTick,closed=false,cleared=false,sample=128;
+  metered.ctx.AudioContext=class {
+    constructor(){this.state='running';}
+    createAnalyser(){return {fftSize:256,getByteTimeDomainData(data){data.fill(sample);},disconnect(){}};}
+    createMediaStreamSource(){return {connect(){},disconnect(){}};}
+    resume(){return Promise.resolve();}close(){closed=true;return Promise.resolve();}
+  };
+  metered.ctx.setInterval=fn=>{meterTick=fn;return 9;};metered.ctx.clearInterval=id=>{if(id===9)cleared=true;};
+  metered.ctx.state={active:true,mode:'voice',partial_transcript:[{role:'user',text:'Recognized question'}]};
+  await metered.element('mc-voice').click();await settle();
+  assert.equal(metered.element('mc-voice-meter')['aria-valuenow'],'0');
+  assert.match(metered.element('mc-voice-status').textContent,/Speech recognized/);
+  sample=144;meterTick();assert(Number(metered.element('mc-voice-meter')['aria-valuenow'])>0);
+  assert.equal(metered.element('mc-voice-input-label').textContent,'Sound detected');
+  metered.element('mc-voice-mute').click();meterTick();assert.equal(metered.element('mc-voice-meter')['aria-valuenow'],'0');
+  await metered.element('mc-voice-end').click();assert(closed&&cleared,'ending must release the meter and AudioContext');
 
   const f=view();let allow;f.ctx.navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>allow=resolve);
   const pending=f.element('mc-dictate').click();await settle();await f.element('mc-voice-end').click();

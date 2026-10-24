@@ -313,16 +313,17 @@ def _attachments_html(att, aid: str, thread: str) -> str:
     return f'<div class="mc-att-row">{"".join(out)}</div>'
 
 
-def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="") -> str:
+def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="", transcription="") -> str:
     content = E(str(raw).strip())
     when = str(ts)[11:16]
     tpl = f'<template class="mc-raw">{content}</template>'
+    caption = f'<div class="mc-speech-caption">{E(transcription)}</div>' if transcription else ''
     if role == "assistant":
         body = _render_segments(seg) if seg else f'<div class="mc-body mc-md">{_md(str(raw).strip())}</div>'
-        return (f'<div class="mc-turn" data-role="assistant" data-status="{E(status)}" data-idx="{idx}" style="margin-bottom:12px">'
+        return (f'<div class="mc-turn" data-role="assistant" data-status="{E(status)}" data-transcription="{1 if transcription else 0}" data-idx="{idx}" style="margin-bottom:12px">'
                 f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av or _bust(28, coord)}</div>'
                 f'<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
-                f'<div class="mc-body">{body}</div>'
+                f'<div class="mc-body">{body}</div>{caption}'
                 f'{_turn_actions("assistant", idx, aid, thread, False, when) if actions else ""}</div></div>{tpl}</div>')
     ubub = (f'<div style="width:28px;height:28px;border-radius:50%;overflow:hidden;flex:none;border:1px solid var(--color-divider)">{userav}</div>'
             if userav else
@@ -331,7 +332,7 @@ def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, threa
             f'<div style="display:flex;flex-direction:row-reverse;gap:10px">{ubub}'
             f'<div style="max-width:72%">{_attachments_html(att, aid, thread)}'
             f'<div class="mc-body mc-md" style="background:var(--color-sand-100);border-radius:var(--r);padding:8px 10px;font-size:13px;line-height:1.5">{_md(str(raw).strip(), preserve_breaks=True)}</div>'
-            f'{_turn_actions("user", idx, aid, thread, is_last_user, when) if actions else ""}</div></div>{tpl}</div>')
+            f'{caption}{_turn_actions("user", idx, aid, thread, is_last_user, when) if actions else ""}</div></div>{tpl}</div>')
 
 
 def _agent_model_label(realm_root, aid: str) -> str:
@@ -576,6 +577,9 @@ def _render_turns(realm_root, a, selected: str) -> str:
     from ..threads import Thread
     agent_dir = Path(realm_root) / "agents" / a.id
     th = Thread(agent_dir, selected)
+    from .. import voice
+    call = voice.current(realm_root, a.id, selected)
+    speech = call.snapshot() if call and not call.finished.is_set() and call.mode == 'voice' else None
     summ, msgs = th.display_snapshot()
     pending = th.open_turn([m for m in msgs if m.get("kind") != "job"])
     running = bool(pending) and _chat_running(realm_root, a.id, selected)
@@ -600,12 +604,13 @@ def _render_turns(realm_root, a, selected: str) -> str:
             continue
         turns += _turn(m.get("role", ""), m.get("content", ""), str(m.get("ts", "")),
                        i, i == last_user, a.id, selected, a.display, a.is_coordinator,
-                       av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"), status=m.get('status', ''))
+                       av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"), status=m.get('status', ''),
+                       transcription='Incomplete transcript · call ended before transcription finished' if m.get('transcription_incomplete') else '')
     # An owner message with nothing after it. Either the agent is working on it right now — in
     # which case the page has to say so, because the reply is arriving over an event stream this
     # page load knows nothing about — or the run died without answering, and saying that is far
     # better than a message sitting there looking ignored.
-    if pending is not None:
+    if pending is not None and not speech:
         progress = th.progress(pending.get("turn", ""))
         if running:
             turns += _working_turn(av, a.display, progress)
@@ -617,6 +622,13 @@ def _render_turns(realm_root, a, selected: str) -> str:
     if not msgs and not summ:
         turns = ('<div style="color:var(--text-muted);font-size:13px;padding:20px 0">'
                  'No messages yet. Say hello below — the reply is generated with this agent\'s core context + this thread.</div>')
+    if speech and speech.get('partial_transcript'):
+        if not msgs and not summ:
+            turns = ''
+        for index, part in enumerate(speech['partial_transcript']):
+            turns += _turn(part['role'], part['text'], '', len(msgs)+index, False,
+                           a.id, selected, a.display, a.is_coordinator, av=av, userav=userav,
+                           actions=False, transcription='Recognizing speech…' if part['role'] == 'user' else 'Speaking…')
     return turns
 
 
@@ -740,6 +752,9 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
     voice_panel = (f'<section id="mc-voice-panel" class="mc-voice-panel" aria-label="Voice controls" hidden>'
                    '<div class="mc-voice-copy"><strong id="mc-voice-title">Voice chat preview</strong>'
                    '<span id="mc-voice-status" role="status" aria-live="polite">Connecting…</span>'
+                   '<div id="mc-voice-input" class="mc-voice-input" hidden><span id="mc-voice-meter" class="mc-voice-meter" '
+                   'role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">'
+                   '<span></span></span><span id="mc-voice-input-label">Microphone on</span></div>'
                    '<small id="mc-voice-help">Conversation only · audio uses your Codex connection</small>'
                    '<span id="mc-dictation-text" class="mc-dictation-text" hidden></span></div>'
                    '<div class="mc-voice-actions">'
