@@ -28,7 +28,7 @@ validation and item deduplication. A call consumes only one final protocol, avoi
 
 ## Boundaries and lifecycle
 
-### Dictation extension
+### Original dictation extension (superseded in 0.99.112)
 
 The composer distinguishes **Dictate** (microphone) from **Voice chat** (waveform). Both
 use the same owned Codex WebRTC transport; `mode` is validated as `dictation` or `voice`.
@@ -80,16 +80,16 @@ draft preservation, explicit Send, Cancel, and shared-window controls.
   to 3,500 characters for speech; the full reply remains saved. Ending audio suppresses further
   playback while allowing work to finish. The audio frontend requests a short Received
   acknowledgement because V3 may not finalize user text while instructed to wait silently.
-- The native frontend can still disregard its acknowledgement-only prompt. Its audio player
-  therefore stays muted independently of the prompt. Saved replies wait until the native
-  acknowledgement ends; the owning browser unmutes and acknowledges a server-generated reply ID
+- The native frontend can still disregard its acknowledgement-only prompt. Its audio output
+  therefore stays gated independently of the prompt. Saved replies wait until the native
+  acknowledgement ends; the owning browser enables output and acknowledges a server-generated reply ID
   through the scoped state route before appendSpeech is sent. Duplicate or invented reply IDs
   cannot submit speech. User speech interrupts readback. A reopened call can receive work that
   started under the previous call. The normal runner and saved transcript remain authoritative.
 - The audio watcher and queue share the metadata file lock with unread-status writers. This
   prevents a Windows replacement/read sharing race from ending audio when normal work completes.
 - Deltas remain provisional UI text. Interrupted user text is saved as explicitly incomplete,
-  never automatically executed. Dictation remains a private unsent draft. Audio, SDP and raw
+  never automatically executed. In 0.99.112 dictation uses the same admission path. Audio, SDP and raw
   provider events are not persisted; audio reports retain mode, duration, count and unknown usage.
 - The browser shows a connecting spinner and keeps microphone tracks disabled until WebRTC
   reports connected. A local Web Audio analyser measures sound without recording or playing it.
@@ -97,6 +97,39 @@ draft preservation, explicit Send, Cancel, and shared-window controls.
 - The owning page renews a 15-second lease; setup allows 60 seconds, and a call is limited to ten
   minutes. Archive, unavailable realm and application shutdown also end audio. Shared canonical
   snapshots keep normal work and speech visible in main and detached windows.
+
+### Output and live mode switching — 0.99.112
+
+The owner reported silent replies after successful agent execution. Short baseline tests in Chrome
+and WebView2 played audio, so the exact original failure was not reproduced. The old verification
+proved only transcript delivery and an unmuted element, not actual speaker-path samples. Its
+playback lifecycle also imposed a two-second cutoff after transcript completion, independent of
+buffered audio, and had no missing-audio recovery.
+
+The browser now creates and resumes its AudioContext in the initiating click, before permission
+or signaling awaits. A permanently muted media element remains attached to the incoming stream:
+the actual WebView2 probe demonstrated zero remote samples without this sink. A MediaStreamSource
+feeds a gain-controlled analyser and the output destination; only a saved reply opens the gain.
+The analyser measures post-gain samples, without recording audio. Transcript completion plus
+1.2 seconds of measured output silence retires the reply through an identity-checked `played`
+acknowledgement. The server retains a 180-second safety ceiling. A paused context or missing audio
+shows Enable sound; retry reuses the retained saved text and does not repeat agent execution.
+
+`mode` can change through the existing scoped state route. Both modes continuously admit final
+speech to the ordinary runner and preserve partial input. Dictation drops queued/current readback,
+keeps the microphone open, and produces text replies. Returning to voice affects subsequent
+completed replies; it does not replay earlier text-only answers. Original draft-only Dictate
+semantics are explicitly superseded in user docs. Typed drafts remain untouched. End audio and
+Stop work retain separate lifecycles.
+
+Connection copy describes enabling the selected mode. The Permissions API is queried when
+available; only `prompt` shows Allow microphone access. Unsupported permission queries use neutral
+enabling copy. Actual getUserMedia errors retain explicit permission/device guidance.
+
+A real Codex/WebView2 test used synthetic speech through voice → dictation → voice: one input
+stream, one peer, six persisted messages, no JS errors, nonzero speaker-path samples in both voice
+rounds and exactly zero in dictation. Unit/browser regressions cover delayed audio drain, paused
+playback, missing audio, retry identity, switching while speaking/muted, and permission cancellation.
 
 The 0.99.109/110 implementation shared only transcripts: its restricted responder could promise
 an action without running tools, and Done misleadingly labelled that acknowledgement. The new

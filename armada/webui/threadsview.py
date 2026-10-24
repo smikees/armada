@@ -579,7 +579,7 @@ def _render_turns(realm_root, a, selected: str) -> str:
     th = Thread(agent_dir, selected)
     from .. import voice
     call = voice.current(realm_root, a.id, selected)
-    speech = call.snapshot() if call and not call.finished.is_set() and call.mode == 'voice' else None
+    speech = call.snapshot() if call and not call.finished.is_set() else None
     summ, msgs = th.display_snapshot()
     pending = th.open_turn([m for m in msgs if m.get("kind") != "job"])
     running = bool(pending) and _chat_running(realm_root, a.id, selected)
@@ -756,25 +756,25 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
     from ..engine.selection import engine_for
     voice_available = engine_for(realm_root, a.id) == 'codex'
     voice_button = (f'<button id="mc-dictate" type="button" class="mc-voice-button" '
-                    f'title="Dictate · speech to draft text" aria-label="Dictate" aria-expanded="false">{_icon("mic",17)}</button>'
+                    f'title="Dictate · speak and get text replies" aria-label="Dictate" aria-expanded="false">{_icon("mic",17)}</button>'
                     f'<button id="mc-voice" type="button" class="mc-voice-button mc-voice-chat" '
                     f'title="Voice chat · speak and hear replies" aria-label="Voice chat" '
                     f'aria-expanded="false">{_icon("audio-lines",17)}</button>') if voice_available else ''
     voice_panel = (f'<section id="mc-voice-panel" class="mc-voice-panel" aria-label="Voice controls" hidden>'
-                   '<div class="mc-voice-copy"><strong id="mc-voice-title">Voice chat preview</strong>'
+                   '<div class="mc-voice-copy"><strong id="mc-voice-title">Voice chat</strong>'
                    '<div class="mc-voice-connection"><span id="mc-voice-connecting" class="mc-su-spin" aria-hidden="true" hidden></span>'
                    '<span id="mc-voice-status" role="status" aria-live="polite">Connecting…</span></div>'
                    '<div id="mc-voice-input" class="mc-voice-input" hidden><span id="mc-voice-meter" class="mc-voice-meter" '
                    'role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">'
                    '<span></span></span><span id="mc-voice-input-label">Microphone on</span></div>'
                    '<small id="mc-voice-help">Same agent and tools · End call stops audio; Stop work cancels the task</small>'
-                   '<span id="mc-dictation-text" class="mc-dictation-text" hidden></span></div>'
+                   '</div>'
                    '<div class="mc-voice-actions">'
-                   '<button id="mc-dictation-done" type="button" class="mc-voice-action" hidden>Done</button>'
-                   '<button id="mc-voice-play" type="button" class="mc-voice-action" hidden>Listen</button>'
+                   '<button id="mc-voice-mode" type="button" class="mc-voice-action" hidden>Dictation</button>'
+                   '<button id="mc-voice-play" type="button" class="mc-voice-action" hidden>Enable sound</button>'
                    f'<button id="mc-voice-mute" type="button" class="mc-voice-action" aria-pressed="false" disabled>{_icon("mic",16)}<span>Mute</span></button>'
-                   '<button id="mc-voice-end" type="button" class="mc-voice-action">End call</button></div>'
-                   '<audio id="mc-voice-audio" autoplay playsinline></audio></section>') if voice_available else ''
+                   '<button id="mc-voice-end" type="button" class="mc-voice-action" title="End audio; accepted work continues">End</button></div>'
+                   '<audio id="mc-voice-audio" muted autoplay playsinline></audio></section>') if voice_available else ''
     _title = E(selected)
     if not embed:
         try:

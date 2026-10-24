@@ -82,29 +82,33 @@ the current history. An interrupted summary update is recovered when the thread 
 
 For an agent using Codex, the message box has two audio controls:
 
-- **Dictate** (microphone): speak a message, then choose **Done** to insert it at the cursor.
-  Review or edit the draft and press **Send** when ready. The agent replies normally in text,
-  using its selected model and capabilities. **Cancel** discards the recording's text and
-  keeps your existing draft. Dictation never sends a message or plays an agent reply.
-- **Voice chat** (waveform): speak and hear spoken replies in a hands-free conversation.
+- **Dictate** (microphone): keep speaking; the agent replies in text.
+- **Voice chat** (waveform): keep speaking and hear the agent's replies aloud.
 
-Both require microphone permission and use your existing Codex connection in this preview.
-Dictation uses that live connection for speech recognition, so it consumes voice usage. It
-does not share the agent's context or thread history with the speech session. Your speech
-transcript appears as an editable draft; it is not added to conversation history until sent.
+Both send finalized speech into the same thread automatically. Unlike the earlier draft-only
+Dictate control, you do not need to press Send after each utterance. Existing typed drafts stay
+untouched. Use **Mute** to pause input, or **End** to finish the audio session.
 
-Choose **Voice chat** beside the message box. Allow microphone access, then wait for the
-connecting spinner to change to **Listening** before speaking. The microphone does not transmit
-until connected. **Mute** switches off input while replies remain audible. Only the window that
-started the call owns the microphone; either thread view can end it.
+Switch using the other composer icon or the labelled **Dictation / Voice chat** action in the
+voice panel. The microphone stays connected, unfinished speech is retained, and accepted work
+continues. Switching to Dictation stops current spoken output immediately; future replies stay
+in text. Switching back speaks subsequent completed replies, without replaying old text replies.
+
+Both modes require microphone permission and use your existing Codex connection for speech.
+Wait for the spinner and “Enabling voice mode, just a few seconds…” to change to **Listening**.
+The microphone does not transmit until connected. ARMADA asks you to allow the microphone only
+when the browser reports that permission is needed. Only the window that started the session
+owns the microphone; either thread view can end it.
 
 Voice is another way to use the same conversation. Each finalized spoken request enters the
 normal agent runner, with the agent's configured model, effort, context and approved tools.
 You see its actual progress, tool activity and final reply in both thread views. While the call
 is open, Codex speaks the saved reply; long replies may be shortened for speech, with the full
-answer retained in the thread. Brief audio acknowledgements are not task results.
+answer retained in the thread. Brief audio acknowledgements are not task results and remain
+silent. If output is blocked or no reply audio arrives, the panel offers **Enable sound**;
+your saved answer and agent work are preserved.
 
-**End call** stops audio. **Stop work** cancels the agent's active and queued work. Ending a call,
+**End** stops audio. **Stop work** cancels the agent's active and queued work. Ending a call,
 closing its window or leaving voice mode does **not** cancel requests already accepted. Follow-up
 spoken requests queue in order, so each sees the earlier result. The app must remain running,
 just as for a typed request. Reopening the thread shows progress and lets you start another call.
@@ -113,7 +117,6 @@ The microphone meter reacts to actual sound. Words appearing live in the thread 
 recognition. Mute clears the meter. Final transcription becomes a saved user message exactly once.
 If the call ends before transcription finishes, already received text is kept with an
 **Incomplete transcript** label and is not executed; review it and send the completed request.
-Dictated drafts still enter the thread only after you choose Send.
 
 This experimental preview uses your existing Codex sign-in for speech; the speech model is
 separate from the configured agent model. ARMADA does not record audio. Your browser sends live

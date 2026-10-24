@@ -23,6 +23,15 @@ class VoiceRoutes:
             return {'ok': False, 'error': str(exc)}
         if not call or body.get('id') != call.id:
             return {'ok': False, 'error': 'This voice call has ended.'}
+        if 'mode' in body:
+            try:
+                call.set_mode(body['mode'])
+            except ValueError as exc:
+                return {'ok': False, 'error': str(exc)}
+        if body.get('played'):
+            call.playback_finished(body['played'])
+        if body.get('retry'):
+            call.retry_playback(body['retry'])
         if body.get('play'):
             try:
                 call.play_reply(body['play'])
@@ -36,8 +45,6 @@ class VoiceRoutes:
         except (ValueError, OSError) as exc:
             return {'ok': False, 'error': str(exc)}
         if call and (not body.get('id') or body['id'] == call.id):
-            if body.get('discard') is True and call.mode == 'dictation':
-                call.discard()
             call.stop()
             call.finished.wait(3)
             return {'ok': True, 'voice': call.snapshot(owner=True)}

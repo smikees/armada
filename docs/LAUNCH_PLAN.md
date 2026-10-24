@@ -12,6 +12,10 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.112** checks actual voice output and supports switching between spoken and text-only
+replies without reopening the microphone. Connection copy distinguishes mode setup from permission.
+[Verification](dev/RELEASE_0_99_112.md). Final publication gates remain pending.
+
 Version **0.99.111** makes voice an input/output layer for the normal agent runner. A connecting
 spinner gates the microphone; End call leaves real agent work running, while Stop work cancels it.
 [Verification](dev/RELEASE_0_99_111.md). Published on GitHub and the website with

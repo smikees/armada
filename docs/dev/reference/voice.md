@@ -27,9 +27,11 @@ The ordinary run registry owns cancellation; a browser lease bounds disconnected
 - `VoiceCall.flush_speech(self, *, force=False)` — —
 - `VoiceCall._reply(self, result)` — —
 - `VoiceCall.play_reply(self, identity)` — The owning player is unmuted before this trusted, saved reply is sent.
+- `VoiceCall.playback_finished(self, identity)` — Only retire the owned reply after the browser has drained its audio.
+- `VoiceCall.retry_playback(self, identity)` — —
+- `VoiceCall.set_mode(self, mode)` — —
 - `VoiceCall.event(self, method, params)` — —
 - `VoiceCall.snapshot(self, *, owner=False)` — —
-- `VoiceCall.discard(self)` — —
 - `VoiceCall.stop(self)` — —
 - `VoiceCall._watch(self)` — —
 - `VoiceCall.run(self)` — —

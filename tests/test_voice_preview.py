@@ -217,43 +217,58 @@ def test_failed_provider_is_visible_and_does_not_persist_raw_audio(realm):
     assert len(Thread(realm/'agents/a')._messages())==2
 
 
-def test_dictation_is_a_private_draft_without_context_history_or_assistant_replies(realm):
-    class Dictation(Transport):
-        def run(self,offer,instructions,history,model,emit,on_proc):
-            assert not history and 'cobalt' not in instructions
-            assert 'unsent message' in instructions
-            self.emit=emit;on_proc(self)
-            emit('thread/realtime/started',{'realtimeSessionId':'native'})
-            emit('thread/realtime/sdp',{'sdp':'v=0\r\nanswer'})
-            self.ready.set();assert self.done.wait(10)
-            return ProcessResult(cancelled=True)
-    transport=Dictation()
-    call=voice.start(realm,'a','main','v=0\r\noffer',mode='dictation',transport=transport)
+def test_dictation_submits_normal_turns_but_never_speaks(realm):
+    transport=Transport()
+    call=voice.start(realm,"a","main","v=0\r\noffer",mode="dictation",transport=transport)
     assert transport.ready.wait(2)
-    transport.emit('thread/realtime/transcript/delta',{'role':'user','delta':'A private '})
-    transport.emit('thread/realtime/transcript/delta',{'role':'user','delta':'draft.'})
-    transport.emit('thread/realtime/transcript/delta',{'role':'assistant','delta':'Do not include this'})
-    assert call.snapshot(owner=True)['draft']=='A private draft.'
-    transport.segment('user','A private draft.','one')
-    transport.segment('user','A private draft.','one')
-    transport.segment('assistant','An unwanted response.','two')
-    transport.segment('user','Another sentence.','three')
-    assert call.snapshot(owner=True)['draft']=='A private draft. Another sentence.'
-    assert 'draft' not in call.snapshot()
-    assert 'private draft' not in thread_windows.state(realm,'a','main')['html']
-    assert len(Thread(realm/'agents/a')._messages())==2
-    from armada.routes.voice import VoiceRoutes
-    class Routes(VoiceRoutes):pass
-    routes=Routes();routes.realm=realm
-    assert not routes._voice_state({'agent':'a','id':'wrong'})['ok']
-    result=routes._voice_stop({'agent':'a','thread':'main','id':call.id})
-    assert result['voice']['draft']=='A private draft. Another sentence.'
-    assert not result['voice']['active']
-    report=json.loads((realm/'agents/a/runs/a.jsonl').read_text().strip().splitlines()[-1])
-    assert report['mode']=='dictation' and 'private draft' not in json.dumps(report)
-    call.discard()
-    assert call.snapshot(owner=True)['draft']==''
-    assert len(Thread(realm/'agents/a')._messages())==2
+    transport.emit("thread/realtime/transcript/delta",{"role":"user","delta":"A spoken question"})
+    assert "A spoken question" in thread_windows.state(realm,"a","main")["html"]
+    transport.segment("user","A spoken question","one")
+    transport.segment("assistant","Ignore this acknowledgement","two")
+    call.flush_speech(force=True)
+    from tests.test_voice_work import wait_idle
+    wait_idle()
+    assert len(Thread(realm/"agents/a")._messages())==4
+    assert not call.snapshot()["reply_ready"] and not transport.spoken
+
+
+def test_switching_reply_modes_preserves_input_and_work(realm):
+    call,transport=start(realm)
+    transport.emit("thread/realtime/transcript/delta",{"role":"user","delta":"Half a question"})
+    call._reply({"ok":True,"output":"Old result"})
+    call.set_mode("dictation")
+    assert call.snapshot()["partial_transcript"][0]["text"]=="Half a question"
+    assert not call.replies and not call.finished.is_set()
+    call._reply({"ok":True,"output":"Text only result"})
+    call.set_mode("voice")
+    assert not call.replies, "do not replay past text-only answers when switching back"
+    call._reply({"ok":True,"output":"New spoken result"})
+    call.play_reply(call.snapshot()["reply_ready"])
+    assert transport.spoken==["New spoken result"]
+    call.set_mode("dictation")
+    assert call.snapshot()["playing"] is None
+    with pytest.raises(ValueError):call.set_mode("unknown")
+
+
+def test_playback_waits_for_browser_audio_drain_and_supports_owned_retry(realm,monkeypatch):
+    call,transport=start(realm)
+    call._reply({"ok":True,"output":"A long real answer"})
+    identity=call.snapshot()["reply_ready"]
+    call.play_reply(identity)
+    transport.segment("assistant","A long real answer","readback")
+    assert call.snapshot()["playback_done"]
+    # Previously transcript completion imposed a two-second cutoff, regardless of audio.
+    assert call.playing_until-time.monotonic()>150
+    call.playback_finished("wrong")
+    assert call.snapshot()["playing"]==identity
+    call.retry_playback("wrong")
+    assert call.snapshot()["playing"]==identity
+    call.retry_playback(identity)
+    assert call.snapshot()["reply_ready"]==identity
+    call.play_reply(identity)
+    call.playback_finished(identity)
+    assert call.snapshot()["playing"] is None
+    assert transport.spoken==["A long real answer"]*2
 
 
 def test_unknown_audio_mode_is_rejected(realm):
