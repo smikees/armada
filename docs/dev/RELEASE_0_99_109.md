@@ -40,3 +40,32 @@ The update is Ed25519-signed; Windows publisher signing and clean-Sandbox accept
 unverified. Exact-source full tests/Windows CI, staged native session/recovery, signed packaged
 upgrade and public website/download verification remain mandatory. Publishing does not restart
 the owner's running app. Final evidence is recorded after the enforced release succeeds.
+
+## Publication evidence
+
+Published 2026-10-24 as normal/latest
+[v0.99.109](https://github.com/smikees/armada/releases/tag/v0.99.109) from source `277f9dc8adc84f6c0e87e4248e34fbc918afa46d` through
+`tools/publish_release.py --maintenance-unsigned`.
+
+- Pinned isolated full release gate: **3702 passed, 5 skipped**.
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/40095275917) passed before artifact staging.
+- Mandatory staged native launcher recovery and WebView2 multi-window session checks passed.
+- Signed compatible upgrade from 0.99.108 passed all 69 native checks.
+- All four public downloads match their local sizes and SHA-256 values; the update signature
+  verifies, and its package contains exactly 429 tracked application files,
+  byte for byte. It is the latest normal GitHub release.
+- [armada.stamih.com](https://armada.stamih.com/) deployed with certificate-verified FTPS,
+  backup, verified temporary upload and rename. Public HTTPS content and installer download
+  match the release. Website SHA-256: `64df5579cc180123b822179e4734e789604bdde26630527ee915da7d353ddc70`.
+- Provider catalogues still list each primary release default. Gemini no longer lists the
+  secondary 3.7 fallback on this account; existing connected-provider filtering and provider-default
+  fallback remain in place. No agent/job model or account settings were changed.
+- The owner's running application was not restarted. Windows publisher signing remains pending;
+  the maintenance installer is unsigned and the update manifest is Ed25519-signed.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `armada-0.99.109.zip` | `4472e50cbba7afd575a08c584d21411bd0225bb29588b3c4417ae69087a75480` |
+| `ARMADA-Setup-0.99.109.exe` | `9b0dd8f1e7543ff54799cd75099e77c4ea961a6434ba93556939e8fd12953627` |
+| `armada-update.json` | `3dff4bcc95f7ce662123b87e72397ef099ea258af9d6fa2edfd4fbef27cad2be` |
+| `armada-update.json.sig` | `b3c51e583011710d2934e4bd4b8a5cb6f541d9de35872a0bde1a5041dae1afd8` |
