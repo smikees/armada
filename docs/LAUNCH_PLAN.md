@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.113** preserves natural Codex voice while making its actual spoken transcript
+the visible conversation and subsequent agent context. Work result retains the underlying answer;
+interrupted/unspoken output is explicit and local batching/refresh waits are shorter.
+[Verification](dev/RELEASE_0_99_113.md). Final publication gates remain pending.
+
 Version **0.99.112** checks actual voice output and supports switching between spoken and text-only
 replies without reopening the microphone. Connection copy distinguishes mode setup from permission.
 [Verification](dev/RELEASE_0_99_112.md). Published on GitHub and the website with

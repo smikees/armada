@@ -65,14 +65,30 @@ def start(realm,transport=None):
     return call,transport
 
 
+def wait_reply(call):
+    deadline = time.monotonic()+3
+    while not call.replies and time.monotonic()<deadline:
+        time.sleep(.01)
+    assert call.replies
+
+
+def complete_reply(call, transport):
+    wait_reply(call)
+    identity = call.snapshot()['reply_ready']
+    call.play_reply(identity)
+    transport.segment('assistant', 'The actual spoken response.', 'spoken-'+identity)
+    call.playback_finished(identity)
+    from tests.test_voice_work import wait_idle
+    wait_idle()
+
+
 def test_canonical_transcripts_are_deduplicated_and_shared_by_both_views(realm):
     call,transport=start(realm)
     transport.segment('user','What was the code word?','one')
     transport.segment('user','What was the code word?','one')
     transport.segment('assistant','I will do it.','two')
     call.flush_speech(force=True)
-    from tests.test_voice_work import wait_idle
-    wait_idle()
+    wait_reply(call)
     history=Thread(realm/'agents/a')._messages()
     assert len(history)==4 and history[-2]['voice_request']
     assert history[-1]['content'] != 'I will do it.'
@@ -85,7 +101,7 @@ def test_canonical_transcripts_are_deduplicated_and_shared_by_both_views(realm):
     call.play_reply('forged');assert not transport.spoken
     call.play_reply(identity)
     call.play_reply(identity)
-    assert transport.spoken==[history[-1]['content']]
+    assert transport.spoken==[history[-1]['work_result']]
     call.stop();assert call.finished.wait(2)
     assert not thread_windows.state(realm,'a','main')['run_id']
     assert not call.sdp and not call.offer
@@ -116,8 +132,7 @@ def test_verified_v3_final_parts_are_saved_but_not_doubled_by_other_protocol(rea
     transport.segment('user','Question?','canonical-copy')
     assert len(call.pending_speech)==1
     call.flush_speech(force=True)
-    from tests.test_voice_work import wait_idle
-    wait_idle()
+    wait_reply(call)
     assert len(Thread(realm/'agents/a')._messages())==4
 
 
@@ -134,7 +149,7 @@ def test_identical_utterances_in_separate_v3_turns_stay_distinct(realm):
     for _ in range(2):
         transport.emit('thread/realtime/transcript/done',{'role':'user','text':'Again?'})
         call.flush_speech(force=True)
-        wait_idle()
+        complete_reply(call,transport)
     messages=Thread(realm/'agents/a')._messages()
     assert len(messages)==6
     assert len({m['voice_item'] for m in messages if m.get('voice_request')})==2
@@ -145,8 +160,7 @@ def test_multiple_final_parts_form_one_answered_exchange(realm):
     for role,text in [('user','What was'),('user','the code word?'),('assistant','Received.')]:
         transport.emit('thread/realtime/transcript/done',{'role':role,'text':text})
     call.flush_speech(force=True)
-    from tests.test_voice_work import wait_idle
-    wait_idle()
+    wait_reply(call)
     messages=Thread(realm/'agents/a')._messages()
     assert len(messages)==4 and messages[-2]['content']=='What was the code word?'
     assert messages[-2]['turn']==messages[-1]['turn']
@@ -264,11 +278,10 @@ def test_playback_waits_for_browser_audio_drain_and_supports_owned_retry(realm,m
     call.retry_playback("wrong")
     assert call.snapshot()["playing"]==identity
     call.retry_playback(identity)
-    assert call.snapshot()["reply_ready"]==identity
-    call.play_reply(identity)
+    assert call.snapshot()["playing"]==identity, 'never regenerate an already transcribed answer'
     call.playback_finished(identity)
     assert call.snapshot()["playing"] is None
-    assert transport.spoken==["A long real answer"]*2
+    assert transport.spoken==["A long real answer"]
 
 
 def test_unknown_audio_mode_is_rejected(realm):
@@ -377,8 +390,7 @@ def test_voice_speech_is_live_shared_and_final_replaces_preview(realm):
     assert not call.snapshot()['thinking'], 'audio backend acknowledgements are not agent work'
     transport.segment('user','A spoken question?','final-user')
     call.flush_speech(force=True)
-    from tests.test_voice_work import wait_idle
-    wait_idle()
+    wait_reply(call)
     assert call.snapshot()['partial_transcript']==[]
     assert len(Thread(realm/'agents/a')._messages()) == 4
 

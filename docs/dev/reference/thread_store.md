@@ -34,3 +34,4 @@ Keep original lines for rewriting; tolerant display never becomes compaction inp
 - `HistoryStore._commit(self, before, messages, summary, operation)` — —
 - `HistoryStore.compact(self, snapshot, kept, summary)` — Commit only an unchanged prefix/revision; append-only tail growth is always retained.
 - `HistoryStore.truncate(self, keep)` — Owner-requested truncation shares the compaction lock and advances its revision.
+- `HistoryStore.update_voice(self, turn, transform)` — Update one existing voice answer without losing concurrent appends or edits.

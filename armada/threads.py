@@ -64,9 +64,17 @@ class Thread:
         msgs = [m for m in messages if cls._is_turn(m)]
         if msgs:
             parts.append("## Recent turns\n"
-                         + "\n".join(f"{cls._who(m.get('role',''))}: {str(m.get('content','')).strip()}"
-                                     for m in msgs))
+                         + "\n".join(cls._history_line(m) for m in msgs))
         return "\n\n".join(parts)
+
+    @classmethod
+    def _history_line(cls, message):
+        content = str(message.get('content', '')).strip()
+        state = message.get('voice_state')
+        if state and not content:
+            return 'Agent work result (not spoken): ' + str(message.get('work_result', ''))
+        suffix = ' [Speech interrupted; this is a partial transcript.]' if state == 'interrupted' else ''
+        return f"{cls._who(message.get('role', ''))}: {content}{suffix}"
 
     def _write(self, *records) -> None:
         self._store.append(records)
@@ -106,7 +114,7 @@ class Thread:
         return tid
 
     def complete_turn(self, turn: str, assistant: str, outputs=None, caps=None,
-                      status: str = "ok") -> None:
+                      status: str = "ok", spoken_reply: bool = False) -> None:
         """Close a turn opened by begin_turn. `status` is 'ok', 'error' or 'stopped'.
 
         A turn is always closed, including when the run failed, because an owner message with
@@ -115,6 +123,8 @@ class Thread:
         """
         ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         rec = {"role": "assistant", "ts": ts, "content": assistant, "turn": turn}
+        if spoken_reply:
+            rec.update(content='', work_result=assistant, voice_state='pending')
         if status != "ok":
             rec["status"] = status
         if outputs:
@@ -124,6 +134,28 @@ class Thread:
         self._write(rec)
         with file_lock(self._progress_path(turn)):
             self._progress_path(turn).unlink(missing_ok=True)
+
+    def voice_segment(self, turn, identity, text):
+        """Native speech is the conversation; the original result stays as evidence."""
+        def update(rec):
+            if rec['voice_state'] not in ('pending', 'speaking'):
+                return False
+            segments = list(rec.get('voice_segments', []))
+            if any(part['id'] == identity for part in segments):
+                return False
+            segments.append({'id': identity, 'text': text.strip()})
+            rec.update(voice_segments=segments, content=' '.join(p['text'] for p in segments),
+                       voice_state='speaking')
+            return True
+        return self._store.update_voice(turn, update)
+
+    def finish_voice(self, turn, *, interrupted=False):
+        def update(rec):
+            if rec['voice_state'] not in ('pending', 'speaking'):
+                return False
+            rec['voice_state'] = ('interrupted' if interrupted else 'spoken') if rec['content'] else 'unspoken'
+            return True
+        return self._store.update_voice(turn, update)
 
     def _progress_path(self, turn: str) -> Path:
         import hashlib
@@ -143,7 +175,10 @@ class Thread:
 
     def progress(self, turn: str) -> dict:
         try:
-            return json.loads(self._progress_path(turn).read_text(encoding="utf-8"))
+            # Match writers/deletion: an unlocked Windows read can make completion
+            # fail with a sharing violation while another view polls progress.
+            with file_lock(self._progress_path(turn)):
+                return json.loads(self._progress_path(turn).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
 
@@ -166,6 +201,10 @@ class Thread:
             if isinstance(tid, str) and tid:
                 tagged.setdefault(tid, []).append(i)
         for group in tagged.values():
+            if any(messages[i].get('voice_state') in ('pending', 'speaking') for i in group):
+                # A spoken answer is still being committed. Never compact it out
+                # from underneath the native transcript writer.
+                continue
             if len(group) == 2 and [messages[i].get("role") for i in group] == ["user", "assistant"]:
                 groups.append(group)
                 pending.difference_update(group)
@@ -240,7 +279,7 @@ class Thread:
         if not older_indices:
             return False
         older = [all_msgs[i] for i in sorted(older_indices)]
-        transcript = "\n".join(f"{self._who(m.get('role',''))}: {m.get('content','')}" for m in older)
+        transcript = "\n".join(self._history_line(m) for m in older)
         prompt = ("Compress the conversation below into 4–7 tight bullet points that preserve decisions, "
                   "concrete facts/numbers, and open items. No preamble.\n\n"
                   + (f"Existing summary to fold in:\n{prev}\n\n" if prev else "") + transcript)

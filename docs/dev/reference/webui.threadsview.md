@@ -70,7 +70,7 @@ Render an assistant turn's full activity trail: text notes (Markdown), tool-acti
 
 Thumbnails for image attachments + name chips for file attachments, in a user turn.
 
-### `_turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str='', userav: str='', seg=None, att=None, actions=True, status='', transcription='')`
+### `_turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str='', userav: str='', seg=None, att=None, actions=True, status='', transcription='', work_result=None)`
 
 —
 

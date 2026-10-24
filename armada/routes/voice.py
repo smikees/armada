@@ -23,6 +23,8 @@ class VoiceRoutes:
             return {'ok': False, 'error': str(exc)}
         if not call or body.get('id') != call.id:
             return {'ok': False, 'error': 'This voice call has ended.'}
+        if body.get('heard'):
+            call.playback_received(body['heard'])
         if 'mode' in body:
             try:
                 call.set_mode(body['mode'])
@@ -45,6 +47,8 @@ class VoiceRoutes:
         except (ValueError, OSError) as exc:
             return {'ok': False, 'error': str(exc)}
         if call and (not body.get('id') or body['id'] == call.id):
+            if body.get('heard'):
+                call.playback_received(body['heard'])
             call.stop()
             call.finished.wait(3)
             return {'ok': True, 'voice': call.snapshot(owner=True)}

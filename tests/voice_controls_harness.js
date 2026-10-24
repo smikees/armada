@@ -39,6 +39,7 @@ function view(){
   assert.equal(a.gain().value,0,'native acknowledgements stay silent');assert(a.track.enabled);assert.equal(a.contexts.length,1);
   a.ctx.state.reply_ready='reply';await a.tick();assert.equal(a.gain().value,1);
   a.output().sample=.1;a.meter();a.ctx.state.playback_done=true;await a.tick();a.meter(3000);
+  assert(a.ctx.requests.some(r=>r.body.heard==='reply'),'report real output samples before marking speech delivered');
   assert.equal(a.gain().value,1,'transcript completion must not cut off real audio');
   a.contexts[0].state='suspended';a.output().sample=0;a.meter(3000);
   assert(!a.ctx.requests.some(r=>r.body.played),'a suspended context is not finished audio');

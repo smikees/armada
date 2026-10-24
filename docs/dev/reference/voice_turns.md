@@ -10,7 +10,7 @@ Like typed turns, an application shutdown does not automatically replay side eff
 
 —
 
-### `submit(root, agent, thread, text, *, voice_session, voice_item, reply=None)`
+### `submit(root, agent, thread, text, *, voice_session, voice_item, reply=None, spoken_reply=False)`
 
 —
 

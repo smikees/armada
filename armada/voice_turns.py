@@ -31,7 +31,7 @@ def _target(root, agent, thread):
         raise ValueError('This thread was archived.')
 
 
-def submit(root, agent, thread, text, *, voice_session, voice_item, reply=None):
+def submit(root, agent, thread, text, *, voice_session, voice_item, reply=None, spoken_reply=False):
     _target(root, agent, thread)
     context = RunContext.capture(root, agent, thread)
     key = (context.realm.realm_id, agent, thread)
@@ -44,14 +44,14 @@ def submit(root, agent, thread, text, *, voice_session, voice_item, reply=None):
             th._write({'role': 'user', 'content': text, 'turn': context.run_id,
                 'ts': datetime.datetime.now().astimezone().isoformat(timespec='seconds'),
                 'mode': 'voice', 'voice_request': True, 'voice_session': voice_session,
-                'voice_item': voice_item})
+                'voice_item': voice_item, 'spoken_reply': spoken_reply})
             th.save_progress(context.run_id, '', 'Queued…')
             thread_metadata.set_unread(Path(context.realm.root)/'agents'/agent, thread)
         except Exception:
             session.close()
             raise
         queue = _queues.setdefault(key, deque())
-        queue.append((context, session, text, reply))
+        queue.append((context, session, text, reply, spoken_reply))
         if len(queue) == 1:
             threading.Thread(target=_drain, args=(key,), name='voice-agent-work', daemon=True).start()
     return context.run_id
@@ -60,7 +60,7 @@ def submit(root, agent, thread, text, *, voice_session, voice_item, reply=None):
 def _drain(key):
     while True:
         with _lock:
-            context, session, text, reply = _queues[key][0]
+            context, session, text, reply, spoken_reply = _queues[key][0]
         th = Thread(Path(context.realm.root)/'agents'/context.agent, context.thread)
         try:
             # A call can open during an existing typed run. Its requests wait for that
@@ -85,12 +85,23 @@ def _drain(key):
             else:
                 th.save_progress(context.run_id, '', 'Thinking…')
                 result = TurnCoordinator(TurnRequest(context, text, 'auto', True,
-                    admitted_turn=context.run_id), session=session).run()
+                    admitted_turn=context.run_id, spoken_reply=spoken_reply), session=session).run()
             if result and reply:
                 try:
-                    reply(result)
+                    delivery = reply(result)
+                    # Later requests need the actual spoken answer, not the earlier
+                    # backend wording. End/interruption/mode switch release this wait.
+                    if spoken_reply and isinstance(delivery, threading.Event):
+                        deadline = time.monotonic()+180
+                        while not delivery.wait(.1) and time.monotonic()<deadline:
+                            with _lock:
+                                waiting = list(_queues.get(key, ()))[1:]
+                            if waiting and all(item[1].active.cancelled for item in waiting):
+                                break
                 except Exception:
                     log.exception('Could not speak the saved agent reply')
+            if spoken_reply:
+                th.finish_voice(context.run_id, interrupted=True)
         except Exception as exc:
             log.exception('Spoken request failed')
             # Do not recreate a deleted/archived thread when reporting a failure.

@@ -89,7 +89,7 @@ class HistoryStore:
         txn = util.read_json_state(self.journal, max_schema=1)
         payload = {key: txn.get(key) for key in ("operation", "before", "after")}
         try:
-            if txn.get("schema_version") != 1 or payload["operation"] not in ("compact", "truncate"):
+            if txn.get("schema_version") != 1 or payload["operation"] not in ("compact", "truncate", "voice"):
                 raise ValueError("unknown journal")
             if self._checksum(payload) != txn.get("checksum"):
                 raise ValueError("checksum mismatch")
@@ -167,3 +167,21 @@ class HistoryStore:
             if keep < len(lines):
                 self._commit(current, "".join(lines[:keep]), current.summary, "truncate")
             return keep
+
+    def update_voice(self, turn, transform):
+        """Update one existing voice answer without losing concurrent appends or edits."""
+        with util.file_lock(self.msgs):
+            self._recover()
+            current = self._current()
+            rows = entries(current.messages)
+            matches = [i for i, (_, m) in enumerate(rows) if m and m.get('turn') == turn
+                       and m.get('role') == 'assistant' and 'voice_state' in m]
+            if len(matches) != 1:
+                return False
+            index = matches[0]
+            record = dict(rows[index][1])
+            if not transform(record):
+                return False
+            rows[index] = (json.dumps(record, ensure_ascii=False)+'\n', record)
+            self._commit(current, ''.join(line for line, _ in rows), current.summary, 'voice')
+            return True

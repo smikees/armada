@@ -45,6 +45,8 @@
   }
   async function receive(owned,state){
     if(call!==owned)return;owned.state=state;gate(owned,!!state?.playing);
+    const transcript=JSON.stringify([state?.partial_transcript,state?.spoken_reply,state?.playing,state?.playback_done]);
+    if(transcript!==owned.transcript){owned.transcript=transcript;window.mcThreadChanged?.();}
     if(owned.reply!==state?.playing){owned.reply=state?.playing;owned.heard=false;owned.lastSound=0;owned.replyStarted=Date.now();}
     if(owned.mode==='voice'&&state?.reply_ready&&!owned.switching){
       if(owned.audioContext.state!=='running'){owned.soundError='Sound is paused. Select Enable sound to hear replies.';play.hidden=false;}
@@ -75,7 +77,10 @@
         owned.soundError='Sound is paused. Select Enable sound to hear replies.';play.hidden=false;note(owned.soundError,true);return;
       }
       const sound=context.state==='running'?rms(owned.outputAnalyser,outputSamples):0;
-      if(sound>.001){owned.heard=true;owned.lastSound=Date.now();}
+      if(sound>.001){
+        if(!owned.heard)post('state',{id:owned.id,heard:owned.reply}).catch(()=>{});
+        owned.heard=true;owned.lastSound=Date.now();
+      }
       // Transcript completion is not proof buffered audio has finished playing.
       if(owned.heard&&owned.state?.playback_done&&Date.now()-owned.lastSound>1200){
         const identity=owned.reply;owned.reply=null;gate(owned,false);post('state',{id:owned.id,played:identity}).catch(()=>{});
@@ -87,22 +92,22 @@
   async function finish(message='Audio ended · accepted work continues',error=false,keepalive=false){
     const owned=call,id=owned?.id||remote?.id,revision=++generation;call=null;remote=null;ending=true;clearTimeout(timer);
     if(owned)release(owned);note(message,error);paint();
-    if(id){try{const result=await post('stop',{id},keepalive);if(result.voice?.active)remote=result.voice;}
+    if(id){try{const result=await post('stop',{id,heard:owned?.heard?owned.reply:null},keepalive);if(result.voice?.active)remote=result.voice;}
       catch(e){if(!keepalive){remote={id,active:true,mode:owned?.mode};note('Microphone off. Could not confirm audio ended. Select End to retry.',true);}}}
     if(revision!==generation)return;ending=false;paint();window.mcThreadChanged?.();
   }
   async function poll(owned){
     if(call!==owned)return;
-    try{const result=await post('state',{id:owned.id});if(call!==owned)return;await receive(owned,result.voice);
+    try{const result=await post('state',{id:owned.id,heard:owned.heard?owned.reply:null});if(call!==owned)return;await receive(owned,result.voice);
       if(!result.voice.active){await finish(result.voice.error||'Audio session ended',!!result.voice.error);return;}}
     catch(e){if(call===owned)await finish(e.message,true);return;}
-    timer=setTimeout(()=>poll(owned),500);
+    timer=setTimeout(()=>poll(owned),250);
   }
   async function switchMode(mode){
     const owned=call;if(!owned||owned.switching)return;owned.switching=true;gate(owned,false);paint();
     try{
       if(mode==='voice')await owned.audioContext.resume();
-      const result=await post('state',{id:owned.id,mode});if(call!==owned)return;
+      const result=await post('state',{id:owned.id,mode,heard:owned.heard?owned.reply:null});if(call!==owned)return;
       owned.mode=result.voice.mode;owned.soundError='';owned.reply=null;play.hidden=true;owned.switching=false;await receive(owned,result.voice);
     }catch(e){if(call===owned)note('Could not switch modes. Try again.',true);}
     finally{owned.switching=false;if(call===owned)paint();}

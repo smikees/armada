@@ -4,6 +4,9 @@ The owner requested hands-free calls with Mute and End controls in the existing 
 This is a narrow extension of that surface, including detached windows, not a second conversation
 store. Claude Code 2.1.289's documented dictation does not provide the same spoken-response path.
 
+Current behavior is described in **Spoken conversation fidelity — 0.99.113** below.
+Earlier sections document implementation history; their saved-text readback contract is superseded.
+
 ## Verified provider contract
 
 Generated experimental JSON/TypeScript schemas from installed Codex CLI 0.157.1 and exercised
@@ -134,6 +137,45 @@ playback, missing audio, retry identity, switching while speaking/muted, and per
 The 0.99.109/110 implementation shared only transcripts: its restricted responder could promise
 an action without running tools, and Done misleadingly labelled that acknowledgement. The new
 split keeps the restricted transport as speech input/output and uses the normal runner for work.
+
+### Spoken conversation fidelity — 0.99.113
+
+The owner selected natural Codex voice with the actual output transcript as the conversation,
+following the reproduced [0.99.112 wording mismatch](VOICE_FIDELITY_INVESTIGATION.md).
+`appendSpeech` is conversational generation, not guaranteed verbatim text-to-speech.
+
+- A voice-mode request stores one ordinary assistant record with the normal runner's output in
+  `work_result`, an initially empty `content`, and `voice_state=pending`. Task status, tool evidence,
+  output files and accounting remain owned by the ordinary runner. The UI suppresses competing
+  backend answer text while retaining tool activity and progress.
+- Native assistant transcript segments during the owned reply replace that record's conversation
+  content. Segments are deduplicated by native call/item identity. Unsolicited acknowledgements
+  remain muted and unsaved. Generated final text is buffered until the matching browser reports
+  actual post-gain output samples; receipt is repeated with state, mode and stop requests.
+- Live received speech is shown in both thread views. The full backend answer is a collapsed
+  **Work result** disclosure. A recoverable `voice` history journal operation updates the record
+  under the existing message lock, preserves concurrent appends and advances the revision so
+  stale compaction cannot overwrite it. Deleted answers are not recreated.
+- A later queued request waits for reply delivery, interruption or audio closure (bounded to
+  180 seconds), then receives the actual spoken content in its prompt. Pending speech records
+  cannot be compacted away. Speech never replaces task completion/evidence or executes commands.
+- Interruption preserves received transcript text with an explicit partial marker. Without audio
+  receipt the answer becomes `unspoken`, showing the backend result with unspoken semantics in
+  subsequent context. Ending a call does not cancel work. Switching to dictation settles current
+  speech; switching back applies to newly admitted requests, not historical text-only results.
+- Already transcribed speech cannot be regenerated under the same answer identity on Retry.
+  A blocked audio context can resume; missing audio keeps the saved text fallback. Provider
+  transcript timing can lead actual playback, so an interrupted transcript is not a word-aligned
+  record of precisely what reached the physical speaker. No audio recording is retained.
+- Final input batching drops from 1 second to 250 ms, the server watcher from 500 to 100 ms,
+  and owner state polling from 500 to 250 ms. Changed speech state wakes the canonical thread
+  refresh rather than waiting for its idle poll. Connection startup and model inference remain
+  provider-dependent; no model/effort, safety readiness or microphone permission is bypassed.
+
+The task agent sees input transcripts, not microphone audio. Tests check exact stored output
+against native final transcripts as well as audio samples, normal tool execution, follow-up
+context, no-audio fallback, mode switching and closure. Runtime/account limitations remain
+those of the experimental Codex app-server protocol verified above.
 
 ## Reproduce
 

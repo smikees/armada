@@ -92,7 +92,7 @@ untouched. Use **Mute** to pause input, or **End** to finish the audio session.
 Switch using the other composer icon or the labelled **Dictation / Voice chat** action in the
 voice panel. The microphone stays connected, unfinished speech is retained, and accepted work
 continues. Switching to Dictation stops current spoken output immediately; future replies stay
-in text. Switching back speaks subsequent completed replies, without replaying old text replies.
+in text. Switching back enables spoken replies for new requests, without replaying text replies.
 
 Both modes require microphone permission and use your existing Codex connection for speech.
 Wait for the spinner and “Enabling voice mode, just a few seconds…” to change to **Listening**.
@@ -102,11 +102,15 @@ owns the microphone; either thread view can end it.
 
 Voice is another way to use the same conversation. Each finalized spoken request enters the
 normal agent runner, with the agent's configured model, effort, context and approved tools.
-You see its actual progress, tool activity and final reply in both thread views. While the call
-is open, Codex speaks the saved reply; long replies may be shortened for speech, with the full
-answer retained in the thread. Brief audio acknowledgements are not task results and remain
-silent. If output is blocked or no reply audio arrives, the panel offers **Enable sound**;
-your saved answer and agent work are preserved.
+You see its actual progress and tool activity in both thread views. Codex expresses the result
+in its natural voice. The transcript of that spoken reply is the conversation you see and the
+wording supplied to the next agent turn. Expand **Work result** to inspect the full underlying
+result, which can be longer or worded differently. Speaking cannot change the task's outcome
+or its output files. Brief audio acknowledgements remain silent and are not task results.
+
+Interrupted speech is marked **Speech interrupted · partial transcript**. If no reply audio
+reaches the player, the original result appears as **Text result · not spoken**. If output is
+blocked, **Enable sound** resumes playback where possible; your answer and work stay saved.
 
 **End** stops audio. **Stop work** cancels the agent's active and queued work. Ending a call,
 closing its window or leaving voice mode does **not** cancel requests already accepted. Follow-up
@@ -119,7 +123,8 @@ If the call ends before transcription finishes, already received text is kept wi
 **Incomplete transcript** label and is not executed; review it and send the completed request.
 
 This experimental preview uses your existing Codex sign-in for speech; the speech model is
-separate from the configured agent model. ARMADA does not record audio. Your browser sends live
+separate from the configured agent model. The task agent receives your transcribed words, not
+the raw audio; it cannot judge pronunciation or tone. ARMADA does not record audio. Your browser sends live
 microphone audio to Codex. Audio usage is marked unconfirmed when Codex does not report it;
 normal agent work has its usual separate accounting. The protocol was verified with Codex CLI
 0.157.1; older versions or accounts without native voice support may fail to connect. There is

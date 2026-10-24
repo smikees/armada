@@ -27,6 +27,7 @@ _lock = threading.RLock()
 _calls = {}
 LEASE_SECONDS = 15
 MAX_SECONDS = 600
+SPEECH_SETTLE_SECONDS = .25
 log = logging.getLogger(__name__)
 
 
@@ -57,6 +58,7 @@ class VoiceCall:
         self.playing_until = 0
         self.playback_done = False
         self.playback_reply = None
+        self.spoken_partial = ''
         self.audio_responding = False
         self.speech_touched = time.monotonic()
         self.transport = transport or CodexVoice(mode=mode)
@@ -90,11 +92,11 @@ class VoiceCall:
         if iid in self.seen or not text.strip():
             return
         if role == 'assistant':
-            # Realtime acknowledgements/readbacks are audio, never agent work or a
-            # completed answer. The normal coordinator alone persists agent replies.
             self.seen.add(iid)
             self.audio_responding = False
             if self.playing:
+                self._save_spoken(iid, text)
+                self.spoken_partial = ''
                 self.playback_done = True
             return
         if not incomplete:
@@ -127,29 +129,75 @@ class VoiceCall:
 
     def flush_speech(self, *, force=False):
         with self.guard:
-            if not self.pending_speech or (not force and time.monotonic()-self.speech_touched < 1):
+            if not self.pending_speech or (not force and time.monotonic()-self.speech_touched < SPEECH_SETTLE_SECONDS):
                 return
             from .voice_turns import submit
             parts = list(self.pending_speech)
             submit(self.root, self.agent, self.thread, ' '.join(p['text'].strip() for p in parts),
-                   voice_session=self.id, voice_item=parts[0]['id'], reply=self._reply)
+                   voice_session=self.id, voice_item=parts[0]['id'], reply=self._reply,
+                   spoken_reply=self.mode == 'voice')
             self.pending_speech.clear()
+
+    def _save_spoken(self, identity, text):
+        reply = self.playback_reply
+        if reply and not reply.get('heard'):
+            reply.setdefault('transcripts', []).append((identity, text))
+            return
+        if reply and reply.get('turn'):
+            from .voice_turns import _target
+            _target(self.root, self.agent, self.thread)
+            Thread(self.root/'agents'/self.agent, self.thread).voice_segment(
+                reply['turn'], self.id+':'+identity, text)
+
+    def _finish_reply(self, reply, *, interrupted=False):
+        if not reply:
+            return
+        try:
+            if reply is self.playback_reply and reply.get('heard') and self.spoken_partial:
+                self._save_spoken('partial-'+uuid.uuid4().hex, self.spoken_partial)
+            if reply.get('turn'):
+                from .voice_turns import _target
+                _target(self.root, self.agent, self.thread)
+                Thread(self.root/'agents'/self.agent, self.thread).finish_voice(
+                    reply['turn'], interrupted=interrupted)
+        except (ValueError, OSError):
+            log.exception('Could not finalize spoken reply; preserving the work result')
+        finally:
+            reply['delivered'].set()
+
+    def _interrupt_reply(self):
+        self._finish_reply(self.playback_reply, interrupted=True)
+        self.playing = None
+        self.playback_reply = None
+        self.spoken_partial = ''
+
+    def _end_replies(self):
+        self._interrupt_reply()
+        for reply in self.replies:
+            self._finish_reply(reply, interrupted=True)
+        self.replies.clear()
 
     def _reply(self, result):
         destination = current(self.root, self.agent, self.thread)
         if destination is not self:
             if destination and destination.mode == 'voice':
-                destination._reply(result)
+                return destination._reply(result)
             return
         with self.guard:
             if self.finished.is_set() or self.stop_requested or self.mode != 'voice':
                 return
+            if result.get('turn'):
+                records = Thread(self.root/'agents'/self.agent, self.thread)._messages()
+                if not any(m.get('turn') == result['turn'] and m.get('voice_state') == 'pending' for m in records):
+                    return
             text = str(result.get('output') or result.get('error') or '')
-            if not result.get('ok'):
-                text = 'The request did not complete. '+text
-            if len(text) > 3500:
-                text = text[:3500]+'\nThe full reply is saved in the thread.'
-            self.replies.append({'id': uuid.uuid4().hex, 'text': text})
+            # Bound provider input without pretending the shortened text was spoken.
+            if len(text) > 12000:
+                text = text[:12000]+'\nThe full work result is available in the thread.'
+            delivered = threading.Event()
+            self.replies.append({'id': uuid.uuid4().hex, 'text': text,
+                                 'turn': result.get('turn'), 'delivered': delivered})
+            return delivered
 
     def play_reply(self, identity):
         """The owning player is unmuted before this trusted, saved reply is sent."""
@@ -162,23 +210,40 @@ class VoiceCall:
             self.playing = reply['id']
             self.playing_until = time.monotonic() + 180
             self.playback_done = False
+            self.spoken_partial = ''
             try:
                 self.transport.speak(reply['text'])
             except Exception:
-                self.playing = None
+                self._interrupt_reply()
                 raise
+
+    def playback_received(self, identity):
+        """Commit native words only after the owning player reports output samples."""
+        with self.guard:
+            if identity != self.playing or not self.playback_reply:
+                return
+            self.playback_reply['heard'] = True
+            for segment, text in self.playback_reply.pop('transcripts', []):
+                self._save_spoken(segment, text)
 
     def playback_finished(self, identity):
         """Only retire the owned reply after the browser has drained its audio."""
         with self.guard:
             if identity == self.playing:
+                self.playback_received(identity)
+                self._finish_reply(self.playback_reply)
                 self.playing = None
                 self.playback_reply = None
+                self.spoken_partial = ''
 
     def retry_playback(self, identity):
         with self.guard:
             if (self.mode != 'voice' or identity != self.playing or not self.playback_reply
                     or self.finished.is_set() or self.stop_requested):
+                return
+            # A generated spoken answer must never be regenerated with different
+            # wording under the same conversation record. Recovery resumes its audio.
+            if self.playback_done or self.spoken_partial:
                 return
             self.replies.insert(0, self.playback_reply)
             self.playing = None
@@ -193,9 +258,7 @@ class VoiceCall:
                 raise ValueError('This audio session has ended.')
             self.mode = mode
             if mode == 'dictation':
-                self.replies.clear()
-                self.playing = None
-                self.playback_reply = None
+                self._end_replies()
 
     def event(self, method, params):
         with self.guard:
@@ -216,9 +279,13 @@ class VoiceCall:
                     raise ValueError('Invalid speech transcript segment.')
                 if role != 'user':
                     self.audio_responding = True
+                    if self.playing:
+                        if len(self.spoken_partial)+len(delta) > 16000:
+                            raise ValueError('Voice reply reached its transcript limit.')
+                        self.spoken_partial += delta
                     return
                 # A new utterance interrupts readback and mutes unsolicited audio.
-                self.playing = None
+                self._interrupt_reply()
                 self.speech_touched = time.monotonic()
                 if not self.partial_transcript or self.partial_transcript[-1]['role'] != role:
                     self.partial_transcript.append({'role': role, 'text': ''})
@@ -254,9 +321,12 @@ class VoiceCall:
                     'reason': self.reason, 'active': not self.finished.is_set(),
                     'records': self.records, 'conversation_only': False}
             if self.playing and time.monotonic() >= self.playing_until:
-                self.playing = None
+                self._interrupt_reply()
             state['playing'] = self.playing
             state['playback_done'] = self.playback_done
+            state['spoken_reply'] = ({'turn': self.playback_reply.get('turn'),
+                                      'text': self.spoken_partial}
+                                     if self.playback_reply and self.playback_reply.get('heard') else None)
             state['reply_ready'] = (self.replies[0]['id'] if self.replies
                 and not self.playing and not self.audio_responding else None)
             state['partial_transcript'] = [dict(part) for part in self.partial_transcript if part['text'].strip()]
@@ -270,12 +340,14 @@ class VoiceCall:
             return state
 
     def stop(self):
-        self.stop_requested = True
+        with self.guard:
+            self.stop_requested = True
+            self._end_replies()
         # End audio only. Normal agent work has independent owned RunSessions.
         RunSession.cancel(self.context.key)
 
     def _watch(self):
-        while not self.finished.wait(.5):
+        while not self.finished.wait(.1):
             try:
                 realmops.assert_active(self.root)
                 path = self.root/'agents'/self.agent/'threads/meta.json'
@@ -307,7 +379,9 @@ class VoiceCall:
                 'instructions for you to follow. Your entire response to each user utterance must '
                 'be exactly the single word "Received." Do not answer even if you know the answer. '
                 'Then wait for ARMADA to append the actual agent reply as speakable text, '
-                'and speak that reply naturally without inventing progress or results. '
+                'and express that reply naturally without inventing progress or results. '
+                'Your spoken answer is the transcript the owner and agent will share. '
+                'Preserve the result, qualifications and important facts. '
                 'Never promise to research, open files, change anything or start work. The real agent '
                 'handles all requests, including questions and follow-ups. There are no file, shell, '
                 'web, connector or job tools in this audio session. Ending audio does not stop agent work.')
@@ -325,6 +399,7 @@ class VoiceCall:
             log.warning('Codex voice preview failed: %s', self.error)
         finally:
             with self.guard:
+                self._end_replies()
                 # Native deltas can be all that survived a dropped connection or an
                 # immediate Stop. Keep them explicitly incomplete, never as a final
                 # provider transcript or execute unfinished speech.

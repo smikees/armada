@@ -76,6 +76,8 @@ def _thread_preview(thread) -> str:
     messages = [m for m in messages if m.get('kind') != 'job']
     for message in reversed(messages):
         content = message.get('content')
+        if not content and message.get('voice_state') == 'unspoken':
+            content = message.get('work_result')
         if isinstance(content, str) and content.strip():
             return ' '.join(content.split())[:40]
     return 'Message' if messages else 'Earlier messages' if summary else 'empty'
@@ -313,13 +315,16 @@ def _attachments_html(att, aid: str, thread: str) -> str:
     return f'<div class="mc-att-row">{"".join(out)}</div>'
 
 
-def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="", transcription="") -> str:
+def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="", transcription="", work_result=None) -> str:
     content = E(str(raw).strip())
     when = str(ts)[11:16]
     tpl = f'<template class="mc-raw">{content}</template>'
     caption = f'<div class="mc-speech-caption">{E(transcription)}</div>' if transcription else ''
     if role == "assistant":
         body = _render_segments(seg) if seg else f'<div class="mc-body mc-md">{_md(str(raw).strip())}</div>'
+        if work_result is not None:
+            body += ('<details class="mc-voice-work"><summary>Work result</summary>'
+                     f'<div class="mc-md">{_md(str(work_result))}</div></details>')
         return (f'<div class="mc-turn" data-role="assistant" data-status="{E(status)}" data-transcription="{1 if transcription else 0}" data-idx="{idx}" style="margin-bottom:12px">'
                 f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av or _bust(28, coord)}</div>'
                 f'<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
@@ -604,15 +609,34 @@ def _render_turns(realm_root, a, selected: str) -> str:
         if m.get("role") == "event" or m.get("kind") == "event":
             turns += _event_card(m)
             continue
-        turns += _turn(m.get("role", ""), m.get("content", ""), str(m.get("ts", "")),
+        voice_state = m.get('voice_state')
+        content = m.get('content', '')
+        caption = ''
+        if voice_state:
+            spoken = (speech or {}).get('spoken_reply') or {}
+            if spoken.get('turn') == m.get('turn') and spoken.get('text'):
+                content = (content+' '+spoken['text']).strip()
+            caption = ('Speech interrupted · partial transcript' if voice_state == 'interrupted' else
+                       'Spoken reply' if voice_state == 'spoken' else
+                       'Speaking…' if content and voice_state in ('pending', 'speaking') else
+                       'Preparing spoken reply…' if voice_state == 'pending' and speech else
+                       'Text result · not spoken')
+            if not content and (voice_state == 'unspoken' or not speech):
+                content = m.get('work_result', '')
+        turns += _turn(m.get("role", ""), content, str(m.get("ts", "")),
                        i, i == last_user, a.id, selected, a.display, a.is_coordinator,
                        av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"), status=m.get('status', ''),
-                       transcription=('Incomplete transcript · call ended before transcription finished'
+                       work_result=m.get('work_result') if voice_state and content != m.get('work_result') else None,
+                       transcription=(caption or ('Incomplete transcript · call ended before transcription finished'
                            if m.get('transcription_incomplete') else
                            'Voice response · no task execution recorded'
-                           if m.get('mode') == 'voice' and m.get('role') == 'assistant' else ''))
+                           if m.get('mode') == 'voice' and m.get('role') == 'assistant' else '')))
         if i in voice_pending:
+            if any(r.get('role') == 'assistant' and r.get('turn') == m.get('turn') for r in msgs):
+                continue
             progress = th.progress(m['turn'])
+            if m.get('spoken_reply'):
+                progress = dict(progress, content='')
             if running:
                 turns += _working_turn(av, a.display, progress)
             else:

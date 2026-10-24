@@ -193,6 +193,7 @@ class TurnRequest:
     images: tuple = ()
     files: tuple = ()
     admitted_turn: str | None = None
+    spoken_reply: bool = False
 
 
 class TurnCoordinator:
@@ -451,6 +452,7 @@ class TurnCoordinator:
             if raw_capture is not None and raw_capture.errors and not scheduled_job:
                 status = "error" if raw_capture.required else ("warn" if result.ok else status)
             th.complete_turn(turn, text, status=status,
+                             spoken_reply=req.spoken_reply,
                              outputs=cap.outputs or None if cap else None,
                              caps=cap.caps or None if cap else None)
             for sync in (lambda: r._sync_proposals(root, aid), lambda: r._sync_cap_requests(root, aid, thread)):
@@ -515,7 +517,8 @@ class TurnCoordinator:
             if req.task:
                 r._say(f"ARMADA run · {aid}/{req.task} · {status} · tokens={result.usage.total}")
                 return report
-            return {"ok": result.ok, "output": result.output or result.error, "tokens": result.usage.as_dict(),
+            return {"ok": result.ok, "output": text if req.spoken_reply else result.output or result.error,
+                    "turn": turn, "tokens": result.usage.as_dict(),
                     "model": result.model, "status": status, "error": result.error}
         finally:
             live_text.close()
