@@ -15,6 +15,7 @@ from .util import safe_seg
 from .routes import realm as routes_realm, agents as routes_agents, jobs as routes_jobs
 from .routes import caps as routes_caps, catalogue as routes_catalogue, settings as routes_settings
 from .routes import dashboard as routes_dashboard, _shared as routes_shared
+from .routes import voice as routes_voice
 from .realm_registry import ensure as _reg_ensure, load as _reg_load
 from .util import swallowed
 from .request_context import RealmContext, RealmMismatch, SELECTION_LOCK, content_path, bind_content_html
@@ -29,7 +30,7 @@ _RESTART_LOCK = threading.Lock()
 _content_httpd = None
 
 
-class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.JobRoutes,
+class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.JobRoutes,
               routes_caps.CapabilityRoutes, routes_catalogue.CatalogueRoutes,
               routes_settings.SettingsRoutes, routes_dashboard.DashboardRoutes,
               routes_shared.SharedRoutes, http.server.BaseHTTPRequestHandler):
@@ -435,6 +436,7 @@ class Handler(routes_realm.RealmRoutes, routes_agents.AgentRoutes, routes_jobs.J
 
     # Most POSTs are uniform: take the JSON body, return a dict that's sent as JSON. Path → method.
     _POST_JSON = {
+        "/api/voice-start": "_voice_start", "/api/voice-state": "_voice_state", "/api/voice-stop": "_voice_stop",
         "/api/run": "_run", "/api/chat": "_chat", "/api/save-job": "_save_job",
         "/api/dry-run": "_start_dry_run", "/api/dry-run-stop": "_stop_dry_run",
         "/api/job-proposal": "_job_proposal", "/api/save-agent": "_save_agent",
@@ -783,6 +785,8 @@ class _Server(http.server.ThreadingHTTPServer):
         super().server_bind()
 
     def server_close(self):
+        from .voice import close_all
+        close_all()
         super().server_close()
         if getattr(self, "_owns_auth", False) and hasattr(self, "auth"):
             self.auth.close()

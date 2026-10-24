@@ -70,6 +70,17 @@ def _thread_title(meta: dict, slug: str) -> str:
     return meta.get("titles", {}).get(slug) or ("Main" if slug == "main" else slug.replace("-", " ").strip().title())
 
 
+def _thread_preview(thread) -> str:
+    """One plain-text preview for initial rendering and live sidebar updates."""
+    summary, messages = thread.display_snapshot()
+    messages = [m for m in messages if m.get('kind') != 'job']
+    for message in reversed(messages):
+        content = message.get('content')
+        if isinstance(content, str) and content.strip():
+            return ' '.join(content.split())[:40]
+    return 'Message' if messages else 'Earlier messages' if summary else 'empty'
+
+
 def _meta_path(agent_dir) -> Path:
     return Path(agent_dir) / "threads" / "meta.json"
 
@@ -319,7 +330,7 @@ def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, threa
     return (f'<div class="mc-turn" data-role="user" data-idx="{idx}" style="margin-bottom:12px">'
             f'<div style="display:flex;flex-direction:row-reverse;gap:10px">{ubub}'
             f'<div style="max-width:72%">{_attachments_html(att, aid, thread)}'
-            f'<div class="mc-body mc-md" style="background:var(--color-sand-100);border-radius:var(--r);padding:8px 10px;font-size:13px;line-height:1.5">{_md(str(raw).strip())}</div>'
+            f'<div class="mc-body mc-md" style="background:var(--color-sand-100);border-radius:var(--r);padding:8px 10px;font-size:13px;line-height:1.5">{_md(str(raw).strip(), preserve_breaks=True)}</div>'
             f'{_turn_actions("user", idx, aid, thread, is_last_user, when) if actions else ""}</div></div>{tpl}</div>')
 
 
@@ -719,6 +730,24 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
     userav = _user_avatar(realm_root, 28)
     turns = _render_turns(realm_root, a, selected)
     # display title matches the side pane (capitalised / custom-renamed), not the raw slug
+    from ..engine.selection import engine_for
+    voice_available = engine_for(realm_root, a.id) == 'codex'
+    voice_button = (f'<button id="mc-dictate" type="button" class="mc-voice-button" '
+                    f'title="Dictate · speech to draft text" aria-label="Dictate" aria-expanded="false">{_icon("mic",17)}</button>'
+                    f'<button id="mc-voice" type="button" class="mc-voice-button mc-voice-chat" '
+                    f'title="Voice chat · speak and hear replies" aria-label="Voice chat" '
+                    f'aria-expanded="false">{_icon("audio-lines",17)}</button>') if voice_available else ''
+    voice_panel = (f'<section id="mc-voice-panel" class="mc-voice-panel" aria-label="Voice controls" hidden>'
+                   '<div class="mc-voice-copy"><strong id="mc-voice-title">Voice chat preview</strong>'
+                   '<span id="mc-voice-status" role="status" aria-live="polite">Connecting…</span>'
+                   '<small id="mc-voice-help">Conversation only · audio uses your Codex connection</small>'
+                   '<span id="mc-dictation-text" class="mc-dictation-text" hidden></span></div>'
+                   '<div class="mc-voice-actions">'
+                   '<button id="mc-dictation-done" type="button" class="mc-voice-action" hidden>Done</button>'
+                   '<button id="mc-voice-play" type="button" class="mc-voice-action" hidden>Listen</button>'
+                   f'<button id="mc-voice-mute" type="button" class="mc-voice-action" aria-pressed="false" disabled>{_icon("mic",16)}<span>Mute</span></button>'
+                   '<button id="mc-voice-end" type="button" class="mc-voice-action">End call</button></div>'
+                   '<audio id="mc-voice-audio" autoplay playsinline></audio></section>') if voice_available else ''
     _title = E(selected)
     if not embed:
         try:
@@ -762,6 +791,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             f'<div style="position:absolute;left:0;right:10px;bottom:0;pointer-events:none">'
             f'<div style="height:38px;background:linear-gradient(to bottom, transparent, var(--color-bg))"></div>'
             f'<div style="background:var(--color-bg);pointer-events:auto;padding:0 20px 14px">'
+            f'{voice_panel}'
             f'<div class="mc-frame" style="display:flex;flex-direction:column;gap:6px;'
             f'border-radius:22px;padding:6px 8px 6px 10px;box-shadow:var(--shadow-sm)">'
             f'<div id="mc-attach" style="display:none;flex-wrap:wrap;gap:6px;padding:2px 2px 0"></div>'
@@ -780,6 +810,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             f'<textarea id="mc-msg" rows="1" spellcheck="true" lang="en" autocapitalize="sentences" placeholder="Ask {E(a.display)} in the {E(selected)} thread…" '
             f'style="flex:1;border:0;outline:0;background:transparent;resize:none;font:inherit;font-size:15px;line-height:1.5;'
             f'color:var(--color-text);min-height:30px;max-height:260px;overflow-y:hidden;padding:4px 0;transition:height .12s ease"></textarea>'
+            f'{voice_button}'
             f'<button id="mc-send" title="Send" style="flex:none;display:none;border:0;background:transparent;cursor:pointer;'
             f'width:30px;height:30px;border-radius:8px;align-items:center;justify-content:center;'
             f'color:var(--text-muted)" '
@@ -805,16 +836,14 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
 
     # left list — pin/unread/rename + drag-to-reorder
     def menu_item(action, slug, icon, label, key):
-        return (f'<a onclick="mcThreadAction(event,{_J(a.id)},{_J(slug)},\'{action}\')" '
-                f'style="display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12.5px;cursor:pointer;color:inherit;text-decoration:none">'
+        return (f'<button type="button" class="mc-thread-menuitem" onclick="mcThreadAction(event,{_J(a.id)},{_J(slug)},\'{action}\')">'
                 f'<span style="display:flex;color:var(--text-dim)">{_icon(icon,14)}</span>'
                 f'<span style="flex:1">{label}</span>'
-                f'<span style="font-size:10px;color:var(--text-ghost)">{key}</span></a>')
+                f'<span style="font-size:10px;color:var(--text-ghost)">{key}</span></button>')
     left_rows = ""
     for n in names:
         th = Thread(agent_dir, n)
-        msgs = [m for m in th.display_snapshot()[1] if m.get("kind") != "job"]
-        sub = E(msgs[-1]["content"][:40]) if msgs else "empty"
+        sub = E(_thread_preview(th))
         is_main = n == "main"
         pinned = bool(meta.get("pinned", {}).get(n)) or is_main
         unread = bool(meta.get("unread", {}).get(n))
@@ -836,17 +865,16 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
                   f'{_icon("window-new",16)}<span>Detach thread</span></button>')
         items += menu_item("read" if unread else "unread", n, "mail-open" if unread else "mail",
                            "Mark as read" if unread else "Mark as unread", "U")
-        items += (f'<a onclick="mcThreadRename(event,{_J(a.id)},{_J(n)},{_J(title)})" '
-                  f'style="display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12.5px;cursor:pointer;color:inherit;text-decoration:none">'
+        items += (f'<button type="button" class="mc-thread-menuitem" onclick="mcThreadRename(event,{_J(a.id)},{_J(n)},{_J(title)})">'
                   f'<span style="display:flex;color:var(--text-dim)">{_icon("square-pen",14)}</span>'
-                  f'<span style="flex:1">Rename</span><span style="font-size:10px;color:var(--text-ghost)">R</span></a>')
+                  f'<span style="flex:1">Rename</span><span style="font-size:10px;color:var(--text-ghost)">R</span></button>')
         if not is_main:
             items += menu_item("archive", n, "archive", "Archive", "A")
             items += ('<div style="height:1px;background:var(--color-divider);margin:4px 6px"></div>'
-                      f'<a onclick="mcThreadDelete(event,{_J(a.id)},{_J(n)},{_J(title)})" '
-                      f'style="display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12.5px;cursor:pointer;color:var(--status-bad);text-decoration:none">'
+                      f'<button type="button" class="mc-thread-menuitem" onclick="mcThreadDelete(event,{_J(a.id)},{_J(n)},{_J(title)})" '
+                      f'style="color:var(--status-bad)">'
                       f'<span style="display:flex">{_icon("trash",14)}</span>'
-                      f'<span style="flex:1">Delete</span></a>')
+                      f'<span style="flex:1">Delete</span></button>')
         menu = (f'<div class="mc-thmenu" style="display:none;position:absolute;top:30px;right:8px;z-index:30;min-width:170px;'
                 f'background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:4px">{items}</div>')
         dots = (f'<button class="mc-iconbtn mc-thdots" onclick="mcThreadMenu(event,this)" title="Thread options" '
@@ -860,7 +888,7 @@ def _tab_threads(realm, realm_root, a, selected: str = None) -> str:
             f'font-weight:{"700" if (is_main or unread) else "500"};font-size:13px">'
             f'<span class="mc-thtitle" onclick="mcThTitleClick(event,this,{_J(a.id)},{_J(n)})" ondblclick="mcThTitleDbl(event,this,{_J(a.id)},{_J(n)})" '
             f'title="Double-click to rename" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{E(title)}</span>{pinmark}</div>'
-            f'<div style="font-size:11px;color:var(--text-muted);'
+            f'<div class="mc-thpreview" style="font-size:11px;color:var(--text-muted);'
             f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{sub}</div></div>'
             f'{dots}{menu}</div>')
     # archived threads → the modal opened by the always-visible "Archived" button

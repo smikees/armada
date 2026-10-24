@@ -53,6 +53,16 @@ Armada II adds IBM Plex Sans and IBM Plex Mono, Copyright IBM Corp., licensed un
 the SIL Open Font License 1.1. The original license texts ship beside the subset WOFF2
 files as `OFL-ibm-plex-sans.txt` and `OFL-ibm-plex-mono.txt`.
 
+## Formula rendering
+
+KaTeX 0.19.1, including its KaTeX math fonts, is distributed under the MIT License.
+Copyright (c) 2013–2020 Khan Academy and other contributors.
+Source: https://github.com/KaTeX/KaTeX and https://katex.org.
+The original license is bundled in `armada/webui/static/vendor/katex/LICENSE`, beside the
+renderer, stylesheet and `fonts/` directory. These fonts are used only for mathematical notation;
+they are not appearance dropdown choices. Package provenance and integrity are recorded in
+the same directory's README.md.
+
 ## Startup sound
 
 "MUSCStngr_Cinematic Logo Design.Impact.Bright Chord.High Blip_EM" by newlocknew,

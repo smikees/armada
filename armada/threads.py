@@ -169,6 +169,16 @@ class Thread:
             if len(group) == 2 and [messages[i].get("role") for i in group] == ["user", "assistant"]:
                 groups.append(group)
                 pending.difference_update(group)
+            elif (len(group) > 2 and messages[group[0]].get('role') == 'user'
+                    and messages[group[-1]].get('role') == 'assistant'
+                    and messages[group[0]].get('voice_session')
+                    and all(messages[i].get('mode') == 'voice'
+                            and messages[i].get('voice_session') == messages[group[0]]['voice_session']
+                            for i in group)):
+                # Realtime final parts share an explicit spoken-exchange identity.
+                # Retain the whole exchange across compaction boundaries.
+                groups.append([group[0], group[-1]])
+                pending.difference_update(group)
         for a, b in zip(indices, indices[1:]):
             if (not messages[a].get("turn") and not messages[b].get("turn")
                     and messages[a].get("role") == "user" and messages[b].get("role") == "assistant"):

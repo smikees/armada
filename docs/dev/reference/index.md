@@ -51,6 +51,7 @@
 | [`engine.base`](engine.base.md) | Engine adapter contract (SPEC §9) |
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
 | [`engine.codex`](engine.codex.md) | Codex CLI turns, using the owner's login and Armada's existing context and history. |
+| [`engine.codex_voice`](engine.codex_voice.md) | Experimental Codex WebRTC signaling |
 | [`engine.contracts`](engine.contracts.md) | Provider-independent requests, events and enforceable execution capabilities. |
 | [`engine.defaults`](engine.defaults.md) | Release-owned defaults for new teams, independent of Alexander's personal settings. |
 | [`engine.gemini`](engine.gemini.md) | Google Gemini through the supported Antigravity CLI; cached login, fresh scoped turns. |
@@ -108,6 +109,7 @@
 | [`routes.jobs`](routes.jobs.md) | Jobs: new/save/enable/delete a job, job detail, job calendar, run. |
 | [`routes.realm`](routes.realm.md) | Realm lifecycle: switch/new/archive/export/delete, preflight, workspace/approot, icon, settings, covenant. |
 | [`routes.settings`](routes.settings.md) | Settings, the signed-in user, notification channels (incl |
+| [`routes.voice`](routes.voice.md) | Authenticated local signaling only; microphone audio never crosses these routes. |
 | [`runner`](runner.md) | Runner (SPEC §8) — runs ONE job through an engine and writes a tokenized run-report. |
 | [`schedsvc`](schedsvc.md) | Scheduler lifecycle for the Armada desktop app. |
 | [`scheduler`](scheduler.md) | Local scheduler (SPEC §8/§12) — the missing heart: fire jobs on their cadence. |
@@ -144,10 +146,12 @@
 | [`util`](util.md) | Small shared utilities: filesystem-path safety and atomic writes. |
 | [`validate`](validate.md) | `armada validate` — is this folder a runnable ARMADA realm, and what's in it? |
 | [`verbosity`](verbosity.md) | How much an agent writes back. |
+| [`voice`](voice.md) | One opt-in native voice preview, bound to an ARMADA realm, agent and thread. |
 | [`vtheme`](vtheme.md) | Visual themes — theme-as-data (Phase 2). |
 | [`webui.__init__`](webui.__init__.md) | ARMADA web UI package. |
 | [`webui._base`](webui._base.md) | Base layer — shared low-level UI primitives (carved from _core.py in Phase 3). |
 | [`webui._core`](webui._core.md) | ARMADA web UI — server-rendered screens matching the approved design handoff. |
+| [`webui._math`](webui._math.md) | Protect explicit TeX spans before the shared safe Markdown parser touches them. |
 | [`webui.agentbits`](webui.agentbits.md) | Agent-rendering primitives (Layer 1, carved from _core.py in Phase 3). |
 | [`webui.agentcommon`](webui.agentcommon.md) | Shared agent/realm page helpers (Phase 3 split of agentpages): job cards, artefact gathering, autonomy/colour controls, filter dropdowns and the status-filter p |
 | [`webui.agentframe`](webui.agentframe.md) | Agent frame (Phase 3 split of agentpages): agent header/body + the Jobs/Inbox/Configure sub-tabs, avatar + appoint modals. |

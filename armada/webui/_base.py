@@ -75,11 +75,11 @@ def _md_inline(s: str) -> str:
 # Body lives in webui/static/js/reveal.js (Phase 2, 2.1).
 from ..assets import REVEAL_JS as _REVEAL_JS  # noqa: E402
 
-_BULLET = r"^\s*[-*+]\s+"
+_BULLET = r"^\s*[-*+•]\s+"
 _NUMBER = r"^\s*(\d+)\.\s+"
 
 
-def _list_items(lines: list[str], i: int, n: int, pat: str) -> tuple[list[str], int]:
+def _list_items(lines: list[str], i: int, n: int, pat: str, *, preserve_breaks=False) -> tuple[list[str], int]:
     """Collect one list's items, folding hard-wrapped continuation lines back into their item.
 
     Documents written by hand wrap at column 95, so a list item routinely spans three source lines
@@ -99,18 +99,24 @@ def _list_items(lines: list[str], i: int, n: int, pat: str) -> tuple[list[str], 
         if (not items or s == "" or s.startswith("```") or s.startswith("|")
                 or re.match(r"^#{1,6}\s", s) or re.match(_BULLET, ln) or re.match(_NUMBER, ln)):
             break
-        items[-1] += " " + s
+        items[-1] += ("\n" if preserve_breaks else " ") + s
         i += 1
     return items, i
 
 
-def _md(text: str) -> str:
+def _md(text: str, *, preserve_breaks=False) -> str:
     """Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-escaped
     first — only the whitelisted tags emitted below can appear. Supports headings, bullet/number
-    lists, tables, code fences, inline code/bold/italic/links, and paragraphs."""
-    src = E(str(text or "")).replace("\r\n", "\n")
+    lists, tables, code fences, inline code/bold/italic/links, and paragraphs.
+    Composer messages preserve intentional newlines; prose documents fold soft wraps."""
+    from ._math import protect
+    source, restore_math = protect(str(text or "").replace("\r\n", "\n"))
+    src = E(source)
     lines = src.split("\n")
     out: list[str] = []
+    def inline(value):
+        rendered = _md_inline(value)
+        return rendered.replace('\n', '<br>') if preserve_breaks else rendered
     i, n = 0, len(lines)
     while i < n:
         ln = lines[i]
@@ -136,22 +142,23 @@ def _md(text: str) -> str:
             out.append(f"<h{lvl}>{_md_inline(m.group(2).strip())}</h{lvl}>")
             i += 1; continue
         if re.match(_BULLET, ln):                                         # unordered list
-            items, i = _list_items(lines, i, n, _BULLET)
-            out.append("<ul>" + "".join(f"<li>{_md_inline(x)}</li>" for x in items) + "</ul>"); continue
+            items, i = _list_items(lines, i, n, _BULLET, preserve_breaks=preserve_breaks)
+            out.append("<ul>" + "".join(f"<li>{inline(x)}</li>" for x in items) + "</ul>"); continue
         if re.match(_NUMBER, ln):                                         # ordered list
             first = int(re.match(_NUMBER, ln).group(1))
-            items, i = _list_items(lines, i, n, _NUMBER)
+            items, i = _list_items(lines, i, n, _NUMBER, preserve_breaks=preserve_breaks)
             start = f' start="{first}"' if first != 1 else ""
-            out.append(f"<ol{start}>" + "".join(f"<li>{_md_inline(x)}</li>" for x in items) + "</ol>")
+            out.append(f"<ol{start}>" + "".join(f"<li>{inline(x)}</li>" for x in items) + "</ol>")
             continue
         if s == "":
             i += 1; continue
         para = [ln]; i += 1                                               # paragraph
-        while i < n and lines[i].strip() != "" and not re.match(r"^\s*([-*+]\s+|\d+\.\s+|#{1,6}\s|\|)", lines[i]) \
+        while i < n and lines[i].strip() != "" and not re.match(r"^\s*([-*+•]\s+|\d+\.\s+|#{1,6}\s|\|)", lines[i]) \
                 and not lines[i].strip().startswith("```"):
             para.append(lines[i]); i += 1
-        out.append(f"<p>{_md_inline(' '.join(x.strip() for x in para))}</p>")
-    return "".join(out)
+        separator = '\n' if preserve_breaks else ' '
+        out.append(f"<p>{inline(separator.join(x.strip() for x in para))}</p>")
+    return restore_math("".join(out))
 
 
 def _page_title(t: str, sub: str = "", right: str = "", right_html: str = "") -> str:

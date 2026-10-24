@@ -68,10 +68,51 @@ In browser mode this opens a separate browser window; allow pop-ups for ARMADA i
 
 ## Conversation history
 
+Formulas render in both thread views, including fractions, subscripts and annotated equations.
+Use `\(...\)` for inline math and `\[...\]` or `$$...$$` for a separate equation. Ordinary
+prices such as $50 and $55 stay text, and formulas inside code examples stay literal. Unsupported
+formulas show their original text. The renderer and fonts are bundled with ARMADA.
+
 Long conversations are compacted into a summary while recent exchanges stay in the thread.
 Messages added during summarization and unanswered questions are preserved. If you edit or
 restart the conversation while a summary is being generated, ARMADA asks you to retry against
 the current history. An interrupted summary update is recovered when the thread is next opened.
+
+## Dictation and voice chat preview
+
+For an agent using Codex, the message box has two audio controls:
+
+- **Dictate** (microphone): speak a message, then choose **Done** to insert it at the cursor.
+  Review or edit the draft and press **Send** when ready. The agent replies normally in text,
+  using its selected model and capabilities. **Cancel** discards the recording's text and
+  keeps your existing draft. Dictation never sends a message or plays an agent reply.
+- **Voice chat** (waveform): speak and hear spoken replies in a hands-free conversation.
+
+Both require microphone permission and use your existing Codex connection in this preview.
+Dictation uses that live connection for speech recognition, so it consumes voice usage. It
+does not share the agent's context or thread history with the speech session. Your speech
+transcript appears as an editable draft; it is not added to conversation history until sent.
+
+Choose **Voice chat** beside the message box. Allow microphone access to
+start a hands-free conversation. **Mute** switches off microphone input while replies remain
+audible; **End call** closes it from either thread view. Only the
+window that started the call owns the microphone; the other view can end the call.
+
+This proof of concept uses Codex's native realtime voice model and existing Codex sign-in.
+It carries the agent's core context and recent conversation, but the speaking model is separate
+from the agent's configured text model. It is **conversation only**: no files, shell, web,
+connectors, messages or jobs. End voice to ask for actions in normal chat.
+
+Final spoken transcripts are saved in the same thread as typed messages and appear in both
+views. ARMADA does not record audio; your browser sends live microphone audio to Codex.
+Voice usage is marked unconfirmed when Codex does not report accounting. The experimental
+protocol was verified with Codex CLI 0.157.1; older versions or accounts without native voice
+support may fail to connect. There is no API-key or paid-service fallback.
+
+One call can run at a time, for up to ten minutes. Closing or leaving its microphone-owning
+window ends voice; a disconnected window expires automatically. This differs from an ordinary
+typed reply, which can continue after its window closes. Reopening the thread keeps the saved
+transcript and lets you start a new call.
 
 ## Model and effort chips
 

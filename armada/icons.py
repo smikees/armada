@@ -297,6 +297,13 @@ ICONS["swap"] = ('<g fill="none" stroke="currentColor" stroke-linecap="round" st
 _ICON_VB['hook'] = '0 0 16 16'
 
 
+# Lucide microphone geometry, using the same stroke group as the chat controls.
+ICONS['mic'] = _G + '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></g>'
+ICONS['mic-off'] = _G + '<path d="m2 2 20 20M9 9v3a3 3 0 0 0 5.12 2.12M15 9V5a3 3 0 0 0-5.94-.6M5 10v2a7 7 0 0 0 12 4.9M19 10v2a7 7 0 0 1-.18 1.57M12 19v3M8 22h8"/></g>'
+# Lucide audio-lines: distinguish a two-way conversation from microphone dictation.
+ICONS['audio-lines'] = _G + '<path d="M2 10v4M6 6v12M10 3v18M14 8v8M18 5v14M22 10v4"/></g>'
+
+
 def _icon(name: str, size: int = 18, style: str = "") -> str:
     vb = _ICON_VB.get(name, "0 0 24 24")
     # pointer-events:none so the icon never intercepts hover/click — the parent element (which carries

@@ -30,11 +30,18 @@
       }
       mcTid=state.run_id||(!mcServerAdmitted?mcLocalTid:null)||null;
       mcSetGen(!!mcTid,!!state.stopping||mcStopRequested);
+      window.mcVoiceSync?.(state.voice,!!state.run_id);
       const status=document.getElementById('mc-chatmsg');
       if(status?.dataset.syncError||status?.dataset.transportError){
         status.textContent='';delete status.dataset.syncError;delete status.dataset.transportError;
       }
       mcSetThreadTitle(thread,state.title);
+      if(state.previews){
+        document.querySelectorAll('#mc-threadlist .mc-thread[data-slug]').forEach(row=>{
+          const text=state.previews[row.dataset.slug],preview=row.querySelector('.mc-thpreview');
+          if(preview&&typeof text==='string')preview.textContent=text;
+        });
+      }
       if(state.metrics)mcApplyMetrics(state.metrics);
       const selection=window.getSelection();
       const reading=selection&&!selection.isCollapsed&&box.contains(selection.anchorNode);

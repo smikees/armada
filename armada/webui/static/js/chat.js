@@ -280,7 +280,7 @@ function mcPlusClose(){const m=document.getElementById('mc-plusmenu');if(m)m.sty
 document.addEventListener('click',(e)=>{const m=document.getElementById('mc-plusmenu');if(m&&!e.target.closest('#mc-plus')&&!e.target.closest('#mc-plusmenu'))m.style.display='none';});
 document.addEventListener('keydown',(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='u'){const f=document.getElementById('mc-file');if(f&&document.getElementById('mc-msg')){e.preventDefault();f.click();}}});
 function mcSyncSend(){const ta=document.getElementById('mc-msg'),s=document.getElementById('mc-send');
-  if(s)s.style.display=(!mcGen&&ta&&ta.value.trim())?'inline-flex':'none';}
+  if(s)s.style.display=(!mcGen&&!window.mcAudioBusy?.()&&ta&&ta.value.trim())?'inline-flex':'none';}
 function mcSetGen(on,stopping=false){mcGen=on;const st=document.getElementById('mc-stop'),ta=document.getElementById('mc-msg');
   if(!on)mcStopRequested=false;
   if(st){st.style.display=on?'inline-flex':'none';st.disabled=!!stopping;
@@ -289,6 +289,7 @@ function mcSetGen(on,stopping=false){mcGen=on;const st=document.getElementById('
   if(ta)ta.disabled=on;mcSyncSend();
   if(!on&&mcFocusOnIdle){mcFocusOnIdle=false;if(!document.hidden)ta?.focus();}}
 async function mcStop(){
+  if(window.mcVoiceStop?.())return;
   const context=mcThreadCtx();if(!context||mcStopBusy||!mcGen)return;
   const note=document.getElementById('mc-chatmsg');
   if(note?.dataset.stopError){note.textContent='';delete note.dataset.stopError;}
@@ -341,7 +342,7 @@ function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-
   row.style.cssText='display:flex;align-items:center;gap:3px;margin-top:3px;justify-content:'+(role==='user'?'flex-end':'flex-start');row.innerHTML=h;
   turn.querySelector('.mc-body').parentNode.appendChild(row);}
 function mcChat(agent,thread,forceText){
-  if(mcGen)return;
+  if(mcGen||window.mcAudioBusy?.())return;
   const ta=document.getElementById('mc-msg'),box=document.getElementById('mc-turns');
   if(!ta||!box)return;
   const text=forceText!==undefined?forceText:(ta.value||'').trim();

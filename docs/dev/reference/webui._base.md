@@ -15,13 +15,13 @@ A value as a JavaScript string literal, safe inside an HTML event attribute (onc
 
 Inline Markdown on already-HTML-escaped text: code, bold, italic, links.
 
-### `_list_items(lines: list[str], i: int, n: int, pat: str)`
+### `_list_items(lines: list[str], i: int, n: int, pat: str, *, preserve_breaks=False)`
 
 Collect one list's items, folding hard-wrapped continuation lines back into their item.
 
-### `_md(text: str)`
+### `_md(text: str, *, preserve_breaks=False)`
 
-Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-escaped first — only the whitelisted tags emitted below can appear. Supports headings, bullet/number lists, tables, code fences, inline code/bold/italic/links, and paragraphs.
+Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-escaped first — only the whitelisted tags emitted below can appear. Supports headings, bullet/number lists, tables, code fences, inline code/bold/italic/links, and paragraphs. Composer messages preserve intentional newlines; prose documents fold soft wraps.
 
 ### `_page_title(t: str, sub: str='', right: str='', right_html: str='')`
 

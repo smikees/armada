@@ -226,8 +226,23 @@ def test_native_windows_reuse_close_reopen_and_separate_realms(realm, tmp_path, 
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for script checks")
-@pytest.mark.parametrize("harness", ["thread_sync_harness.js", "thread_window_open_harness.js", "thread_chat_harness.js", "chat_outcome_harness.js"])
+@pytest.mark.parametrize("harness", ["thread_sync_harness.js", "thread_window_open_harness.js", "thread_chat_harness.js", "chat_outcome_harness.js", "voice_controls_harness.js"])
 def test_browser_window_interactions(harness):
     result = subprocess.run(["node", str(Path(__file__).with_name(harness))],
                             capture_output=True, text=True, timeout=15)
     assert result.returncode == 0, result.stderr
+
+
+def test_live_sidebar_previews_refresh_without_replacing_unchanged_conversation(realm):
+    agent_dir=Path(realm)/'agents/captain'
+    from armada.threads import Thread
+    Thread(agent_dir,'tutoring')._write({'role':'user','content':'First message'})
+    before=thread_windows.state(realm,'captain','main')
+    assert before['previews']['tutoring']=='First message'
+    Thread(agent_dir,'tutoring')._write({'role':'assistant','content':'Latest reply\nwith details'})
+    after=thread_windows.state(realm,'captain','main',before['revision'])
+    assert after['previews']['tutoring']=='Latest reply with details'
+    assert 'html' not in after
+    selected=thread_windows.state(realm,'captain','tutoring')
+    assert selected['metrics']['messages']==2
+    assert selected['previews']['tutoring']!='empty'

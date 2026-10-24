@@ -16,6 +16,7 @@ COMPANION_GET = frozenset({
     "/api/thread-rail", "/api/agent-activity", "/api/chat-stop",
 })
 COMPANION_POST = frozenset({
+    "/api/voice-start", "/api/voice-state", "/api/voice-stop",
     "/api/chat-stream", "/api/thread-truncate", "/api/thread-action",
     "/api/open-file", "/api/reveal", "/api/render-md",
 })
@@ -41,7 +42,8 @@ def target(root, agent, thread):
 def state(root, agent, thread, revision=""):
     """Canonical conversation snapshot, shared by the cockpit, widget and companion."""
     from .execution import ACTIVE_RUNS, RUNS_LOCK
-    from .webui.threadsview import _render_turns, thread_metrics
+    from .webui.threadsview import _render_turns, thread_metrics, _ordered_threads, _thread_preview
+    from .threads import Thread
     context, a, title, _ = target(root, agent, thread)
     html = bind_content_html(_render_turns(root, a, thread), context)
     with RUNS_LOCK:
@@ -51,8 +53,15 @@ def state(root, agent, thread, revision=""):
         payload = {"title": title, "run_id": runs[0].context.run_id if runs else "",
                    "stopping": any(run.cancelled for run in runs)}
     payload["metrics"] = thread_metrics(root, agent, thread)
+    from . import voice
+    call = voice.current(root, agent, thread)
+    payload['voice'] = call.snapshot() if call and not call.finished.is_set() else None
     digest = hashlib.sha256((html + json.dumps(payload, sort_keys=True)).encode("utf-8")).hexdigest()
     payload["revision"] = digest
     if revision != digest:
         payload["html"] = html
+    # A different thread's preview can change without rerendering this conversation.
+    agent_dir = Path(root)/'agents'/agent
+    payload['previews'] = {name: _thread_preview(Thread(agent_dir, name))
+                           for name in _ordered_threads(agent_dir)[0]}
     return payload

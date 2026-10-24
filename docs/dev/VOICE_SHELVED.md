@@ -1,6 +1,10 @@
 # Agent voice — built, shelved, and how to bring it back
 
 **Status:** removed from the shipping code on 2026-09-19, before v1.
+
+**2026-10-24 update:** the historical speechSynthesis/Piper implementation remains shelved.
+A separate Codex-native, conversation-only WebRTC POC is described in
+[VOICE_POC.md](VOICE_POC.md). It does not restore these old preferences or TTS engines.
 **Where it lives:** git. Six commits, oldest first:
 
 | commit | what it added |

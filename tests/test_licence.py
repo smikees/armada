@@ -32,12 +32,19 @@ def test_settings_about_shows_the_licence():
 def test_every_bundled_font_is_in_the_notices():
     notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
     static = ROOT / "armada" / "webui" / "static"
-    fonts = [p.name for p in static.rglob("*") if p.suffix.lower() in (".ttf", ".otf", ".woff", ".woff2")]
+    fonts = [p for p in static.rglob("*") if p.suffix.lower() in (".ttf", ".otf", ".woff", ".woff2")]
     assert fonts, "expected the Barlow webfonts"
     from armada.fonts import CHOICES
     # Monospace assets are bundled for data/code but are not body-font choices.
     bundled_only = {"ibm-plex-mono": "IBM Plex Mono"}
-    for name in fonts:
+    for path in fonts:
+        if path.parent == static / 'vendor/katex/fonts':
+            assert 'KaTeX 0.19.1' in notices and 'MIT License' in notices
+            licence = (path.parent.parent / 'LICENSE').read_text(encoding='utf-8')
+            assert 'The MIT License (MIT)' in licence and 'Khan Academy' in licence
+            assert 'Permission is hereby granted' in licence
+            continue
+        name = path.name
         slug = name.rsplit("-", 1)[0]                     # montserrat-400.woff2 -> montserrat
         family = CHOICES.get(slug, bundled_only.get(slug, name))
         assert family in notices, f"{name} ships but isn't credited in THIRD_PARTY_NOTICES.md"

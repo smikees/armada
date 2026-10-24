@@ -5,7 +5,10 @@ let shared={revision:'1',html:'initial',title:'Main',run_id:''};
 function view(){
   const box={dataset:{agent:'captain',thread:'main'},querySelector:()=>box.editing||null,contains:()=>false};
   const note={dataset:{},textContent:''},stop={style:{}};
-  const ctx={mcCtrl:null,mcLocalTid:null,mcServerAdmitted:false,mcStopRequested:false,mcGen:false,mcViewGeneration:0,mcTid:null,document:{hidden:false,
+  const preview={textContent:'empty'},otherPreview={textContent:'empty'};
+  const rows=[{dataset:{slug:'main'},querySelector:()=>preview},{dataset:{slug:'other'},querySelector:()=>otherPreview}];
+  const ctx={preview,otherPreview,mcCtrl:null,mcLocalTid:null,mcServerAdmitted:false,mcStopRequested:false,mcGen:false,mcViewGeneration:0,mcTid:null,document:{hidden:false,
+    querySelectorAll:()=>rows,
     getElementById:id=>id==='mc-turns'?box:id==='mc-stop'?stop:note,addEventListener:()=>{}},
     URLSearchParams,setTimeout:()=>1,clearTimeout:()=>{},addEventListener:()=>{},getSelection:()=>null,
     mcSetGen:on=>{ctx.busy=ctx.mcGen=on;},mcSetThreadTitle:(thread,title)=>ctx.title=title,
@@ -22,6 +25,9 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
  const main=view(),popout=view();await settle();
  assert.equal(main.html,popout.html);
+ shared={...shared,previews:{main:'Latest message',other:'<img src=x onerror=alert(1)>'}};
+ await main.mcThreadSync();assert.equal(main.preview.textContent,'Latest message');
+ assert.equal(main.otherPreview.textContent,'<img src=x onerror=alert(1)>','previews remain plain text');
  shared={revision:'2',html:'user + partial reply',title:'Renamed',run_id:'run-A'};
  await Promise.all([main.mcThreadSync(),popout.mcThreadSync()]);
  assert.equal(main.html,popout.html);assert.equal(popout.mcTid,'run-A');assert(popout.busy);

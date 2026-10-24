@@ -1018,10 +1018,10 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-system-provider-version{font-size:12px;color:var(--text-muted)}
 
 /* Detached threads retain the shared conversation controls, with a compact native header. */
-.mc-thread-detach{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:inherit;padding:6px 10px;font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.mc-thread-menuitem,.mc-thread-detach{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:inherit;padding:6px 10px;font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
 .mc-thread-detach svg{color:var(--text-dim);flex:none}
-.mc-thread-detach:hover{background:var(--text-7)}
-.mc-thread-detach:focus-visible,.mc-thread-resize:focus-visible{outline:2px solid var(--color-accent);outline-offset:-2px}
+.mc-thmenu>button:hover,.mc-thmenu>button:focus-visible{background:var(--text-7)}
+.mc-thmenu>button:focus-visible,.mc-thread-resize:focus-visible{outline:2px solid var(--color-accent);outline-offset:-2px}
 /* Keep these coordinates in step with thread_frame._frame_path. */
 .mc-thread-window.is-window .mc-ax-panel{top:24px;border:0}
 .mc-thread-window.is-window .mc-ax-portrait{left:-40px;top:-16px;background:var(--color-bg);box-shadow:0 3px 8px rgba(0,0,0,.16)}
@@ -1210,3 +1210,29 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-ss-side .mc-ss-dir small{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .mc-ss-inrealm{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--status-ok);white-space:nowrap}
 @media(max-width:1100px){.mc-ss-layout{flex-direction:column}.mc-ss-side{width:auto;position:static}}
+
+/* Native voice preview belongs to the existing thread composer. */
+.mc-voice-button,.mc-voice-action{font:inherit;border:0;background:transparent;color:var(--text-strong);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:none;min-height:32px;padding:5px 8px;border-radius:var(--r)}
+.mc-voice-button{font-size:13px;align-self:flex-end}
+.mc-voice-chat{border-radius:50%;background:var(--color-text);color:var(--color-bg);width:32px;padding:5px}
+.mc-voice-chat:hover{background:var(--text-strong);color:var(--color-bg)}
+.mc-dictation-text{max-height:96px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--color-text);padding-top:5px}
+.mc-voice-button:hover,.mc-voice-action:hover{background:var(--text-6);color:var(--color-text)}
+.mc-voice-button:not(.mc-voice-chat)[data-active="1"]{color:color-mix(in srgb,var(--status-ok) 60%,var(--color-text))}
+.mc-voice-button:disabled,.mc-voice-action:disabled{opacity:.5;cursor:default}
+.mc-voice-button:focus-visible,.mc-voice-action:focus-visible{outline:2px solid var(--color-accent-2);outline-offset:2px}
+.mc-voice-panel{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;padding:10px 0;border-top:1px solid var(--color-divider)}
+.mc-voice-panel[hidden],.mc-voice-panel [hidden]{display:none!important}
+.mc-voice-copy{display:flex;flex-direction:column;gap:3px;min-width:0;font-size:13px;line-height:1.4}
+.mc-voice-copy strong{font-weight:600;color:var(--color-text)}
+.mc-voice-copy small{font-size:12px;color:var(--text-strong)}
+.mc-voice-panel[data-error="1"] #mc-voice-status{color:color-mix(in srgb,var(--status-bad) 65%,var(--color-text))}
+.mc-voice-actions{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.mc-voice-action{font-size:13px;white-space:nowrap}
+#mc-voice-end{color:color-mix(in srgb,var(--status-bad) 65%,var(--color-text))}
+@media(max-width:520px){.mc-voice-panel{align-items:flex-start;flex-wrap:wrap;gap:6px}.mc-voice-actions{margin-left:auto}.mc-voice-button{padding:5px}}
+/* Math stays readable in narrow detached threads; long equations scroll locally. */
+.mc-math { font-size:1em; }
+.mc-math.is-display { display:block; max-width:100%; overflow-x:auto; overflow-y:hidden; padding:.35em 0; }
+.mc-math.is-display .katex-display { margin:.4em 0; }
+.mc-math.is-unrendered { white-space:pre-wrap; overflow-wrap:anywhere; }

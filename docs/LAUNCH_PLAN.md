@@ -12,6 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.109** adds an experimental Codex Dictate / Voice chat preview, bundled formula
+rendering, preserved sent-message line breaks and bullets, live sidebar previews and consistent
+thread menu interactions. [Verification](dev/RELEASE_0_99_109.md). The implementation passed
+3,700 isolated tests and native/browser checks; publication requires the exact-source release
+gates and matching GitHub/website assets.
+
 Version **0.99.108** lets chats continue with unavailable connector tools withheld, adds
 owner-assisted connector setup in normal chats, fixes Claude HTTP/SSE sign-in checks and displays
 the saved reply outcome in both thread views. [Verification](dev/RELEASE_0_99_108.md).

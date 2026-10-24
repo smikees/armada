@@ -85,7 +85,7 @@ function mcThreadInlineRename(el,agent,slug){if(el.dataset.editing)return;el.dat
   inp.addEventListener('dblclick',function(ev){ev.stopPropagation();});}
 // keyboard shortcuts while a menu is open
 document.addEventListener('keydown',(e)=>{const m=[...document.querySelectorAll('.mc-thmenu')].find(x=>x.style.display==='block');if(!m)return;
-  const row=m.closest('.mc-thread');if(!row)return;const k=e.key.toLowerCase();const a=row.querySelectorAll('.mc-thmenu a');
+  const row=m.closest('.mc-thread');if(!row)return;const k=e.key.toLowerCase();const a=row.querySelectorAll('.mc-thmenu .mc-thread-menuitem');
   const hit=(t)=>{const x=[...a].find(el=>el.textContent.includes(t));if(x)x.click();};
   if(k==='p'&&row.dataset.slug!=='main'){a[0].click();}else if(k==='u'){hit('Mark as');}
   else if(k==='r'){hit('Rename');}else if(k==='a'&&row.dataset.slug!=='main'){hit('Archive');}});

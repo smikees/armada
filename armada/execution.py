@@ -106,6 +106,11 @@ class RunSession:
             realmops.assert_active(self.context.realm.root)
             if self.context.key in self.registry:
                 raise util.StateError("This run ID is already active in this realm.")
+            for running in self.registry.values():
+                if (running.context.realm == self.context.realm and running.context.agent == self.context.agent
+                        and running.context.thread == self.context.thread
+                        and ('voice' in (getattr(running, 'kind', ''), getattr(self.active, 'kind', '')))):
+                    raise util.StateError("End voice preview or wait for this reply before starting another turn.")
             mark = self.context.marker
             with util.file_lock(mark):
                 util.write_json_atomic(mark, {"kind": "chat", "owner_pid": os.getpid(),
