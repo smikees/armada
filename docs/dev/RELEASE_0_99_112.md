@@ -30,9 +30,40 @@ This change hardens playback and makes any missing output visible and recoverabl
   missing audio, permission cancellation, muted switching and independent work lifetime.
 - All twelve UI captures cover connecting/voice/dictation in main 1280×900 and detached 480×760
   views, light/dark, without overflow. Fresh finish reviewer disposition: ship, no material fixes.
-- Final full suite, exact-source CI, native recovery/session/upgrade and public asset/website
-  verification must pass before publication completes. Runtime compatibility is unchanged.
+- Final release gates and public download verification passed, as recorded below.
+  Runtime compatibility is unchanged.
 
 Voice remains experimental. Measuring signal at the app output does not prove the user's chosen
 Windows output device is audible or unmuted. The approved maintenance installer is unsigned;
 the compatible update remains Ed25519-signed. Publishing does not restart the owner's app.
+
+## Publication evidence
+
+Published 2026-10-24 as normal/latest
+[v0.99.112](https://github.com/smikees/armada/releases/tag/v0.99.112) from source `8f76954415491165ceacf2376008a86d17207252` through
+`tools/publish_release.py --maintenance-unsigned`.
+
+- Pinned isolated full release gate: **3726 passed, 5 skipped**.
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/40108968422) passed before artifact staging.
+- Mandatory staged native launcher recovery and WebView2 multi-window session checks passed.
+- The native detached-thread synchronization, Stop, sizing and shadow probe passed all 76 checks.
+- The bounded UI finish review and documentation handoffs passed for connecting, voice and dictation states in main/detached light and dark views.
+- Signed compatible upgrade from 0.99.111 passed all 69 native checks.
+- All four public downloads match their local sizes and SHA-256 values; the update signature
+  verifies, and its package contains exactly 430 tracked application files,
+  byte for byte. It is the latest normal GitHub release.
+- [armada.stamih.com](https://armada.stamih.com/) deployed with certificate-verified FTPS,
+  backup, verified temporary upload and rename. Public HTTPS content and installer download
+  match the release. Website SHA-256: `8a2d02fccdfcc147812dab0036dc8c61cc5ff61fb5be55ea59541b760e69d9f8`.
+- Release defaults retain the same-day 0.99.111 provider-catalogue review: each primary release default is listed. Gemini no longer lists the
+  secondary 3.7 fallback on this account; existing connected-provider filtering and provider-default
+  fallback remain in place. No agent/job model or account settings were changed.
+- The owner's running application was not restarted. Windows publisher signing remains pending;
+  the maintenance installer is unsigned and the update manifest is Ed25519-signed.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `armada-0.99.112.zip` | `091c55e942bf3819f930f4e29c86926424b5059a8bd9a1424d1d33e5b1faaaec` |
+| `ARMADA-Setup-0.99.112.exe` | `a84dee6cfe94d236a1f563e90a01d7d58d75da43b91ede301ee2b466a6c7df53` |
+| `armada-update.json` | `e731b68e6ca59d5429f3ce2e2c15f77ccdfca4a34b0662db5dc6333061d7c2dd` |
+| `armada-update.json.sig` | `894af13942d651fecfde266787290ad83cc5dd90987b8774ed694af8fbeaa6e9` |
