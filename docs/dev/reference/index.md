@@ -147,6 +147,7 @@
 | [`validate`](validate.md) | `armada validate` — is this folder a runnable ARMADA realm, and what's in it? |
 | [`verbosity`](verbosity.md) | How much an agent writes back. |
 | [`voice`](voice.md) | One opt-in native voice preview, bound to an ARMADA realm, agent and thread. |
+| [`voice_turns`](voice_turns.md) | Admit native speech as ordinary agent work, independently of the audio call. |
 | [`vtheme`](vtheme.md) | Visual themes — theme-as-data (Phase 2). |
 | [`webui.__init__`](webui.__init__.md) | ARMADA web UI package. |
 | [`webui._base`](webui._base.md) | Base layer — shared low-level UI primitives (carved from _core.py in Phase 3). |

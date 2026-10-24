@@ -1,4 +1,4 @@
-"""Voice preview owns one call, shares canonical history and exposes no tool execution."""
+"""Voice preview owns one call, shares canonical history and isolates audio from normal tool execution."""
 import json
 from pathlib import Path
 import threading
@@ -15,7 +15,10 @@ from armada.webui.threadsview import _chat_center
 
 
 @pytest.fixture
-def realm(tmp_path):
+def realm(tmp_path, monkeypatch):
+    from armada import runner
+    from armada.engine import MockEngine
+    monkeypatch.setattr(runner, "_prepare_agent_run", lambda *args: (MockEngine(), {"id":"a", "model":"codex:default"}))
     util.write_json_atomic(tmp_path/'realm.json',{'name':'Voice fixture','default_model':'codex:default'})
     util.write_json_atomic(tmp_path/'agents/a/agent.json',{'id':'a','display':'Ada','model':'codex:default'})
     util.write_text_atomic(tmp_path/'agents/a/mandate.md','Keep the code word cobalt.\n')
@@ -25,6 +28,8 @@ def realm(tmp_path):
     for call in list(voice._calls.values()):
         assert call.finished.wait(3)
     voice._calls.clear()
+    from tests.test_voice_work import wait_idle
+    wait_idle()
 
 
 class Transport:
@@ -32,18 +37,21 @@ class Transport:
         self.done=threading.Event()
         self.ready=threading.Event()
         self.emit=None
+        self.spoken=[]
+    def speak(self, text):
+        self.spoken.append(text)
     def kill(self):
         self.done.set()
     def run(self,offer,instructions,history,model,emit,on_proc):
         self.emit=emit
-        assert 'cobalt' in instructions and 'cobalt' in history[0]['text']
-        assert 'no file, shell, web, connector' in instructions
+        assert 'cobalt' not in instructions and not history
+        assert 'no file, shell, web, connector' in instructions.lower()
         assert model=='codex:default'
         on_proc(self)
         emit('thread/realtime/started',{'realtimeSessionId':'native'})
         emit('thread/realtime/sdp',{'sdp':'v=0\r\nsynthetic-answer'})
         self.ready.set()
-        assert self.done.wait(5)
+        assert self.done.wait(10)
         return ProcessResult(cancelled=True,error='Run stopped by the owner.')
     def segment(self,role,text,iid):
         self.emit('thread/realtime/item/completed',{'item':{'id':iid,'realtimeSessionId':'native',
@@ -60,18 +68,28 @@ def start(realm,transport=None):
 def test_canonical_transcripts_are_deduplicated_and_shared_by_both_views(realm):
     call,transport=start(realm)
     transport.segment('user','What was the code word?','one')
-    transport.segment('assistant','The code word is cobalt.','two')
-    transport.segment('assistant','The code word is cobalt.','two')
+    transport.segment('user','What was the code word?','one')
+    transport.segment('assistant','I will do it.','two')
+    call.flush_speech(force=True)
+    from tests.test_voice_work import wait_idle
+    wait_idle()
     history=Thread(realm/'agents/a')._messages()
-    assert len(history)==4 and history[-1]['mode']=='voice'
+    assert len(history)==4 and history[-2]['voice_request']
+    assert history[-1]['content'] != 'I will do it.'
     state=thread_windows.state(realm,'a','main')
-    assert 'The code word is cobalt.' in state['html'] and state['voice']['active']
+    assert 'What was the code word?' in state['html'] and state['voice']['active']
     from armada.webui.thread_window import render
-    assert 'The code word is cobalt.' in render(realm,'a','main')
+    assert 'What was the code word?' in render(realm,'a','main')
+    assert not transport.spoken, 'do not speak before the owning player is ready'
+    identity=call.snapshot(owner=True)['reply_ready']
+    call.play_reply('forged');assert not transport.spoken
+    call.play_reply(identity)
+    call.play_reply(identity)
+    assert transport.spoken==[history[-1]['content']]
     call.stop();assert call.finished.wait(2)
     assert not thread_windows.state(realm,'a','main')['run_id']
     assert not call.sdp and not call.offer
-    report=json.loads((realm/'agents/a/runs/a.jsonl').read_text().splitlines()[-1])
+    report=json.loads((realm/'agents/a/runs/a.jsonl').read_text(encoding='utf-8').splitlines()[-1])
     assert report['kind']=='chat' and report['task']=='chat:main' and report['mode']=='voice'
     assert report['tokens']['total'] is None and report['voice']['audio_saved'] is False
 
@@ -94,41 +112,44 @@ def test_pending_and_raw_provider_items_never_become_saved_replies(realm):
 
 def test_verified_v3_final_parts_are_saved_but_not_doubled_by_other_protocol(realm):
     call,transport=start(realm)
-    transport.emit('thread/realtime/transcript/done',{'role':'user','text':'What was the code word?'})
-    transport.emit('thread/realtime/transcript/done',{'role':'assistant','text':'Cobalt.'})
-    transport.segment('assistant','Cobalt.','canonical-copy')
-    messages=Thread(realm/'agents/a')._messages()
-    assert len(messages)==4
-    assert [m['content'] for m in messages[-2:]]==['What was the code word?','Cobalt.']
+    transport.emit('thread/realtime/transcript/done',{'role':'user','text':'Question?'})
+    transport.segment('user','Question?','canonical-copy')
+    assert len(call.pending_speech)==1
+    call.flush_speech(force=True)
+    from tests.test_voice_work import wait_idle
+    wait_idle()
+    assert len(Thread(realm/'agents/a')._messages())==4
 
 
 def test_canonical_protocol_does_not_also_save_legacy_final_parts(realm):
     call,transport=start(realm)
-    transport.segment('assistant','Cobalt.','canonical')
-    transport.emit('thread/realtime/transcript/done',{'role':'assistant','text':'Cobalt.'})
-    assert len(Thread(realm/'agents/a')._messages())==3
+    transport.segment('user','Question?','canonical')
+    transport.emit('thread/realtime/transcript/done',{'role':'user','text':'Question?'})
+    assert len(call.pending_speech)==1
 
 
 def test_identical_utterances_in_separate_v3_turns_stay_distinct(realm):
     call,transport=start(realm)
+    from tests.test_voice_work import wait_idle
     for _ in range(2):
         transport.emit('thread/realtime/transcript/done',{'role':'user','text':'Again?'})
-        transport.emit('thread/realtime/transcript/done',{'role':'assistant','text':'Cobalt.'})
+        call.flush_speech(force=True)
+        wait_idle()
     messages=Thread(realm/'agents/a')._messages()
-    assert len(messages)==6 and len({m['voice_item'] for m in messages[2:]})==4
+    assert len(messages)==6
+    assert len({m['voice_item'] for m in messages if m.get('voice_request')})==2
 
 
 def test_multiple_final_parts_form_one_answered_exchange(realm):
     call,transport=start(realm)
-    for role,text in [('user','What was'),('user','the code word?'),('assistant','It was'),('assistant','cobalt.')]:
+    for role,text in [('user','What was'),('user','the code word?'),('assistant','Received.')]:
         transport.emit('thread/realtime/transcript/done',{'role':role,'text':text})
-    th=Thread(realm/'agents/a')
-    messages=th._messages()
-    assert len({m['turn'] for m in messages[2:]})==1
-    assert th.open_turn() is None
-    transport.emit('thread/realtime/transcript/done',{'role':'user','text':'And next?'})
-    assert th.open_turn()['content']=='And next?'
-    assert th._messages()[-1]['turn']!=messages[-1]['turn']
+    call.flush_speech(force=True)
+    from tests.test_voice_work import wait_idle
+    wait_idle()
+    messages=Thread(realm/'agents/a')._messages()
+    assert len(messages)==4 and messages[-2]['content']=='What was the code word?'
+    assert messages[-2]['turn']==messages[-1]['turn']
 
 
 def test_stop_through_existing_registry_ends_voice_and_releases_ownership(realm):
@@ -139,16 +160,15 @@ def test_stop_through_existing_registry_ends_voice_and_releases_ownership(realm)
     assert other.id!=call.id
 
 
-def test_voice_and_typed_turns_cannot_overlap_in_the_same_thread(realm):
+def test_voice_and_typed_turns_have_independent_sessions(realm):
     call,_=start(realm)
-    with pytest.raises(util.StateError,match='voice preview'):
-        with RunSession(RunContext.capture(realm,'a','main')):pass
-    with pytest.raises(ValueError,match='already active'):
-        start(realm)
-    call.stop();assert call.finished.wait(2)
-    with RunSession(RunContext.capture(realm,'a','main')):
-        with pytest.raises(util.StateError,match='voice preview'):
-            voice.start(realm,'a','main','v=0\r\noffer',transport=Transport())
+    with RunSession(RunContext.capture(realm,'a','main')) as work:
+        call.stop();assert call.finished.wait(2)
+        assert not work.active.cancelled
+        other,_=start(realm)
+        with pytest.raises(ValueError,match='already active'):
+            start(realm)
+        assert not other.finished.is_set()
 
 
 def test_disconnected_owner_lease_ends_the_call(realm,monkeypatch):
@@ -185,7 +205,7 @@ def test_voice_ui_is_opt_in_and_uses_existing_composer(realm):
     assert 'id="mc-voice"' in html
     assert 'aria-label="Voice chat"' in html and 'aria-label="Dictate"' in html
     assert 'aria-label="Voice controls" hidden' in html
-    assert 'Conversation only' in html and 'Mute' in html and 'End call' in html
+    assert 'Same agent and tools' in html and 'mc-voice-connecting' in html and 'Mute' in html and 'End call' in html
 
 
 def test_failed_provider_is_visible_and_does_not_persist_raw_audio(realm):
@@ -205,7 +225,7 @@ def test_dictation_is_a_private_draft_without_context_history_or_assistant_repli
             self.emit=emit;on_proc(self)
             emit('thread/realtime/started',{'realtimeSessionId':'native'})
             emit('thread/realtime/sdp',{'sdp':'v=0\r\nanswer'})
-            self.ready.set();assert self.done.wait(5)
+            self.ready.set();assert self.done.wait(10)
             return ProcessResult(cancelled=True)
     transport=Dictation()
     call=voice.start(realm,'a','main','v=0\r\noffer',mode='dictation',transport=transport)
@@ -241,6 +261,46 @@ def test_unknown_audio_mode_is_rejected(realm):
         voice.start(realm,'a','main','v=0\r\noffer',mode='anything')
 
 
+def test_legacy_audio_acknowledgement_is_not_a_completed_task(realm):
+    Thread(realm/'agents/a')._write({'role':'assistant','content':'I will research that.',
+                                   'mode':'voice','voice_session':'old'})
+    html=thread_windows.state(realm,'a','main')['html']
+    assert 'Voice response · no task execution recorded' in html
+    assert 'data-transcription="1"' in html
+
+
+def test_readback_waits_for_frontend_ack_and_is_cancelled_by_new_speech(realm):
+    call,transport=start(realm)
+    transport.emit('thread/realtime/transcript/delta',{'role':'assistant','delta':'An audio acknowledgement'})
+    call._reply({'ok':True,'output':'Actual saved result'})
+    assert call.snapshot()['reply_ready'] is None and not transport.spoken
+    transport.segment('assistant','Received.','ack')
+    identity=call.snapshot()['reply_ready']
+    assert identity
+    call.play_reply(identity)
+    assert call.snapshot()['playing']==identity
+    transport.emit('thread/realtime/transcript/delta',{'role':'user','delta':'Next question'})
+    assert call.snapshot()['playing'] is None
+
+
+def test_reopened_call_can_read_the_original_work_result(realm):
+    first,_=start(realm)
+    first.stop();assert first.finished.wait(2)
+    second,transport=start(realm)
+    first._reply({'ok':True,'output':'Work completed after reconnecting'})
+    second.play_reply(second.snapshot()['reply_ready'])
+    assert transport.spoken==['Work completed after reconnecting']
+
+
+def test_metadata_writer_does_not_interrupt_audio(realm):
+    call,_=start(realm)
+    with util.file_lock(realm/'agents/a/threads/meta.json'):
+        # The watcher reaches its half-second check while a normal completion owns metadata.
+        time.sleep(.65)
+        assert not call.finished.is_set()
+    assert not call.finished.wait(.1)
+
+
 def test_native_signaling_uses_sealed_context_and_verified_protocol(monkeypatch):
     from armada.engine import codex_voice
     from armada.engine.codex_voice import CodexVoice
@@ -264,7 +324,11 @@ def test_native_signaling_uses_sealed_context_and_verified_protocol(monkeypatch)
         request=sent[-1]
         assert request['method']=='thread/realtime/start'
         assert request['params']['transport']=={'type':'webrtc','sdp':'v=0\r\noffer'}
-        assert request['params']['clientManagedHandoffs'] is False
+        assert request['params']['clientManagedHandoffs'] is True
+        assert request['params']['delegationAckFiller'] is False
+        transport.speak('Real result')
+        assert sent[-1]['method']=='thread/realtime/appendSpeech'
+        assert sent[-1]['params']=={'threadId':'native-thread','text':'Real result'}
         assert 'notify=[]' in args
         assert request['params']['initialItems']==[{'role':'user','text':'Cobalt'}]
         on_message({'id':99,'method':'item/tool/call','params':{}},sent.append)
@@ -295,24 +359,23 @@ def test_voice_speech_is_live_shared_and_final_replaces_preview(realm):
     from armada.webui.thread_window import render
     assert 'A spoken &lt;question&gt;' in render(realm,'a','main')
     transport.emit('turn/started',{})
-    assert call.snapshot()['thinking']
+    assert not call.snapshot()['thinking'], 'audio backend acknowledgements are not agent work'
     transport.segment('user','A spoken question?','final-user')
+    call.flush_speech(force=True)
+    from tests.test_voice_work import wait_idle
+    wait_idle()
     assert call.snapshot()['partial_transcript']==[]
-    assert thread_windows.state(realm,'a','main')['html'].count('A spoken question?')==2  # body and copy template
-    transport.emit('turn/completed',{})
-    assert not call.snapshot()['thinking']
-    call.stop();assert call.finished.wait(2)
-    assert len(Thread(realm/'agents/a')._messages()) == 3
+    assert len(Thread(realm/'agents/a')._messages()) == 4
 
 
 def test_interrupted_voice_keeps_received_speech_marked_incomplete(realm):
     call,transport=start(realm)
     transport.emit('thread/realtime/transcript/delta',{'role':'user','delta':'My question'})
-    transport.emit('thread/realtime/transcript/delta',{'role':'assistant','delta':'The beginning of a reply'})
+    transport.emit('thread/realtime/transcript/delta',{'role':'assistant','delta':'An acknowledgement'})
     call.stop();assert call.finished.wait(2)
-    records=Thread(realm/'agents/a')._messages()[-2:]
-    assert [r['content'] for r in records] == ['My question','The beginning of a reply']
-    assert all(r['transcription_incomplete'] for r in records)
+    records=Thread(realm/'agents/a')._messages()
+    assert len(records)==3 and records[-1]['content']=='My question'
+    assert records[-1]['transcription_incomplete'] and not records[-1].get('voice_request')
     assert 'Incomplete transcript' in thread_windows.state(realm,'a','main')['html']
 
 

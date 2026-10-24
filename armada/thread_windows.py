@@ -49,7 +49,8 @@ def state(root, agent, thread, revision=""):
     with RUNS_LOCK:
         runs = [run for run in ACTIVE_RUNS.values()
                 if run.context.realm.realm_id == context.realm_id
-                and run.context.agent == agent and run.context.thread == thread]
+                and run.context.agent == agent and run.context.thread == thread
+                and getattr(run, 'kind', '') != 'voice_audio']
         payload = {"title": title, "run_id": runs[0].context.run_id if runs else "",
                    "stopping": any(run.cancelled for run in runs)}
     payload["metrics"] = thread_metrics(root, agent, thread)

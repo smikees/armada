@@ -18,6 +18,17 @@ const MC_STEP_ICONS={think:window.mcIcon('think',13), tool:window.mcIcon('termin
 const MC_DONE_ICON=window.mcIcon('circle-check-fill',14,'color:var(--status-ok)');
 // scroll the transcript to the newest message on load (jump to the bottom of the conversation)
 function mcScrollBottom(){const b=document.getElementById('mc-turns');if(b)b.scrollTop=b.scrollHeight;}
+(function(){
+  const box=document.getElementById('mc-turns'),composer=document.getElementById('mc-composer-overlay');
+  if(!box||!composer||typeof ResizeObserver!=='function')return;
+  const observer=new ResizeObserver(()=>{
+    const bottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;
+    box.style.setProperty('--mc-composer-clearance',Math.max(160,Math.ceil(composer.getBoundingClientRect().height)+16)+'px');
+    if(bottom)mcScrollBottom();
+  });
+  observer.observe(composer);
+  window.addEventListener('pagehide',()=>observer.disconnect(),{once:true});
+})();
 // live status dot on this agent's header (matches the server _ACTIVITY_DOT / dash.js MC_ACT_DOT map)
 const MC_ACT_DOT={working:['color-mix(in srgb,var(--color-text) 55%,var(--color-bg))',1],input:['var(--status-warn)',0],
   unseen:['var(--color-accent-2)',0],idle:['color-mix(in srgb,var(--color-text) 20%,var(--color-bg))',0]};
@@ -285,12 +296,11 @@ function mcSyncSend(){const ta=document.getElementById('mc-msg'),s=document.getE
 function mcSetGen(on,stopping=false){mcGen=on;const st=document.getElementById('mc-stop'),ta=document.getElementById('mc-msg');
   if(!on)mcStopRequested=false;
   if(st){st.style.display=on?'inline-flex':'none';st.disabled=!!stopping;
-    st.title=stopping?'Stopping conversation…':'Stop conversation';
-    if(st.lastChild?.nodeType===3)st.lastChild.textContent=stopping?'Stopping…':'Stop';}
+    st.title=stopping?'Stopping work…':'Stop work';
+    if(st.lastChild?.nodeType===3)st.lastChild.textContent=stopping?'Stopping…':'Stop work';}
   if(ta)ta.disabled=on;mcSyncSend();
   if(!on&&mcFocusOnIdle){mcFocusOnIdle=false;if(!document.hidden)ta?.focus();}}
 async function mcStop(){
-  if(window.mcVoiceStop?.())return;
   const context=mcThreadCtx();if(!context||mcStopBusy||!mcGen)return;
   const note=document.getElementById('mc-chatmsg');
   if(note?.dataset.stopError){note.textContent='';delete note.dataset.stopError;}

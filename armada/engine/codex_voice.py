@@ -6,6 +6,7 @@ This preview admits no tools, files, plugins, apps, web search or shell commands
 from __future__ import annotations
 
 import tempfile
+import threading
 
 from .codex import CodexEngine, _feature_args, model_id
 from .process import supervise_rpc
@@ -17,6 +18,8 @@ class CodexVoice:
         self.mode = mode
         self.send = None
         self.thread_id = None
+        self._send_lock = threading.Lock()
+        self._request_id = 10
 
     def run(self, offer, instructions, history, model, emit, on_proc):
         launcher = self.engine._launcher()
@@ -27,22 +30,19 @@ class CodexVoice:
             for feature in ('shell_tool', 'unified_exec', 'image_generation', 'view_image', 'code_mode'):
                 args += ['-c', f'features.{feature}=false']
             args += ['-c', 'web_search="disabled"', '-c', 'project_doc_max_bytes=0', '-c', 'notify=[]']
-            backend = (instructions + '\nYou are the backing reasoning model for this voice conversation. '
-                       'A voice handoff is ordinary conversation, not a tool action or a request to launch '
-                       'another agent. Answer the underlying tutoring question, explanation or calculation '
-                       'yourself without tools. Do not refuse merely because the owner asked the voice '
-                       'interface to consult its reasoning backend. File, shell, web, connector and other '
-                       'external actions remain unavailable.')
-            if self.mode == 'dictation':
-                backend = instructions
+            backend = instructions
 
             def start(send):
-                self.send = send
+                def locked_send(message):
+                    with self._send_lock:
+                        send(message)
+                self.send = locked_send
                 send({'id': 1, 'method': 'initialize', 'params': {'clientInfo': {
                     'name': 'armada', 'title': 'ARMADA voice preview', 'version': '1'},
                     'capabilities': {'experimentalApi': True}}})
 
             def accept(message, send):
+                send = self.send
                 # No server-initiated tool, approval or credential request is accepted.
                 if 'id' in message and 'method' in message:
                     send({'id': message['id'], 'error': {'code': -32601,
@@ -64,9 +64,9 @@ class CodexVoice:
                     self.thread_id = message['result']['thread']['id']
                     send({'id': 3, 'method': 'thread/realtime/start', 'params': {
                         'threadId': self.thread_id, 'version': 'v3', 'outputModality': 'audio',
-                        # This controls BACKEND RESPONSE forwarding, not whether speech
-                        # may delegate a question. Let Codex return its restricted answer.
-                        'clientManagedHandoffs': False, 'flushTranscriptTailOnSessionEnd': False,
+                        # ARMADA's ordinary runner supplies real replies via appendSpeech.
+                        'clientManagedHandoffs': True, 'delegationAckFiller': False,
+                        'flushTranscriptTailOnSessionEnd': False,
                         'transport': {'type': 'webrtc', 'sdp': offer},
                         'includeStartupContext': False, 'initialItems': history,
                         'prompt': instructions, 'realtimeStartInstructions': backend,
@@ -95,3 +95,10 @@ class CodexVoice:
     def stop(self):
         if self.send and self.thread_id:
             self.send({'id': 4, 'method': 'thread/realtime/stop', 'params': {'threadId': self.thread_id}})
+
+    def speak(self, text):
+        if not self.send or not self.thread_id or not text.strip():
+            return
+        self._request_id += 1
+        self.send({'id': self._request_id, 'method': 'thread/realtime/appendSpeech',
+                   'params': {'threadId': self.thread_id, 'text': text}})

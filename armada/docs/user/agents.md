@@ -93,32 +93,35 @@ Dictation uses that live connection for speech recognition, so it consumes voice
 does not share the agent's context or thread history with the speech session. Your speech
 transcript appears as an editable draft; it is not added to conversation history until sent.
 
-Choose **Voice chat** beside the message box. Allow microphone access to
-start a hands-free conversation. **Mute** switches off microphone input while replies remain
-audible; **End call** closes it from either thread view. Only the
-window that started the call owns the microphone; the other view can end the call.
-The microphone meter reacts to actual input sound. "Sound detected" confirms microphone
-activity, while words appearing in the thread confirm speech recognition. Mute clears the
-meter. The call can show "Thinking" while the backing Codex model answers a question.
+Choose **Voice chat** beside the message box. Allow microphone access, then wait for the
+connecting spinner to change to **Listening** before speaking. The microphone does not transmit
+until connected. **Mute** switches off input while replies remain audible. Only the window that
+started the call owns the microphone; either thread view can end it.
 
-This proof of concept uses Codex's native realtime voice model and existing Codex sign-in.
-It carries the agent's core context and recent conversation, but the speaking model is separate
-from the agent's configured text model. It is **conversation only**: no files, shell, web,
-connectors, messages or jobs. End voice to ask for actions in normal chat.
+Voice is another way to use the same conversation. Each finalized spoken request enters the
+normal agent runner, with the agent's configured model, effort, context and approved tools.
+You see its actual progress, tool activity and final reply in both thread views. While the call
+is open, Codex speaks the saved reply; long replies may be shortened for speech, with the full
+answer retained in the thread. Brief audio acknowledgements are not task results.
 
-Your speech and the agent's spoken replies appear live in the same thread in both views.
-Final transcripts replace the live text and remain after reopening the thread. If a call ends
-before transcription finishes, text already received is kept with an "Incomplete transcript"
-label. Dictated drafts still enter the thread only when you send them.
-ARMADA does not record audio; your browser sends live microphone audio to Codex.
-Voice usage is marked unconfirmed when Codex does not report accounting. The experimental
-protocol was verified with Codex CLI 0.157.1; older versions or accounts without native voice
-support may fail to connect. There is no API-key or paid-service fallback.
+**End call** stops audio. **Stop work** cancels the agent's active and queued work. Ending a call,
+closing its window or leaving voice mode does **not** cancel requests already accepted. Follow-up
+spoken requests queue in order, so each sees the earlier result. The app must remain running,
+just as for a typed request. Reopening the thread shows progress and lets you start another call.
 
-One call can run at a time, for up to ten minutes. Closing or leaving its microphone-owning
-window ends voice; a disconnected window expires automatically. This differs from an ordinary
-typed reply, which can continue after its window closes. Reopening the thread keeps the saved
-transcript and lets you start a new call.
+The microphone meter reacts to actual sound. Words appearing live in the thread confirm speech
+recognition. Mute clears the meter. Final transcription becomes a saved user message exactly once.
+If the call ends before transcription finishes, already received text is kept with an
+**Incomplete transcript** label and is not executed; review it and send the completed request.
+Dictated drafts still enter the thread only after you choose Send.
+
+This experimental preview uses your existing Codex sign-in for speech; the speech model is
+separate from the configured agent model. ARMADA does not record audio. Your browser sends live
+microphone audio to Codex. Audio usage is marked unconfirmed when Codex does not report it;
+normal agent work has its usual separate accounting. The protocol was verified with Codex CLI
+0.157.1; older versions or accounts without native voice support may fail to connect. There is
+no API-key or paid-service fallback. One audio call can run at a time, for up to ten minutes.
+A disconnected microphone window expires automatically; accepted agent work continues.
 
 ## Model and effort chips
 

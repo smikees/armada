@@ -12,3 +12,4 @@ This preview admits no tools, files, plugins, apps, web search or shell commands
 - `CodexVoice.__init__(self, *, mode='voice')` — —
 - `CodexVoice.run(self, offer, instructions, history, model, emit, on_proc)` — —
 - `CodexVoice.stop(self)` — —
+- `CodexVoice.speak(self, text)` — —

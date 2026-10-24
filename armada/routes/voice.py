@@ -23,6 +23,11 @@ class VoiceRoutes:
             return {'ok': False, 'error': str(exc)}
         if not call or body.get('id') != call.id:
             return {'ok': False, 'error': 'This voice call has ended.'}
+        if body.get('play'):
+            try:
+                call.play_reply(body['play'])
+            except (ValueError, OSError):
+                return {'ok': False, 'error': 'Could not play the reply. The full answer is saved in the thread.'}
         return {'ok': True, 'voice': call.snapshot(owner=True)}
 
     def _voice_stop(self, body):

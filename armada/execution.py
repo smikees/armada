@@ -106,14 +106,9 @@ class RunSession:
             realmops.assert_active(self.context.realm.root)
             if self.context.key in self.registry:
                 raise util.StateError("This run ID is already active in this realm.")
-            for running in self.registry.values():
-                if (running.context.realm == self.context.realm and running.context.agent == self.context.agent
-                        and running.context.thread == self.context.thread
-                        and ('voice' in (getattr(running, 'kind', ''), getattr(self.active, 'kind', '')))):
-                    raise util.StateError("End voice preview or wait for this reply before starting another turn.")
             mark = self.context.marker
             with util.file_lock(mark):
-                util.write_json_atomic(mark, {"kind": "chat", "owner_pid": os.getpid(),
+                util.write_json_atomic(mark, {"kind": getattr(self.active, 'kind', 'chat'), "owner_pid": os.getpid(),
                     "thread": self.context.thread, "run_id": self.context.run_id,
                     "realm_id": self.context.realm.realm_id})
             self.registry[self.context.key] = self.active
@@ -197,6 +192,7 @@ class TurnRequest:
     job: dict | None = None
     images: tuple = ()
     files: tuple = ()
+    admitted_turn: str | None = None
 
 
 class TurnCoordinator:
@@ -212,7 +208,8 @@ class TurnCoordinator:
         root, aid, thread = Path(context.realm.root), context.agent, context.thread
         agent_dir = root / "agents" / aid
         th = Thread(agent_dir, thread)
-        turn = cap = eng = raw_capture = None
+        turn = req.admitted_turn
+        cap = eng = raw_capture = None
         managed = None
         partial = []
         activity_events = []
@@ -283,6 +280,11 @@ class TurnCoordinator:
                 self.on_proc(handle)
 
         try:
+            if turn:
+                existing = [m for m in th._messages() if m.get('turn') == turn]
+                if (len(existing) != 1 or existing[0].get('role') != 'user'
+                        or existing[0].get('content') != message or not existing[0].get('voice_request')):
+                    raise ValueError('The admitted spoken request is no longer pending.')
             try:
                 eng, agent = r._prepare_agent_run(root, aid, req.engine, req.allow_tools or bool(req.images), req.job)
                 if not agent:
@@ -369,7 +371,15 @@ class TurnCoordinator:
                     core = r._tool_preamble(root, agent_dir,
                                             _eng if _eng in ("claude", "codex", "gemini") else None) + "\n" + core
                 compacted = th.compact_if_needed(compact_engine, threshold_chars=r._compact_threshold(root, agent, req.job))
-                convo = th.render()
+                if req.admitted_turn:
+                    summary, messages = th.snapshot()
+                    _, pending = th._turn_groups(messages)
+                    # Exclude this request and later queued speech; include completed earlier
+                    # replies even when those landed after this owner's message was admitted.
+                    convo = th._render(summary, [m for i, m in enumerate(messages)
+                        if not (i in pending and m.get('voice_request'))])
+                else:
+                    convo = th.render()
                 msg = message
                 if scheduled_job:
                     msg += job_results.instructions(context.run_id, result_job)
@@ -377,7 +387,8 @@ class TurnCoordinator:
                     paths = "; ".join(s["path"] for s in saved)
                     msg += f"\n\n[The owner attached images at: {paths}. Use your Read tool to view them.]"
                 prompt = (convo + ("\n\n---\nRequest: " if req.task else "\n\n---\nOwner: ") + msg) if convo else msg
-                turn = th.begin_turn(message, attachments=attachments or None)
+                if turn is None:
+                    turn = th.begin_turn(message, attachments=attachments or None)
                 cap = r._TurnCapture(root, agent_dir, use_tools, thread=th, provider=eng.name)
                 # Refresh grants after context construction to enforce revocations made meanwhile.
                 request = replace(request, system=core, prompt=prompt,

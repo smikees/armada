@@ -181,6 +181,8 @@ def _chat_running(realm_root, agent_id: str, thread: str) -> bool:
             continue
         try:
             data = json.loads((directory / f"{stem}.json").read_text(encoding="utf-8-sig"))
+            if data.get('kind') == 'voice_audio':
+                continue
             if data.get("thread") is None or str(data["thread"]) == str(thread):
                 return True
         except (OSError, ValueError):

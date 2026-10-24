@@ -52,6 +52,33 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
   assert(e.element('mc-voice-audio').played);e.element('mc-voice-mute').click();assert(!e.track.enabled);
   e.element('mc-voice-mute').click();assert(e.track.enabled);await e.element('mc-voice-end').click();assert(e.track.stopped);
 
+  const connecting=view();let connect;
+  connecting.ctx.fetch=async()=>new Promise(resolve=>connect=()=>resolve({ok:true,json:async()=>({ok:true,sdp:'v=0',voice:{active:true,mode:'voice'}})}));
+  const starting=connecting.element('mc-voice').click();await settle();
+  assert(!connecting.track.enabled,'microphone must not transmit before connected');
+  assert(!connecting.element('mc-voice-connecting').hidden);
+  assert.match(connecting.element('mc-voice-status').textContent,/Wait for Listening/);
+  connect();await starting;await settle();
+  assert(connecting.track.enabled&&connecting.element('mc-voice-connecting').hidden);
+
+  const working=view();working.ctx.mcVoiceSync(null,true);working.ctx.state.mode='voice';
+  assert(!working.element('mc-voice').disabled);
+  await working.element('mc-voice').click();await settle();
+  assert(working.track.enabled,'voice can open during normal work');
+  await working.element('mc-voice-end').click();
+  assert(working.element('mc-msg').disabled,'End call must not clear normal work state');
+  assert(working.ctx.requests.every(r=>!r.url.includes('chat-stop')),'End call never cancels work');
+
+  const speech=view();speech.ctx.state={active:true,mode:'voice'};
+  await speech.element('mc-voice').click();await settle();
+  assert(speech.element('mc-voice-audio').muted,'unsolicited frontend speech stays muted');
+  speech.ctx.state.reply_ready='trusted-reply';speech.ctx.state.playing='trusted-reply';
+  await speech.tick();await settle();
+  assert(speech.ctx.requests.some(r=>r.body.play==='trusted-reply'));
+  assert(!speech.element('mc-voice-audio').muted,'the saved agent reply is audible');
+  speech.ctx.state.playing=null;speech.ctx.state.reply_ready=null;await speech.tick();
+  assert(speech.element('mc-voice-audio').muted);
+
   const metered=view();let meterTick,closed=false,cleared=false,sample=128;
   metered.ctx.AudioContext=class {
     constructor(){this.state='running';}

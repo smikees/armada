@@ -596,6 +596,8 @@ def _render_turns(realm_root, a, selected: str) -> str:
                   f'padding:6px 12px;font-size:11.5px;color:var(--text-dim);margin:0 auto 6px">'
                   f'📚 Earlier in this thread — compacted</div>')
     last_user = max((i for i, m in enumerate(msgs) if m.get("role") == "user" and m.get("kind") != "job"), default=-1)
+    _, unpaired = th._turn_groups(msgs)
+    voice_pending = {i for i in unpaired if msgs[i].get('voice_request')}
     for i, m in enumerate(msgs):
         if m.get("kind") == "job":
             continue
@@ -605,12 +607,21 @@ def _render_turns(realm_root, a, selected: str) -> str:
         turns += _turn(m.get("role", ""), m.get("content", ""), str(m.get("ts", "")),
                        i, i == last_user, a.id, selected, a.display, a.is_coordinator,
                        av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"), status=m.get('status', ''),
-                       transcription='Incomplete transcript · call ended before transcription finished' if m.get('transcription_incomplete') else '')
+                       transcription=('Incomplete transcript · call ended before transcription finished'
+                           if m.get('transcription_incomplete') else
+                           'Voice response · no task execution recorded'
+                           if m.get('mode') == 'voice' and m.get('role') == 'assistant' else ''))
+        if i in voice_pending:
+            progress = th.progress(m['turn'])
+            if running:
+                turns += _working_turn(av, a.display, progress)
+            else:
+                turns += _unanswered_turn(av, a.display, bool(progress.get('content')))
     # An owner message with nothing after it. Either the agent is working on it right now — in
     # which case the page has to say so, because the reply is arriving over an event stream this
     # page load knows nothing about — or the run died without answering, and saying that is far
     # better than a message sitting there looking ignored.
-    if pending is not None and not speech:
+    if pending is not None and not pending.get('voice_request') and not pending.get('transcription_incomplete'):
         progress = th.progress(pending.get("turn", ""))
         if running:
             turns += _working_turn(av, a.display, progress)
@@ -751,11 +762,12 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
                     f'aria-expanded="false">{_icon("audio-lines",17)}</button>') if voice_available else ''
     voice_panel = (f'<section id="mc-voice-panel" class="mc-voice-panel" aria-label="Voice controls" hidden>'
                    '<div class="mc-voice-copy"><strong id="mc-voice-title">Voice chat preview</strong>'
-                   '<span id="mc-voice-status" role="status" aria-live="polite">Connecting…</span>'
+                   '<div class="mc-voice-connection"><span id="mc-voice-connecting" class="mc-su-spin" aria-hidden="true" hidden></span>'
+                   '<span id="mc-voice-status" role="status" aria-live="polite">Connecting…</span></div>'
                    '<div id="mc-voice-input" class="mc-voice-input" hidden><span id="mc-voice-meter" class="mc-voice-meter" '
                    'role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">'
                    '<span></span></span><span id="mc-voice-input-label">Microphone on</span></div>'
-                   '<small id="mc-voice-help">Conversation only · audio uses your Codex connection</small>'
+                   '<small id="mc-voice-help">Same agent and tools · End call stops audio; Stop work cancels the task</small>'
                    '<span id="mc-dictation-text" class="mc-dictation-text" hidden></span></div>'
                    '<div class="mc-voice-actions">'
                    '<button id="mc-dictation-done" type="button" class="mc-voice-action" hidden>Done</button>'
@@ -800,10 +812,10 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             f'<div style="position:relative;flex:1;min-width:0;min-height:0">'
             f'<div id="mc-turns" class="mc-scroll" data-agent="{E(a.id)}" data-thread="{E(selected)}" data-display="{E(a.display)}" '
             f'data-coord="{"1" if a.is_coordinator else ""}" data-comp-pct="{_pct}" data-activity="{_agent_activity(realm_root, a.id)}" '
-            f'style="height:100%;overflow:auto;padding:16px 20px 160px;display:flex;flex-direction:column">{turns}</div>'
+            f'style="height:100%;overflow:auto;padding:16px 20px var(--mc-composer-clearance,160px);display:flex;flex-direction:column">{turns}</div>'
             # composer floats over the transcript; a gradient fades messages out beneath it (Claude-style).
             # right inset clears the 8px scroll gutter so the scrollbar stays fully visible (not hidden by the fade)
-            f'<div style="position:absolute;left:0;right:10px;bottom:0;pointer-events:none">'
+            f'<div id="mc-composer-overlay" style="position:absolute;left:0;right:10px;bottom:0;pointer-events:none">'
             f'<div style="height:38px;background:linear-gradient(to bottom, transparent, var(--color-bg))"></div>'
             f'<div style="background:var(--color-bg);pointer-events:auto;padding:0 20px 14px">'
             f'{voice_panel}'

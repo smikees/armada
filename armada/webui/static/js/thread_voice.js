@@ -11,6 +11,7 @@
   const audio=document.getElementById('mc-voice-audio'),play=document.getElementById('mc-voice-play');
   const inputState=document.getElementById('mc-voice-input'),meter=document.getElementById('mc-voice-meter');
   const inputLabel=document.getElementById('mc-voice-input-label');
+  const connecting=document.getElementById('mc-voice-connecting');
   const destination={agent:box.dataset.agent,thread:box.dataset.thread};
   let call=null,remote=null,busy=false,ending=false,timer=null,generation=0;
 
@@ -24,7 +25,7 @@
   function note(text,error=false){panel.hidden=false;status.textContent=text;panel.dataset.error=error?'1':'';}
   function paint(){
     const foreign=!!remote?.active&&!call,dict=(call||remote)?.mode==='dictation';
-    button.disabled=ending||foreign||!!call&&dict||busy&&!call;
+    button.disabled=ending||foreign||!!call&&dict;
     dictate.disabled=ending||foreign||!!call&&!dict||busy&&!call;
     button.setAttribute('aria-expanded',String(!!call&&!dict||foreign&&!dict));
     dictate.setAttribute('aria-expanded',String(!!call&&dict||foreign&&dict));
@@ -35,21 +36,30 @@
     mute.hidden=dict||foreign||!call;mute.disabled=!call?.connected;
     done.hidden=!call||!dict;done.disabled=!call?.connected||!!call?.finishing;
     inputState.hidden=!call?.connected||ending;
+    connecting.hidden=!call||call.connected||ending;
+    panel.setAttribute('aria-busy',String(!connecting.hidden));
     if(call||foreign){
       title.textContent=dict?'Dictation':'Voice chat preview';
-      help.textContent=dict?'Speech to draft text · via Codex · review before sending':'Conversation only · audio uses your Codex connection';
-      const stop=document.getElementById('mc-stop');if(stop)stop.style.display='none';
+      help.textContent=dict?'Speech to draft text · via Codex · review before sending':'Same agent and tools · End call stops audio; Stop work cancels the task';
     }
-    if(foreign)note(dict?'Dictation is active in another window':'Voice chat is active in another window');
+    if(foreign)note(dict?'Dictation is active in another window':busy?
+      'Agent working · voice chat is active in another window':'Voice chat is active in another window');
     input.disabled=!!call||ending||busy;
     if(typeof mcSyncSend==='function')mcSyncSend();
   }
   function receive(owned,state){
     if(owned.mode==='voice'){
+      audio.muted=!state?.playing;
+      if(state?.reply_ready&&!owned.playingRequest){
+        owned.playingRequest=true;audio.muted=false;
+        post('state',{id:owned.id,play:state.reply_ready}).then(result=>{
+          if(call===owned)audio.muted=!result.voice?.playing;
+        }).catch(()=>{audio.muted=true;}).finally(()=>{owned.playingRequest=false;});
+      }
       owned.thinking=!!state?.thinking;
       if(call===owned&&owned.connected&&!owned.muted){
         const last=state?.partial_transcript?.at(-1);
-        note(owned.thinking?'Thinking · you can keep speaking':last?.role==='assistant'?'Replying…':
+        note(owned.thinking?'Agent working · you can keep speaking':state?.playing?'Replying…':
           last?.role==='user'?'Speech recognized · live in thread':'Listening · you can speak naturally');
       }
       return;
@@ -72,7 +82,7 @@
     owned.audioContext?.close().catch(()=>{});
     meter.style.setProperty('--mic-level','0');meter.setAttribute('aria-valuenow','0');
     owned.stream?.getTracks().forEach(track=>track.stop());owned.peer?.close();
-    audio.pause();audio.srcObject=null;play.hidden=true;
+    audio.pause();audio.muted=true;audio.srcObject=null;play.hidden=true;
   }
   function observeMicrophone(owned){
     const Context=window.AudioContext||window.webkitAudioContext;
@@ -116,7 +126,7 @@
       const added=insert(owned);
       if(!error&&!remote?.active)note(added?'Added to your draft. Review, then send.':'No speech was captured. Try Dictate again.');
     }
-    draft.hidden=true;ending=false;busy=!!remote?.active;paint();
+    draft.hidden=true;ending=false;paint();
     window.mcThreadChanged?.();
     if(save&&!keepalive)input.focus();
   }
@@ -145,7 +155,7 @@
   }
   async function start(mode){
     if(call){if(call.mode==='dictation')await complete();else await finish();return;}
-    if(remote?.active||busy||ending)return;
+    if(remote?.active||busy&&mode==='dictation'||ending)return;
     if(!navigator.mediaDevices?.getUserMedia||typeof RTCPeerConnection!=='function'){
       note('Audio needs microphone access in the ARMADA app or a supported local browser.',true);return;
     }
@@ -157,19 +167,21 @@
     try{
       const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
       owned.stream=stream;if(revision!==generation){release(owned);return;}
+      stream.getAudioTracks().forEach(track=>{track.enabled=false;});
       observeMicrophone(owned);
-      note('Connecting to Codex…');
+      note('Connecting to Codex… Wait for Listening before speaking.');
       const peer=owned.peer=new RTCPeerConnection();stream.getTracks().forEach(track=>peer.addTrack(track,stream));
       peer.createDataChannel('oai-events');
       peer.ontrack=event=>{
         // Never attach incoming audio to a player in dictation, even if the provider replies.
         if(call!==owned||owned.mode==='dictation')return;
-        audio.srcObject=event.streams[0]||new MediaStream([event.track]);
+        audio.muted=true;audio.srcObject=event.streams[0]||new MediaStream([event.track]);
         audio.play().catch(()=>{play.hidden=false;note('Connected. Select Listen to hear replies.');});
       };
       peer.onconnectionstatechange=()=>{
         if(call!==owned)return;
         if(peer.connectionState==='connected'){
+          owned.stream.getAudioTracks().forEach(track=>{track.enabled=!owned.muted;});
           owned.connected=true;note(mode==='dictation'?'Listening · select Done when you finish':'Listening · you can speak naturally');paint();
         }else if(peer.connectionState==='failed'||peer.connectionState==='closed'){
           finish('Audio disconnected. Start again to reconnect.',true,false,mode==='dictation');
@@ -198,7 +210,6 @@
   play.addEventListener('click',()=>audio.play().then(()=>{play.hidden=true;note('Listening · you can speak naturally');}).catch(()=>note('Audio playback is blocked. Check your browser’s sound permissions.',true)));
   window.mcAudioBusy=()=>!!call||ending||!!remote?.active;
   window.mcVoiceSync=(value,working)=>{remote=value;busy=working;if(!call&&!ending&&!remote?.active&&!panel.dataset.error)panel.hidden=true;paint();};
-  window.mcVoiceStop=()=>{if(!call)return false;finish(call.mode==='dictation'?'Dictation cancelled':'Voice chat ended');return true;};
   window.addEventListener('pagehide',()=>{if(call)finish('Audio session ended',false,true,call.mode==='dictation');});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&call){event.preventDefault();finish(call.mode==='dictation'?'Dictation cancelled':'Voice chat ended');}});
 })();

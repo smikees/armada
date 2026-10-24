@@ -285,12 +285,17 @@ class AgentRoutes:
             if "agent" in q or "thread" in q:
                 agent = safe_seg(q.get("agent", ""), "agent")
                 thread = safe_seg(q.get("thread", "main"), "thread")
+                from .. import voice
+                call = voice.current(self.realm, agent, thread)
+                if call and not call.finished.is_set() and call.mode == 'voice':
+                    call.flush_speech(force=True)
                 # A viewing window may have a stale run ID. Resolve the conversation
                 # here, and cancel only its owned turns in this immutable realm.
                 with self._streams_lock:
                     keys = [key for key, active in self._streams.items()
                             if active.context.realm.realm_id == realm_id
-                            and active.context.agent == agent and active.context.thread == thread]
+                            and active.context.agent == agent and active.context.thread == thread
+                            and getattr(active, 'kind', '') != 'voice_audio']
                     for key in keys:
                         RunSession.cancel(key, self._streams, self._streams_lock)
                 return {"ok": True, "stopped": bool(keys)}
