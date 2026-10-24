@@ -37,7 +37,7 @@ while 0.99.112 discarded native assistant transcript content.
 - Native detached synchronization/Stop probe passed all 76 checks. Its first run exposed an
   existing Windows progress-file read/delete sharing race; progress reads now use the same
   lock as writers and completion. The repeated native run passed without that sharing violation.
-- Release gates and public publication evidence will be recorded after they complete.
+- Final release gates and public download verification passed, as recorded below.
 
 The task agent still receives transcribed input, not raw audio. Native speech can paraphrase
 or shorten the work result; the spoken wording is now visible and recoverable. Provider
@@ -45,3 +45,34 @@ transcripts are not word-aligned physical speaker recordings. Post-gain samples 
 app output, not the audibility of the owner's chosen Windows device. Voice remains experimental.
 The authorized maintenance installer is unsigned; compatible updates remain Ed25519-signed.
 Publishing does not restart the owner's app or change agent/job models.
+
+## Publication evidence
+
+Published 2026-10-24 as normal/latest
+[v0.99.113](https://github.com/smikees/armada/releases/tag/v0.99.113) from source `f7e1c9c19b8d1916040d499a8a04b40bf3cb3a6c` through
+`tools/publish_release.py --maintenance-unsigned`.
+
+- Pinned isolated full release gate: **3738 passed, 5 skipped**.
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/40123863608) passed before artifact staging.
+- Mandatory staged native launcher recovery and WebView2 multi-window session checks passed.
+- The native detached-thread synchronization, Stop, sizing and shadow probe passed all 76 checks.
+- The bounded UI finish review and documentation handoffs passed for spoken, partial and unspoken replies with collapsed/expanded work evidence in main/detached light and dark views.
+- Signed compatible upgrade from 0.99.112 passed all 69 native checks.
+- All four public downloads match their local sizes and SHA-256 values; the update signature
+  verifies, and its package contains exactly 430 tracked application files,
+  byte for byte. It is the latest normal GitHub release.
+- [armada.stamih.com](https://armada.stamih.com/) deployed with certificate-verified FTPS,
+  backup, verified temporary upload and rename. Public HTTPS content and installer download
+  match the release. Website SHA-256: `84883ed19c3f4f4bfa798c130e40a47906e8d19b7a3117e40ad8b5d6bef18ff6`.
+- Release defaults retain the same-day 0.99.112 provider-catalogue review: each primary release default is listed. Gemini no longer lists the
+  secondary 3.7 fallback on this account; existing connected-provider filtering and provider-default
+  fallback remain in place. No agent/job model or account settings were changed.
+- The owner's running application was not restarted. Windows publisher signing remains pending;
+  the maintenance installer is unsigned and the update manifest is Ed25519-signed.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `armada-0.99.113.zip` | `ade41e201f29f88dfb337d55f66ad52e4ce2aaf4b7c4e38558afa80ff83f5a2c` |
+| `ARMADA-Setup-0.99.113.exe` | `5fd8941400c2d74bd03b6cb53d767a1d77bcc32d38ce9913d950f46f2f13d0c8` |
+| `armada-update.json` | `e6bcde2982f08342fcb6c2dade533dd999252abd00506c428463c3d59e39506f` |
+| `armada-update.json.sig` | `e1a14883c79596d1326d7546d01293648036f75df3f08b83d2ad74d325de4ad3` |
