@@ -14,7 +14,9 @@ The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
 Version **0.99.110** fixes voice-to-reasoning handoffs, adds measured microphone feedback and
 shows live speech in the shared thread, retaining incomplete transcription after interruption.
-[Verification](dev/RELEASE_0_99_110.md). Final publication gates remain pending.
+[Verification](dev/RELEASE_0_99_110.md). Published on GitHub and the website with
+3,706 isolated tests passing, exact-source Windows CI and native recovery/session/upgrade checks.
+All public assets, the signed package and website download are verified; the owner app was not restarted.
 
 Version **0.99.109** adds an experimental Codex Dictate / Voice chat preview, bundled formula
 rendering, preserved sent-message line breaks and bullets, live sidebar previews and consistent
