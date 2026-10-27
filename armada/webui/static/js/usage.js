@@ -50,7 +50,8 @@ function fetchProviderLimits(provider,key,force){
   limitsRequests[provider]=request;request.finally(()=>{delete limitsRequests[provider];});return request;
 }
 function fetchLimits(force){return fetchProviderLimits('claude','mc_uc_lim_v3',force);}
-function limClr(p){return p>=90?"var(--status-bad)":p>=70?"var(--status-warn)":"var(--color-accent-2)";}
+// Armada II supplies its own fills; other themes retain their original thresholds/colors.
+function limClr(p){return p>=90?"var(--limit-high,var(--status-bad))":p>=70?"var(--limit-mid,var(--status-warn))":p>=50?"var(--limit-mid,var(--color-accent-2))":"var(--limit-low,var(--color-accent-2))";}
 // How old a reading is, in the fewest words that stay honest.
 function limAge(s){const m=Math.floor((s||0)/60);if(m<60)return Math.max(m,1)+" min ago";
   const h=Math.floor(m/60);return h<48?h+"h ago":Math.floor(h/24)+"d ago";}
@@ -66,13 +67,13 @@ function limitRowHTML(provider,period,w,d){
   let reason=(d&&d.message)||provider+' usage is unavailable right now.';
   if(d&&d.stale&&known)reason='Last reading: '+p+'%, '+limAge(d.age_sec)+'. '+reason;
   else if(d&&d.available&&!w)reason=provider+' does not report a '+period.toLowerCase()+' limit for this account.';
-  const description=provider+' · '+period+' · '+(available?p+'% used'+(reset?' · resets in '+reset:''):reason);
+  const description=provider+' · '+period+' · '+(available?p+'% used'+(reset?' · Reset in '+reset:''):reason);
   return '<div class="mc-limit-row'+(available?'':' is-unavailable')+'" title="'+esc(description)+'"'+(available?'':' tabindex="0"')+'>'
     +'<span class="mc-limit-bar" role="'+(available?'meter':'img')+'" aria-label="'+esc(description)+'"'
     +(available?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p+'"':'')+'>'
     +(available?'<i style="width:'+p+'%;background:'+limClr(p)+'"></i>':'')+'</span>'
     +(available?'<span class="mc-limit-text"><span class="mc-limit-pct">'+p+'%</span>'
-      +(reset?'<span class="mc-limit-reset">resets in '+esc(reset)+'</span>':'')+'</span>':
+      +(reset?'<span class="mc-limit-reset">Reset in '+esc(reset)+'</span>':'')+'</span>':
       '<span class="mc-limit-unavailable">'+(d&&d.stale&&known?p+'% · last reading':d&&d.reason==='disconnected'?'Disconnected':d&&d.available&&!known?'Not reported':'Unavailable')+'</span>')+'</div>';
 }
 function headerLimitsHTML(claude,codex,bucket,gemini){

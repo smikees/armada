@@ -11,6 +11,8 @@
   --job-warning-bg:#f8e8c5;--job-warning-ink:#805015;
   --job-failed-bg:#f6ded9;--job-failed-ink:#8c352b;
   --job-scheduled-border:#d6c3a8;--job-scheduled-ink:#59452b;
+  --limit-track:#f3eee6;--limit-border:#cdbb9d;
+  --limit-low:#4d8248;--limit-mid:#dc9b19;--limit-high:#bd5b47;
 }
 :root.armada-dark,.armada-dark{
   --status-ok:#b4cfa8;--status-warn:#e8c382;--status-bad:#efb1a6;
@@ -19,6 +21,8 @@
   --job-warning-bg:#443721;--job-warning-ink:#f0ce91;
   --job-failed-bg:#452e2c;--job-failed-ink:#f2bcb3;
   --job-scheduled-border:#877256;--job-scheduled-ink:#e1cfb5;
+  --limit-track:#34312c;--limit-border:#8a775d;
+  --limit-low:#a0be87;--limit-mid:#e4ae4a;--limit-high:#e89180;
 }
 body{font-variant-numeric:tabular-nums}
 code,pre,kbd,samp,.mono,[style*="monospace"],.mc-limit-pct,.mc-limit-reset,.mc-kpi-v,[data-next-cell],.mc-job-runlink{font-family:var(--font-mono)!important}
@@ -39,3 +43,28 @@ i[data-job-state]{border-radius:3px!important}
 .mc-mainnav{flex-wrap:wrap;gap:0 20px!important}
 .mc-navtabs{flex-wrap:wrap;max-width:100%;gap:0 18px!important}
 @media(max-width:1180px){.mc-navtabs{order:3;flex-basis:100%}}
+/* Compact subscription readings: each label stays alongside its 80px track. */
+#mc-hdr-limits{flex:1 1 838px;min-width:0;max-width:100%}
+.mc-limit-groups{grid-template-columns:34px repeat(3,minmax(0,1fr));width:838px;max-width:100%;min-width:700px}
+.mc-limit-periods{grid-template-rows:20px 20px}
+.mc-limit-group-head{height:20px}
+.mc-limit-label{line-height:20px}
+.mc-limit-row{grid-template-columns:80px max-content;height:20px;line-height:20px}
+.mc-limit-bar{height:6px;border-radius:3px;background:var(--limit-track);box-sizing:border-box}
+.mc-limit-row.is-unavailable .mc-limit-bar{background:transparent;border:1px dashed var(--limit-border)}
+.mc-limit-pct,.mc-limit-reset,.mc-limit-unavailable{font-family:var(--font-mono);font-size:11px;color:var(--color-text);font-variant-numeric:tabular-nums}
+.mc-limit-loading{width:80px;height:20px}
+/* Reserve both rows before telemetry arrives; narrower windows must not clip a provider. */
+@media(max-width:1580px){
+  #mc-ovh{flex-wrap:wrap;align-content:flex-start;row-gap:8px!important;height:124px!important}
+  #mc-ovh .mc-kpi{height:40px!important}
+  #mc-hdr-limits{order:1;flex-basis:100%;flex-shrink:0}
+}
+@media(max-width:780px){
+  #mc-ovh{height:142px!important}
+  #mc-hdr-limits{height:80px!important;overflow-x:auto!important}
+}
+@media(max-width:900px){
+  .mc-limit-row{grid-template-columns:40px max-content}
+  .mc-limit-loading{width:40px}
+}

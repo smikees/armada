@@ -172,7 +172,7 @@ def test_header_maps_codex_windows_by_duration_and_preserves_zero():
                                        [8, 0, 72, 17], ["6d 22h", "4h 59m", "2d 3h", "1h 20m"]):
         assert f'aria-label="{provider} · ' in row
         assert f'>{provider}</span>' not in row and f'>{pct}%</span>' in row
-        assert f'resets in {reset}' in row and 'is-unavailable' not in row
+        assert f'Reset in {reset}' in row and 'is-unavailable' not in row
 
 
 def test_weekly_only_account_does_not_invent_a_session_limit():
