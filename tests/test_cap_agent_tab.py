@@ -122,3 +122,13 @@ def test_inline_grants_preserve_cards_and_handle_failures(realm):
 def test_cards_are_keyed_so_they_can_be_reopened(realm):
     html = UI._realm_skills(reader.read(str(realm)), realm)
     assert 'data-cap="filesystem"' in html and 'data-kind="extensions"' in html
+
+
+def test_delete_preserves_list_and_recovers_from_failure():
+    import shutil
+    import subprocess
+    if not shutil.which('node'):
+        pytest.skip('node not available')
+    harness = _CAPDRAG_JS.parents[4] / 'tests' / 'cap_delete_harness.js'
+    result = subprocess.run(['node', str(harness)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr

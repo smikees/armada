@@ -18,6 +18,7 @@
       CSS.highlights.set('mc-find-current',new Highlight(...(index>=0?[ranges[index]]:[])));
     }
     count.textContent=ranges.length?(index+1)+' / '+ranges.length:(input.value?'No matches':'');
+    count.title=count.textContent;
     panel.querySelectorAll('[data-step]').forEach(b=>b.disabled=!ranges.length);
     if(scroll&&index>=0){
       const range=ranges[index],node=range.startContainer.parentElement;

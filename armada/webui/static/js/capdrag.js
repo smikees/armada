@@ -3,7 +3,7 @@ function mcCapDragStart(e,id){e.dataTransfer.setData('text/plain',id);e.dataTran
 function mcCapDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='copy';e.currentTarget.classList.add('mc-cap-drop');}
 function mcCapDragLeave(e){e.currentTarget.classList.remove('mc-cap-drop');}
 async function mcCapAccess(card,cap,agent,remove){
-  if(!card||card.dataset.saving)return;
+  if(!card||card.dataset.saving||card.dataset.deleting)return;
   card.dataset.saving='1';card.setAttribute('aria-busy','true');
   var progress=document.createElement('span');progress.className='mc-cap-saving';progress.setAttribute('role','status');progress.textContent='Saving access…';card.appendChild(progress);
   try{

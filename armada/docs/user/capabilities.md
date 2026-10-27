@@ -6,9 +6,14 @@ change updates that card in place, preserving your filters, scroll position and 
 Granting access does not sign the agent's provider into a connector; its connection status stays
 separate.
 
+Removing a capability keeps the list in place: the card grays out with **Deleting…**, then
+collapses after the deletion succeeds. If it fails, the card remains available with an error
+and you can try Remove again. Reduced-motion settings skip the collapse animation.
+
 Press **Ctrl+F** anywhere in ARMADA to find visible text in the current section. The search box
 opens at the top right, below the main menu. Matches are highlighted; **Enter** moves forward,
-**Shift+Enter** moves back and **Escape** closes it. The results update as content arrives.
+**Shift+Enter** moves back and **Escape** closes it. The results update as content arrives. The box reserves room for its count and
+controls, so typing or finding no matches does not shift its layout.
 Hidden tabs, collapsed content and unsent editor drafts are excluded; expand a section to search it.
 
 ## Which engines can use it
