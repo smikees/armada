@@ -28,6 +28,7 @@ _thread_windows = {}
 _window_lock = threading.RLock()
 _quitting = False
 _app_url = ""
+_desktop_visibility = None
 
 
 def window_state():
@@ -336,8 +337,11 @@ def show_main(*, href: str = "", report: str = "") -> bool:
     import json
     if href and (not href.startswith("/") or href.startswith("//") or "\\" in href):
         return False
-    _main_window.show()
-    _main_window.restore()
+    if _desktop_visibility is not None:
+        _desktop_visibility.show()
+    else:
+        _main_window.show()
+        _main_window.restore()
     if href:
         from .local_auth import browser_url
         _main_window.load_url(browser_url(_app_url, href))
@@ -728,10 +732,13 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     main.events.loaded += _page_loaded
     _main_window = main
     from . import instance
-    activation_stop = instance.watch_activation(lambda: (main.show(), main.restore()))
+    global _desktop_visibility
+    from .desktop_visibility import DesktopVisibility
+    visibility = _desktop_visibility = DesktopVisibility(main, save_window_state)
+    activation_stop = instance.watch_activation(visibility.show)
     from . import appconfig
     from .tray import Tray
-    tray = Tray(lambda: (main.show(), main.restore()), lambda: _quit_windows(main))
+    tray = Tray(visibility.show, lambda: _quit_windows(main))
     tray_ready = tray.start()
 
     closing_pending, closing_allowed = threading.Event(), threading.Event()
@@ -743,8 +750,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
         if closing_allowed.is_set():
             return True
         if not _quitting and tray_ready and appconfig.get("keep_in_tray", True) is not False:
-            threading.Thread(target=save_window_state, daemon=True).start()
-            threading.Thread(target=main.hide, daemon=True).start()
+            visibility.hide()
             return False
         if not closing_pending.is_set():
             closing_pending.set()
@@ -753,7 +759,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
 
     def _on_main_minimized():
         if tray_ready and appconfig.get("keep_in_tray", True) is not False:
-            main.hide()
+            visibility.hide_if_minimized()
 
     main.events.closing += _on_main_closing
     main.events.minimized += _on_main_minimized
@@ -805,6 +811,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
             webview.start(_start_main, **_webview_options())
     finally:
         activation_stop.set()
+        visibility.stop()
+        _desktop_visibility = None
         _quitting = True
         try:
             from . import schedsvc
@@ -830,6 +838,8 @@ def _quit_windows(main, *, close_main=True):
     """Exit the GUI. An owner-bound scheduler stops when this process exits."""
     global _quitting
     _quitting = True
+    if _desktop_visibility is not None:
+        _desktop_visibility.stop()
     with _window_lock:
         companions = list(_thread_windows.values())
         if _alex_window is not None:

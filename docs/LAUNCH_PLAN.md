@@ -12,6 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.117** hardens close-to-tray, restore and Quit with nonblocking native
+transitions, bounded state saves and a mandatory real tray lifecycle installer gate.
+[Verification](dev/RELEASE_0_99_117.md). The reported white-window freeze was not reproduced;
+confirmed lifecycle races and diagnostic coverage are addressed.
+Release validation and public publication are pending.
+
 Version **0.99.116** applies the supplied Armada II usage-bar style, shorter Reset labels
 and responsive header layout. [Verification](dev/RELEASE_0_99_116.md).
 Published on GitHub and the website with 3,756 isolated tests passing, exact-source

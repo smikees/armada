@@ -41,6 +41,7 @@
 | [`covenant`](covenant.md) | One shared governing document, named for the realm's chosen vocabulary. |
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
 | [`desktop_launch`](desktop_launch.md) | Start the desktop app with Explorer's lifetime and unvirtualized user context. |
+| [`desktop_visibility`](desktop_visibility.md) | Nonblocking close-to-tray/restore transitions, with the newest request winning. |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
 | [`draft_inputs`](draft_inputs.md) | Bounded frozen file inputs for draft scripts and paired model tests. |
 | [`draft_skills`](draft_skills.md) | Owner-fingerprinted skill bundles, executed only in Windows draft isolation. |

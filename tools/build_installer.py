@@ -331,6 +331,8 @@ def smoke(stage_dir: Path, ver: str) -> None:
     recovery(stage_dir)
     from webview_session_probe import verify
     verify(stage_dir)
+    from startup_recovery_probe import verify_tray
+    verify_tray(stage_dir)
     say("smoke: ok")
 
 

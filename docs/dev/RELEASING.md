@@ -64,6 +64,9 @@ For changes to startup, instance activation, error navigation or full quit, also
 startup check before release:
 `python tools/startup_recovery_probe.py --output <result.json>` in the Windows pywebview
 environment. It must pass all checks, including production desktop readiness and native close.
+Installer staging also runs this probe with `--tray --staged`, using the packaged runtime,
+real tray Open/Quit handlers, repeated close/restore, delayed snapshot and busy-renderer
+checks. Its result is retained in `build/tray-lifecycle-staged.json`.
 The default suite covers concurrent launches and failure preservation with a real child server;
 this native check covers behavior that mocked windows cannot verify. Retain its result with the
 release evidence. See [the startup incident](INCIDENT_2026_10_07_STARTUP.md).
