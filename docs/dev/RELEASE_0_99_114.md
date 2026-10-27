@@ -4,7 +4,7 @@
 
 - Capabilities serves a standard page shell first, then fetches its inventory fragment. Grant
   calculations are cached only within one render, avoiding stale permission data across requests.
-  The measured owner-realm inventory fell from a 4.2-second profiled render to about 0.5 seconds;
+  The measured owner-realm inventory fell from a 4.2-second profiled render to 0.73 seconds under the same profiler (about 0.5 seconds without profiling);
   reader plus shell took about 80 ms. These are local samples, not a performance guarantee.
 - Grant/revoke updates return only the affected availability label, chips and filter IDs. Provider
   inventories are excluded from the inline write path. Other controls and expansion remain intact.
@@ -21,7 +21,7 @@
 
 ## Validation
 
-- 88 focused capability/review tests passed, including changed versions, policy changes,
+- Focused capability/review tests passed, including changed versions, policy changes,
   restart recovery, duplicate launch, realm separation, and no provider launch on inline grants.
 - Isolated Chromium browser checks passed for loading, grant/revoke without reload, direct GitHub
   review with sources disabled, navigation recovery while running and after completion, correct

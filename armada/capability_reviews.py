@@ -54,7 +54,8 @@ def _version(url, key):
             return '', url
         if not (folder / 'SKILL.md').is_file():
             raise ValueError('That skill is no longer on this computer.')
-        digest = hashlib.sha256(json.dumps(entry, sort_keys=True).encode())
+        metadata = {name: entry.get(name) for name in ('id', 'name', 'kind', 'author', 'description')}
+        digest = hashlib.sha256(json.dumps(metadata, sort_keys=True).encode())
         total = 0
         for path in sorted(folder.rglob('*')):
             if path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction()):
@@ -69,7 +70,7 @@ def _version(url, key):
     if not github_repo(url):
         return '', url
     parts = urlsplit(url).path.strip('/').split('/')
-    owner, repo = parts[:2]
+    owner, repo = (part.lower() for part in parts[:2])
     repo = repo.removesuffix('.git')
     if len(parts) > 12:
         return '', url
@@ -142,8 +143,12 @@ def _run(directory, row, task):
     path = directory / (row['id'] + '.json')
     try:
         revision, target = _version(row['url'], row['key'])
-        policy = json.dumps(sysskills.get_system_skill('capability-review') or {}, sort_keys=True)
-        cache_id = _hash('v1\n' + row['id'] + '\n' + revision + '\n' + policy)
+        from .catalogue.realm import _REVIEW_JSON_SHAPE
+        # Installation paths and the app's version are not changes to this protocol.
+        policy = json.dumps({'body': (sysskills.get_system_skill('capability-review') or {}).get('body', ''),
+                             'shape': _REVIEW_JSON_SHAPE}, sort_keys=True)
+        source = target if row['url'] else row['key']
+        cache_id = _hash('v1\n' + source + '\n' + revision + '\n' + policy)
         cached = directory / 'cache' / (cache_id + '.json')
         result = None
         if revision and cached.is_file():

@@ -167,3 +167,20 @@ def test_render_cache_is_request_local(realm, monkeypatch):
     html = _realm_skills(snapshot, realm)
     assert mock.call_count == 2
     assert 'data-cap="notes" data-agents="reviewer"' in html
+
+
+def test_same_source_reuses_report_across_search_and_link_entry_points(realm):
+    url = 'https://github.com/example/notes'
+    reviews.start(realm, url, 'catalogue/notes'); finish(realm)
+    reviews.start(realm, url)
+    assert finish(realm)['cached']
+    assert catalogue.review_url.call_count == 1
+
+
+def test_app_version_and_install_path_do_not_invalidate_unchanged_protocol(realm, monkeypatch):
+    monkeypatch.setattr(reviews.sysskills, 'get_system_skill', lambda name: {'body': 'Same protocol', 'version': '1', 'path': 'old'})
+    reviews.start(realm, 'https://example.com/skill'); finish(realm)
+    monkeypatch.setattr(reviews.sysskills, 'get_system_skill', lambda name: {'body': 'Same protocol', 'version': '2', 'path': 'new'})
+    reviews.start(realm, 'https://example.com/skill')
+    assert finish(realm)['cached']
+    assert catalogue.review_url.call_count == 1

@@ -1261,5 +1261,6 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-pagefind button:hover{background:var(--text-7)}
 .mc-pagefind button:disabled{opacity:.4;cursor:default}
 .mc-pagefind-count{font-size:12px;white-space:nowrap;color:var(--text-muted)}
-::highlight(mc-find-all){background:#ffe08a;color:#222}
-::highlight(mc-find-current){background:#f6a83e;color:#111;text-decoration:underline}
+:root,.armada-dark{--find-match-bg:#ffe08a;--find-active-bg:#f6a83e;--find-ink:#111}
+::highlight(mc-find-all){background:var(--find-match-bg);color:var(--find-ink)}
+::highlight(mc-find-current){background:var(--find-active-bg);color:var(--find-ink);text-decoration:underline}
