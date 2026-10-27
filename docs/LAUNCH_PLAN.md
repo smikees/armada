@@ -16,7 +16,9 @@ Version **0.99.117** hardens close-to-tray, restore and Quit with nonblocking na
 transitions, bounded state saves and a mandatory real tray lifecycle installer gate.
 [Verification](dev/RELEASE_0_99_117.md). The reported white-window freeze was not reproduced;
 confirmed lifecycle races and diagnostic coverage are addressed.
-Release validation and public publication are pending.
+Published on GitHub and the website with 3,767 isolated tests passing, exact-source
+Windows CI, and native recovery/session/upgrade checks. Public assets and signed updates were
+verified. Publication did not restart the owner app.
 
 Version **0.99.116** applies the supplied Armada II usage-bar style, shorter Reset labels
 and responsive header layout. [Verification](dev/RELEASE_0_99_116.md).
