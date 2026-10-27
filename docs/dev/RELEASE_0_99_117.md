@@ -32,7 +32,10 @@ This makes a stale desktop composition surface the leading explanation for the
 persistent rectangle, rather than an extant ARMADA window awaiting a close event.
 It does not establish whether ARMADA originally triggered it, nor prove a driver
 fault. An automated Windows graphics-refresh shortcut did not visibly clear the
-surface in subsequent captures; owner confirmation of a manual refresh is pending.
+surface in subsequent captures. The owner then performed the shortcut manually,
+confirmed that the screen flashed, and reported that the rectangle remained.
+A Windows restart after saving work is the next recovery step; it has not been
+performed remotely.
 The visible incident therefore remains unresolved despite the verified tray fixes.
 
 ## Changes
