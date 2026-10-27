@@ -14,7 +14,9 @@ The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
 Version **0.99.116** applies the supplied Armada II usage-bar style, shorter Reset labels
 and responsive header layout. [Verification](dev/RELEASE_0_99_116.md).
-Release validation and public publication are pending.
+Published on GitHub and the website with 3,756 isolated tests passing, exact-source
+Windows CI, and native recovery/session/upgrade checks. Public assets and signed updates were
+verified. The owner app was not restarted.
 
 Version **0.99.115** keeps the page-find box stable while typing and removes capabilities
 in place with pending, failure and reduced-motion states. [Verification](dev/RELEASE_0_99_115.md).
