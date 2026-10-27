@@ -167,7 +167,7 @@ def _resolve_theme(cfg: dict, theme: dict) -> tuple[str, str, str]:
     return coord, agent, coll
 
 
-def read_native(root: Path) -> Realm:
+def read_native(root: Path, *, details=True) -> Realm:
     """Read a ARMADA-native realm (realm.json + theme.json + agents/*) — the greenfield format."""
     now = datetime.datetime.now().astimezone()
     cfg = json.loads(_read(root / "realm.json") or "{}")
@@ -200,7 +200,9 @@ def read_native(root: Path) -> Realm:
         count30 = tok30 = 0
         cost30 = 0.0
         rf = adir / "runs" / f"{aid}.jsonl"
-        if rf.exists():
+        if details and rf.exists():
+            from .job_history import apply_annotation, annotation_names
+            annotations = annotation_names(adir)
             for ln in _read(rf).splitlines():
                 ln = ln.strip()
                 if not ln:
@@ -209,8 +211,7 @@ def read_native(root: Path) -> Realm:
                     ev = json.loads(ln)
                 except json.JSONDecodeError:
                     continue
-                from .job_history import apply_annotation
-                ev = apply_annotation(adir, ev)
+                ev = apply_annotation(adir, ev, names=annotations)
                 ts = str(ev.get("ts", ""))[:19]
                 tid = ev.get("task")
                 if tid and (tid not in latest or ts > latest[tid][0]):
@@ -226,7 +227,7 @@ def read_native(root: Path) -> Realm:
             s = max(latest.values(), key=lambda x: x[0])[1]
             status = {_status.SUCCESS: "green", _status.QUIET: "green",
                       _status.WARN: "yellow", _status.FAILED: "red"}.get(_status.normalize(s), "unknown")
-        mandate = _read(adir / c.get("mandate", "mandate.md"))
+        mandate = _read(adir / c.get("mandate", "mandate.md")) if details else ""
         from . import skills as skills_mod
         is_coord = bool(c.get("coordinator"))
         role = c.get("role") or (realm.theme_coordinator if is_coord else realm.theme_agent)
@@ -236,9 +237,9 @@ def read_native(root: Path) -> Realm:
                   theme_role=role, is_coordinator=is_coord, membership=c.get("membership", "cabinet"),
                   status=status, bulletin=_first_headline(mandate),
                   runs_30d=count30, tokens_30d=tok30, cost_30d=round(cost30, 4) if cost30 is not None else None, appointed=appointed,
-                  skills=skills_mod.load(root, aid))
+                  skills=skills_mod.load(root, aid) if details else [])
         jdir = adir / "jobs"
-        if jdir.is_dir():
+        if details and jdir.is_dir():
             for jf in sorted(jdir.glob("*.json")):
                 jc = json.loads(_read(jf) or "{}")
                 jid = jc.get("id", jf.stem)
@@ -286,6 +287,26 @@ def order_agents(realm: Realm) -> Realm:
     """
     realm.agents.sort(key=lambda a: (not a.is_coordinator, (a.display or a.id).casefold()))
     return realm
+
+
+def name(root: str | Path) -> str:
+    """Startup registration needs metadata, not historical usage or job outcomes."""
+    root = Path(root)
+    if is_cabinet(root):
+        return read(root).name
+    from .util import read_json_state
+    # Future realms remain browsable; write admission still validates the supported schema.
+    return read_json_state(root / "realm.json", max_schema=None).get("name", "Realm")
+
+
+def roster(root: str | Path) -> Realm:
+    """Current identities/configuration only; never use this for usage or job summaries."""
+    root = Path(root)
+    if is_cabinet(root):
+        return read(root)
+    if not (root / "realm.json").is_file():
+        return read(root)
+    return order_agents(read_native(root, details=False))
 
 
 def read(root: str | Path) -> Realm:

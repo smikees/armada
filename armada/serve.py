@@ -889,6 +889,7 @@ def _serve_until_done(httpd) -> None:
 
 
 def serve(realm: str, port: int = 8756):
+    started = time.monotonic()
     Handler.realm = realm
     _init_logging(realm)
     deadline = time.monotonic() + 4.0
@@ -899,7 +900,7 @@ def serve(realm: str, port: int = 8756):
     if realm:
         from . import realmformat
         realmformat.ensure(realm)
-        _reg_ensure(realm, reader.read(realm).name)
+        _reg_ensure(realm, reader.name(realm))
         try:
             from . import sysjobs
             if not os.environ.get("ARMADA_NO_MODEL_SYNC") and sysjobs.due(realm, "model-catalog"):
@@ -908,6 +909,7 @@ def serve(realm: str, port: int = 8756):
             swallowed(log, 'serve: model refresh unavailable')
     # Bind before publishing a credential: a losing startup cannot replace a live server's token.
     httpd = _Server(("127.0.0.1", port), Handler)
+    log.info('Startup phase=server-bound elapsed_ms=%d', (time.monotonic()-started)*1000)
     from . import instance, updater
     instance.publish_port(httpd.server_port)
     update_stop = threading.Event()

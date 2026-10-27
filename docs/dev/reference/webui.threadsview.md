@@ -30,6 +30,14 @@ The owner's avatar <img> if one is set, else '' (callers fall back to the 'You' 
 
 One plain-text preview for initial rendering and live sidebar updates.
 
+### `_thread_summary(thread)`
+
+—
+
+### `_read_thread_summary(thread)`
+
+—
+
 ### `_meta_path(agent_dir)`
 
 —

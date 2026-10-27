@@ -29,6 +29,7 @@ _window_lock = threading.RLock()
 _quitting = False
 _app_url = ""
 _desktop_visibility = None
+_browser_calls = threading.BoundedSemaphore(4)
 
 
 def window_state():
@@ -74,14 +75,35 @@ def _webview_options():
 
 def _browser_result(window, script, timeout=10):
     """pywebview resolves a JavaScript Promise through its callback, not its return value."""
+    deadline = time.monotonic() + timeout
+    if not _browser_calls.acquire(timeout=max(0, timeout)):
+        raise OSError('The browser is busy with an unresponsive operation')
     done = threading.Event()
     values = []
+    errors = []
     def received(value):
         values.append(value)
         done.set()
-    window.evaluate_js(script, callback=received)
-    if not done.wait(timeout):
+    def evaluate():
+        try:
+            # pywebview calls callbacks only for Promises, not synchronous values.
+            window.evaluate_js('Promise.resolve().then(()=>eval(' + json.dumps(script) + '))', callback=received)
+            done.wait(max(0, deadline-time.monotonic()))
+        except Exception as exc:
+            log.debug('Browser evaluation failed', exc_info=True)
+            errors.append(exc)
+            done.set()
+        finally:
+            _browser_calls.release()
+    try:
+        threading.Thread(target=evaluate, name='armada-browser-call', daemon=True).start()
+    except Exception:
+        _browser_calls.release()
+        raise
+    if not done.wait(max(0, deadline-time.monotonic())):
         raise OSError('The browser did not complete its authenticated startup request')
+    if errors:
+        raise OSError('The browser could not complete its operation') from errors[0]
     return values[0]
 
 
@@ -567,12 +589,17 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     global _main_window, _app_url, _quitting
     from .util import init_logging
     init_logging('armada.log')
+    startup_started = time.monotonic()
+    def milestone(phase):
+        log.info('Startup phase=%s elapsed_ms=%d', phase, (time.monotonic()-startup_started)*1000)
+    milestone('desktop-entry')
     _quitting = False
     title = title or brand.window_title()
     _set_app_user_model_id()   # must be before any window is created
     _retire_scheduler_run_key()
     try:
         import webview  # pywebview — only needed for the windowed app
+        milestone('webview-imported')
     except ImportError:
         # Under pythonw (how the .vbs launcher starts us) there is no console, so a bare print()
         # here is invisible: the process would start, fail, and vanish with no window and no error —
@@ -683,13 +710,13 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
         nonlocal reauthenticated, navigation_fallback
         if not painted.is_set() or (navigating.is_set() and not loader.finished):
             try:
-                main.evaluate_js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))')
+                _browser_result(main, 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))')
             except Exception:
                 log.debug('Could not confirm a painted startup frame', exc_info=True)
             if navigating.is_set():
                 # The auth document redirects itself. Its loaded event can race with
                 # that redirect; treating it as a failed saved page loses the route.
-                document = main.evaluate_js("({auth:location.pathname === '/auth',"
+                document = _browser_result(main, "({auth:location.pathname === '/auth',"
                     "complete:document.readyState === 'complete',"
                     "shell:!!document.querySelector('link[href*=\"/static/brand.css\"]'),"
                     "refused:(document.body?.innerText||'').includes('Open ARMADA to access this local session.'),"
@@ -721,14 +748,16 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                     return
                 instance.desktop_ready()
                 browser_ready.set()
+                milestone('authenticated-controller-ready')
                 loader.ready()
                 from . import startup_sound
                 startup_sound.play()
-                if saved.get('draft') and main.evaluate_js('location.pathname+location.search') == saved.get('route'):
-                    main.evaluate_js("(()=>{const e=document.getElementById('mc-msg');if(e&&!e.value){e.value="+json.dumps(saved['draft'])+";e.dispatchEvent(new Event('input'));}})()")
+                if saved.get('draft') and _browser_result(main, 'location.pathname+location.search') == saved.get('route'):
+                    _browser_result(main, "(()=>{const e=document.getElementById('mc-msg');if(e&&!e.value){e.value="+json.dumps(saved['draft'])+";e.dispatchEvent(new Event('input'));}return true;})()")
                 threading.Thread(target=_confirm_startup_health, daemon=True).start()
             else:
                 painted.set()
+                milestone('loading-view-painted')
     main.events.loaded += _page_loaded
     _main_window = main
     from . import instance
@@ -782,6 +811,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
             _quit_windows(main)
             return
         if _wait_until_up(url, realm):
+            milestone('http-ready')
             if not painted.wait(30):
                 err['startup_failed'] = True
                 _fatal('ARMADA could not render its startup screen. Please restart the app.')

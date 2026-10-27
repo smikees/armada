@@ -129,6 +129,7 @@
 | [`startup_sound`](startup_sound.md) | Quiet desktop-ready cue |
 | [`startup_splash`](startup_splash.md) | Loading artwork inside the main window, including while WebView2 starts. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
+| [`stream_observer`](stream_observer.md) | A slow UI observer cannot hold the engine's event/cancellation loop. |
 | [`support`](support.md) | Send exactly the approved, redacted report through ARMADA's public relay. |
 | [`sysjobs`](sysjobs.md) | System jobs — the recurring work ARMADA does to keep itself current. |
 | [`sysskills`](sysskills.md) | System skills — the skills ARMADA itself needs to work. |
@@ -148,6 +149,7 @@
 | [`util`](util.md) | Small shared utilities: filesystem-path safety and atomic writes. |
 | [`validate`](validate.md) | `armada validate` — is this folder a runnable ARMADA realm, and what's in it? |
 | [`verbosity`](verbosity.md) | How much an agent writes back. |
+| [`view_cache`](view_cache.md) | Bounded, disposable presentation caches |
 | [`voice`](voice.md) | One opt-in native voice preview, bound to an ARMADA realm, agent and thread. |
 | [`voice_turns`](voice_turns.md) | Admit native speech as ordinary agent work, independently of the audio call. |
 | [`vtheme`](vtheme.md) | Visual themes — theme-as-data (Phase 2). |

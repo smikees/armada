@@ -30,13 +30,14 @@ def reports(agent_dir, job_id: str | None = None) -> list[dict]:
         lines = path.read_text(encoding="utf-8-sig").splitlines()
     except FileNotFoundError:
         return result
+    names = annotation_names(ad)
     for line in lines:
         try:
             ev = json.loads(line)
         except ValueError:
             continue
         if isinstance(ev, dict) and (job_id is None or ev.get("task") == job_id):
-            result.append(apply_annotation(ad, ev))
+            result.append(apply_annotation(ad, ev, names=names))
     return result
 
 
@@ -76,13 +77,25 @@ def logical_runs(agent_dir, events):
     return sorted(result, key=lambda e: str(e.get("ts", "")), reverse=True)
 
 
-def apply_annotation(agent_dir, event: dict) -> dict:
+def annotation_names(agent_dir):
+    """One directory snapshot per history scan; None preserves the fallback on I/O errors."""
+    try:
+        return frozenset(p.name for p in (Path(agent_dir) / "runs" / "annotations").iterdir())
+    except FileNotFoundError:
+        return frozenset()
+    except OSError:
+        return None
+
+
+def apply_annotation(agent_dir, event: dict, *, names=None) -> dict:
     """Overlay a correction in views; the original accounting/transcript stays immutable."""
     run_id = event.get("run_id")
     if not run_id:
         return event
     try:
         name = safe_seg(str(run_id), "run") + ".json"
+        if names is not None and name not in names:
+            return event
         path = Path(agent_dir) / "runs" / "annotations" / name
         if not path.exists():
             return event

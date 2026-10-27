@@ -18,7 +18,11 @@ Keep large transcripts out of the small accounting log used by every dashboard.
 
 Group only proven retry series. Manual invocations keep their own identity.
 
-### `apply_annotation(agent_dir, event: dict)`
+### `annotation_names(agent_dir)`
+
+One directory snapshot per history scan; None preserves the fallback on I/O errors.
+
+### `apply_annotation(agent_dir, event: dict, *, names=None)`
 
 Overlay a correction in views; the original accounting/transcript stays immutable.
 

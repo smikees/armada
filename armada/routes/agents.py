@@ -96,7 +96,7 @@ class AgentRoutes:
         can refresh the status dots without a full reload."""
         from .. import webui
         try:
-            realm = reader.read(self.realm)
+            realm = reader.roster(self.realm)
             out = {a.id: webui._agent_activity(self.realm, a.id) for a in realm.agents}
         except Exception:  # noqa
             swallowed(log, '_get_agent_activity: failed; using a default')
@@ -244,12 +244,6 @@ class AgentRoutes:
         from ..request_context import RunContext
         from ..execution import RunSession
         context = RunContext.capture(self.realm, q.get("agent", ""), q.get("thread", "main"), q.get("tid"))
-        def emit(obj):
-            try:
-                self.wfile.write(("data: " + json.dumps(obj, ensure_ascii=False) + "\n\n").encode("utf-8"))
-                self.wfile.flush()
-            except Exception:
-                log.debug('emit: client disconnected', exc_info=True)
         with RunSession(context, self._streams, self._streams_lock) as session:
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -257,6 +251,8 @@ class AgentRoutes:
             self.send_header("Connection", "keep-alive")
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
+            from ..stream_observer import StreamObserver
+            emit = StreamObserver(self)
             try:
                 from ..runner import chat_stream
                 result = chat_stream(context.realm.root, context.agent, context.thread,
@@ -275,6 +271,8 @@ class AgentRoutes:
             except Exception as exc:
                 log.exception("chat stream failed")
                 emit({"kind": "error", "error": str(exc)})
+            finally:
+                emit.close()
         time.sleep(0.3)
 
     def _chat_stop(self, q: dict) -> dict:

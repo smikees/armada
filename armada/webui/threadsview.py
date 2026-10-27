@@ -27,6 +27,8 @@ import logging
 from ..util import swallowed
 from .. import util
 log = logging.getLogger(__name__)
+from ..view_cache import ViewCache, history_stamp
+_preview_cache = ViewCache(limit=512, bytes_limit=256 * 1024)
 
 
 def _user_avatar_file(realm_root):
@@ -72,15 +74,25 @@ def _thread_title(meta: dict, slug: str) -> str:
 
 def _thread_preview(thread) -> str:
     """One plain-text preview for initial rendering and live sidebar updates."""
+    return _thread_summary(thread)[0]
+
+
+def _thread_summary(thread):
+    return _preview_cache.read(str(thread.dir.resolve()), lambda: history_stamp(thread),
+                               lambda: _read_thread_summary(thread))
+
+
+def _read_thread_summary(thread):
     summary, messages = thread.display_snapshot()
+    job_only = bool(messages) and all(m.get('kind') == 'job' for m in messages)
     messages = [m for m in messages if m.get('kind') != 'job']
     for message in reversed(messages):
         content = message.get('content')
         if not content and message.get('voice_state') == 'unspoken':
             content = message.get('work_result')
         if isinstance(content, str) and content.strip():
-            return ' '.join(content.split())[:40]
-    return 'Message' if messages else 'Earlier messages' if summary else 'empty'
+            return ' '.join(content.split())[:40], job_only
+    return ('Message' if messages else 'Earlier messages' if summary else 'empty'), job_only
 
 
 def _meta_path(agent_dir) -> Path:
@@ -143,9 +155,7 @@ def _ordered_threads(agent_dir):
     """Thread slugs in display order: main first, then pinned, then the rest (by saved order, else name)."""
     from ..threads import Thread
     names = Thread.list_threads(agent_dir)
-    names = [n for n in names if n == "main" or not (
-        (messages := Thread(agent_dir, n).display_snapshot()[1]) and
-        all(m.get("kind") == "job" for m in messages))]
+    names = [n for n in names if n == "main" or not _thread_summary(Thread(agent_dir, n))[1]]
     if "main" not in names:
         names = ["main"] + names
     meta = _thread_meta(agent_dir)

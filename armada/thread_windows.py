@@ -6,6 +6,9 @@ from urllib.parse import urlencode
 
 from . import reader, util
 from .request_context import RealmContext, bind_content_html
+from .view_cache import ViewCache, history_stamp
+
+_renders = ViewCache(limit=32)
 
 
 # Only first-party companion requests opt in to an explicit realm after the main
@@ -28,7 +31,7 @@ def target(root, agent, thread):
     agent = util.safe_seg(agent, "agent")
     thread = util.safe_seg(thread, "thread")
     context = RealmContext.capture(root)
-    realm = reader.read(context.root)
+    realm = reader.roster(context.root)
     a = next((a for a in realm.agents if a.id == agent), None)
     if a is None:
         raise util.StateError("This agent is no longer available.")
@@ -45,7 +48,6 @@ def state(root, agent, thread, revision=""):
     from .webui.threadsview import _render_turns, thread_metrics, _ordered_threads, _thread_preview
     from .threads import Thread
     context, a, title, _ = target(root, agent, thread)
-    html = bind_content_html(_render_turns(root, a, thread), context)
     with RUNS_LOCK:
         runs = [run for run in ACTIVE_RUNS.values()
                 if run.context.realm.realm_id == context.realm_id
@@ -53,10 +55,24 @@ def state(root, agent, thread, revision=""):
                 and getattr(run, 'kind', '') != 'voice_audio']
         payload = {"title": title, "run_id": runs[0].context.run_id if runs else "",
                    "stopping": any(run.cancelled for run in runs)}
-    payload["metrics"] = thread_metrics(root, agent, thread)
     from . import voice
     call = voice.current(root, agent, thread)
     payload['voice'] = call.snapshot() if call and not call.finished.is_set() else None
+    from .webui.threadsview import _portrait, _user_avatar, _chat_running, _agent_model_label
+    from . import model
+    th = Thread(Path(root) / 'agents' / agent, thread)
+    def stamp():
+        # Read dynamic presentation inputs each time, including marker PID liveness.
+        speech = call.snapshot() if call and not call.finished.is_set() else None
+        label = _agent_model_label(root, agent)
+        return (history_stamp(th, progress=True), a.display, a.is_coordinator,
+                _portrait(root, a, 28), _user_avatar(root, 28),
+                _chat_running(root, agent, thread), json.dumps(speech, sort_keys=True),
+                label, model.context_window_tokens(label))
+    html, metrics = _renders.read((context.realm_id, agent, thread), stamp, lambda: (
+        bind_content_html(_render_turns(root, a, thread), context),
+        thread_metrics(root, agent, thread)))
+    payload['metrics'] = dict(metrics)
     digest = hashlib.sha256((html + json.dumps(payload, sort_keys=True)).encode("utf-8")).hexdigest()
     payload["revision"] = digest
     if revision != digest:
