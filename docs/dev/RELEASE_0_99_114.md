@@ -33,8 +33,34 @@
 - Provider defaults were checked against current metadata: both Claude preferences and both Codex
   preferences are present. Gemini lists the primary 3.8 Flash; the older 3.7 fallback is absent.
   Existing catalogue filtering and provider-default fallback remain unchanged.
-- Release gates and public publication evidence will be recorded after they complete.
+- Final release gates and public download verification passed, as recorded below.
 
 Reviews still use the existing sealed read-only reviewer. No account connection, agent model,
 production job, or owner application restart is part of this release. The authorized maintenance
 installer is unsigned; compatible updates remain Ed25519-signed.
+
+## Publication evidence
+
+Published 2026-10-27 as normal/latest
+[v0.99.114](https://github.com/smikees/armada/releases/tag/v0.99.114) from source `b9a2ff41fa3b5cdf4a68de3eaf1cbb95c729d342` through
+`tools/publish_release.py --maintenance-unsigned`.
+
+- Pinned isolated full release gate: **3751 passed, 5 skipped**.
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/40501918220) passed before artifact staging.
+- Mandatory staged native launcher recovery and WebView2 multi-window session checks passed.
+- Signed compatible upgrade from 0.99.113 passed all 69 native checks.
+- All four public downloads match their local sizes and SHA-256 values. The update signature
+  verifies, and its package contains exactly 434 tracked application
+  files, byte for byte. It is the latest normal GitHub release.
+- [armada.stamih.com](https://armada.stamih.com/) deployed with certificate-verified FTPS,
+  backup, verified temporary upload and rename. Public HTTPS content and installer download
+  match the release. Website SHA-256: `4b0210aa5dfa5b1233f3a77a9edaaa7745cddaf16da13d85f42ce4e1d34dd2ed`.
+- The owner's running application was not restarted. The maintenance installer remains unsigned;
+  the compatible update manifest is Ed25519-signed.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `armada-0.99.114.zip` | `8a6db32538541f98a5bfefb49283cb08eb5c460350fbe508b5847b65edf022db` |
+| `ARMADA-Setup-0.99.114.exe` | `916bfc6d89188d4cdb5f369f2c005dc1fc6207e76b48b212270e2ee571b055e9` |
+| `armada-update.json` | `e65eb286502002e4ba8384beb5ba3816bf9a8ea9319cdf607ab3fbd189688734` |
+| `armada-update.json.sig` | `a5029ae81d35ff428cdeb5e0ac9e62673ffe6f596dda38a2beb98eed5d110f23` |

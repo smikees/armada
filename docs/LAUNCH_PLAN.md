@@ -15,7 +15,9 @@ The current release is recorded in the [README](../README.md),
 Version **0.99.114** makes Capabilities navigation responsive, keeps reviews across navigation,
 reuses verified unchanged reviews, and updates access grants in place. Ctrl+F searches visible
 section text with live highlighting. [Verification](dev/RELEASE_0_99_114.md).
-Release validation and public publication are pending.
+Published on GitHub and the website with 3,751 isolated tests passing, exact-source
+Windows CI, and native recovery/session/upgrade checks. Public assets and signed updates were
+verified. The owner app was not restarted.
 
 Version **0.99.113** preserves natural Codex voice while making its actual spoken transcript
 the visible conversation and subsequent agent context. Work result retains the underlying answer;
