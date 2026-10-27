@@ -14,7 +14,9 @@ The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
 Version **0.99.115** keeps the page-find box stable while typing and removes capabilities
 in place with pending, failure and reduced-motion states. [Verification](dev/RELEASE_0_99_115.md).
-Release validation and public publication are pending.
+Published on GitHub and the website with 3,754 isolated tests passing, exact-source
+Windows CI, and native recovery/session/upgrade checks. Public assets and signed updates were
+verified. The owner app was not restarted.
 
 Version **0.99.114** makes Capabilities navigation responsive, keeps reviews across navigation,
 reuses verified unchanged reviews, and updates access grants in place. Ctrl+F searches visible
