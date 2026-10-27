@@ -99,6 +99,12 @@ def test_header_counts_coordinator_and_keeps_partial_totals(tmp_path):
 
 @pytest.mark.parametrize('ready', [True, False])
 def test_native_splash_exists_before_waiting_for_server(ready):
+    import json
+    import threading
+    native_thread = threading.Thread
+    def start_thread(*args, **kwargs):
+        # Exercise real bounded browser calls while leaving unrelated app services mocked.
+        return native_thread(*args, **kwargs) if kwargs.get('name') == 'armada-browser-call' else Mock()
     class Event:
         def __init__(self): self.callbacks=[]
         def __iadd__(self, callback):
@@ -110,16 +116,22 @@ def test_native_splash_exists_before_waiting_for_server(ready):
     window.events.loaded = Event()
     document = {'auth':False, 'complete':True, 'shell':True, 'shared':True, 'refused':False}
     def browser_proof(script, callback=None):
+        prefix = 'Promise.resolve().then(()=>eval('
+        wrapped = script.startswith(prefix)
+        if wrapped:
+            script = json.loads(script[len(prefix):-2])
         if script.startswith('({auth:'):
-            return dict(document)
-        if 'typeof window.mcIcon' in script:
-            return False  # Settings intentionally has no optional icon helper.
-        if script.startswith("fetch('/api/instance'"):
+            value = dict(document)
+        elif 'typeof window.mcIcon' in script:
+            value = False  # Settings intentionally has no optional icon helper.
+        elif script.startswith("fetch('/api/instance'"):
             from armada import __version__, instance
             value = {'status':200,'data':{'version':__version__,'nonce':instance.current().get('nonce')}}
-            if callback: callback(value)
-            return value
-        return True
+        else:
+            value = True
+        if callback:
+            callback(value)
+        return {} if wrapped else value  # A Promise handle is not its eventual result.
     window.evaluate_js.side_effect = browser_proof
     webview = Mock(create_window=Mock(return_value=window))
     loader = Mock(finished=False)
@@ -154,7 +166,7 @@ def test_native_splash_exists_before_waiting_for_server(ready):
          patch.object(app, '_server_matches', return_value=True), \
          patch('armada.local_auth.browser_url', return_value='http://127.0.0.1:8756/auth#test'), \
          patch.object(app, '_wait_until_up', side_effect=wait), patch.object(app, '_apply_window_icon'), \
-         patch.object(app, '_fatal') as fatal, patch.object(app.threading, 'Thread'), \
+         patch.object(app, '_fatal') as fatal, patch.object(app.threading, 'Thread', side_effect=start_thread), \
          patch('armada.serve.port_owner', return_value=0), patch('armada.tray.Tray'), \
          patch('armada.startup_splash.LoadingPanel', return_value=loader) as loading_panel, \
          patch('armada.schedsvc.stop_for_app_exit'), patch('armada.schedsvc.watch') as supervision:
