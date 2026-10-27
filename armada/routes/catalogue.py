@@ -15,6 +15,25 @@ log = logging.getLogger("armada.serve")
 
 
 class CatalogueRoutes:
+    def _get_capabilities_content(self):
+        from ..webui.capabilities import _realm_skills
+        self._send(200, _realm_skills(reader.read(self.realm), self.realm))
+
+    def _capability_review_start(self, body):
+        from .. import capability_reviews
+        try:
+            return {'ok': True, 'id': capability_reviews.start(self.realm, body.get('url') or '', body.get('key') or '')}
+        except (ValueError, OSError) as exc:
+            return {'ok': False, 'error': str(exc)}
+
+    def _get_capability_reviews(self):
+        from .. import capability_reviews
+        rows = capability_reviews.recent(self.realm)
+        for row in rows:
+            if (row.get('result') or {}).get('ok'):
+                row['result'] = self._render_capability_review(dict(row['result']), row['url'])
+        self._json(200, {'ok': True, 'reviews': rows})
+
     def _get_catalogue(self):
         """Re-render the Catalogue's results area for one set of filters.
 
@@ -81,17 +100,19 @@ class CatalogueRoutes:
         return catalogue.add_to_realm(self.realm, key)
 
     # ---- bring a link (ADR-004) --------------------------------------------------------------
-    # The review is a real agent turn — it can take a couple of minutes and, on the Claude engine,
-    # spends the owner's subscription — so this blocks the request rather than polling a job. The
-    # browser side (mcCatReview) already tells the owner to expect the wait.
+    # Legacy synchronous API; the UI uses durable background reviews above.
 
     def _catalogue_review(self, body: dict) -> dict:
         from .. import catalogue
-        from ..webui.catalogue import _cat_review_card, _cat_final_risk
         url = str(body.get("url") or "").strip()
         if not url:
             return {"ok": False, "error": "paste a link first"}
         result = catalogue.review_url(url)
+        return self._render_capability_review(result, url)
+
+    def _render_capability_review(self, result, url):
+        from .. import catalogue
+        from ..webui.catalogue import _cat_review_card, _cat_final_risk
         # Rendered here rather than in the browser so the report card can reuse the same
         # Runs/Can-touch icons and colours the User tab's cards use — one component, not a second
         # one hand-built in JS. The JSON fields stay too: mcCatAddLink round-trips them unchanged.
@@ -141,6 +162,12 @@ class CatalogueRoutes:
         q = str(body.get("q") or "").strip()
         if not q:
             return {"ok": False, "error": "Say what you're looking for."}
+        from .. import capability_reviews
+        if capability_reviews.github_repo(q):
+            result = self._capability_review_start({'url': q})
+            if result.get('ok'):
+                result['review_id'] = result.pop('id')
+            return result
         sources = [s for s in (body.get("sources") or []) if s in smart_search.SOURCE_IDS]
         return {"ok": True, "id": smart_search.start(self.realm, q, sources)}
 

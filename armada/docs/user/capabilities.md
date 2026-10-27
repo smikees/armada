@@ -1,5 +1,16 @@
 # Capabilities
 
+The page opens immediately with a loading indicator while its local inventory is prepared.
+Drag an agent onto a capability to give access, or remove its chip to revoke access. The saved
+change updates that card in place, preserving your filters, scroll position and expanded panels.
+Granting access does not sign the agent's provider into a connector; its connection status stays
+separate.
+
+Press **Ctrl+F** anywhere in ARMADA to find visible text in the current section. The search box
+opens at the top right, below the main menu. Matches are highlighted; **Enter** moves forward,
+**Shift+Enter** moves back and **Escape** closes it. The results update as content arrives.
+Hidden tabs, collapsed content and unsent editor drafts are excluded; expand a section to search it.
+
 ## Which engines can use it
 
 ARMADA lets each agent run on Claude, Codex or Gemini, and keeps its context when you change the
@@ -42,6 +53,20 @@ lines on what he found. Each result shows which engines can use it, where it cam
 whether you already have it. A search takes from a few seconds to under a minute and runs on
 Claude Opus through your Claude account.
 
+Paste a GitHub repository link in **Search** to review it directly, even with all search sources
+off. You can also paste a link under **Got a link?**.
+
+Reviews keep running when you navigate elsewhere. Return to **Add a capability** to see their
+progress or saved reports; the latest 20 are shown. Closing ARMADA interrupts unfinished reviews,
+which show **Retry review** after reopening rather than spending another agent turn automatically.
+Completed reports are stored locally and survive app restarts.
+
+Before reviewing again, ARMADA checks the GitHub commit or the contents of a local skill,
+including its scripts. An unchanged verified version reuses the saved report; a changed version
+or review protocol requires a new review. For other links, or when version verification is
+unavailable, ARMADA preserves the report but does not claim it is current or reuse it for a new
+review. Reviewing or restoring a report never enables a capability by itself.
+
 **Sources** come in two groups, and you can switch any of them off:
 
 - **What you have:** this realm, your skills in other realms, what Claude Code already has set up,
@@ -66,7 +91,7 @@ What a result offers depends on what it is:
 
 Alexander can only show what a source returned; he can't install, grant or review anything.
 
-**Have a link?** In the panel beside the search, paste a repository, package, skill or an MCP
+**Got a link?** In the panel beside the search, paste a repository, package, skill or an MCP
 server's address and choose **Review**. An agent reads it and reports before **Add to realm** is
 offered; an MCP server's address is added as a connector for every engine, each signing in
 separately. **Browse for yourself** below it links to Claude's and ChatGPT's directories,

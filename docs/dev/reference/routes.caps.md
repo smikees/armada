@@ -37,6 +37,7 @@ stays in serve.py, only the handler bodies moved.
 - `CapabilityRoutes._capability_move(self, body: dict)` — Move a one-engine-at-a-time capability to another engine (or preview the move).
 - `CapabilityRoutes._capability_exclusive(self, body: dict)` — The owner marks a capability as one engine at a time (or clears that mark).
 - `CapabilityRoutes._cap_revoke(self, body: dict)` — —
+- `CapabilityRoutes._cap_access_card(self, result, cap_id)` — —
 - `CapabilityRoutes._cap_request_approve(self, body: dict)` — Approve what an agent asked for in a thread. The grant remembers that thread, which is what makes it show as new there.
 - `CapabilityRoutes._cap_request_reject(self, body: dict)` — —
 - `CapabilityRoutes._reveal_skill(self, body: dict)` — Open the OS file manager with a skill's SKILL.md selected.

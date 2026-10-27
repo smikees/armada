@@ -32,6 +32,10 @@ class RealmRoutes:
     def _get_realm_page(self, page):
         from .. import webui
         try:
+            if page == 'skills':
+                from ..webui.capabilities import loading_page
+                self._send(200, loading_page(reader.read(self.realm), dark=self._dark()))
+                return
             self._send(200, webui.render_realm_page(reader.read(self.realm), self.realm, page,
                                                     dark=self._dark()))
         except SystemExit as e:

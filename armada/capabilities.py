@@ -162,7 +162,7 @@ def requestable(realm_root, agent) -> dict:
 
 def may_use(realm_root, agent, cap_id) -> bool:
     want = cap_key(cap_id)
-    return any(cap_key(c) == want for k in KINDS for c in usable(realm_root, agent)[k])
+    return any(cap_key(c) == want for rows in usable(realm_root, agent).values() for c in rows)
 
 
 # --------------------------------------------------------------------------- changing grants

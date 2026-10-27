@@ -471,6 +471,8 @@ class CapabilityRoutes:
         agent_id = str(body.get("agent") or "")
         cap_id = str(body.get("capability") or "")
         result = caps.grant(self.realm, agent_id, cap_id, via="user")
+        if body.get('inline'):
+            return self._cap_access_card(result, cap_id)
         if result.get("ok") and engine_for(self.realm, agent_id) == "codex":
             kind, cap = caps.find(self.realm, cap_id)
             if kind == "connectors" and cap:
@@ -591,8 +593,28 @@ class CapabilityRoutes:
 
     def _cap_revoke(self, body: dict) -> dict:
         from .. import capabilities as caps
-        return caps.revoke(self.realm, str(body.get("agent") or ""),
-                           str(body.get("capability") or ""))
+        cap_id = str(body.get('capability') or '')
+        result = caps.revoke(self.realm, str(body.get("agent") or ""), cap_id)
+        return self._cap_access_card(result, cap_id) if body.get('inline') else result
+
+    def _cap_access_card(self, result, cap_id):
+        if result.get('ok'):
+            from .. import capabilities as caps, reader
+            from ..webui.capabilities import _cap_availto_cell, _cap_availto_chips, _cap_agents, _render_access
+            kind, cap = caps.find(self.realm, cap_id)
+            if cap:
+                realm = reader.read(self.realm)
+                from ..request_context import RealmContext, bind_content_html
+                context = RealmContext.capture(self.realm)
+                token = _render_access.set({})
+                try:
+                    result['availability'] = _cap_availto_cell(realm, self.realm, cap, kind)
+                    result['grants'] = bind_content_html(_cap_availto_chips(realm, self.realm, cap, kind), context)
+                    coords, granted = _cap_agents(realm, self.realm, cap)
+                    result['agents'] = ' '.join(a.id for a in coords + granted)
+                finally:
+                    _render_access.reset(token)
+        return result
 
     def _cap_request_approve(self, body: dict) -> dict:
         """Approve what an agent asked for in a thread. The grant remembers that thread, which is

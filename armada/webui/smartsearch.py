@@ -59,7 +59,7 @@ def _link_box() -> str:
     Add to realm; an MCP address is then added as a working connector for every engine.
     """
     return (f'<section class="mc-ss-side-sec" aria-labelledby="ss-link-h">'
-            f'<h3 id="ss-link-h" class="mc-ss-side-h">{_icon("link", 14)}Have a link?</h3>'
+            f'<h3 id="ss-link-h" class="mc-ss-side-h">{_icon("link", 14)}Got a link?</h3>'
             f'<p class="mc-ss-side-p">A repository, a package, a skill, or an MCP server\u2019s address '
             f'(https://\u2026/mcp). An agent reviews it before you decide to add it; that takes a minute or two.</p>'
             f'<div class="mc-ss-linkform">'
@@ -77,7 +77,7 @@ def smart_search_pane(realm, realm_root) -> str:
             f'<form class="mc-ss-box" onsubmit="mcSmartSearch(event)">'
             f'<span class="mc-ss-boxico">{_icon("search", 16)}</span>'
             f'<input id="ss-q" class="mc-field" maxlength="500" autocomplete="off" '
-            f'placeholder="Describe what you need, or ask what you already have" aria-label="What do you need?">'
+            f'placeholder="Describe what you need, or paste a GitHub repository link" aria-label="What do you need?">'
             f'<button id="ss-go" type="submit" class="btn btn-primary">Search</button></form>'
             f'<div class="mc-ss-row"><div class="mc-ss-exs"><span>Try</span>{examples}</div>{_sources_panel()}</div>'
             # A pasted link's review lands here, in the wide column, not in the side panel.

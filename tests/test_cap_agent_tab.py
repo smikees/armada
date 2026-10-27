@@ -107,28 +107,16 @@ def test_agent_tab_cards_carry_no_availability_column(realm):
 
 # --------------------------------------------------------------------------- open state
 
-def test_a_drop_preserves_which_cards_were_open(realm):
-    """Granting reloads the page, which closed the card you had just dropped into."""
+def test_inline_grants_preserve_cards_and_handle_failures(realm):
+    import shutil
+    import subprocess
+    if not shutil.which('node'):
+        pytest.skip('node not available')
     html = UI._realm_skills(reader.read(str(realm)), realm)
-    assert "/static/js/capdrag.js" in html, "the page must load the script that defines these"
-    js = _CAPDRAG_JS.read_text(encoding="utf-8")
-    assert "mcCapSaveOpen" in js and "mcCapRestoreOpen" in js
-    drop = js.split("async function mcCapDrop")[1].split("async function")[0]
-    # captured synchronously, before the fetch, so nothing in between can change it
-    assert drop.index("mcCapSaveOpen()") < drop.index("fetch(")
-
-
-def test_removing_an_agent_preserves_it_too(realm):
-    js = _CAPDRAG_JS.read_text(encoding="utf-8")
-    rm = js.split("async function mcCapRemoveAgent")[1]
-    assert rm.index("mcCapSaveOpen()") < rm.index("fetch(")
-
-
-def test_the_restore_is_one_shot(realm):
-    """Persisting open state across ordinary navigation would be a different, surprising feature."""
-    js = _CAPDRAG_JS.read_text(encoding="utf-8")
-    fn = js.split("function mcCapRestoreOpen")[1].split("function ")[0]
-    assert "removeItem" in fn
+    assert '/static/js/capdrag.js' in html
+    harness = _CAPDRAG_JS.parents[4] / 'tests' / 'cap_access_harness.js'
+    result = subprocess.run(['node', str(harness)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_cards_are_keyed_so_they_can_be_reopened(realm):

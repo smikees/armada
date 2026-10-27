@@ -26,6 +26,7 @@ async function mcSmartSearch(ev){
   if(ev)ev.preventDefault();
   var q=(document.getElementById("ss-q").value||"").trim(),out=document.getElementById("ss-out"),go=document.getElementById("ss-go");
   if(!q){document.getElementById("ss-q").focus();return;}
+  if(/^https?:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\/(?:tree|blob)\/[^\s]+)?\/?(?:[?#][^\s]*)?$/i.test(q)){await mcReviewStart(q,'',go);return;}
   var sources=mcSsSources();
   if(!sources.length){out.innerHTML='<div class="mc-ss-error">Switch on at least one source under Sources.</div>';return;}
   var job=++mcSsJob;go.disabled=true;out.innerHTML=mcSsProgress([],0);
@@ -33,6 +34,7 @@ async function mcSmartSearch(ev){
     var r=await(await fetch("/api/smart-search",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({q:q,sources:sources})})).json();
     if(!r||!r.ok)throw new Error((r&&r.error)||"The search couldn't start.");
+    if(r.review_id){await mcReviewsRefresh();return;}
     for(;;){
       await new Promise(function(res){setTimeout(res,900);});
       if(job!==mcSsJob)return;
@@ -45,18 +47,7 @@ async function mcSmartSearch(ev){
   }catch(e){if(job===mcSsJob)out.innerHTML='<div class="mc-ss-error">'+mcSsEsc(e.message||e)+'</div>';}
   finally{if(job===mcSsJob)go.disabled=false;}
 }
-async function mcSsReview(b,url,key){
-  var card=b.closest(".mc-ss-card"),box=card.querySelector(".mc-ss-review");
-  b.disabled=true;var t0=Date.now(),was=b.textContent;
-  var tick=function(){b.textContent="Reviewing… "+Math.floor((Date.now()-t0)/1000)+"s";};tick();var timer=setInterval(tick,1000);
-  box.innerHTML='<p class="mc-ss-note"><span class="mc-catdots"><i></i><i></i><i></i></span> An agent is reading it before anything is added. This can take a minute or two.</p>';
-  try{
-    var r=await(await fetch("/api/catalogue-review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:url})})).json();
-    if(!r||!r.ok){box.innerHTML='<p class="mc-ss-error">'+mcSsEsc((r&&r.error)||"The review did not complete.")+'</p>';}
-    else{window._mcCatReview={url:url,review:r,key:key};box.innerHTML=r.html||"";}
-  }catch(e){box.innerHTML='<p class="mc-ss-error">Could not run the review: '+mcSsEsc(e)+'</p>';}
-  clearInterval(timer);b.disabled=false;b.textContent=was;
-}
+async function mcSsReview(b,url,key){await mcReviewStart(url,key,b);}
 async function mcSsAddPlugin(b,plugin){
   b.disabled=true;var was=b.innerHTML;b.textContent="Adding…";
   try{
@@ -94,16 +85,7 @@ function mcSsWarm(){if(mcSsWarmed)return;mcSsWarmed=1;fetch("/api/smart-search-w
 if(document.getElementById("cap-pane-catalogue")&&document.getElementById("cap-pane-catalogue").style.display!=="none")mcSsWarm();
 // Review for a result already on this computer (one of your skills): ARMADA checks its files,
 // then the card offers Add to realm, like any other review.
-async function mcSsCheck(b,key){
-  var card=b.closest(".mc-ss-card"),box=card.querySelector(".mc-ss-review");
-  b.disabled=true;var was=b.textContent;b.textContent="Checking\u2026";
-  try{
-    var r=await(await fetch("/api/smart-search-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:key})})).json();
-    if(!r||!r.ok){box.innerHTML='<p class="mc-ss-error">'+mcSsEsc((r&&r.error)||"Could not check it.")+'</p>';}
-    else{window._mcCatReview={url:"",review:r.review,key:key};box.innerHTML=r.html||"";}
-  }catch(e){box.innerHTML='<p class="mc-ss-error">Could not check it: '+mcSsEsc(e)+'</p>';}
-  b.disabled=false;b.textContent=was;
-}
+async function mcSsCheck(b,key){await mcReviewStart('',key,b);}
 // The Sources menu closes on a click outside it, and on Escape.
 document.addEventListener("click",function(e){
   document.querySelectorAll("details.mc-ss-sources[open]").forEach(function(d){if(!d.contains(e.target))d.removeAttribute("open");});

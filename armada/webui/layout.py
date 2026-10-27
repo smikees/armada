@@ -10,7 +10,7 @@ from pathlib import Path
 from .. import brand, vtheme, appconfig
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
 from ._base import (E, _STAR, _md_inline, _md, _page_title, _chip, _poss)
-from ..assets import (CSS_LINKS as _CSS_LINKS, RUN_JS as _RUN_JS, FORM_JS as _FORM_JS,
+from ..assets import (js, CSS_LINKS as _CSS_LINKS, RUN_JS as _RUN_JS, FORM_JS as _FORM_JS,
     DOTPOLL_JS as _DOTPOLL_JS, SWITCHER_JS as _SWITCHER_JS, PENDING_BADGE_JS as _PENDING_BADGE_JS,
     SECTION_EDIT_JS as _SECTION_EDIT_JS, AUTHBAR_JS as _AUTHBAR_JS, SCHEDBAR_JS as _SCHEDBAR_JS, UPDBAR_JS as _UPDBAR_JS, SUPPORT_JS as _SUPPORT_JS, ALEXANDER_JS as _ALEXANDER_JS,
     NOTIFBELL_JS as _NOTIFBELL_JS, CONFIRM_JS as _CONFIRM_JS, NAVKEYS_JS as _NAVKEYS_JS,
@@ -164,7 +164,7 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
             f'<div id="mc-updbar"></div>'
             # confirm.js first: every page gets the app's own dialog, so nothing has to fall back
             # to the browser's confirm()
-            f'{_CONFIRM_JS}{_NAVKEYS_JS}{_SWITCHER_JS}{_PENDING_BADGE_JS}{_NEW_REALM_MODAL}'
+            f'{_CONFIRM_JS}{_NAVKEYS_JS}{js("pagefind")}{_SWITCHER_JS}{_PENDING_BADGE_JS}{_NEW_REALM_MODAL}'
             f'{_AUTHBAR_JS}{_SCHEDBAR_JS}{_UPDBAR_JS}{_SUPPORT_JS}{_ALEXANDER_JS}{_NOTIFBELL_JS}')
 
 

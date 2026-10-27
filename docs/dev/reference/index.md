@@ -23,6 +23,7 @@
 | [`background`](background.md) | Windows launch options for unattended probes (never interactive sign-in windows). |
 | [`brand`](brand.md) | ARMADA brand surface — the single place that defines the app's visible identity. |
 | [`capabilities`](capabilities.md) | Who may use which capability. |
+| [`capability_reviews`](capability_reviews.md) | Durable, realm-scoped reviews |
 | [`capreach`](capreach.md) | Which engines a capability works with — its *reach* — and what a model change would cost. |
 | [`capscan`](capscan.md) | Real capability version-scan + update, via the Claude Code CLI. |
 | [`catalogue.__init__`](catalogue.__init__.md) | The capability catalogue — everything you could add, from every source we know about. |

@@ -122,7 +122,7 @@ def test_add_a_capability_is_search_link_and_directories(realm):
     assert 'id="ss-q"' in pane and "mcSmartSearch" in pane and "smartsearch.js" in pane
     assert all(f'value="{s}"' in pane for s in ss.SOURCE_IDS)          # every source can be switched
     assert "https://chatgpt.com/plugins" in pane and "https://claude.com/plugins" in pane
-    assert 'id="cat-link"' in pane and "Have a link?" in pane and "cat-addr-url" not in pane
+    assert 'id="cat-link"' in pane and "Got a link?" in pane and "cat-addr-url" not in pane
     assert pane.index('class="mc-ss-main"') < pane.index('class="mc-ss-side"')
     assert 'id="cat-q"' not in pane and 'id="cat-reach"' not in pane     # the old browser is gone
 

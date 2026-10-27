@@ -10,11 +10,15 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `CatalogueRoutes._get_capabilities_content(self)` — —
+- `CatalogueRoutes._capability_review_start(self, body)` — —
+- `CatalogueRoutes._get_capability_reviews(self)` — —
 - `CatalogueRoutes._get_catalogue(self)` — Re-render the Catalogue's results area for one set of filters.
 - `CatalogueRoutes._catalogue_refresh(self, body: dict)` — Re-read the mirrored sources now, rather than waiting for the daily job.
 - `CatalogueRoutes._catalogue_reveal(self, body: dict)` — Open the file manager at a skill the owner wrote, from its catalogue card.
 - `CatalogueRoutes._catalogue_add(self, body: dict)` — —
 - `CatalogueRoutes._catalogue_review(self, body: dict)` — —
+- `CatalogueRoutes._render_capability_review(self, result, url)` — —
 - `CatalogueRoutes._catalogue_add_link(self, body: dict)` — —
 - `CatalogueRoutes._smart_search(self, body: dict)` — —
 - `CatalogueRoutes._get_smart_search(self)` — —

@@ -185,6 +185,14 @@ The User tab's catalogue, grouped by which engines can use it (docs/dev/CAPABILI
 
 The switcher and the sections together (the page places the switcher in its filter bar).
 
+### `loading_page(realm, dark=False)`
+
+—
+
 ### `_realm_skills(realm, realm_root)`
+
+—
+
+### `_realm_skills_content(realm, realm_root)`
 
 —

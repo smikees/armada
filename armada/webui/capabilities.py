@@ -663,7 +663,15 @@ def _cap_agents(realm, realm_root, it: dict) -> tuple:
     if _caps.realm_enabled(it):
         for a in realm.members:            # members excludes the coordinator
             try:
-                if _caps.may_use(realm_root, a.id, cid):
+                cache = _render_access.get()
+                if cache is None:
+                    allowed = _caps.may_use(realm_root, a.id, cid)
+                else:
+                    key = (str(realm_root), a.id)
+                    if key not in cache:
+                        cache[key] = {_caps.cap_key(c) for rows in _caps.usable(realm_root, a.id).values() for c in rows}
+                    allowed = _caps.cap_key(cid) in cache[key]
+                if allowed:
                     granted.append(a)
             except Exception:  # noqa — one unreadable agent shouldn't blank the column
                 swallowed(log, '_cap_agents: failed; skipping this one')
@@ -719,7 +727,7 @@ def _cap_availto_cell(realm, realm_root, it: dict, kind: str = "") -> str:
         n = len(blocked)
         warn = (f'<span class="mc-reach-warn" title="{n} of them run on an engine that can\'t use this">'
                 f'{_icon("warning-tri", 11)}{n} can\'t use it</span>')
-    return (f'<span style="min-width:0;display:flex;flex-direction:column;gap:2px">'
+    return (f'<span class="mc-cap-availability" style="min-width:0;display:flex;flex-direction:column;gap:2px">'
             f'<span style="font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:{muted}">Available to</span>'
             f'<span style="font-size:11.5px;color:{col};overflow:hidden;text-overflow:ellipsis;'
             f'white-space:nowrap">{E(label)}</span>{warn}</span>')
@@ -806,7 +814,7 @@ def _cap_prov(it: dict, kind: str, manage=None, realm=None, realm_root=None) -> 
         rows += _reach_row(it, kind, r, manage)
     if realm is not None and realm_root is not None:
         rows += (f'<div class="k">Available to</div>'
-                 f'<div class="mc-cap-availto" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+                 f'<div class="mc-cap-availto mc-cap-grants" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
                  f'{_cap_availto_chips(realm, realm_root, it, kind)}</div>')
     if kind == "connectors" and realm is not None:
         rows += ('<div class="k">Connections</div><div>'
@@ -1295,12 +1303,35 @@ def _reach_sections(realm, realm_root, tk: dict) -> str:
     return switch + region
 
 
-from ..assets import CAPREACH_JS as _REACH_JS
+from ..assets import CAPREACH_JS as _REACH_JS, js
 
 
 # The Capabilities page: User tab (above), System tab, and the Catalogue tab (catalogue.py,
 # Phase 2, 2.4) stitched into one page with client-side tab switching.
+from contextvars import ContextVar
+_render_access = ContextVar('capability_render_access', default=None)
+
+
+def loading_page(realm, dark=False):
+    from .layout import _page_shell
+    from ..assets import js
+    body = ('<div id="cap-content"><div class="mc-cap-loading" role="status" aria-live="polite">'
+            + _page_title('Capabilities', 'who made it · what it can touch · your risk')
+            + '<p><span class="mc-catdots"><i></i><i></i><i></i></span> Loading capabilities…</p>'
+            + '</div></div>' + js('capload'))
+    return _page_shell(realm, 'Capabilities', 'Capabilities', body, dark)
+
+
 def _realm_skills(realm, realm_root) -> str:
+    # Cache within this render only: grants on the next request are always fresh.
+    token = _render_access.set({})
+    try:
+        return _realm_skills_content(realm, realm_root) + js("reviews")
+    finally:
+        _render_access.reset(token)
+
+
+def _realm_skills_content(realm, realm_root) -> str:
     tk = _realm_toolkit(realm_root)
     _hd = 'font-family:var(--font-heading);font-weight:600;font-size:16px;margin:0 0 10px'
     reach_switch, realm_region = _reach_parts(realm, realm_root, tk)
