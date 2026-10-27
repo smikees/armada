@@ -292,7 +292,7 @@ def order_agents(realm: Realm) -> Realm:
 def name(root: str | Path) -> str:
     """Startup registration needs metadata, not historical usage or job outcomes."""
     root = Path(root)
-    if is_cabinet(root):
+    if is_cabinet(root) or not (root / "realm.json").is_file():
         return read(root).name
     from .util import read_json_state
     # Future realms remain browsable; write admission still validates the supported schema.
