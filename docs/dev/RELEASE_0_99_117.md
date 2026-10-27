@@ -19,6 +19,22 @@ delayed minimize notifications could also override a restore. These are concrete
 lifecycle hazards, addressed and tested below. Previously the native startup probe
 disabled the tray entirely, leaving this behavior outside the release gate.
 
+## Follow-up: persistent surface after the app exited
+
+The owner confirmed the rectangle persisted. A direct pointer hit test, repeated
+with physical/DPI-aware coordinates, identified Task Manager underneath the blank
+area. A fresh window capture showed the white rounded rectangle drawn over it.
+The installed ARMADA process was absent. A wider scan of 446 native windows,
+including desktop child windows, found no ARMADA or Ghost HWND covering that area.
+No matching ARMADA, WebView2 or compositor crash was found in the recent event log.
+
+This makes a stale desktop composition surface the leading explanation for the
+persistent rectangle, rather than an extant ARMADA window awaiting a close event.
+It does not establish whether ARMADA originally triggered it, nor prove a driver
+fault. An automated Windows graphics-refresh shortcut did not visibly clear the
+surface in subsequent captures; owner confirmation of a manual refresh is pending.
+The visible incident therefore remains unresolved despite the verified tray fixes.
+
 ## Changes
 
 - `DesktopVisibility` posts native operations with `BeginInvoke`, allowing the
