@@ -52,6 +52,7 @@ def handle_popup(backend, args, base):
     try:
         source = local_route(str(args.OriginalSourceFrameInfo.Source), base)
     except Exception:
+        log.debug('WebView2 did not identify the popup source frame', exc_info=True)
         source = None  # Older runtimes cannot prove a frame's origin: fail closed.
     top = local_route(str(backend.webview.Source), base)
     if not trusted_page(source) or not trusted_page(top):

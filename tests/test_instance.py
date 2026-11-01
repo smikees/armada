@@ -72,6 +72,49 @@ def test_simultaneous_launches_have_one_owner(tmp_path):
             p.communicate('\n' if p.poll() is None else None, timeout=10)
 
 
+def test_duplicate_with_different_data_directory_and_port_restores_owner(tmp_path):
+    """A separate launch folder/profile cannot select a different account lock."""
+    code = '''
+import sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+from armada import instance,util
+instance._account_directory=lambda:Path(sys.argv[2])
+util.data_dir=lambda:Path(sys.argv[3])
+with instance.claim('app',int(sys.argv[4])) as primary:
+    print('primary' if primary else 'existing',flush=True)
+    if primary: sys.stdin.readline()
+'''
+    account = tmp_path/'account'
+    profiles = [tmp_path/'installation-a', tmp_path/'installation-b']
+    for profile in profiles:
+        profile.mkdir()
+    def start(profile, port):
+        return subprocess.Popen([getattr(sys, '_base_executable', sys.executable), '-c', code,
+            str(ROOT), str(account), str(profile), str(port)], cwd=profile,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, **process_options())
+    owner = start(profiles[0], 8756)
+    try:
+        assert owner.stdout.readline().strip() == 'primary'
+        before = json.loads((account/'desktop-instance.json').read_text())
+        other = start(profiles[1], 8890)
+        try:
+            out, err = other.communicate(timeout=10)
+            assert other.returncode == 0, err
+            assert out.strip() == 'existing'
+            assert json.loads((account/'desktop-instance.json').read_text()) == before
+            activation = json.loads((account/'desktop-activate.json').read_text())
+            assert activation['nonce'] == before['nonce'] and activation['role'] == 'app'
+            assert not (profiles[1]/'desktop-instance.json').exists()
+        finally:
+            if other.poll() is None:
+                other.kill()
+                other.communicate(timeout=5)
+    finally:
+        owner.communicate('\n', timeout=10)
+
+
 def test_duplicate_socket_does_not_replace_live_authentication():
     first = serve._Server(('127.0.0.1', 0), serve.Handler)
     try:

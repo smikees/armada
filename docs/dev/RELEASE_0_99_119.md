@@ -58,3 +58,20 @@ shutdown checks remain in the probe. Synthetic fixtures use isolated profiles an
 never contact a provider or operate on the owner's jobs.
 
 Publication evidence is recorded after the enforced release gates complete.
+
+## Single-instance verification
+
+The existing lifetime lock permits one desktop/server owner per Windows account,
+independent of realm, port, working directory and configured data directory. Its
+location is resolved from the Windows access token's profile rather than mutable
+environment variables. The OS releases the lock on process exit or crash; a
+second launch activates the existing owner instead of taking over its listener or
+authentication. A headless owner can open its desktop in the same process.
+
+Existing process tests exercise concurrent launches, mixed app/server requests,
+crash recovery and concurrent activation. An additional process regression in this
+release uses two working/data directories and two ports against one account lock,
+then verifies the owner record stays unchanged and the duplicate requests
+activation. The running installation was also checked: one desktop and its
+scheduler child. Scheduler, WebView2 and agent CLI helper processes are not
+additional app instances.
