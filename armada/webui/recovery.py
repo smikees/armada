@@ -4,13 +4,15 @@ from html import escape
 
 def page(status, reference, message=""):
     title, explanation = {
-        401: ("Reopen ARMADA to continue", "Open ARMADA to access this local session."),
+        401: ("Continue in the ARMADA window", "This browser does not have access to ARMADA's private local session. Switch to the ARMADA window. If it is closed, open it from your desktop shortcut."),
         409: ("The selected realm changed", "Return to ARMADA to load the current realm, then try again."),
         400: ("This page could not be opened", "Return to ARMADA and open the page again."),
         500: ("This page could not load", "Try again. If it still fails, return to ARMADA and use the diagnostic reference below."),
     }.get(status, ("This page could not load", "Return to ARMADA and try again."))
     if status == 409 and message:
         explanation = message + " Return to ARMADA to load the current realm."
+    actions = ('<a href="">Try again</a>' if status == 401 else
+               '<a href="">Try again</a><a class="secondary" href="/">Return to ARMADA</a>')
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(title)} | ARMADA</title><style>
@@ -27,7 +29,7 @@ small{{display:block;line-height:1.7;color:#646a62}}code{{user-select:all;overfl
 @media(prefers-color-scheme:dark){{:root{{background:#171b18;color:#edf0e8}}main{{background:#252b26;border-color:#495346}}.brand,small{{color:#b7c5a6}}}}
 </style></head><body><main data-armada-recovery="{status}">
 <div class="brand">ARMADA</div><h1>{escape(title)}</h1><p>{escape(explanation)}</p>
-<div class="actions"><a href="">Try again</a><a class="secondary" href="/">Return to ARMADA</a></div>
+<div class="actions">{actions}</div>
 <small>Diagnostic reference: <code>{escape(reference)}</code><br>
 Find this reference in <code>%USERPROFILE%\\.armada\\logs\\armada.log</code>.
 Nothing has been sent.</small></main></body></html>"""

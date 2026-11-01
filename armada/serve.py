@@ -207,7 +207,11 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         # Do not record query strings, cookies or credentials in navigation diagnostics.
         route = urllib.parse.urlsplit(self.path).path
         log.log(logging.ERROR if exception else logging.WARNING,
-                "GET %s failed (HTTP %s; reference %s)", route, status, reference,
+                "GET %s failed (HTTP %s; reference %s; browser=%s; credential=%s)",
+                route, status, reference,
+                'webview/edge' if 'Edg/' in self.headers.get('User-Agent', '') else
+                'chrome' if 'Chrome/' in self.headers.get('User-Agent', '') else 'other',
+                'present' if self.headers.get('Cookie') or self.headers.get('Authorization') else 'absent',
                 exc_info=exception)
         self.request_context = None  # Home must drop the stale realm identity.
         self._send(status, page(status, reference, message),

@@ -51,12 +51,19 @@ def test_document_failure_has_recovery_and_correlated_log(server, caplog, status
         code, headers, body = get(server, path, authenticated=auth)
     assert code == status and headers['Content-Type'].startswith('text/html')
     assert f'data-armada-recovery="{status}"' in body
-    assert 'Try again' in body and 'href="/">Return to ARMADA' in body
+    assert 'Try again' in body
+    if status == 401:
+        assert 'Switch to the ARMADA window' in body
+        assert 'href="/">Return to ARMADA' not in body
+    else:
+        assert 'href="/">Return to ARMADA' in body
     reference = re.search(r'Diagnostic reference: <code>([a-f0-9]{12})</code>', body)[1]
     records = [r for r in caplog.records if reference in r.getMessage()]
     assert len(records) == 1
     assert bool(records[0].exc_info) == (status == 500)
     assert 'do-not-log' not in caplog.text
+    assert server.auth.token not in caplog.text
+    assert f'credential={"present" if auth else "absent"}' in caplog.text
     assert 'PRIVATE EXCEPTION' not in body
     assert server.auth.token not in body
     assert 'armada-realm' not in body  # the Home link must not reattach the stale realm

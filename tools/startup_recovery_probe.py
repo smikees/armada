@@ -40,13 +40,21 @@ def run(output, *, tray_lifecycle=False, staged=False):
     if not staged:
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import webview
-    from armada import app, assets, instance, local_auth, schedsvc, serve, startup, util
+    import webbrowser
+    from armada import app, assets, desktop_navigation, instance, local_auth, schedsvc, serve, startup, util
     from armada.tray import Tray
     from armada.desktop_visibility import DesktopVisibility
     result = {'ok': False, 'checks': []}
     windows = []
     trays = []
     done = threading.Event()
+    external_urls = []
+    local_popups = []
+    handle_popup = desktop_navigation.handle_popup
+    def observed_popup(backend, args, base):
+        handled = handle_popup(backend, args, base)
+        local_popups.append((str(args.Uri), handled))
+        return handled
     with tempfile.TemporaryDirectory(prefix='armada-startup-probe-', ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         (root/'home').mkdir()
@@ -58,9 +66,14 @@ def run(output, *, tray_lifecycle=False, staged=False):
                 path = self.path.split('?')[0]
                 if path in ('/', '/resume'):
                     self._send(200, '<!doctype html><html><head>'+assets.CSS_LINKS+
-                               '</head><body><main id="probe-home">Synthetic ARMADA home</main></body></html>')
+                               '</head><body><main id="probe-home">Synthetic ARMADA home</main>'
+                               '<a id="probe-nav" href="/?_realm=none">Overview</a></body></html>')
                 elif path == '/settings':
                     raise RuntimeError('Synthetic Settings failure')
+                elif path == '/expire-session':
+                    self.send_response(204)
+                    self.send_header('Set-Cookie', f'{self.server.auth.cookie_name}=; Max-Age=0; HttpOnly; SameSite=Strict; Path=/')
+                    self.end_headers()
                 elif path.startswith('/api/'):
                     self._json(200, {})
                 else:
@@ -190,6 +203,39 @@ def run(output, *, tray_lifecycle=False, staged=False):
                 assert window.evaluate_js('location.pathname') == '/resume'
                 assert window.evaluate_js('typeof window.mcIcon') == 'undefined'
                 result['checks'].append('saved page without optional icon helper starts and retains its route')
+                window.evaluate_js("document.getElementById('probe-nav').click();true")
+                wait_for(lambda: window.evaluate_js('location.pathname+location.search') == '/?_realm=none',
+                         'ordinary left-click navigation remains inside the desktop')
+                assert not external_urls
+                window.load_url(f"http://127.0.0.1:{before['port']}/resume")
+                wait_for(lambda: window.evaluate_js('location.pathname') == '/resume', 'return to saved page')
+                # Exercise the real WebView2 popup event, not a mocked click handler.
+                window.evaluate_js("(()=>{const a=document.createElement('a');a.href='/?_realm=none';a.target='_blank';document.body.append(a);a.click();return true;})()")
+                wait_for(lambda: window.evaluate_js('location.pathname+location.search') == '/?_realm=none',
+                         'internal new-window link stays in authenticated desktop')
+                assert not external_urls
+                window.evaluate_js("window.open('https://example.com/armada-probe','_blank');true")
+                wait_for(lambda: external_urls == ['https://example.com/armada-probe'],
+                         'external links still reach the browser handler without a credential')
+                window.evaluate_js("(()=>{const f=document.createElement('iframe');f.sandbox='allow-scripts allow-popups';"
+                    "f.srcdoc=\"<script>window.open('"+f"http://127.0.0.1:{before['port']}/resume?blocked-probe=1"+
+                    "','_blank')<\\/script>\";document.body.append(f);return true;})()")
+                wait_for(lambda: any('blocked-probe=1' in url and handled for url, handled in local_popups),
+                         'sandboxed frame popup is intercepted by the native policy')
+                assert window.evaluate_js('location.pathname+location.search') == '/?_realm=none'
+                assert external_urls == ['https://example.com/armada-probe']
+                result['checks'].append('untrusted frame cannot open a privileged page or a browser tab')
+                # Lose the real HttpOnly cookie after startup has finished. No
+                # server restart or timer assumption is needed to reproduce it.
+                assert app._browser_result(window, "fetch('/expire-session',{method:'GET'}).then(r=>r.status)") == 204
+                assert app._browser_result(window, "fetch('/api/instance').then(r=>r.status)") == 401
+                window.load_url(f"http://127.0.0.1:{before['port']}/resume?_realm=none")
+                wait_for(lambda: (window.evaluate_js('location.pathname+location.search') == '/resume?_realm=none'
+                                  and window.evaluate_js("!!document.getElementById('probe-home')")),
+                         'lost desktop cookie recovers after startup and preserves destination')
+                assert app._browser_result(window, "fetch('/api/instance').then(r=>r.status)") == 200
+                assert window.evaluate_js('location.hash') == ''
+                result['checks'].append('recovered session authenticates requests and removes bootstrap fragment')
                 window.load_url(f"http://127.0.0.1:{before['port']}/settings")
                 wait_for(lambda: window.evaluate_js("!!document.querySelector('[data-armada-recovery=\"500\"]')"),
                          'Settings failure shows recovery page')
@@ -231,6 +277,8 @@ def run(output, *, tray_lifecycle=False, staged=False):
                 (app, '_confirm_startup_health', lambda: None),
                 (schedsvc, 'watch', lambda *_: None), (schedsvc, 'stop_for_app_exit', lambda: None),
                 (Tray, 'start', tracked_tray if tray_lifecycle else lambda _: False),
+                (webbrowser, 'open', lambda url, *a, **k: external_urls.append(url) or True),
+                (desktop_navigation, 'handle_popup', observed_popup),
             ]:
                 stack.enter_context(patch.object(obj, name, value))
             if not tray_lifecycle:

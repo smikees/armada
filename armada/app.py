@@ -626,6 +626,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     # just that one setting, applied right after pywebview writes its own during webview init.
     try:
         from webview.platforms import edgechromium as _ec
+        from .desktop_navigation import install
+        install(lambda: _app_url)
         _orig_ready = _ec.EdgeChrome.on_webview_ready
         _ctx_handlers = []   # keep .NET event handlers alive (don't let Python GC them)
 
@@ -719,7 +721,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                 document = _browser_result(main, "({auth:location.pathname === '/auth',"
                     "complete:document.readyState === 'complete',"
                     "shell:!!document.querySelector('link[href*=\"/static/brand.css\"]'),"
-                    "refused:(document.body?.innerText||'').includes('Open ARMADA to access this local session.'),"
+                    "refused:!!document.querySelector('[data-armada-recovery=\"401\"]'),"
                     "shared:typeof window.mcFontSize?.get === 'function'})")
                 if not isinstance(document, dict) or document.get('auth') or not document.get('complete'):
                     return
