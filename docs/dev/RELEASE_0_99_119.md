@@ -75,3 +75,36 @@ then verifies the owner record stays unchanged and the duplicate requests
 activation. The running installation was also checked: one desktop and its
 scheduler child. Scheduler, WebView2 and agent CLI helper processes are not
 additional app instances.
+
+
+## Publication evidence
+
+Published [v0.99.119](https://github.com/smikees/armada/releases/tag/v0.99.119) from source
+`66640ceeafb98cda588c4d518e249fdf2424c8df` through the enforced maintenance-beta publisher.
+
+- Final pinned local gate: **3817 passed, 5 skipped**.
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/41318471819) passed before packaging.
+- Final source native startup/navigation probe: **17 checks**.
+- Packaged tray/startup/navigation gate: **68 checks**.
+- Packaged launcher recovery, multi-window session and signed upgrade rehearsal
+  passed through the enforced publisher.
+- All four public downloads match their local hashes, sizes and GitHub digests.
+  The update signature verifies and all **438**
+  application files match the release source byte for byte.
+- [armada.stamih.com](https://armada.stamih.com/) publishes the same version;
+  HTTPS page and installer download were verified after certificate-verified
+  FTPS upload, backup and temporary-file rename. Page SHA-256:
+  `897ed6e84797d81ae8d59e505d6793351e3da4ee260b8b8f452c4e0f672b8459`.
+- Current provider metadata was checked. Codex and Gemini preferences remain
+  available; the Claude catalogue reported signed-out during this check. No
+  model default or user authentication setting was changed.
+- The owner's running application and jobs were not restarted. The existing
+  unsigned Windows beta installer and signed update were published under the
+  maintainer's standing authorization.
+
+| Public artifact | SHA-256 |
+| --- | --- |
+| `armada-0.99.119.zip` | `283e35c717dace72cb6dbd173a54ffdf1da846de6851723a620a7b8c794d2bb6` |
+| `ARMADA-Setup-0.99.119.exe` | `5659625df8a8d1d0b9f366ea8cd41f34c29b24702d736cdb5d050ce2247eed9b` |
+| `armada-update.json` | `d170f84f0031d8054e149571b5dff0944d1f0533c11fa9cee42806687fffbfb5` |
+| `armada-update.json.sig` | `f10c63ff9834a09f6df00a3353af1b9971c890dfa8aa93ae1ce91e1175653448` |
