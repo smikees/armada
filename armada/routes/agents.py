@@ -596,7 +596,9 @@ class AgentRoutes:
         except util.UnsafeSegment:
             return {"ok": False, "error": "bad agent"}
         if action == "approve":
-            return jobs_mod.approve(self.realm, agent, str(slug))
+            options = {"allow_tools": body["allow_tools"]} if "allow_tools" in body else {}
+            return jobs_mod.approve(self.realm, agent, str(slug), **options,
+                                   tools_warning_ack=body.get("tools_warning_ack") is True)
         return jobs_mod.reject(self.realm, agent, str(slug))
 
     def _chat(self, body: dict) -> dict:

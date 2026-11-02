@@ -207,7 +207,7 @@ def test_real_filesystem_extension_maps_to_scoped_native_tools(engine, monkeypat
         'toolkit':{'extensions':[cap]}})
     util.write_json_atomic(own/'agent.json',{'id':'health','allow_tools':True,
         'toolkit':{'extensions':[{'id':'filesystem'}] if granted else []}})
-    util.write_json_atomic(own/'jobs/ping.json',{'id':'ping','prompt':'Test ping'})
+    util.write_json_atomic(own/'jobs/ping.json',{'id':'ping','prompt':'Test ping','allow_tools':True})
     launches = []
     def inspect(args, kwargs):
         launches.append(args)

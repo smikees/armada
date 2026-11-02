@@ -50,7 +50,8 @@ def test_the_summary_shows_beside_the_name(realm):
     m = reader.read(str(realm))
     a = m.agents[0]
     html = AF._tab_jobs(m, realm, a, datetime.date.today())
-    head = html.split("Weekly Analyzer")[1].split("</summary>")[0]
+    row = html.split('data-jid="weekly"', 1)[1]
+    head = row.split("Weekly Analyzer", 1)[1].split("</summary>")[0]
     assert "Sets the regime and produces the ranked shortlist." in head
     assert "No summary" in html, "a job without a summary still lists"
 

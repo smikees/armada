@@ -104,13 +104,18 @@ def _engine_model(eng, value):
     return value if not provider or eng.name in (provider, "mock") else ""
 
 
-def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None):
+def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None, scheduled=False):
     """Resolve permissions before context assembly or any provider/model call."""
-    from . import util
+    from . import util, job_tools
+    if scheduled:
+        job_tools.guard(job or {})
+        allow_tools = (job or {}).get("allow_tools") is True
     util.assert_realm_writable(Path(realm_root) / "agents" / agent_id / "agent.json", allow_invalid_realm=True)
     agent = _policy_json(Path(realm_root) / "agents" / agent_id / "agent.json")
     if "allow_tools" in agent and type(agent["allow_tools"]) is not bool:
         raise CapabilityPolicyError("Capability policy: allow_tools must be true or false.")
+    if scheduled and agent:
+        agent = {**agent, "allow_tools": allow_tools}
     command = job and (job.get("kind") == "command" or job.get("run") or job.get("command"))
     inspector = bool(job and job.get("inspector") is True and not command)
     policy = execution_policy(realm_root, agent_id) if (allow_tools or agent.get("allow_tools")) and not command and not inspector else None
@@ -425,6 +430,7 @@ def _jobs_capability(agent_dir: Path) -> str:
         "      \"id\": \"<lowercase-kebab-slug>\",   // also the file name\n"
         "      \"name\": \"Human Readable Name\",\n"
         "      \"kind\": \"agent\",                   // \"agent\" = you run a prompt; \"command\" = run a shell/Python command\n"
+        "      \"allow_tools\": true,                 // REQUIRED for agent jobs: explicitly true or false\n"
         "      \"prompt\": \"what you should do on each run\",   // for kind:agent\n"
         "      \"run\": \"python foo.py\",            // instead of prompt, for kind:command\n"
         "      \"schedule\": \"daily 09:00\"          // or a 5-field cron like \"0 9 * * 1-5\", or \"manual\"\n"
@@ -432,6 +438,10 @@ def _jobs_capability(agent_dir: Path) -> str:
         "- Schedule grammar: \"daily HH:MM\", \"mon-fri HH:MM\", \"mon,wed,fri HH:MM\", \"sat HH:MM\", a "
         "standard 5-field cron, or \"manual\". Prefer kind:agent unless a deterministic command is "
         "genuinely needed.\n"
+        "- Every agent job MUST set allow_tools to the JSON boolean true or false. Missing values "
+        "are rejected. Draft true when reading/writing files or using shell, web, connectors, "
+        "Telegram or inbox; use false only for text-only work. Tools remain limited to the "
+        "owner's existing grants. The owner reviews this choice before approval.\n"
         "- The job is a PROPOSAL: it appears on the owner's Jobs page for approval and only runs "
         "AFTER they approve it — you cannot enable or run it yourself. After writing the file, tell "
         "the owner you've proposed \"<name>\" and it's awaiting their approval on the Jobs page.\n"

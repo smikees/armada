@@ -26,7 +26,8 @@ def realm(tmp_path):
         'extensions': [{'id': 'revoked', 'enabled': False}]}})
     util.write_json_atomic(tmp_path/'agents/finance/agent.json', {'id': 'finance', 'model': 'gpt-6-astra',
         'allow_tools': True, 'toolkit': {'connectors': [{'id': IBKR}], 'extensions': [{'id': 'revoked'}]}})
-    util.write_json_atomic(tmp_path/'agents/finance/jobs/check.json', {'id': 'check', 'prompt': 'Fixture only'})
+    util.write_json_atomic(tmp_path/'agents/finance/jobs/check.json', {'id': 'check', 'prompt': 'Fixture only',
+                                                                   'allow_tools': True})
     return tmp_path
 
 

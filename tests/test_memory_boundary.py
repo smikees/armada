@@ -19,7 +19,7 @@ def realm(tmp_path):
         (ad / "memory").mkdir(parents=True)
         (ad / "jobs").mkdir()
         (ad / "agent.json").write_text(json.dumps({"id": aid, "allow_tools": True}), encoding="utf-8")
-        (ad / "jobs" / "work.json").write_text('{"id":"work","prompt":"Test"}', encoding="utf-8")
+        (ad / "jobs" / "work.json").write_text('{"id":"work","prompt":"Test","allow_tools":true}', encoding="utf-8")
     (root / "memory").mkdir()
     (root / "realm.json").write_text('{"name":"Before"}', encoding="utf-8")
     return root

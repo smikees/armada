@@ -12,6 +12,11 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.120** requires explicit tools choices on agent job proposals, warns before
+approving tool-dependent work without tools, and audits existing enabled jobs at startup
+and daily without changing them. Output contracts fail before a model turn when tools
+are off. [Verification](dev/RELEASE_0_99_120.md).
+
 Version **0.99.117** hardens close-to-tray, restore and Quit with nonblocking native
 transitions, bounded state saves and a mandatory real tray lifecycle installer gate.
 [Verification](dev/RELEASE_0_99_117.md). The reported white-window freeze was not reproduced;

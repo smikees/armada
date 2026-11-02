@@ -40,7 +40,7 @@ from ..assets import (AGENT_COLOR_JS as _AGENT_COLOR_JS, APPOINT_JS as _APPOINT_
     SYSJOBS_JS as _SYSJOBS_JS, ADOPT_JS as _ADOPT_JS,
     JOBS_SORT_JS as _JOBS_SORT_JS, NEW_JS as _NEW_JS, TABLE_SORT_JS as _TABLE_SORT_JS,
     JOBSTAB_JS as _JOBSTAB_JS)  # Phase 2, 2.1
-from .agentcommon import (_AGENT_PALETTE, _EFFORTS, _STATUS_FILTER_COLOR, _agent_color_control, _art_meta, _autonomy_control, _effort_options, _filter_dropdown, _gather_artifacts, _job_created, _job_created_ts, _job_prompt, _job_proposals_block, _model_options, _realm_artefacts, _running_jobs)
+from .agentcommon import (_AGENT_PALETTE, _EFFORTS, _STATUS_FILTER_COLOR, _agent_color_control, _art_meta, _autonomy_control, _effort_options, _filter_dropdown, _gather_artifacts, _job_created, _job_created_ts, _job_prompt, _job_proposals_block, _job_tools_warnings_block, _model_options, _realm_artefacts, _running_jobs)
 import logging
 from ..util import swallowed
 log = logging.getLogger(__name__)
@@ -774,7 +774,7 @@ def _realm_jobs(realm, realm_root, today) -> str:
     cal_view = (f'<div class="mc-jobs-cal" style="display:none;height:72vh">'
                 f'{_jobcal(realm, realm_root, today, legend=False, widget=False, fpfx="jf")}</div>'
                 if n else "")
-    proposals = _job_proposals_block(realm, realm_root)
+    proposals = _job_proposals_block(realm, realm_root) + _job_tools_warnings_block(realm_root)
     # User / System tabs, mirroring Capabilities. Proposals and approvals stay under User: they're
     # about your agents, not about the app keeping itself current.
     tabs = ('<div style="display:flex;gap:2px;border-bottom:1px solid var(--color-divider);'

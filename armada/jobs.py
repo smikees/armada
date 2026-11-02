@@ -14,7 +14,7 @@ may line up work for itself, but nothing new auto-runs on the owner's machine wi
 from __future__ import annotations
 import datetime, json, re
 from pathlib import Path
-from . import util, scheduler
+from . import util, scheduler, job_tools
 import logging
 from .util import swallowed
 log = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ PENDING = "_pending"
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 _MAX_PROMPT = 20000
 _MAX_CMD = 4000
+_UNSET = object()
 
 
 def _now() -> str:
@@ -64,6 +65,8 @@ def validate(job: dict) -> tuple[bool, list[str], dict]:
     run = job.get("run") or job.get("command") or ""
     if kind == "agent" and not prompt.strip():
         errs.append("an agent job needs a 'prompt'")
+    if kind == "agent" and type(job.get("allow_tools")) is not bool:
+        errs.append(job_tools.TOOLS_REQUIRED)
     if kind == "command" and not str(run).strip():
         errs.append("a command job needs a 'run' command")
     if len(prompt) > _MAX_PROMPT:
@@ -125,33 +128,44 @@ def _find_pending(realm_root, agent_id: str, slug: str):
     return None, None
 
 
-def approve(realm_root, agent_id: str, slug: str) -> dict:
+def approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET,
+            tools_warning_ack: bool = False) -> dict:
     agent_id = util.safe_seg(agent_id, "agent")
-    job, src = _find_pending(realm_root, agent_id, str(slug))
+    _job, src = _find_pending(realm_root, agent_id, str(slug))
     if not src:
         return {"ok": False, "error": "proposal not found"}
-    ok, errs, norm = validate(job)
-    if not ok:
-        return {"ok": False, "error": "; ".join(errs)}
-    jid = util.safe_seg(norm["id"], "job")            # validate() guarantees a safe kebab id
-    from .tool_capture import validate as validate_capture
-    try:
-        validate_capture(norm, realm_root, jid)
-    except (ValueError, OSError) as exc:
-        return {"ok": False, "error": str(exc)}
-    dst = Path(realm_root) / "agents" / agent_id / "jobs" / f"{jid}.json"
-    if dst.exists():
-        return {"ok": False, "error": f"a job '{jid}' already exists — reject or rename the proposal"}
-    norm["enabled"] = True
-    norm["proposed_by"] = agent_id
-    norm.setdefault("proposed_at", _now())
-    norm["approved_at"] = _now()
-    norm.setdefault("created", datetime.date.today().isoformat())
-    util.write_json_atomic(dst, norm)
-    try:
-        src.unlink()
-    except OSError:
-        pass
+    with util.file_lock(src):
+        if not src.is_file():
+            return {"ok": False, "error": "proposal not found"}
+        job = _read_json(src)
+        if isinstance(job, dict) and allow_tools is not _UNSET:
+            job["allow_tools"] = allow_tools
+        ok, errs, norm = validate(job)
+        if not ok:
+            return {"ok": False, "error": "; ".join(errs)}
+        warning = job_tools.warning(norm)
+        if warning and tools_warning_ack is not True:
+            return {"ok": False, "error": warning, "needs_tools_confirmation": True}
+        jid = util.safe_seg(norm["id"], "job")
+        from .tool_capture import validate as validate_capture
+        try:
+            validate_capture(norm, realm_root, jid)
+        except (ValueError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+        dst = Path(realm_root) / "agents" / agent_id / "jobs" / f"{jid}.json"
+        with util.file_lock(dst):
+            if dst.exists():
+                return {"ok": False, "error": f"a job '{jid}' already exists — reject or rename the proposal"}
+            norm["enabled"] = True
+            norm["proposed_by"] = agent_id
+            norm.setdefault("proposed_at", _now())
+            norm["approved_at"] = _now()
+            norm.setdefault("created", datetime.date.today().isoformat())
+            util.write_json_atomic(dst, norm)
+            try:
+                src.unlink()
+            except OSError:
+                swallowed(log, 'approve: job saved; pending proposal cleanup failed')
     log_event(realm_root, agent_id, jid, norm.get("name", jid), "approved")
     return {"ok": True, "id": jid, "path": f"agents/{agent_id}/jobs/{jid}.json"}
 
@@ -162,12 +176,16 @@ def reject(realm_root, agent_id: str, slug: str) -> dict:
     if src:
         # record the rejection in the ledger so the agent can be told this proposal was turned down
         # (the file is deleted, so without this there'd be no trace).
-        log_event(realm_root, agent_id, (job or {}).get("id", src.stem),
-                  (job or {}).get("name", src.stem), "rejected")
-        try:
-            src.unlink()
-        except OSError as e:
-            return {"ok": False, "error": str(e)}
+        with util.file_lock(src):
+            if not src.is_file():
+                return {"ok": True}
+            job = _read_json(src)
+            try:
+                src.unlink()
+            except OSError as e:
+                return {"ok": False, "error": str(e)}
+            log_event(realm_root, agent_id, (job or {}).get("id", src.stem),
+                      (job or {}).get("name", src.stem), "rejected")
     return {"ok": True}
 
 
@@ -186,8 +204,9 @@ def log_event(realm_root, agent_id: str, jid: str, name: str, event: str) -> Non
     p = Path(realm_root) / "agents" / agent_id / "jobs" / LEDGER
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        hist = _read_jsonl(p)[-299:] + [{"ts": _now(), "id": jid, "name": name, "event": event}]
-        p.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in hist) + "\n", encoding="utf-8")
+        with util.file_lock(p):
+            hist = _read_jsonl(p)[-299:] + [{"ts": _now(), "id": jid, "name": name, "event": event}]
+            util.write_text_atomic(p, "\n".join(json.dumps(x, ensure_ascii=False) for x in hist) + "\n")
     except OSError:
         pass
 

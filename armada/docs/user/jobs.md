@@ -292,7 +292,38 @@ reports that it could not validate their location.
 - **Stop a job without deleting it:** the switch on its row.
 - **Run it now, edit it, see its history:** open the job.
 - **Approve what an agent proposed:** proposals appear at the top of the list (and under
-  Approvals). Approve and it's scheduled; dismiss and it isn't.
+  Approvals). Review the tools choice, then approve or reject.
+
+## Approving proposals and checking tools
+
+Every agent job proposal must explicitly set `allow_tools` to `true` or `false`.
+Missing values, strings such as `"true"`, and numbers are rejected. Command jobs
+are unaffected. Agents should draft `true` for work that reads or writes files,
+uses shell or web tools, connects to services, or sends Telegram or inbox messages.
+
+The approval card shows **Runs WITH tools** or **Runs WITHOUT tools**. Without tools,
+the job cannot read or write files, use connectors or send inbox messages. You can
+change this choice on the card before approving, including fixing a missing choice.
+Turning tools on remains limited by the agent's existing permissions.
+
+If a text-only proposal mentions file paths, `{workspace}`, Markdown or JSON files,
+MCP/connectors, Telegram or the inbox, or declares required outputs or destinations,
+ARMADA warns before approval. This is a review hint: check the full prompt and choose
+tools, explicitly confirm text-only work, or reject the proposal. A saved job uses
+its own tools choice, including when run manually; it does not inherit tools from
+the agent.
+
+**Job tools need review** lists enabled agent jobs with missing/invalid tools choices
+or tools turned off despite those hints. ARMADA checks every registered active realm
+at startup and once a day, and sends one review notification per job through the
+existing **Approval needed** notification settings. Jobs pages show current local
+findings whenever opened. The audit never changes or enables a job automatically.
+
+A job configured without tools that declares `result_contract.required_outputs` or
+`required_destinations` fails before any model turn, with a clear job-failure
+notification through your existing channels. Fix the tools setting or the requirements,
+then use **Run now** if you still need that occurrence's output; fixing configuration
+does not replay a failed occurrence automatically.
 
 ## Paused jobs
 

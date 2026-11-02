@@ -78,6 +78,7 @@
 | [`job_history`](job_history.md) | Job transcripts live separately from owner conversations; old logs stay intact. |
 | [`job_results`](job_results.md) | Versioned per-run job results |
 | [`job_retries`](job_retries.md) | Bounded job retries with durable attempt evidence and conservative replay rules. |
+| [`job_tools`](job_tools.md) | Read-only job tool checks and a daily owner notification, independent of providers. |
 | [`jobs`](jobs.md) | Agent-authored job proposals (pending owner approval). |
 | [`local_auth`](local_auth.md) | Per-server loopback credentials, bootstrapped through an owner-only local file. |
 | [`managed_mcp`](managed_mcp.md) | Small stdio MCP transport for a single, scoped ARMADA managed-tools invocation. |

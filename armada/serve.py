@@ -917,6 +917,9 @@ def serve(realm: str, port: int = 8756):
     from . import instance, updater
     instance.publish_port(httpd.server_port)
     update_stop = threading.Event()
+    from . import job_tools
+    threading.Thread(target=job_tools.monitor, args=(realm, update_stop),
+                     name="job-tools-lint", daemon=True).start()
     def update_watch():
         while not update_stop.wait(1):
             try:

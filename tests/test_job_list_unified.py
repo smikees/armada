@@ -83,7 +83,8 @@ def test_kind_and_owner_show_only_on_the_realm_page(realm):
 
 
 def test_they_sit_between_the_name_and_the_cadence(realm):
-    order = re.findall(r">(Job|Kind|Owner|Cadence|Cost|Next run) ", _realm_page(realm))
+    listing = _realm_page(realm).split('id="mc-jobstable"', 1)[1]
+    order = re.findall(r">(Job|Kind|Owner|Cadence|Cost|Next run) ", listing)
     assert order[:5] == ["Job", "Kind", "Owner", "Cadence", "Cost"], order
 
 

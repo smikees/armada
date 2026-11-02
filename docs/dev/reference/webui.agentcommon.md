@@ -26,6 +26,10 @@ Preset swatches (the graph palette) + a custom colour picker, writing to a hidde
 
 A highlighted 'Proposed jobs' panel listing agent-authored proposals awaiting approval. Used on both the realm Jobs section (all agents) and an agent's own Jobs tab (only_agent).
 
+### `_job_tools_warnings_block(realm_root, only_agent: str='')`
+
+Render local findings without sending notifications or changing jobs.
+
 ### `_autonomy_control(current: str, field_id: str)`
 
 —

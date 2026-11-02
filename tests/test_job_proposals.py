@@ -21,7 +21,7 @@ def _propose(ad: Path, slug: str, job: dict):
 
 def test_validate_good_agent_job():
     ok, errs, norm = jobs.validate({"name": "Test Job 910", "kind": "agent",
-                                    "prompt": "do the thing", "schedule": "daily 09:00"})
+                                    "allow_tools": False, "prompt": "do the thing", "schedule": "daily 09:00"})
     assert ok and not errs
     assert norm["id"] == "test-job-910"       # slug derived from name
     assert norm["kind"] == "agent"
@@ -46,13 +46,13 @@ def test_validate_command_needs_run_and_cron_checked():
 
 
 def test_validate_simple_schedule_and_manual():
-    assert jobs.validate({"name": "a", "id": "a", "prompt": "p", "schedule": "mon-fri 14:30"})[0]
-    assert jobs.validate({"name": "a", "id": "a", "prompt": "p", "schedule": "manual"})[0]
-    assert not jobs.validate({"name": "a", "id": "a", "prompt": "p", "schedule": "someday"})[0]
+    assert jobs.validate({"name": "a", "id": "a", "allow_tools": False, "prompt": "p", "schedule": "mon-fri 14:30"})[0]
+    assert jobs.validate({"name": "a", "id": "a", "allow_tools": False, "prompt": "p", "schedule": "manual"})[0]
+    assert not jobs.validate({"name": "a", "id": "a", "allow_tools": False, "prompt": "p", "schedule": "someday"})[0]
 
 
 def test_bad_id_rejected():
-    ok, errs, _ = jobs.validate({"name": "x", "id": "Bad ID!", "prompt": "p"})
+    ok, errs, _ = jobs.validate({"name": "x", "id": "Bad ID!", "allow_tools": False, "prompt": "p"})
     assert not ok and any("kebab" in e for e in errs)
 
 
@@ -61,7 +61,7 @@ def test_bad_id_rejected():
 def test_pending_hidden_from_scheduler_and_reader(tmp_path):
     ad = _mk_agent(tmp_path)
     _propose(ad, "test-job-910", {"name": "T", "id": "test-job-910", "kind": "agent",
-                                   "prompt": "p", "cron": "0 9 * * *", "enabled": True})
+                                   "allow_tools": False, "prompt": "p", "cron": "0 9 * * *", "enabled": True})
     # even with enabled:true, a proposal in _pending is invisible to the scheduler…
     assert list(scheduler.iter_jobs(tmp_path)) == []
     # …and to the realm reader (no phantom job on the agent)
@@ -78,7 +78,7 @@ def test_pending_hidden_from_scheduler_and_reader(tmp_path):
 def test_approve_promotes_and_stamps(tmp_path):
     ad = _mk_agent(tmp_path)
     _propose(ad, "test-job-910", {"name": "Test Job 910", "id": "test-job-910",
-                                  "kind": "agent", "prompt": "p", "schedule": "daily 09:00"})
+                                  "kind": "agent", "allow_tools": False, "prompt": "p", "schedule": "daily 09:00"})
     res = jobs.approve(tmp_path, "warren", "test-job-910")
     assert res["ok"] and res["id"] == "test-job-910"
     live = ad / "jobs" / "test-job-910.json"
@@ -94,8 +94,8 @@ def test_approve_promotes_and_stamps(tmp_path):
 def test_approve_conflict_with_existing_job(tmp_path):
     ad = _mk_agent(tmp_path)
     (ad / "jobs" / "dup.json").write_text(json.dumps({"id": "dup", "name": "Dup", "kind": "agent",
-                                                      "prompt": "p"}), encoding="utf-8")
-    _propose(ad, "dup", {"name": "Dup", "id": "dup", "kind": "agent", "prompt": "p"})
+                                                      "allow_tools": False, "prompt": "p"}), encoding="utf-8")
+    _propose(ad, "dup", {"name": "Dup", "id": "dup", "kind": "agent", "allow_tools": False, "prompt": "p"})
     res = jobs.approve(tmp_path, "warren", "dup")
     assert not res["ok"] and "already exists" in res["error"]
 
@@ -111,7 +111,7 @@ def test_approve_rejects_invalid(tmp_path):
 
 def test_reject_deletes_proposal(tmp_path):
     ad = _mk_agent(tmp_path)
-    _propose(ad, "test-job-910", {"name": "T", "id": "test-job-910", "kind": "agent", "prompt": "p"})
+    _propose(ad, "test-job-910", {"name": "T", "id": "test-job-910", "kind": "agent", "allow_tools": False, "prompt": "p"})
     assert jobs.reject(tmp_path, "warren", "test-job-910")["ok"]
     assert not (ad / "jobs" / jobs.PENDING / "test-job-910.json").exists()
     assert jobs.count_pending(tmp_path) == 0
@@ -125,9 +125,9 @@ def test_approve_missing_proposal(tmp_path):
 def test_status_and_ledger(tmp_path):
     ad = _mk_agent(tmp_path)
     # one pending, one approved-live, one to be rejected
-    _propose(ad, "p1", {"name": "P1", "id": "p1", "kind": "agent", "prompt": "x"})
-    _propose(ad, "will-approve", {"name": "Appr", "id": "will-approve", "kind": "agent", "prompt": "x"})
-    _propose(ad, "will-reject", {"name": "Rej", "id": "will-reject", "kind": "agent", "prompt": "x"})
+    _propose(ad, "p1", {"name": "P1", "id": "p1", "kind": "agent", "allow_tools": False, "prompt": "x"})
+    _propose(ad, "will-approve", {"name": "Appr", "id": "will-approve", "kind": "agent", "allow_tools": False, "prompt": "x"})
+    _propose(ad, "will-reject", {"name": "Rej", "id": "will-reject", "kind": "agent", "allow_tools": False, "prompt": "x"})
     jobs.sync_proposals(tmp_path, "warren")          # record 'proposed' events (as the runner does)
     jobs.approve(tmp_path, "warren", "will-approve")
     jobs.reject(tmp_path, "warren", "will-reject")
@@ -149,7 +149,7 @@ def test_status_and_ledger(tmp_path):
 def test_sync_proposals_idempotent(tmp_path):
     _mk_agent(tmp_path)
     ad = tmp_path / "agents" / "warren"
-    _propose(ad, "p1", {"name": "P1", "id": "p1", "kind": "agent", "prompt": "x"})
+    _propose(ad, "p1", {"name": "P1", "id": "p1", "kind": "agent", "allow_tools": False, "prompt": "x"})
     jobs.sync_proposals(tmp_path, "warren")
     jobs.sync_proposals(tmp_path, "warren")          # second call must not double-log
     proposed = [e for e in jobs.ledger_events(tmp_path, "warren") if e["event"] == "proposed" and e["id"] == "p1"]

@@ -38,7 +38,7 @@ Write/remove a transient marker so the UI can show a job as 'running' while it e
 
 An explicit --engine override uses that CLI's default if the stored model is incompatible.
 
-### `_prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None)`
+### `_prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None, scheduled=False)`
 
 Resolve permissions before context assembly or any provider/model call.
 

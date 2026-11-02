@@ -20,7 +20,8 @@ def realm(tmp_path):
         "extensions": [{"id": "granted"}, {"id": "revoked", "enabled": False}]}}), encoding="utf-8")
     (agent / "agent.json").write_text(json.dumps({"id": "dev", "allow_tools": True,
         "toolkit": {"extensions": ["granted", "revoked", "unknown"]}}), encoding="utf-8")
-    (agent / "jobs" / "work.json").write_text(json.dumps({"id": "work", "prompt": "Test job"}), encoding="utf-8")
+    (agent / "jobs" / "work.json").write_text(json.dumps({"id": "work", "prompt": "Test job",
+                                                        "allow_tools": True}), encoding="utf-8")
     return root
 
 

@@ -287,11 +287,12 @@ class TurnCoordinator:
                         or existing[0].get('content') != message or not existing[0].get('voice_request')):
                     raise ValueError('The admitted spoken request is no longer pending.')
             try:
-                eng, agent = r._prepare_agent_run(root, aid, req.engine, req.allow_tools or bool(req.images), req.job)
+                eng, agent = r._prepare_agent_run(root, aid, req.engine, req.allow_tools or bool(req.images), req.job, scheduled_job)
                 if not agent:
                     raise ValueError(f"no agent '{aid}'")
                 job = req.job or {}
-                inspector_turn = bool(req.task and job.get("inspector") is True)
+                inspector_turn = bool(req.task and job.get("inspector") is True
+                                      and (not scheduled_job or job.get("allow_tools") is True))
                 if req.task and job.get("capture_tools"):
                     from .tool_capture import ToolCapture
                     raw_capture = ToolCapture(root, job, req.task, context.run_id, eng.name,
@@ -305,7 +306,8 @@ class TurnCoordinator:
                     result_job = job_results.requirements(job, result_checks)
                 run_agent = {**agent, **{k: job[k] for k in ("effort", "verbosity") if job.get(k)}}
                 output_level = verbosity.normalise(run_agent.get("verbosity")) or verbosity.realm_level(root)
-                use_tools = req.allow_tools or bool(agent.get("allow_tools")) or bool(req.images)
+                use_tools = (job.get("allow_tools") is True) if scheduled_job else (
+                    req.allow_tools or bool(agent.get("allow_tools")) or bool(req.images))
                 model = r._cli_model(job["model"], root) if job.get("model") else r._resolve_model(root, agent)
                 request = RunRequest("", "", model=r._engine_model(eng, model) or None,
                     cwd=str(agent_dir), allow_tools=use_tools, effort=r._resolve_effort(root, run_agent),
@@ -408,7 +410,12 @@ class TurnCoordinator:
             except Exception as exc:
                 live_text.close()
                 log.exception("Agent turn failed for %s", aid)
-                result = RunResult(ok=False, error=str(exc), output="".join(partial))
+                from .job_tools import ToolConfigurationError
+                if isinstance(exc, ToolConfigurationError):
+                    from .engine.startup import failed
+                    result = failed(str(exc), code="job_tools")
+                else:
+                    result = RunResult(ok=False, error=str(exc), output="".join(partial))
                 safe_emit(self.on_event, {"kind": "error", "error": str(exc)})
             finally:
                 managed_audit = managed.seal() if managed is not None else None

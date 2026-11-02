@@ -38,7 +38,7 @@ from ..assets import (AGENT_COLOR_JS as _AGENT_COLOR_JS, APPOINT_JS as _APPOINT_
     ARTEFACTS_JS as _ARTEFACTS_JS, AUTONOMY_JS as _AUTONOMY_JS, FDROP_JS as _FDROP_JS,
     JOB_PROPOSAL_JS as _JOB_PROPOSAL_JS, JOBCAL_JS as _JOBCAL_JS, JOBS_FILTER_JS as _JOBS_FILTER_JS,
     JOBS_SORT_JS as _JOBS_SORT_JS, NEW_JS as _NEW_JS, TABLE_SORT_JS as _TABLE_SORT_JS)
-from .agentcommon import (_AGENT_PALETTE, _EFFORTS, _STATUS_FILTER_COLOR, _agent_color_control, _art_meta, _autonomy_control, _effort_options, _filter_dropdown, _gather_artifacts, _job_created, _job_created_ts, _job_prompt, _job_proposals_block, _model_options, _realm_artefacts, _running_jobs)
+from .agentcommon import (_AGENT_PALETTE, _EFFORTS, _STATUS_FILTER_COLOR, _agent_color_control, _art_meta, _autonomy_control, _effort_options, _filter_dropdown, _gather_artifacts, _job_created, _job_created_ts, _job_prompt, _job_proposals_block, _job_tools_warnings_block, _model_options, _realm_artefacts, _running_jobs)
 
 
 def _agent_default_color(realm, agent_id: str) -> str:
@@ -149,6 +149,7 @@ def _tab_jobs(realm, realm_root, a, today, open_job: str = "") -> str:
             f' active · {E(a.display)} owns</span></div>'
             f'<a href="/new/job?agent={E(a.id)}" class="btn btn-secondary btn-sm" style="margin-left:auto;text-decoration:none">{_icon("plus", 14)}New job</a></div>'
             f'{_job_proposals_block(realm, realm_root, only_agent=a.id)}'
+            f'{_job_tools_warnings_block(realm_root, only_agent=a.id)}'
             f'{toolbar}{legend}{joblist}{_FDROP_JS}{_JOBS_SORT_JS}'
             + (_JOBOPEN_JS + f'<script>mcOpenJobFocus("job-{E(open_job)}")</script>' if open_job else "")
             + '</div>')

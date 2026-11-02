@@ -124,7 +124,7 @@ def _agent_color_control(current: str, field_id: str, storage_key: str = "") -> 
 def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
     """A highlighted 'Proposed jobs' panel listing agent-authored proposals awaiting approval.
     Used on both the realm Jobs section (all agents) and an agent's own Jobs tab (only_agent)."""
-    from .. import jobs as jobs_mod
+    from .. import jobs as jobs_mod, job_tools
     disp = {a.id: a.display for a in realm.agents}
     items = []
     for aid, slug, job, _path in jobs_mod.iter_pending(realm_root):
@@ -145,9 +145,38 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
                   if kind == "command" else "")
         owner = "" if only_agent else (f'<span style="font-size:11.5px;color:var(--text-muted)">'
                                        f'proposed by {E(disp.get(aid, aid))}</span>')
-        errhtml = (f'<div style="color:var(--status-bad);font-size:11.5px;margin-top:6px">⚠ {E("; ".join(errs))}</div>'
-                   if errs else "")
-        approve = (f'<button class="btn btn-primary btn-sm"'
+        other_errs = [err for err in errs if err != job_tools.TOOLS_REQUIRED]
+        errhtml = (f'<div style="color:var(--status-bad);font-size:11.5px;margin-top:6px">⚠ {E("; ".join(other_errs))}</div>'
+                   if other_errs else "")
+        if job_tools.TOOLS_REQUIRED in errs:
+            errhtml += (f'<div class="mc-proptoolerror" style="color:var(--status-bad);margin-top:6px">'
+                        f'{E(job_tools.TOOLS_REQUIRED)}</div>')
+        toolshtml = ''
+        if kind == 'agent':
+            choice = job.get('allow_tools')
+            known = type(choice) is bool
+            needs = job_tools.needs_tools(job)
+            other_errors = bool(other_errs)
+            options = '<option value="">Choose whether this job uses tools</option>' if not known else ''
+            for value, label in [('true', 'Runs WITH tools'), ('false', 'Runs WITHOUT tools')]:
+                selected = known and (choice is True) == (value == 'true')
+                options += f'<option value="{value}"{" selected" if selected else ""}>{label}</option>'
+            status = ('Runs WITH tools' if choice is True else job_tools.WITHOUT_TOOLS
+                      if choice is False else 'Tools setting required before approval')
+            toolshtml = (f'<div style="margin-top:10px"><label>Tools for this job '
+                         f'<select class="mc-proptools" data-needs-tools="{str(needs).lower()}" '
+                         f'style="font:inherit;max-width:100%;padding:4px 6px;color:var(--color-text);'
+                         f'background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r)" '
+                         f'data-valid-other="{str(not other_errors).lower()}" '
+                         f'onchange="mcJobProposalTools(this)">{options}</select></label>'
+                         f'<div class="mc-proptoolstatus" style="margin-top:6px">{E(status)}</div>'
+                         f'<div class="mc-proptoolwarning" role="status" '
+                         f'style="color:var(--status-bad);margin-top:6px"'
+                         f'{"" if choice is False and needs else " hidden"}>'
+                         f'This job appears to need tools. Review the prompt and required outputs before approving without tools.</div></div>')
+        elif kind == 'command':
+            toolshtml = '<p>Command job: runs the command shown above.</p>'
+        approve = (f'<button class="btn btn-primary btn-sm mc-propapprove"'
                    f'{"" if ok else " disabled title=\"fix the errors above first\""} '
                    f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'approve\',this)">Approve</button>')
         cards += (f'<div class="mc-prop mc-frame" style="border-radius:var(--r);padding:12px 14px;margin-bottom:10px">'
@@ -157,7 +186,7 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
                   f'color:var(--text-dim)">{E(_humanize(sched))}</span></div>'
                   f'<pre style="white-space:pre-wrap;background:var(--color-sand-100);border:1px solid var(--color-sand-300);'
                   f'border-radius:var(--r);padding:9px 11px;margin:8px 0 0;font-size:11.5px;max-height:160px;overflow:auto">{preview}</pre>'
-                  f'{errhtml}'
+                  f'{toolshtml}{errhtml}'
                   f'<div style="display:flex;gap:8px;margin-top:10px;align-items:center">{approve}'
                   f'<button class="btn btn-secondary btn-sm" '
                   f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'reject\',this)">Reject</button>'
@@ -171,6 +200,20 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
             f'awaiting your approval — nothing runs until you approve</span></div>')
     return (f'<div style="margin-bottom:18px;padding:14px 16px;border:1px solid var(--color-accent-2);border-radius:var(--r);'
             f'background:var(--accent2-7)">{head}{cards}</div>{_JOB_PROPOSAL_JS}')
+
+
+def _job_tools_warnings_block(realm_root, only_agent: str = "") -> str:
+    """Render local findings without sending notifications or changing jobs."""
+    from .. import job_tools
+    findings = job_tools.findings(realm_root, only_agent)
+    if not findings:
+        return ''
+    rows = ''.join(f'<li><a href="{E(row["href"])}">{E(row["name"])}</a> '
+                   f'({E(row["agent"])}) — {E(row["reason"])}</li>' for row in findings)
+    return (f'<section aria-label="Job tools need review" style="margin-bottom:18px;padding:14px 16px;'
+            f'border:1px solid var(--status-bad);border-radius:var(--r)">'
+            f'<strong>Job tools need review</strong><p>Review these enabled jobs before their next run. '
+            f'ARMADA has not changed their tools settings.</p><ul>{rows}</ul></section>')
 
 
 def _autonomy_control(current: str, field_id: str) -> str:
