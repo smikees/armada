@@ -15,7 +15,10 @@ The current release is recorded in the [README](../README.md),
 Version **0.99.120** requires explicit tools choices on agent job proposals, warns before
 approving tool-dependent work without tools, and audits existing enabled jobs at startup
 and daily without changing them. Output contracts fail before a model turn when tools
-are off. [Verification](dev/RELEASE_0_99_120.md).
+are off. Published on GitHub and armada.stamih.com; 3,868 isolated tests passed (5
+skipped), exact-source CI and the native startup, session, tray and upgrade gates
+passed. Public assets and update signatures were verified; the owner's app was not
+restarted. [Verification and maintenance beta boundaries](dev/RELEASE_0_99_120.md).
 
 Version **0.99.117** hardens close-to-tray, restore and Quit with nonblocking native
 transitions, bounded state saves and a mandatory real tray lifecycle installer gate.
