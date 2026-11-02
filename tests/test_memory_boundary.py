@@ -60,7 +60,9 @@ def test_concurrent_writers_survive_every_exit(realm, provider, entry, outcome):
         def run_stream(self, **kwargs):
             calls.append(kwargs)
             started.set()
-            assert release.wait(15), "test did not release the engine"
+            # The other writer performs real file I/O before releasing us; this is
+            # an ordering test, not a 15-second disk-performance deadline for CI.
+            assert release.wait(60), "test did not release the engine"
             if outcome == "exception":
                 raise RuntimeError("engine crashed")
             if outcome == "cancelled":

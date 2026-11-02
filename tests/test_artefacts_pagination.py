@@ -10,8 +10,9 @@ from armada.webui import agentcommon
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for browser script checks")
 def test_pagination_filter_sort_and_delete():
+    # This checks pagination behavior, not Node startup latency on a busy CI host.
     result = subprocess.run(["node", str(Path(__file__).with_name("artefacts_pagination_harness.js"))],
-        capture_output=True, text=True, encoding="utf-8", timeout=15)
+        capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert result.returncode == 0, result.stderr
 
 

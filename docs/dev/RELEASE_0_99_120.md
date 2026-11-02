@@ -44,3 +44,8 @@ On November 2, read-only provider metadata confirmed the preferred Claude Opus,
 Codex Sol and Gemini Flash entries. Defaults and provider authentication remain
 unchanged. The final pinned suite and exact-source CI are enforced again by the
 publisher before packaging or publication.
+
+Hosted Windows CI exposed short test-only deadlines in Node startup, concurrent
+memory I/O and asynchronous voice replies. These synchronization waits now allow
+60, 60 and 15 seconds respectively. Behavior, permission and transcript assertions
+are unchanged; no application timeout or retry policy was relaxed.

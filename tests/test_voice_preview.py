@@ -51,7 +51,8 @@ class Transport:
         emit('thread/realtime/started',{'realtimeSessionId':'native'})
         emit('thread/realtime/sdp',{'sdp':'v=0\r\nsynthetic-answer'})
         self.ready.set()
-        assert self.done.wait(10)
+        # Keep the fake transport alive beyond the bounded reply wait below.
+        assert self.done.wait(60)
         return ProcessResult(cancelled=True,error='Run stopped by the owner.')
     def segment(self,role,text,iid):
         self.emit('thread/realtime/item/completed',{'item':{'id':iid,'realtimeSessionId':'native',
@@ -66,7 +67,9 @@ def start(realm,transport=None):
 
 
 def wait_reply(call):
-    deadline = time.monotonic()+3
+    # Wait for asynchronous work, without treating host scheduling latency as a
+    # transcript-fidelity failure. A missing reply still fails with a bounded wait.
+    deadline = time.monotonic()+15
     while not call.replies and time.monotonic()<deadline:
         time.sleep(.01)
     assert call.replies
