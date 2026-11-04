@@ -72,7 +72,8 @@ this native check covers behavior that mocked windows cannot verify. Retain its 
 release evidence. See [the startup incident](INCIDENT_2026_10_07_STARTUP.md).
 Installer staging also requires the native `--restart visible`, `--restart tray` and
 `--restart busy` cases. Each verifies that handover runs after the form and WebView2
-control are disposed, the HWND disappears and the browser process and tray loop stop.
+control are disposed, the HWND disappears and the tray loop stops. Browser process
+exit must follow within five seconds of control teardown.
 Evidence is retained as `build/restart-<case>-staged.json`. The signed upgrade probe
 keeps the normal close-to-tray setting enabled.
 

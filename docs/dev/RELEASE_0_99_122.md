@@ -51,4 +51,35 @@ Provider defaults retain the November 4 metadata review from 0.99.121. The bundl
 Python security review and maintenance beta signing boundaries also remain unchanged.
 Update assets are signed; Windows publisher signing remains the documented limitation.
 
-Final release gate and publication evidence will be recorded after verification.
+## Publication evidence — November 4, 2026
+
+Published [v0.99.122](https://github.com/smikees/armada/releases/tag/v0.99.122)
+from `397e4403ec2ac1e054f779bbba8ae15baeffc49e` using the unified maintenance
+publisher. Both local full-suite runs passed **3,915 tests with 5 skipped**, including
+the publisher's exact-commit run. [Windows CI](https://github.com/smikees/armada/actions/runs/41881039626)
+passed both Python versions and the relay job.
+
+The packaged gates passed all five launcher recovery interruption points, 16
+WebView2 session checks, 68 tray checks, and 69 checks in each of the visible, tray
+and busy-renderer restart cases. The signed upgrade rehearsal passed 72 checks,
+including the candidate's actual HTTP restart through native disposal to an
+intercepted process-replacement boundary. Native probes require browser process
+exit within five seconds of control teardown. The production process is never
+forcibly killed to satisfy that check.
+
+All four public assets were downloaded and matched to the tested build. The update
+signature, manifest commit and all 446 packaged source files were verified. Installer
+SHA-256: `a9172a8e0640cf422fbbff67d286ae6cd563ebf4acf0195f1c3c1ae8a54f8c75`.
+Evidence remains outside source control in `build/release-evidence-0.99.122.json`,
+`build/upgrade-0.99.122.json` and the staged native restart reports.
+
+The website's final HTML upload initially timed out during verification. An index-only
+retry through the same certificate-validated FTPS deployer preserved backups and
+verified the temporary file before renaming it. Public HTTPS then matched the source
+apart from the known hosting script, and its installer link returned the exact tested
+bytes. Both GitHub and armada.stamih.com now publish 0.99.122.
+
+The owner's desktop and scheduler remained healthy on 0.99.121 after compositor
+recovery; no owner app restart was performed for testing or publication. For the
+first installation of this fix, Quit from the tray before running the 0.99.122
+installer, avoiding the old version's abrupt update shutdown path.

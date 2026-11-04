@@ -17,6 +17,10 @@ before process handover. The visible, tray and stalled-renderer restart checks v
 form/browser disposal, removal of the HWND and browser/tray shutdown. The reported
 orphan surface was cleared without reboot by an owner-approved compositor restart;
 the exact compositor failure has not been reproduced in a synthetic test.
+Published on GitHub and armada.stamih.com after 3,915 isolated tests passed (5 skipped),
+both Windows CI jobs, the packaged recovery/session/tray gates, all three restart
+teardown cases and 72 signed-upgrade checks. Public signatures, package contents,
+installer bytes and website links were verified; the owner's app was not restarted.
 [Incident, validation and release evidence](dev/RELEASE_0_99_122.md).
 
 Version **0.99.121** adds owner-controlled connector tool lists, realm default denials,
