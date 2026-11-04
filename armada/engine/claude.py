@@ -308,11 +308,18 @@ class ClaudeEngine(EngineAdapter):
             if (name not in allowed and sid not in allowed) or sid in withheld or f"mcp__{sid}" in patterns or f"mcp__{name}" in patterns:
                 blocked.append({"serverName": name})
                 patterns.add(f"mcp__{sid}")
-        if not allowed and not getattr(self, 'connector_tools', None):
+        if not allowed and not getattr(self, 'connector_tools', None) and not getattr(self, 'policy_tools', None):
             patterns.add("mcp__*")
         admitted = set(names) - {row['serverName'] for row in blocked}
         _recover_auth_cache(connected_names(result.stdout) & admitted, probe_started)
         args = ["--settings", json.dumps({"deniedMcpServers": blocked})]
+        from ..tool_admission import claude_args as policy_args
+        policy_flags = policy_args(self)
+        if '--disallowedTools' in policy_flags:
+            index = policy_flags.index('--disallowedTools')
+            patterns.update(policy_flags[index + 1:])
+            policy_flags = policy_flags[:index]
+        args += policy_flags
         if patterns:
             args += ["--disallowedTools", *sorted(patterns)]
         if getattr(self, 'connector_tools', None):
@@ -580,6 +587,9 @@ class ClaudeEngine(EngineAdapter):
             event = loads_event(line)
             if not isinstance(event, dict) or not isinstance(event.get("type"), str):
                 raise ValueError("Malformed Claude stream event")
+            admission = getattr(self, 'tool_admission', None)
+            if admission and event.get('type') == 'system' and event.get('subtype') == 'init':
+                admission.observed_tools(event.get('tools', []))
             state.accept(event)
         try:
             process = supervise(lp + args, prompt=prompt, on_line=accept, timeout=timeout,

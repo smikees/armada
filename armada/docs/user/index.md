@@ -22,6 +22,7 @@ Everything else is one page per part of the app — open the one you're looking 
 | [Inbox](inbox.md) | Tasks your agents hand each other |
 | [Memory](memory.md) | What every agent knows, and what only one agent knows |
 | [Capabilities](capabilities.md) | Tools your agents can use, where they came from, what they can reach |
+| [Limit tools and file writes](access-policy.md) | Per-agent tool permissions, write folders, read-only paths and access audits |
 | [Artefacts](artefacts.md) | Files your agents made or you gave them |
 | [Settings](settings.md) | The realm, you, and the app |
 | [Staying safe](safety.md) | What an agent can do on your computer, and how to keep that sensible |

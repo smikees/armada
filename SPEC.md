@@ -38,6 +38,10 @@ memory controls are documented in [Memory boundaries](docs/dev/MEMORY_BOUNDARIES
 ## 4. Capabilities and authorization
 
 Users grant tools, connectors, skills and plugins per agent and choose approval policies.
+Per-agent connector tool allow/deny patterns and realm default denials are compiled
+into adapter-enforced tool lists. Optional file write scopes and realm read-only
+paths use guarded file tools; scoped agents have no arbitrary shell writes.
+Owner changes and refused access are audited. See [Access policy](docs/dev/ACCESS_POLICY.md).
 Availability is checked for the actual provider. Unsupported combinations explain the gap.
 An agent with tools acts with the user's permissions; arbitrary shell and connector
 access are not a security sandbox. See [Staying safe](armada/docs/user/safety.md).

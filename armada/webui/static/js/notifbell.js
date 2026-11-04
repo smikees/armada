@@ -11,6 +11,7 @@
     job_started:   {g:'▶', c:'var(--text-muted)'},
     job_finished:  {g:'✓', c:'var(--color-accent-2)'},
     job_failed:    {g:'!', c:'var(--status-bad)'},
+    policy_denied: {g:'!', c:'var(--status-warn)'},
     approval_needed:{g:'?', c:'var(--status-warn)'},
     update_available:{g:'↑', c:'color-mix(in srgb,var(--status-ok) 62%,white)'},
     capability_found:{g:'+', c:'color-mix(in srgb,var(--status-ok) 62%,white)'},

@@ -1,5 +1,9 @@
 # Capabilities
 
+For individual connector tools and file write folders, see
+[Limit tools and file writes](access-policy.md). Agent and realm access rules are
+enforced by the engine adapters and guarded filesystem tool, with refusal audits.
+
 The page opens immediately with a loading indicator while its local inventory is prepared.
 Drag an agent onto a capability to give access, or remove its chip to revoke access. The saved
 change updates that card in place, preserving your filters, scroll position and expanded panels.

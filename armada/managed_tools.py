@@ -138,6 +138,12 @@ class ManagedTools:
                     kind == 'boolean' and type(value) is not bool):
                 raise ValueError('Arguments do not match the managed tool schema.')
         if name == 'run_skill':
+            from . import access_policy
+            if access_policy.load(self.root, self.agent).scoped:
+                reason = 'Script execution is disabled for agents with file write restrictions.'
+                if getattr(self, 'policy_audit', None):
+                    self.policy_audit.refuse(tool=name, reason=reason)
+                raise PermissionError(reason)
             from .draft_skills import execute
             with self.script_lock:
                 self._authorize()
@@ -152,6 +158,7 @@ class ManagedTools:
                     raw = Path(arguments['path'])
                     return inspection.checked_path(raw if raw.is_absolute() else self.output / raw, [self.output])
                 path = checked()
+                self._check_write_scope(name, path)
                 if path.name.casefold() == "final-answer.md":
                     raise ValueError("final-answer.md is reserved for the final response. Choose another draft name.")
                 if len(arguments["content"].encode("utf-8")) > MAX_BYTES:
@@ -161,6 +168,7 @@ class ManagedTools:
                     self._authorize()
                     if checked() != path:
                         raise ValueError('Approved output path changed during the write.')
+                    self._check_write_scope(name, path)
                     util.write_text_atomic(path, arguments["content"], newline="\n")
                 result = {"path": str(path), "bytes": path.stat().st_size}
                 self.writes[str(path)] = {"kind": "output", "name": path.name, **result}
@@ -257,7 +265,8 @@ class ManagedTools:
                 with self.lock:
                     self._authorize()
                     result = dry_run_pairs.export(self.root, arguments['pair_id'], self.output,
-                        unpacked=arguments.get('unpacked', False))
+                        unpacked=arguments.get('unpacked', False),
+                        check_write=lambda path: self._check_write_scope(name, path))
                     for value in [result['path'], *result.get('files', [])]:
                         path = Path(value)
                         self.writes[str(path)] = {'kind': 'output', 'name': path.name, 'path': str(path)}
@@ -281,6 +290,17 @@ class ManagedTools:
             path = inspection.checked_path(folder / arguments["path"], [folder], must_exist=True)
             return self._read(path)
         raise ValueError("Unsupported tool.")
+
+    def _check_write_scope(self, name, path):
+        from . import access_policy
+        policy = access_policy.load(self.root, self.agent)
+        if policy.scoped:
+            try:
+                access_policy.writable_path(self.root, policy, str(path))
+            except (ValueError, PermissionError) as exc:
+                if getattr(self, 'policy_audit', None):
+                    self.policy_audit.refuse(tool=name, path=str(path), reason=str(exc))
+                raise
 
     @staticmethod
     def _read(path):

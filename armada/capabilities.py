@@ -328,6 +328,8 @@ def execution_policy(realm_root, agent) -> CapabilityPolicy:
     from .connector_runtime import is_provider_placeholder
     cat["connectors"] = [c for c in cat["connectors"] if not is_provider_placeholder(c)]
     granted = _policy_toolkit(a, "agent", grants_only=True)
+    from .access_policy import validate
+    validate(realm, a)
     allowed, denied = set(), set()
     for kind in MCP_KINDS:
         keys = {cap_key(c) for c in granted[kind] if realm_enabled(c)}

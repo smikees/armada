@@ -47,7 +47,7 @@ def test_the_unavailable_section_is_gone(realm):
     m, a = _agent(realm, "development")
     html = UI._tab_skills(m, realm, a)
     assert "not available to" not in html
-    assert "windows-mcp" not in html
+    assert "windows-mcp" not in html.split('<section class="mc-access-policy"')[0]
 
 
 def test_no_manage_button(realm):

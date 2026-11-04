@@ -76,6 +76,7 @@ def test_command_job_cancellation_is_registered_and_persisted(tmp_path):
     (tmp_path/'realm.json').write_text('{}')
     agent = tmp_path/'agents/a'
     (agent/'jobs').mkdir(parents=True)
+    (agent/'agent.json').write_text('{"id":"a"}')
     started = tmp_path/'started'
     job = {'kind':'command','run':[sys.executable,'-c',
         f'import time;from pathlib import Path;Path({str(started)!r}).touch();time.sleep(30)']}

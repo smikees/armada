@@ -109,6 +109,8 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None, ef
             raise ValueError("Two dry runs are already active in this realm. Stop one or wait for it to finish.")
         ad = root / "agents" / agent
         inspection.checked_path(ad / "agent.json", [root], must_exist=True)
+        from .access_policy import load as load_access_policy
+        load_access_policy(root, agent)
         jp = inspection.checked_path(ad / "jobs" / (job_id + ".json"), [root], must_exist=True)
         with util.file_lock(jp):
             job = copy.deepcopy(_job) if _job is not None else util.read_json_state(jp)
@@ -188,6 +190,8 @@ def _execute(root, folder, job, info, session, engine):
     events, result = [], RunResult(ok=False, error="Dry run did not finish.")
     t0 = time.time()
     capture = None
+    from .policy_tools import PolicyAudit
+    policy_audit = PolicyAudit(root, info['agent'])
     closed = threading.Event()
     def watch_stop():
         from .execution import RunSession
@@ -205,6 +209,12 @@ def _execute(root, folder, job, info, session, engine):
         if session.active.cancelled:
             result = RunResult(ok=False, cancelled=True, error="Dry run stopped.")
         elif is_command(job):
+            from .access_policy import load as load_access_policy
+            if load_access_policy(root, info['agent']).scoped:
+                reason = 'Shell is disabled for agents with a write scope or realm read-only paths.'
+                policy_audit.refuse(tool='shell', reason=reason)
+                raise PermissionError(reason)
+            policy_audit.offer(['shell'])
             if job.get("capture_tools"):
                 from .tool_capture import ToolCapture
                 capture_job = {**job, "capture_dir": str(folder.relative_to(root) / "raw")}
@@ -247,6 +257,8 @@ def _execute(root, folder, job, info, session, engine):
                          'Approved scripts use ARMADA_INPUT_DIR and ARMADA_INPUT_MANIFEST for staged paths.')
             with ManagedTools(root, info["agent"], output=folder / "output", job=job, snapshot=snapshot,
                     script_grant=info.get('_script_grant'), cancelled=lambda: session.active.cancelled) as tools:
+                tools.policy_audit = policy_audit
+                policy_audit.offer(f'mcp__armada_managed__{t["name"]}' for t in tools.tools())
                 eng = tools.configure(eng)
                 if job.get("capture_tools"):
                     from .tool_capture import ToolCapture
@@ -291,12 +303,16 @@ def _execute(root, folder, job, info, session, engine):
                 "timed_out" if result.timed_out else "completed" if result.ok else "failed",
                 finished=dt.datetime.now(dt.timezone.utc).isoformat(), duration_s=round(time.time()-t0, 2),
                 error=result.error, actual_model=result.model, tokens=result.usage.as_dict())
+            info['access_audit'] = policy_audit.report()
+            info['operational_warnings'] = info['access_audit']['warnings']
             if info.get("result") and info["status"] == "completed":
                 outcome = job_results.status(info["result"])
                 if outcome == "error":
                     info["status"] = "failed"
                 elif outcome == "warn":
                     info["status"] = "warning"
+            if info['operational_warnings'] and info['status'] == 'completed':
+                info['status'] = 'warning'
             text = job_results.original_answer(result.output)
             util.write_text_atomic(folder / "output" / "final-answer.md", text + "\n")
             transcript = {"content": text, "raw_final_answer": result.output, "events": events, "error": result.error}
@@ -315,7 +331,8 @@ def _execute(root, folder, job, info, session, engine):
                 "kind": "dry_run", "run_id": info["run_id"], "model": ('Blind candidate ' + info['pair_label']) if info.get('pair_id') else result.model or info["model"],
                 "tokens": result.usage.as_dict(), "status": {"completed": "ok", "warning": "warn",
                     "failed": "error", "timed_out": "error"}.get(info["status"], info["status"]),
-                "summary": "Dry run Â· " + info["name"]})
+                "summary": "Dry run Â· " + info["name"], 'access_audit': info['access_audit'],
+                'operational_warnings': info['operational_warnings']})
         except Exception:
             log.exception("Could not persist dry-run result")
             try:

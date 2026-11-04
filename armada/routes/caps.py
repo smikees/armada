@@ -18,6 +18,27 @@ log = logging.getLogger("armada.serve")
 
 
 class CapabilityRoutes:
+    def _save_access_policy(self, body):
+        from .. import access_policy
+        try:
+            return access_policy.save(self.realm, body.get('agent'), body.get('policy'))
+        except ValueError as exc:
+            return {'ok': False, 'error': str(exc)}
+
+    def _refresh_tool_inventory(self, body):
+        from .. import tool_inventory
+        try:
+            return tool_inventory.refresh(self.realm, str(body.get('agent') or ''), str(body.get('provider') or ''))
+        except ValueError as exc:
+            return {'ok': False, 'error': str(exc)}
+
+    def _save_tool_inventory(self, body):
+        from .. import tool_admission
+        try:
+            return tool_admission.save_names(self.realm, body.get('connector'), body.get('names'))
+        except ValueError as exc:
+            return {'ok': False, 'error': str(exc)}
+
     def _get_capability_connections(self):
         from .. import connector_runtime
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)

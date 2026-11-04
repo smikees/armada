@@ -49,6 +49,9 @@ CHANNELS = {
 # otherwise. The defaults encode one judgement: interrupt only for things that need a person.
 AGENTS, SYSTEM = "agents", "system"
 EVENTS = {
+    "policy_denied": {
+        "label": "An agent attempts denied access (first per day)", "group": AGENTS,
+        "default": {"inapp": True, "desktop": True, "telegram": False}},
     "job_started": {
         "label": "A job starts", "group": AGENTS,
         # the bulk of the traffic in any real realm, and nothing to act on — off everywhere

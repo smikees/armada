@@ -9,6 +9,17 @@ local Codex catalogue) select Codex; `codex:default` follows the Codex CLI defau
 existing realm or agent files is required. New-team defaults depend on connected engines.
 See [Provider onboarding](PROVIDER_ONBOARDING.md).
 
+Access policy (0.99.121, additive): `agent.json.tool_policy` maps connector IDs to
+required `allow` and optional `deny` glob lists. `realm.json.tool_policy` maps IDs
+to default `deny` lists. `agent.json.write_scope` is an optional list of realm-relative
+write globs; `realm.json.read_only` supplies overriding read-only globs, with
+`realm.json.policy_builder` identifying the exempt builder (default `builder`).
+`_policy_changes` is the atomic owner-change log in the edited JSON file. Connector
+`tool_names` and `.armada/tool-inventory.json` hold names for closed tool lists;
+`.armada/policy-notifications.json` holds durable daily notification claims.
+Run reports add `access_audit` and `operational_warnings`.
+See [Access policy](ACCESS_POLICY.md) for validation, precedence and adapter limits.
+
 The contract behind "a realm is a portable, Git-versioned folder." Everything ARMADA reads or
 writes lives here; the setup wizard and any importer must produce this layout. Paths are relative
 to the realm root. JSON is read tolerant of a BOM (`utf-8-sig`); Markdown is UTF-8.

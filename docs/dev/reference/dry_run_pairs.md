@@ -50,7 +50,7 @@ Paired drafts share frozen inputs; A/B identity is private until scores are comm
 
 —
 
-### `export(root, pair_id, output, *, unpacked=False)`
+### `export(root, pair_id, output, *, unpacked=False, check_write=None)`
 
 —
 

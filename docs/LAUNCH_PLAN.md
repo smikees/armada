@@ -12,6 +12,12 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.121** adds owner-controlled connector tool lists, realm default denials,
+agent write scopes, protected realm paths and run-level refusal audits. Enforcement
+is implemented in all three adapters and a guarded filesystem tool. Actual-provider
+checks and the synthetic owner-edit UI probe passed; publication evidence is recorded
+in [the release verification](dev/RELEASE_0_99_121.md).
+
 Version **0.99.120** requires explicit tools choices on agent job proposals, warns before
 approving tool-dependent work without tools, and audits existing enabled jobs at startup
 and daily without changing them. Output contracts fail before a model turn when tools

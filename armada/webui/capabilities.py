@@ -189,6 +189,8 @@ def _tab_skills(realm, realm_root, a) -> str:
                 f'<div style="height:20px"></div>'
                 f'{_tool_group("Plugins", "cap-plugin", inv["plugins"], manage=manage)}')
 
+    from .accesspolicy import panel as access_panel
+
     # Read-only, manage=None: with a scope passed, each card grew its own enable/edit/delete acting
     # on this agent's toolkit — a third place to change a capability, next to a sentence saying the
     # Capabilities page is where you change capabilities. The add/edit modals go with them; without
@@ -196,13 +198,14 @@ def _tab_skills(realm, realm_root, a) -> str:
     # The same key the realm page carries, in the same rail. The cards here are the realm page's
     # cards — same tier stripe, same ability icons — so reading them needed the same legend, and
     # not having it here meant learning the colours on one page to use them on another.
-    return (f'<div style="display:flex;gap:32px;align-items:flex-start;padding:18px 24px 24px">'
+    return (f'<div class="mc-agent-cap-layout" style="display:flex;gap:32px;align-items:flex-start;padding:18px 24px 24px">'
             f'<div style="flex:1;min-width:0;max-width:820px">'
             f'<div style="margin-bottom:4px">'
             f'<div style="font-family:var(--font-heading);font-weight:600;font-size:17px">Capabilities</div>'
             f'<div style="font-size:11.5px;color:var(--text-muted);line-height:1.5">{why}</div></div>'
             f'<div style="height:10px"></div>'
             f'{groups(usable, None)}'
+            f'{access_panel(Path(realm_root), a.id, eng)}'
             f'{_CAP_HELP}</div>'
             f'<div style="flex:none;width:390px">'
             f'<div style="position:sticky;top:16px">{_cap_legend()}</div></div></div>')

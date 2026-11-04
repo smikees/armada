@@ -163,9 +163,19 @@ class GeminiEngine(EngineAdapter):
                 record_unavailable(self, [{'server': sid, 'state': 'missing', 'tool_names': [],
                     'error': 'Not configured or disabled in Gemini. Connect it in Capabilities.'}])
                 continue
+            admission = getattr(self, 'tool_admission', None)
+            if admission and sid in admission.allowed:
+                from ..tool_admission import native_limits
+                allowed = admission.offer(sid, native_limits(admission.allowed[sid], entry, 'enabledTools', 'disabledTools'))
+                if not allowed:
+                    continue
+                entry = {**entry, 'enabledTools': allowed,
+                         'disabledTools': sorted(set(entry.get('disabledTools', [])) | set(admission.denied[sid]))}
             selected.append({**entry,'name':sid})
         if getattr(self, 'connector_tools', None):
             selected.append({**self.connector_tools.server_config, 'name': self.connector_tools.server_name})
+        if getattr(self, 'policy_tools', None):
+            selected.append({**self.policy_tools.server_config, 'name': self.policy_tools.server_name})
         return selected
     def _agent(self,system,allow_tools,denied):
         connectors = self._connectors(denied) if allow_tools else []
@@ -173,6 +183,8 @@ class GeminiEngine(EngineAdapter):
             from .mcp_runtime import prompt as connector_prompt
             system += connector_prompt(self.connector_unavailable)
         selected = list(_FILE_TOOLS) if allow_tools else []
+        if getattr(self, 'policy_tools', None):
+            selected = [t for t in selected if t not in ('write_to_file', 'replace_file_content', 'multi_replace_file_content')]
         # Native file tools implement the filesystem capability, so enforce its
         # grants here rather than relying on catalogue-derived MCP deny patterns.
         if self.native_filesystem_ids - self.allowed_mcp_ids:
@@ -202,6 +214,21 @@ class GeminiEngine(EngineAdapter):
             'mainAgent':True,'subagent':False,'inheritMcp':False,'inheritCustomizations':False,
             'excludeDefaultComponents':True,'commandExecutionPolicy':'off','tools':selected,
             'mcpServers':connectors}
+        admission = getattr(self, 'tool_admission', None)
+        if admission:
+            admission.audit.offer(selected)
+            for entry in connectors:
+                names = entry.get('enabledTools')
+                if isinstance(names, list):
+                    admission.audit.offer(f'mcp__{entry["name"]}__{name}' for name in names)
+                elif entry['name'].startswith('armada_'):
+                    toolset = next((t for t in (getattr(self, 'policy_tools', None), getattr(self, 'connector_tools', None),
+                                               getattr(self, 'managed_tools', None))
+                                    if t and getattr(t, 'server_name', 'armada_managed') == entry['name']), None)
+                    if toolset:
+                        admission.audit.offer(f'mcp__{entry["name"]}__{t["name"]}' for t in toolset.tools())
+                else:
+                    admission.audit.offer([f'mcp__{entry["name"]}__*'])
         # JSON is valid YAML and prevents instructions from becoming frontmatter directives.
         if allow_tools and self.allowed_mcp_ids & self.native_filesystem_ids:
             system += ('\n\n[Filesystem capability for this Gemini turn]\n'
@@ -215,6 +242,8 @@ class GeminiEngine(EngineAdapter):
             verbosity=None,on_event=None,on_proc=None,env=None):
         validate_request(self.name,self.capabilities,RunRequest(system,prompt,model=model,fallback_model=fallback_model,
             max_budget_usd=max_budget_usd,disallowed_tools=tuple(disallowed_tools or ()),only_tools=None if only_tools is None else tuple(only_tools)))
+        from ..tool_admission import verify_engine_version
+        verify_engine_version(self)
         if not self._launcher(): return RunResult(ok=False,error="Gemini's Antigravity CLI is not installed. Install it in Settings → App.")
         if not self.auth_status().get('logged_in'): return RunResult(ok=False,error='Gemini is signed out. Sign in in Settings → App.')
         mid = model_id(model); row = next((m for m in cached_models() if m['id']==mid),None)
@@ -232,7 +261,10 @@ class GeminiEngine(EngineAdapter):
             item = loads_event(raw)
             if not isinstance(item,dict): raise ValueError('Malformed Gemini stream event')
             kind = item.get('event')
-            if kind=='init': safe_emit(on_event,{'kind':'start'})
+            if kind=='init':
+                # Antigravity advertises its entire builtin registry here, including
+                # tools removed by the custom agent. Audit the selected config above.
+                safe_emit(on_event,{'kind':'start'})
             elif kind=='step_update':
                 step = item.get('step_update') or {}; text = step.get('text_delta')
                 if step.get('step_type')=='agent_response' and text:

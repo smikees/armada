@@ -214,7 +214,7 @@ def record_scores(root, pair_id, score_a, score_b, notes=''):
     return read(root, pair_id)
 
 
-def export(root, pair_id, output, *, unpacked=False):
+def export(root, pair_id, output, *, unpacked=False, check_write=None):
     from . import dry_runs
     private = _private(root, pair_id)
     state = read(root, pair_id)
@@ -226,6 +226,8 @@ def export(root, pair_id, output, *, unpacked=False):
         raise ValueError('unpacked must be true or false.')
     parent = inspection.checked_path(output, [Path(root).resolve()])
     output = inspection.checked_path(parent / ('blind-pair-' + pair_id + '.zip'), [parent])
+    if check_write:
+        check_write(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     # Unique staging names keep concurrent exporters from sharing a partial archive.
     temporary = inspection.checked_path(parent / ('.pair-' + uuid.uuid4().hex + '.tmp'), [parent])
@@ -239,6 +241,8 @@ def export(root, pair_id, output, *, unpacked=False):
             for label in ('A', 'B'):
                 (staging / label).mkdir()
         def add(archive, name, data):
+            if staging and check_write:
+                check_write(folder / name)
             archive.writestr(name, data)
             if staging:
                 target = inspection.checked_path(staging / name, [staging])
@@ -260,6 +264,8 @@ def export(root, pair_id, output, *, unpacked=False):
                             pass
                     add(archive, label + '/' + Path(file['name']).as_posix(), data)
         inspection.checked_path(output, [parent])
+        if check_write:
+            check_write(output)
         temporary.replace(output)
         if staging:
             inspection.checked_path(folder, [parent])

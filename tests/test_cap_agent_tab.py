@@ -51,7 +51,7 @@ def test_an_ungranted_agent_is_not_shown_capabilities_as_its_own(realm):
     """The reported bug: the tab listed the realm catalogue as though the agent had it."""
     m, a = _agent(realm, "finance")
     html = UI._tab_skills(m, realm, a)
-    usable_part = html.split("In the realm, not available to")[0]
+    usable_part = html.split('<section class="mc-access-policy"')[0].split("In the realm, not available to")[0]
     for name in ("IBKR", "filesystem", "windows-mcp"):
         assert name not in usable_part, f"{name} listed as Warren's when it isn't"
 
@@ -60,7 +60,7 @@ def test_a_granted_capability_appears_as_the_agents_own(realm):
     C.grant(realm, "finance", "filesystem")
     m, a = _agent(realm, "finance")
     html = UI._tab_skills(m, realm, a)
-    usable_part = html.split("In the realm, not available to")[0]
+    usable_part = html.split('<section class="mc-access-policy"')[0].split("In the realm, not available to")[0]
     assert "filesystem" in usable_part
     assert "windows-mcp" not in usable_part
 
@@ -73,7 +73,9 @@ def test_the_rest_of_the_realm_is_counted_but_not_listed(realm):
     m, a = _agent(realm, "finance")
     html = UI._tab_skills(m, realm, a)
     assert "<b>1</b> of <b>3</b>" in html
-    assert "IBKR" not in html and "windows-mcp" not in html
+    cards = html.split('<section class="mc-access-policy"')[0]
+    assert "IBKR" not in cards and "windows-mcp" not in cards
+    assert 'Can call:</b> No tools granted' in html  # Permission review includes denied connectors.
 
 
 def test_the_count_matches_the_grant_model(realm):

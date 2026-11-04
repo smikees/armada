@@ -309,6 +309,13 @@ class CodexEngine(EngineAdapter):
         denied = {str(p).removeprefix("mcp__").removesuffix("__*") for p in (denied or [])}
         seen = set()
         granted = set()
+        admission = getattr(self, 'tool_admission', None)
+        native_config = {}
+        if allow_tools and admission and admission.allowed:
+            from ..codex_apps import rpc
+            native_config = rpc('config/read', {'includeLayers': False}, cwd=cwd).get('config', {}).get('mcp_servers', {})
+            if not isinstance(native_config, dict):
+                raise ValueError('Invalid Codex connector configuration; refusing a tool turn.')
         for server in servers:
             if (not isinstance(server, dict) or not isinstance(server.get("name"), str)
                     or not server["name"] or server["name"] in seen
@@ -325,6 +332,15 @@ class CodexEngine(EngineAdapter):
                 # for this invocation, keeping shell approvals and other servers unchanged.
                 # Codex's explicit per-tool policies still override this server default.
                 args += ['-c', f'mcp_servers.{sid}.default_tools_approval_mode="approve"']
+            if sid in granted and admission and sid in admission.allowed:
+                from ..tool_admission import native_limits
+                entry = native_config.get(sid, {})
+                names = admission.offer(sid, native_limits(admission.allowed[sid], entry, 'enabled_tools', 'disabled_tools'))
+                args += ['-c', f'mcp_servers.{sid}.enabled_tools=' + json.dumps(names)]
+                args += ['-c', f'mcp_servers.{sid}.disabled_tools=' + json.dumps(sorted(set(entry.get('disabled_tools') or []) | set(admission.denied[sid])))]
+                if not names:
+                    args += ['-c', f'mcp_servers.{sid}.enabled=false']
+                    granted.discard(sid)
             if sid and (not allow_tools or sid in denied or
                         sid not in granted):
                 if not re.fullmatch(r"[A-Za-z0-9_-]+", sid):
@@ -335,19 +351,24 @@ class CodexEngine(EngineAdapter):
             from ..connector_tools import codex_args
             args += codex_args(self.connector_tools)
             self._turn_mcp_ids += (self.connector_tools.server_name,)
+        if allow_tools and getattr(self, 'policy_tools', None):
+            from ..policy_tools import codex_args
+            args += codex_args(self.policy_tools)
+            self._turn_mcp_ids += (self.policy_tools.server_name,)
         return args
 
     def _args(self, model, allow_tools, effort, denied, cwd=None, verbosity=None):
         args = ["exec", "--json", "--color", "never", "--skip-git-repo-check", "--ephemeral",
-                "--sandbox", "workspace-write" if allow_tools and not getattr(self, "managed_tools", None) else "read-only",
+                "--sandbox", "workspace-write" if allow_tools and not (getattr(self, "managed_tools", None) or getattr(self, "policy_tools", None)) else "read-only",
                 "-c", 'approval_policy="never"']
         # App/desktop tools and plugin servers do not share Armada's MCP grants. Keep these off
         # until they have an explicit transport; a Claude plugin grant is not a Codex app grant.
         args += _feature_args()
-        if not allow_tools or getattr(self, "managed_tools", None):
-            for feature in ("shell_tool", "unified_exec", "image_generation", "view_image", "code_mode"):
+        if not allow_tools or getattr(self, "managed_tools", None) or getattr(self, "policy_tools", None):
+            for feature in ("shell_tool", "unified_exec", "image_generation", "code_mode"):
                 args += ["-c", f"features.{feature}=false"]
-            args += ["-c", 'web_search="disabled"']
+            if not allow_tools or getattr(self, "managed_tools", None):
+                args += ["-c", 'features.view_image=false', '-c', 'web_search="disabled"']
         else:
             for root in self.writable_roots:
                 args += ["--add-dir", str(root)]
@@ -395,6 +416,8 @@ class CodexEngine(EngineAdapter):
         launcher = self._launcher()
         if not launcher:
             return RunResult(ok=False, error="Codex CLI not found. Install it and run `codex login`.")
+        from ..tool_admission import verify_engine_version
+        verify_engine_version(self)
         if allow_tools and self.allowed_mcp_ids:
             discovery = ("Granted MCP tools may be deferred from the initial tool list. "
                          "Use Codex tool search if available, or call exposed tools directly, before concluding a "
@@ -482,10 +505,11 @@ class CodexEngine(EngineAdapter):
                 native_apps -= frozenset(row['server'].removeprefix('app:') for row in app_issues)
             if env and env.get("ARMADA_RAW_DIR"):
                 args += ["-c", "shell_environment_policy.set.ARMADA_RAW_DIR=" + json.dumps(env["ARMADA_RAW_DIR"])]
-            if not allow_tools or getattr(self, "managed_tools", None):
-                for feature in ("shell_tool", "unified_exec", "image_generation", "view_image", "code_mode"):
+            if not allow_tools or getattr(self, "managed_tools", None) or getattr(self, "policy_tools", None):
+                for feature in ("shell_tool", "unified_exec", "image_generation", "code_mode"):
                     args += ["-c", f"features.{feature}=false"]
-                args += ["-c", 'web_search="disabled"']
+                if not allow_tools or getattr(self, "managed_tools", None):
+                    args += ["-c", 'features.view_image=false', '-c', 'web_search="disabled"']
             if getattr(self, "managed_tools", None):
                 from ..managed_tools import codex_args
                 args += codex_args(self, cwd=run_cwd)
@@ -508,7 +532,7 @@ class CodexEngine(EngineAdapter):
                 params = {"threadId": state.thread_id, "input": [{"type": "text", "text": full_prompt +
                           (readiness_prompt(readiness) if readiness else "")}], "approvalPolicy": "never",
                           "sandboxPolicy": {"type": "workspaceWrite", "writableRoots": [str(p) for p in self.writable_roots],
-                                            "networkAccess": bool(self.network_access)} if allow_tools and not getattr(self, "managed_tools", None) else {"type": "readOnly"}}
+                                            "networkAccess": bool(self.network_access)} if allow_tools and not (getattr(self, "managed_tools", None) or getattr(self, "policy_tools", None)) else {"type": "readOnly"}}
                 if effort:
                     params["effort"] = effort
                 params['input'].extend({'type': 'mention', 'name': sid, 'path': 'app://' + sid}
@@ -550,6 +574,9 @@ class CodexEngine(EngineAdapter):
                     from .mcp_runtime import status as connector_status
                     sid = pending_servers.pop(0)
                     row = connector_status(sid, message)
+                    admission = getattr(self, 'tool_admission', None)
+                    if admission and row['state'] == 'ready':
+                        admission.observed_tools([f'mcp__{sid}__{n}' for n in row['tool_names']])
                     readiness.append(row)
                     emit({"kind": "tool_result", "id": "mcp-startup-" + sid,
                           "content": (f"Ready: {len(row['tool_names'])} callable tools" if row["state"] == "ready" else row["error"]),
@@ -563,7 +590,7 @@ class CodexEngine(EngineAdapter):
                     if rid == 1:
                         send({"method": "initialized", "params": {}})
                         params = {"cwd": run_cwd, "approvalPolicy": "never",
-                                  "sandbox": "workspace-write" if allow_tools and not getattr(self, "managed_tools", None) else "read-only",
+                                  "sandbox": "workspace-write" if allow_tools and not (getattr(self, "managed_tools", None) or getattr(self, "policy_tools", None)) else "read-only",
                                   "ephemeral": True, "serviceName": "armada"}
                         if model_id(model):
                             params["model"] = model_id(model)
@@ -750,7 +777,7 @@ class _AppStream:
                                "content": str(item.get("aggregatedOutput") or item.get("result") or
                                               item.get("error") or "")[:4000],
                                "is_error": item.get("status") == "failed" or bool(item.get("exitCode")) or bool(item.get("error")) or (isinstance(item.get("result"), dict) and bool(item["result"].get("isError")))})
-            elif itype == "fileChange" and completed and item.get("status") != "failed":
+            elif itype == "fileChange" and completed:
                 for index, change in enumerate(item.get("changes") or []):
                     if not isinstance(change, dict):
                         continue
@@ -758,7 +785,8 @@ class _AppStream:
                     if path and not Path(path).is_absolute() and self.cwd:
                         path = str(Path(self.cwd) / path)
                     self.emit({"kind": "tool", "name": "Edit", "id": f"{iid}:{index}",
-                               "input": {"file_path": path}, "category": "file_change"})
+                               "input": {"file_path": path}, "category": "file_change",
+                               "is_error": item.get('status') == 'failed'})
         elif method == "thread/tokenUsage/updated":
             last = (params.get("tokenUsage") or {}).get("last") or {}
             if isinstance(last, dict):

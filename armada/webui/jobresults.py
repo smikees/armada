@@ -17,6 +17,13 @@ def capture_html(event):
 
 def result_html(event: dict, content: dict) -> str:
     captured = capture_html(event)
+    audit = event.get('access_audit')
+    if audit:
+        captured += ('<div class="mc-job-result"><details><summary>Tools and access audit</summary>'
+            '<p><strong>Tools offered:</strong> ' + E(', '.join(audit.get('offered_tools', [])) or 'None') + '</p>'
+            + ''.join('<p><strong>Access refused:</strong> ' + E(' · '.join(str(row.get(k, ''))
+                      for k in ('tool', 'path', 'reason') if row.get(k))) + '</p>'
+                      for row in audit.get('denied_attempts', [])) + '</details></div>')
     notifications = (event.get('inspector') or {}).get('notifications', [])
     if notifications:
         captured += ('<div class="mc-job-result"><details><summary>Owner messages</summary><ul>'

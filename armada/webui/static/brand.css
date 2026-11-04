@@ -1271,3 +1271,15 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 :root,.armada-dark{--find-match-bg:#ffe08a;--find-active-bg:#f6a83e;--find-ink:#111}
 ::highlight(mc-find-all){background:var(--find-match-bg);color:var(--find-ink)}
 ::highlight(mc-find-current){background:var(--find-active-bg);color:var(--find-ink);text-decoration:underline}
+.mc-access-policy{font-size:13px;line-height:1.55;border-top:1px solid var(--color-divider);padding-top:16px;overflow-wrap:anywhere}
+.mc-access-policy h3{font-family:var(--font-heading);font-size:17px;color:var(--text-strong);margin:0 0 12px}
+.mc-access-policy details{margin:10px 0;padding:10px 12px;border:1px solid var(--color-divider);border-radius:var(--r)}
+.mc-access-policy summary{cursor:pointer;font-weight:600;color:var(--text-strong)}
+.mc-access-policy p{margin:8px 0;color:var(--text-dim)}
+.mc-access-policy fieldset{display:grid;gap:10px;min-width:0;margin:14px 0;padding:12px;border:1px solid var(--color-divider);border-radius:var(--r)}
+.mc-access-policy legend{padding:0 4px;font-weight:600}
+.mc-access-policy label{display:block;margin:8px 0;color:var(--text-strong)}
+.mc-access-policy .mc-field{display:block;box-sizing:border-box;width:100%;max-width:100%;margin:5px 0;min-height:38px}
+.mc-access-policy textarea{min-height:78px;resize:vertical;font:12px/1.5 var(--font-mono,monospace)}
+.mc-access-policy [data-policy-status]:not(:empty){padding:8px;color:var(--status-bad)}
+@media(max-width:900px){.mc-agent-cap-layout{flex-direction:column}.mc-agent-cap-layout>div{width:100%!important;max-width:100%!important}}

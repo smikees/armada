@@ -15,6 +15,9 @@ import pytest
 @pytest.fixture(autouse=True)
 def existing_realm(tmp_path):
     (tmp_path / "realm.json").write_text('{"name":"Test"}', encoding="utf-8")
+    agent = tmp_path / 'agents/a'
+    agent.mkdir(parents=True)
+    (agent / 'agent.json').write_text('{"id":"a"}', encoding='utf-8')
 
 
 from armada import runner

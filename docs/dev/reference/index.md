@@ -6,6 +6,7 @@
 |---|---|
 | [`__init__`](__init__.md) | ARMADA â€” a local, provider-agnostic app for building and running a personal team of AI agents through connected Claude, Codex and Gemini engines. |
 | [`__main__`](__main__.md) |  |
+| [`access_policy`](access_policy.md) | Strict, provider-neutral connector tool and filesystem write policy. |
 | [`activerealm`](activerealm.md) | Which realm the app opens when nobody says — the last one you were actually in. |
 | [`addons`](addons.md) | Add-ons: the extension surface (Phase 2, 2.7 — ADR-002's homework) |
 | [`agentdates`](agentdates.md) | Appointment dates are profile history, not configuration modification times. |
@@ -90,6 +91,7 @@
 | [`models`](models.md) | Model catalog — the Claude models ARMADA offers in its dropdowns, synced from the live API list. |
 | [`notify`](notify.md) | Desktop notifications — native Windows toasts, best-effort. |
 | [`origins`](origins.md) | Where untrusted content is served from (launch plan 5.8a, THREAT_MODEL T3). |
+| [`policy_tools`](policy_tools.md) | Invocation-local filesystem tools and durable policy refusal evidence. |
 | [`preflight`](preflight.md) | Is this realm actually able to run *here*? |
 | [`provider_install`](provider_install.md) | Opt-in CLI installation through the vendors' official Windows installers. |
 | [`provider_limits`](provider_limits.md) | Independent, bounded subscription checks; HTTP requests never wait on a CLI. |
@@ -144,7 +146,9 @@
 | [`thread_windows`](thread_windows.md) | Realm-bound destinations and shared state for independent thread views. |
 | [`threads`](threads.md) | Threads + compaction (SPEC §5). |
 | [`token_cost`](token_cost.md) | Approximate standard-text API equivalents; subscription charges are never inferred. |
+| [`tool_admission`](tool_admission.md) | Compile glob policy to closed, concrete provider tool lists. |
 | [`tool_capture`](tool_capture.md) | Opt-in local tool-result capture, run audits and conservative retention. |
+| [`tool_inventory`](tool_inventory.md) | Owner-triggered, no-model connector discovery for closed tool policies. |
 | [`tray`](tray.md) | Windows notification-area icon for a hidden Armada window. |
 | [`updater`](updater.md) | Automatic updates for an installed ARMADA (launch plan 5.4, ADR-011). |
 | [`usage_api`](usage_api.md) | Read the real Claude subscription usage (session + weekly) that powers the Claude app's Usage view. |
@@ -159,6 +163,7 @@
 | [`webui._base`](webui._base.md) | Base layer — shared low-level UI primitives (carved from _core.py in Phase 3). |
 | [`webui._core`](webui._core.md) | ARMADA web UI — server-rendered screens matching the approved design handoff. |
 | [`webui._math`](webui._math.md) | Protect explicit TeX spans before the shared safe Markdown parser touches them. |
+| [`webui.accesspolicy`](webui.accesspolicy.md) | Owner-facing tool permissions and write scope; render from local state only. |
 | [`webui.agentbits`](webui.agentbits.md) | Agent-rendering primitives (Layer 1, carved from _core.py in Phase 3). |
 | [`webui.agentcommon`](webui.agentcommon.md) | Shared agent/realm page helpers (Phase 3 split of agentpages): job cards, artefact gathering, autonomy/colour controls, filter dropdowns and the status-filter p |
 | [`webui.agentframe`](webui.agentframe.md) | Agent frame (Phase 3 split of agentpages): agent header/body + the Jobs/Inbox/Configure sub-tabs, avatar + appoint modals. |

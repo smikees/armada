@@ -12,6 +12,9 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `CapabilityRoutes._save_access_policy(self, body)` — —
+- `CapabilityRoutes._refresh_tool_inventory(self, body)` — —
+- `CapabilityRoutes._save_tool_inventory(self, body)` — —
 - `CapabilityRoutes._get_capability_connections(self)` — —
 - `CapabilityRoutes._connector_action(self, body: dict)` — Provider setup/authentication, separate from the agent's logical grant.
 - `CapabilityRoutes._codex_connector(self, body: dict)` — Connect a realm-approved MCP endpoint to the owner's Codex CLI.

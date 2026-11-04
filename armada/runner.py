@@ -112,6 +112,8 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None, sche
         allow_tools = (job or {}).get("allow_tools") is True
     util.assert_realm_writable(Path(realm_root) / "agents" / agent_id / "agent.json", allow_invalid_realm=True)
     agent = _policy_json(Path(realm_root) / "agents" / agent_id / "agent.json")
+    from .access_policy import load as load_access_policy
+    load_access_policy(realm_root, agent)
     if "allow_tools" in agent and type(agent["allow_tools"]) is not bool:
         raise CapabilityPolicyError("Capability policy: allow_tools must be true or false.")
     if scheduled and agent:
@@ -343,7 +345,7 @@ def _record_used_capabilities(realm_root: Path, tool_names) -> None:
     servers = []
     for nm in (tool_names or []):
         m = re.match(r"mcp__([A-Za-z0-9_.\-]+)__", str(nm or ""))
-        if m and m.group(1).startswith(('armada_setup_', 'armada_managed')):
+        if m and m.group(1).startswith(('armada_setup_', 'armada_managed', 'armada_files_')):
             continue  # Invocation-local host tools are not realm connectors.
         # Provider applications are system dependencies, not user connectors. Earlier
         # discovery created a phantom `codex` connector from this tool namespace.
@@ -906,7 +908,7 @@ class _TurnCapture:
             name = ev.get("name")
             if name and not name.startswith("mcp__armada_managed__"):
                 self.tools.append(name)
-            if name in _OUT_TOOLS:
+            if name in _OUT_TOOLS and not ev.get('is_error'):
                 fp = inp.get("file_path") or inp.get("notebook_path") or inp.get("path")
                 if fp:
                     self._add_output(str(fp))
@@ -1277,7 +1279,20 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     from .job_history import thread_name
     context = RunContext.capture(realm_root, agent_id, thread_name(job_id), run_id=run_id)
     with RunSession(context) as session:
-        result = supervise_command(argv, cwd=cwd, timeout=timeout, env=env, on_proc=session.bind)
+        from .access_policy import load as load_access_policy
+        from .policy_tools import PolicyAudit
+        from .engine.process import ProcessResult
+        audit = PolicyAudit(realm_root, agent_id)
+        try:
+            policy = load_access_policy(realm_root, agent_id)
+            if policy.scoped:
+                audit.refuse(tool='shell', reason='Shell commands cannot be confined to this agent’s write scope.')
+                result = ProcessResult(error='Shell is disabled for agents with a write scope or realm read-only paths.')
+            else:
+                audit.offer(['shell'])
+                result = supervise_command(argv, cwd=cwd, timeout=timeout, env=env, on_proc=session.bind)
+        except CapabilityPolicyError as exc:
+            result = ProcessResult(error=str(exc))
     out = result.stdout.strip()
     err = result.stderr.strip()
     if result.error:
@@ -1302,6 +1317,8 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
               "summary": tail}
     from .job_history import save_transcript
     report["run_id"] = run_id
+    report['access_audit'] = audit.report()
+    report['operational_warnings'] = report['access_audit']['warnings']
     if job.get("_retry_series"):
         report["retry"] = job["_retry_series"]
     report["result"] = job_results.evaluate(out, run_id=run_id, job=result_job,
