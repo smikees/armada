@@ -12,6 +12,13 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.122** replaces abrupt desktop update exit with normal native teardown
+before process handover. The visible, tray and stalled-renderer restart checks verify
+form/browser disposal, removal of the HWND and browser/tray shutdown. The reported
+orphan surface was cleared without reboot by an owner-approved compositor restart;
+the exact compositor failure has not been reproduced in a synthetic test.
+[Incident, validation and release evidence](dev/RELEASE_0_99_122.md).
+
 Version **0.99.121** adds owner-controlled connector tool lists, realm default denials,
 agent write scopes, protected realm paths and run-level refusal audits. Enforcement
 is implemented in all three adapters and a guarded filesystem tool. Published on

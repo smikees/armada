@@ -29,6 +29,7 @@ _window_lock = threading.RLock()
 _quitting = False
 _app_url = ""
 _desktop_visibility = None
+_restart_after_close = None
 _browser_calls = threading.BoundedSemaphore(4)
 
 
@@ -586,7 +587,7 @@ def run(realm: str, port: int = 8756, title: str = "") -> int:
 
 def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     """Open ARMADA in a native window. Blocks until the window is closed."""
-    global _main_window, _app_url, _quitting
+    global _main_window, _app_url, _quitting, _restart_after_close
     from .util import init_logging
     init_logging('armada.log')
     startup_started = time.monotonic()
@@ -594,6 +595,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
         log.info('Startup phase=%s elapsed_ms=%d', phase, (time.monotonic()-startup_started)*1000)
     milestone('desktop-entry')
     _quitting = False
+    _restart_after_close = None
     title = title or brand.window_title()
     _set_app_user_model_id()   # must be before any window is created
     _retire_scheduler_run_key()
@@ -778,7 +780,11 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
         # pywebview invokes this synchronously on the WinForms UI thread. Evaluating
         # JavaScript here deadlocks that same thread. Cancel once, save off-thread,
         # then request the final close. A broken browser cannot delay exit indefinitely.
-        if closing_allowed.is_set():
+        if closing_allowed.is_set() or _restart_after_close is not None:
+            # Withdraw the surface while its UI thread and browser still exist.
+            # Restart already saved state; a second JS round trip can deadlock teardown.
+            if sys.platform == 'win32':
+                main.native.Hide()
             return True
         if not _quitting and tray_ready and appconfig.get("keep_in_tray", True) is not False:
             visibility.hide()
@@ -853,15 +859,38 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
             log.exception("Could not stop scheduled jobs during Armada exit")
         tray.stop()
         _main_window = None
+    after_close, _restart_after_close = _restart_after_close, None
+    if after_close is not None:
+        log.info('Restart: native desktop loop and tray closed; handing over process')
+        after_close()
     return 1 if err.get("startup_failed") else 0
 
 
-def _finish_close(main, allowed):
+def restart_desktop(after_close):
+    """Run the handover on the main thread only after normal native teardown.
+
+    The server stays available until then. Never force-exit a desktop with live
+    WebView2 surfaces: a failed close must remain diagnosable by the monitor.
+    """
+    global _restart_after_close
+    if _main_window is None:
+        return False
+    _restart_after_close = after_close
+    _quit_windows(_main_window)
+    return True
+
+
+def save_before_close(timeout=2):
+    """A stalled renderer must not trap an owner in update/quit indefinitely."""
     save = threading.Thread(target=save_window_state, daemon=True)
     save.start()
-    save.join(timeout=2)
+    save.join(timeout=timeout)
     if save.is_alive():
         log.warning("Browser did not save window state within two seconds; continuing to quit")
+
+
+def _finish_close(main, allowed):
+    save_before_close()
     allowed.set()
     _quit_windows(main)
 

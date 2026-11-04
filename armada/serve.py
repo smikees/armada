@@ -687,6 +687,19 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
                         return
             RESTARTING.set()
         time.sleep(0.4)
+        from . import app
+        if _launch_mode() == 'app' and app._main_window is not None:
+            # Do not exit/exec from this HTTP thread while WinForms/WebView2 are
+            # alive. app.run invokes this continuation after its UI loop and tray
+            # have closed. In particular, close-to-tray must not cancel restart.
+            if plan is None:
+                app.save_before_close()
+            app.restart_desktop(lambda: Handler._finish_restart(self, plan))
+            return
+        Handler._finish_restart(self, plan)
+
+    def _finish_restart(self, plan):
+        """Release listeners and replace only a headless or fully closed desktop."""
         # Tell the main thread first: closing the socket below makes its serve_forever() raise, and
         # a main thread that then returns ends the process — racing the execv on this thread. That
         # race is why a restart occasionally never came back, with nothing logged (v0.99.51).
@@ -713,10 +726,9 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         # start-up failures are logged by cli.
         log.info("restart: re-executing %s", argv)
         if plan is not None:
-            # No work remains; OS exit releases all leases and the desktop mutex.
-            # The acknowledged supervisor then starts and verifies our successor.
-            logging.shutdown()
-            os._exit(0)
+            # Return normally through the GUI/CLI and installation lease cleanup.
+            # The acknowledged supervisor waits for process exit before launch.
+            return
         try:
             from .desktop_launch import replace_process
             replace_process(sys.executable, argv)

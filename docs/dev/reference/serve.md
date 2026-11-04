@@ -43,6 +43,7 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 - `Handler._tray_setting(self, body: dict)` — —
 - `Handler._git_pull(self)` — —
 - `Handler._restart(self)` — —
+- `Handler._finish_restart(self, plan)` — Release listeners and replace only a headless or fully closed desktop.
 - `Handler.log_message(self, *a)` — —
 
 ### `_say(msg: str)`

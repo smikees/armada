@@ -70,6 +70,11 @@ checks. Its result is retained in `build/tray-lifecycle-staged.json`.
 The default suite covers concurrent launches and failure preservation with a real child server;
 this native check covers behavior that mocked windows cannot verify. Retain its result with the
 release evidence. See [the startup incident](INCIDENT_2026_10_07_STARTUP.md).
+Installer staging also requires the native `--restart visible`, `--restart tray` and
+`--restart busy` cases. Each verifies that handover runs after the form and WebView2
+control are disposed, the HWND disappears and the browser process and tray loop stop.
+Evidence is retained as `build/restart-<case>-staged.json`. The signed upgrade probe
+keeps the normal close-to-tray setting enabled.
 
 For dry-run/inspector controls, also run `python tools/dry_run_probe.py --output <result.json>`
 in the Windows pywebview environment. It uses a synthetic job/engine and checks model selection,

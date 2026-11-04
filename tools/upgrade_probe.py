@@ -181,7 +181,7 @@ def child(successor=None):
     updater.launch_arguments = lambda *args: (
         [str(Path(__file__).resolve()), '--scheduler', *args[1:]]
         if args and args[0] == 'schedule' else launch_arguments(*args))
-    appconfig.save({'auto_update':False,'scheduler_autostart':True,'keep_in_tray':False})
+    appconfig.save({'auto_update':False,'scheduler_autostart':True,'keep_in_tray':True})
     realm = home/'Test realm'
     (realm/'agents/captain').mkdir(parents=True,exist_ok=True)
     if not (realm/'realm.json').exists():
@@ -212,6 +212,7 @@ def child(successor=None):
     exec(shim.read_text(),namespace)
     desktop_launch.spawn = namespace['spawn']
     checks = []
+    restart_requested = False
     def check(label, condition):
         if not condition: raise AssertionError(label)
         checks.append(label)
@@ -222,6 +223,7 @@ def child(successor=None):
         if not done.wait(15): raise AssertionError('Browser request timed out')
         return values[0]
     def exercise():
+        nonlocal restart_requested
         try:
             deadline = time.monotonic()+35
             while time.monotonic()<deadline:
@@ -344,11 +346,23 @@ def child(successor=None):
             previous_checks = json.loads((home/'pre-update-checks.json').read_text())
             result = {'ok':True,'checks':['before: '+label for label in previous_checks]+['after: '+label for label in checks],
                       'before':config['before'],'after':config['after']}
-            Path(config['output']).write_text(json.dumps(result),encoding='utf-8')
+            # The previous package owns the first shutdown. Also exercise the
+            # candidate's actual HTTP restart path, intercepting only the final
+            # process replacement so the probe can record native teardown.
+            native, browser = window.native, window.native.browser.webview
+            def replaced(executable, argv):
+                check('candidate restart runs after native form and browser disposal',native.IsDisposed and browser.IsDisposed)
+                check('candidate restart continuation runs on the main thread',threading.current_thread() is threading.main_thread())
+                result['checks'] = ['before: '+label for label in previous_checks]+['after: '+label for label in checks]
+                Path(config['output']).write_text(json.dumps(result),encoding='utf-8')
+            desktop_launch.replace_process = replaced
+            restart_requested = True
+            check('candidate restart requested through the real server',
+                  js(window,"fetch('/restart',{method:'POST'}).then(r=>r.ok)"))
         except Exception:
             Path(config['output']).write_text(json.dumps({'ok':False,'error':traceback.format_exc(),'checks':checks}),encoding='utf-8')
         finally:
-            if successor or Path(config['output']).exists():
+            if (successor and not restart_requested) or Path(config['output']).exists():
                 if app._main_window: app._quit_windows(app._main_window)
     def wait_then_exercise():
         while app._main_window is None: time.sleep(.1)

@@ -34,9 +34,22 @@ def verify_tray(stage):
         evidence = Path(__file__).resolve().parents[1]/'build/tray-lifecycle-staged.json'
         evidence.write_text(json.dumps(result, indent=2), encoding='utf-8')
         print(f"Native tray: {len(result['checks'])} lifecycle/recovery checks passed", flush=True)
+        for mode in ('visible', 'tray', 'busy'):
+            output = Path(directory) / (mode+'.json')
+            completed = subprocess.run([str(stage/'python/python.exe'), str(Path(__file__).resolve()),
+                '--output', str(output), '--restart', mode, '--staged'], cwd=stage, timeout=120,
+                creationflags=subprocess.CREATE_NO_WINDOW, capture_output=True, text=True)
+            if not output.exists():
+                raise RuntimeError('Native restart gate exited without evidence: '+completed.stderr[-2000:])
+            restart = json.loads(output.read_text(encoding='utf-8'))
+            if completed.returncode or not restart.get('ok'):
+                raise RuntimeError('Native restart gate failed: '+restart.get('error', completed.stderr[-2000:]))
+            evidence = Path(__file__).resolve().parents[1]/('build/restart-'+mode+'-staged.json')
+            evidence.write_text(json.dumps(restart, indent=2), encoding='utf-8')
+            print(f"Native restart ({mode}): {len(restart['checks'])} teardown checks passed", flush=True)
 
 
-def run(output, *, tray_lifecycle=False, staged=False):
+def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
     if not staged:
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import webview
@@ -50,6 +63,7 @@ def run(output, *, tray_lifecycle=False, staged=False):
     done = threading.Event()
     external_urls = []
     local_popups = []
+    restart_completed = []
     handle_popup = desktop_navigation.handle_popup
     def observed_popup(backend, args, base):
         handled = handle_popup(backend, args, base)
@@ -254,7 +268,34 @@ def run(output, *, tray_lifecycle=False, staged=False):
             except BaseException:
                 result['error'] = traceback.format_exc()
             finally:
-                if tray_lifecycle and trays and result['ok']:
+                if restart_mode and result['ok']:
+                    from System import Action, Func, Int32
+                    from System.Diagnostics import Process
+                    native = window.native
+                    browser = native.browser.webview
+                    browser_pid = native.Invoke(Func[Int32](lambda: int(browser.CoreWebView2.BrowserProcessId)))
+                    browser_process = Process.GetProcessById(browser_pid)
+                    hwnd = native.Handle.ToInt64()
+                    app.save_before_close()
+                    if restart_mode == 'tray':
+                        native.Invoke(Action(native.Hide))
+                    elif restart_mode == 'busy':
+                        window.evaluate_js('setTimeout(()=>{while(true){}},50);true')
+                        time.sleep(.1)
+                    def after_close():
+                        import ctypes
+                        assert threading.current_thread() is threading.main_thread()
+                        assert native.IsDisposed and browser.IsDisposed
+                        assert app._main_window is None and not webview.windows
+                        assert not trays[0]._thread.IsAlive
+                        user = ctypes.WinDLL('user32')
+                        user.IsWindow.argtypes = [ctypes.c_void_p]
+                        assert not user.IsWindow(hwnd)
+                        assert browser_process.WaitForExit(5000), 'WebView2 browser did not exit'
+                        restart_completed.append(True)
+                        result['checks'].append('restart waits for disposed form/browser, vanished HWND and stopped tray/browser process: '+restart_mode)
+                    app.restart_desktop(after_close)
+                elif tray_lifecycle and trays and result['ok']:
                     from System import Action
                     tray = trays[0]
                     tray._dispatcher.BeginInvoke(Action(lambda: tray._icon.ContextMenuStrip.Items[1].PerformClick()))
@@ -297,12 +338,14 @@ def run(output, *, tray_lifecycle=False, staged=False):
                 done.set()
                 if result['ok']:
                     assert app._main_window is None and not webview.windows
+                    if restart_mode:
+                        assert restart_completed == [True]
                     state = json.loads((root/'data'/'desktop-state.json').read_text(encoding='utf-8'))
                     assert state['route'] == '/'
                     if tray_lifecycle:
                         assert state['draft'] == 'unsent draft'
                         assert not trays[0]._thread.IsAlive
-                        result['checks'].append('tray Quit saves draft and shuts down both native UI loops')
+                        result['checks'].append(('restart' if restart_mode else 'tray Quit')+' saves draft and shuts down both native UI loops')
                     result['checks'].append('native close completes and saves window state')
                 if code:
                     result['ok'] = False
@@ -316,6 +359,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--tray', action='store_true', help='Exercise real tray callbacks and visibility races')
     parser.add_argument('--staged', action='store_true', help='Use installed package instead of source checkout')
+    parser.add_argument('--restart', choices=['visible', 'tray', 'busy'], help='Verify native teardown before restart handover')
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    raise SystemExit(run(args.output, tray_lifecycle=args.tray, staged=args.staged))
+    raise SystemExit(run(args.output, tray_lifecycle=args.tray or bool(args.restart), staged=args.staged, restart_mode=args.restart))

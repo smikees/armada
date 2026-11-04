@@ -62,7 +62,7 @@ def begin(root, realm, port, version, scheduler_required):
     """Start a lease-free supervisor and wait for its acknowledgement before shutdown."""
     cleanup()
     from . import app, instance
-    app.save_window_state()
+    app.save_before_close()
     folder = util.data_dir() / 'restart' / uuid.uuid4().hex
     folder.mkdir(parents=True)
     worker = folder / 'restart_worker.py'

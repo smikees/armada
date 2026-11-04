@@ -23,7 +23,7 @@ def test_a_start_up_failure_is_logged_not_just_raised(monkeypatch, tmp_path, cap
 
 def test_restart_logs_what_it_re_executes():
     import inspect
-    src = inspect.getsource(serve.Handler._restart)
+    src = inspect.getsource(serve.Handler._finish_restart)
     assert 'log.info("restart: re-executing' in src and "log.exception" in src
 
 
@@ -57,5 +57,5 @@ def test_a_closed_socket_otherwise_is_still_an_error():
 
 def test_restart_raises_the_flag_before_it_closes_the_socket():
     import inspect
-    src = inspect.getsource(serve.Handler._restart)
+    src = inspect.getsource(serve.Handler._finish_restart)
     assert src.index("RESTARTING.set()") < src.index("self.server.socket.close()")

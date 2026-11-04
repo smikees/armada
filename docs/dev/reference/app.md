@@ -128,6 +128,14 @@ All native entry points claim the Windows user's shared instance first.
 
 Open ARMADA in a native window. Blocks until the window is closed.
 
+### `restart_desktop(after_close)`
+
+Run the handover on the main thread only after normal native teardown.
+
+### `save_before_close(timeout=2)`
+
+A stalled renderer must not trap an owner in update/quit indefinitely.
+
 ### `_finish_close(main, allowed)`
 
 —
