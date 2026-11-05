@@ -72,6 +72,7 @@
 | [`execution`](execution.md) | Own agent turns across HTTP, plain chat, jobs, inbox and Telegram. |
 | [`fonts`](fonts.md) | The app's font faces — a temporary Appearance setting (v0.99.62), to become part of themes/skins. |
 | [`goals`](goals.md) | Realm goals — the objectives agents actively advance (distinct from passive memory). |
+| [`http_limits`](http_limits.md) | Bound local HTTP input before allocating request workers. |
 | [`icons`](icons.md) | Icon subsystem — the single source of every SVG the UI draws. |
 | [`inbox`](inbox.md) | Agent-to-agent delegation — an inbox per agent. |
 | [`inspection`](inspection.md) | Owner-approved inspector authority and registered, read-only artifact access. |

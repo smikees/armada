@@ -29,6 +29,18 @@ Last confirmed usable connections, without running a CLI during rendering.
 
 —
 
+### `_probe(provider, force)`
+
+Observe the CLI once; callers apply current connection/login state afterwards.
+
+### `_observation(provider, force)`
+
+—
+
+### `_present(provider, observation)`
+
+—
+
 ### `status(provider, force=False)`
 
 —

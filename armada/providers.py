@@ -6,11 +6,15 @@ blocks new Armada calls without signing other applications out or changing store
 from __future__ import annotations
 
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from . import appconfig, util
 
 NAMES = {"claude": "Claude", "codex": "Codex", "gemini": "Gemini"}
 _lock = threading.RLock()
+_probe_lock = threading.Lock()
+_probe_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="provider-status")
+_probes = {}
 
 
 def _check(provider):
@@ -34,7 +38,10 @@ def _save(provider, **values):
     with util.file_lock(path):
         cfg = appconfig.load()
         connections = cfg.setdefault("provider_connections", {})
-        connections.setdefault(provider, {}).update(values)
+        state = connections.setdefault(provider, {})
+        if all(key in state and state[key] == value for key, value in values.items()):
+            return
+        state.update(values)
         util.write_json_atomic(path, cfg)
 
 
@@ -49,10 +56,9 @@ def observed():
     return bool(appconfig.get("provider_connections", {}))
 
 
-def status(provider, force=False):
-    _check(provider)
+def _probe(provider, force):
+    """Observe the CLI once; callers apply current connection/login state afterwards."""
     from .engine import get_engine
-    from . import provider_login, provider_install
     installed = bool(get_engine(provider)._launcher())
     if provider == "claude":
         from . import auth
@@ -73,6 +79,24 @@ def status(provider, force=False):
                 raw["version"] = match.group() if version.returncode == 0 and match else ""
             except (OSError, subprocess.SubprocessError):
                 raw["version"] = ""
+    return installed, raw
+
+
+def _observation(provider, force):
+    _check(provider)
+    # Join an in-flight refresh, including explicit Refresh clicks. Completed
+    # observations are not cached here: each engine owns its freshness policy.
+    with _probe_lock:
+        future = _probes.get(provider)
+        if future is None or future.done():
+            future = _probe_pool.submit(_probe, provider, force)
+            _probes[provider] = future
+        return future
+
+
+def _present(provider, observation):
+    from . import provider_login, provider_install
+    installed, raw = observation
     logged = installed and raw.get("ok") is True and raw.get("logged_in") is True
     usable = logged and raw.get("version_ok", True)
     with _lock:
@@ -87,11 +111,14 @@ def status(provider, force=False):
             "connected": bool(enabled and usable)}
 
 
+def status(provider, force=False):
+    return _present(provider, _observation(provider, force).result())
+
+
 def statuses(force=False):
-    # A status request is I/O, not a page-render dependency.
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=len(NAMES)) as pool:
-        return dict(zip(NAMES, pool.map(lambda p: status(p, force), NAMES)))
+    # One bounded executor for the app, rather than three new workers per poll.
+    pending = {p: _observation(p, force) for p in NAMES}
+    return {p: _present(p, future.result()) for p, future in pending.items()}
 
 
 def disconnect(provider):

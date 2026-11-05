@@ -12,6 +12,7 @@ import http.server, io, json, logging, os, socket, subprocess, sys, threading, t
 from pathlib import Path
 from . import activerealm, reader, render, scheduler, util, brand, origins, local_auth
 from .util import safe_seg
+from .http_limits import BoundedHTTPServer, RequestError, read_body
 from .routes import realm as routes_realm, agents as routes_agents, jobs as routes_jobs
 from .routes import caps as routes_caps, catalogue as routes_catalogue, settings as routes_settings
 from .routes import dashboard as routes_dashboard, _shared as routes_shared
@@ -36,6 +37,13 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
               routes_shared.SharedRoutes, http.server.BaseHTTPRequestHandler):
     realm = "."
     from .execution import ACTIVE_RUNS as _streams, RUNS_LOCK as _streams_lock
+
+    def handle(self):
+        # One request per connection: a second request must pass admission again.
+        # Streaming responses can still remain open until their operation ends.
+        self.close_connection = True
+        self.handle_one_request()
+        self.close_connection = True
 
     def _bind_request(self, *, mutation=False):
         """Capture once per HTTP request, including reused connections, before dispatching work."""
@@ -126,18 +134,8 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
     def _body(self) -> dict:
         if getattr(self, "_body_cache", None) is not None:
             return self._body_cache
-        n = int(self.headers.get("Content-Length", 0) or 0)
-        if not n:
-            self._body_cache = {}
-            return {}
-        try:
-            value = json.loads(self.rfile.read(n).decode("utf-8-sig"))
-            self._body_cache = value if isinstance(value, dict) else {}
-            return self._body_cache
-        except Exception:  # noqa
-            log.debug('_body: failed; returning a fallback', exc_info=True)
-            self._body_cache = {}
-            return {}
+        self._body_cache = read_body(self)
+        return self._body_cache
 
     def _same_origin(self) -> bool:
         """CSRF guard: a local server is reachable by any page in the browser. Block a mutating
@@ -425,6 +423,11 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         try:
             self._bind_request(mutation=True)
             self._route_post()
+        except RequestError as e:
+            self.close_connection = True
+            self._json(e.status, {"ok": False, "error": str(e)})
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            return
         except RealmMismatch as e:
             self._json(409, {"ok": False, "error": str(e), "code": "realm_mismatch"})
         except util.FileLockTimeout as e:
@@ -782,7 +785,7 @@ def _init_logging(realm: str) -> None:
     util.init_logging("armada.log")
 
 
-class _Server(http.server.ThreadingHTTPServer):
+class _Server(BoundedHTTPServer):
     """The cockpit's HTTP server.
 
     Windows SO_REUSEADDR allows two live listeners to bind the same address. Use

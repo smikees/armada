@@ -215,20 +215,17 @@ class SettingsRoutes:
         return _n.mark_read(self.realm)
 
     def _get_auth_status(self):
-        from .. import auth
+        from .. import auth, providers
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         provider = (q.get("provider") or ["claude"])[0]
-        if provider in ("codex", "gemini"):
-            from ..engine import get_engine
-            self._json(200, get_engine(provider).auth_status())
-            return
-        if provider != "claude":
+        if provider not in providers.NAMES:
             self._json(400, {"ok": False, "error": "Unknown provider"})
             return
-        st = dict(auth.status(force=(q.get("force") or [""])[0] == "1"))
+        st = providers.status(provider, force=(q.get("force") or [""])[0] == "1")
+        if provider != "claude":
+            self._json(200, st)
+            return
         st["app_session"] = _APP_SESSION_ID
-        from .. import providers
-        st["enabled"] = providers.allowed("claude")
         st["notice_enabled"] = st["enabled"] and not any(p in providers.connected() for p in ("codex", "gemini"))
         from ..alexander import MIN_CLAUDE_CODE
         st["min_version"] = MIN_CLAUDE_CODE          # what Alexander's model needs (setup wizard)
