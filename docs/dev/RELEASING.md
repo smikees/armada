@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.98. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.124. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
 on [armada.stamih.com](https://armada.stamih.com).
@@ -98,8 +98,9 @@ the tests now guard).
 ## 5. Ship to the running app
 
 Windows installations live at `%LOCALAPPDATA%\Programs\ARMADA` by default.
-Version 0.99.75 requires a full installer upgrade from older betas: the old runtime lacks the stable
-bootstrap and timezone data. Wait for active jobs to finish, run the installer and reopen ARMADA;
+Version 0.99.124 requires a full installer upgrade from older betas: a package-only update
+cannot replace their older Python runtime. Wait for active jobs to finish, quit ARMADA,
+run the installer and reopen it;
 verify the authenticated version endpoint. It preserves realms and settings. A private unsigned
 candidate may be installed locally when the maintainer requests it, clearly recording that public release
 validation is outstanding. It must not be published as the Application Control fix.

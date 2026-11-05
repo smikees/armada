@@ -12,11 +12,14 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.124** is the runtime-security candidate for M3. It upgrades the
+Version **0.99.124** is the published runtime-security release for M3. It upgrades the
 bundled interpreter to Python 3.14.10, shares one runtime definition across both
 builders and the native launcher, and includes the Python patch in compatibility
-tags. Versions before 0.99.124 need the full installer. Targeted/new-runtime native
-preflight passed; full release validation and publication remain pending.
+tags. Versions before 0.99.124 need the full installer. The pinned gate passed
+4,001 tests (6 skipped); both exact-source Windows CI jobs passed 4,003 (4 skipped).
+Packaged recovery/session/tray/restart and 74 signed upgrade/boundary checks passed.
+Public assets, signatures and website links verified; the owner app was untouched.
+Publisher signing and clean-machine GUI acceptance remain unverified. M4 is next.
 [Runtime contract](dev/RUNTIME_SECURITY.md) · [Release evidence](dev/RELEASE_0_99_124.md).
 
 Version **0.99.123** is the published security containment release for the
@@ -28,7 +31,7 @@ armada.stamih.com after 3,988 isolated tests passed (6 skipped), both exact-sour
 Windows CI jobs, packaged recovery/session/tray/restart gates and 72 signed-upgrade
 checks. A diagnosed native probe ordering race was corrected before publication.
 Public signatures, package bytes, installer hash and website links were verified;
-the owner's app was not restarted. M1/M2 are released; M3's runtime upgrade is next.
+the owner's app was not restarted. M1/M2 are released.
 [Release evidence](dev/RELEASE_0_99_123.md).
 
 Version **0.99.122** replaces abrupt desktop update exit with normal native teardown

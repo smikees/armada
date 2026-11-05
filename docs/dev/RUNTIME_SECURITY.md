@@ -1,6 +1,6 @@
 # Windows runtime security baseline
 
-The 0.99.124 candidate moves the Windows installer from Python 3.12.10 to
+Release 0.99.124 moves the Windows installer from Python 3.12.10 to
 **Python 3.14.10 x64**, the maintained 3.14 binary line. The source of truth is
 `armada/runtime_spec.py`: version, full security baseline, Python ABI/DLL/path
 names, archive URL/hash, upstream SPDX URL/hash, and first required app installer.
@@ -27,14 +27,14 @@ the mismatching evidence. Successful cache writes use atomic replacement.
 Each installer also carries `runtime-inventory.json`: the actual staged Python,
 OpenSSL, SQLite and zlib versions, all pinned Python packages, runtime tag and
 upstream provenance. The build refuses a staged interpreter with the wrong patch.
-The observed candidate uses OpenSSL 3.5.9, SQLite 3.50.4 and zlib 1.3.1.zlib-ng.
+The released build uses OpenSSL 3.5.9, SQLite 3.50.4 and zlib 1.3.1.zlib-ng.
 The upstream inventory may describe components beyond the embeddable payload;
 the generated local inventory describes the libraries actually queried.
 
 The nine package pins are unchanged. Public PyPI version metadata reported no
 advisories for those pins on the review date. That is a dated metadata check,
 not a guarantee that all vulnerabilities are known. Python.NET and WebView2
-imports and the compiled launcher/native tray preflight passed on the candidate.
+imports and the compiled launcher/native lifecycle gates passed on the released build.
 
 ## Upgrade contract
 
@@ -59,6 +59,12 @@ record. It restores the staged marker even on failure. This probe runs the previ
 client under the new staged interpreter; it does not claim to execute the full
 installer or test an old interpreter. An isolated preserved old runtime can supply
 additional migration evidence.
+
+Release 0.99.124 passed the full pinned suite, exact-source Windows CI and all
+packaged native gates. The additional preserved Python 3.12.10 preflight also
+passed; it tested the same application payload before the release-helper import
+correction. See [release evidence](RELEASE_0_99_124.md) for exact source and hashes,
+the clean-machine prerequisite failure and the unmodified owner installation.
 
 ## Required evidence and acceptance limits
 

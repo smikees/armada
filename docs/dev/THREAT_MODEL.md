@@ -1,11 +1,13 @@
 # ARMADA threat model
 
 
-**Runtime baseline update (5 November 2026, 0.99.124 candidate):** the installer now
+**Runtime baseline update (5 November 2026, released 0.99.124):** the installer now
 uses the pinned Python 3.14.10 Windows runtime and verifies its archive and upstream
 inventory. Full-patch runtime tags prevent compatible package updates from claiming
-to replace an old interpreter. Final release/clean-machine evidence remains pending;
-see [the runtime security contract](RUNTIME_SECURITY.md). Historical findings below
+to replace an old interpreter. Isolated, exact-source CI and native upgrade gates
+passed; publisher signing and clean-machine GUI acceptance remain unverified.
+See [the runtime security contract](RUNTIME_SECURITY.md) and
+[release evidence](RELEASE_0_99_124.md). Historical findings below
 remain historical unless superseded by verified release evidence.
 
 **2026-11-05 containment update (0.99.123):** scoped filesystem writes now share a
@@ -19,7 +21,7 @@ regressions cover sibling-path escapes and the content-server fallback.
 These are tool/application boundaries, not a sandbox against same-account malware.
 The dated sections below retain their historical context. Current policy details
 are in [Access policy](ACCESS_POLICY.md); broader documentation consolidation and
-remaining runtime/HTTP/recovery work are tracked in the
+remaining HTTP/recovery work are tracked in the
 [stabilization plan](STABILIZATION_PLAN_2026_11.md).
 
 *Phase 5, step 5.8. Written 2026-09-24 (Opus 5.5) against v0.99.44, updated for v0.99.46, from the code, not from how

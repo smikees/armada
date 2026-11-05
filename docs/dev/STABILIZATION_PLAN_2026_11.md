@@ -22,7 +22,7 @@ with a checklist update and owner progress report after each implementation mile
 |---|---|---|---|---|
 | M1 | Protect control records: one shared classification; scoped raw writes cannot change live jobs, approvals, history, configuration or managed state. Keep artifacts writable and legitimate mutations behind validated operations. | Broad own-folder grants refuse control writes, preserve bytes and emit audit warnings; builder/owner behavior and existing provider policy tests pass. | **Verified; released 0.99.123** | Pending |
 | M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; released 0.99.123** | Pending |
-| M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Implemented; release validation in progress** | Pending |
+| M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Verified; released 0.99.124** | Pending |
 | M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | Pending | Pending |
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | Pending | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | Pending | Pending |
@@ -155,3 +155,27 @@ tool filtering and guarded file operations are not a hostile-code sandbox.
 - Prepared 0.99.124, owner upgrade instructions and runtime/security documentation.
   Full isolated/CI, packaged checks, Sandbox evidence and publication are pending.
   No owner app was restarted. Acceptance remains separate.
+
+### M3 published — 5 November 2026
+
+- Released 0.99.124 from `e3bd5f2` on GitHub and armada.stamih.com. Public update
+  signature, package/source bytes, installer hash and website links all verified.
+- Final pinned gate: 4,001 passed / 6 skipped. Both exact-source Windows CI jobs:
+  4,003 passed / 4 skipped; relay passed. Each suite reported one Python 3.14
+  syntax warning for the existing voice-queue `return` in `finally`; include its
+  exception-preservation cleanup in M8 rather than suppressing the warning.
+- Packaged launcher recovery passed five interruption points; WebView2 sessions
+  passed 16 checks, tray 68, each restart case 69, and signed upgrade/boundary 74.
+  An additional preserved Python 3.12.10 / 0.99.123 preflight also refused the new
+  runtime without downloading code or changing synthetic pending work.
+- The isolated build host exposed a script-directory import assumption in release
+  helpers. Explicit repository-package imports fixed it; 42 focused checks and
+  the complete release gates then passed against the final source.
+- Full installer required from 0.99.123 and earlier. The runtime definition,
+  archive/inventory verification and generated component inventory are shipped.
+  Exact-installer Sandbox rehearsal completed with 23 passed checks and one
+  WebView2 prerequisite failure; clean-machine GUI acceptance is not passed.
+  Windows publisher signing and clean-machine GUI acceptance remain limited by
+  the existing maintenance distribution; see the exact [release evidence](RELEASE_0_99_124.md).
+- Owner app and live realms untouched. Maintainer acceptance remains pending.
+  Next: M4, bounded HTTP input/workers and coalesced provider-status refresh.
