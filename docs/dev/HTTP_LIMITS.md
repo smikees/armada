@@ -19,7 +19,8 @@ The gate consumes partial headers without creating a thread for each socket.
 Only complete headers reach a handler. A connection carries one request; streaming
 responses remain open until their operation finishes, but another request must
 pass admission on another connection. Server close releases pending and active
-sockets, including refusal drains. Keeping the read half briefly avoids Windows
+sockets, including refusal drains. Gate refusals and handler error responses share this drain. Keeping the read half
+briefly avoids Windows
 discarding a refusal response with a reset when input is still unread. Refusal
 delivery remains best-effort under continuous flooding or client disconnects.
 Application work does not automatically replay when a connection closes.
@@ -39,7 +40,8 @@ do not rewrite the configuration file.
 
 These limits bound application resource consumption; they do not promise service
 availability against a continuously flooding local process. A saturated control
-lane can still return 503. Slow response readers can occupy their lane until a
+lane can still return 503. The reserve controls server admission, not browser
+connection pools or renderer responsiveness. Slow response readers can occupy their lane until a
 write times out; execution admission and job cancellation remain separate controls.
 
 Regression evidence lives in `test_http_limits.py`, `test_provider_refresh.py` and

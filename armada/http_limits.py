@@ -91,10 +91,13 @@ class _Input(io.RawIOBase):
 
 
 class _Connection:
-    def __init__(self, sock, prefix):
+    def __init__(self, sock, prefix, server):
         self.socket = sock
         self.prefix = prefix
         self.deadline = time.monotonic() + BODY_SECONDS
+        self.server = server
+        self.refused = False
+        self.closed = False
 
     def makefile(self, mode, buffering=-1):
         if mode == "rb":
@@ -105,8 +108,23 @@ class _Connection:
         self.socket.settimeout(WRITE_SECONDS)
         return self.socket.sendall(data)
 
+    def close(self):
+        if self.closed:
+            return
+        self.closed = True
+        if self.refused:
+            self.server._drain_refusal(self.socket)
+        else:
+            self.socket.close()
+
     def __getattr__(self, name):
         return getattr(self.socket, name)
+
+
+def defer_refusal(connection):
+    """Preserve a handler's error response while the client finishes sending input."""
+    if isinstance(connection, _Connection):
+        connection.refused = True
 
 
 def _send_refusal(sock, status):
@@ -184,6 +202,16 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
 
     def _refuse(self, sock, status):
         if not _send_refusal(sock, status):
+            return
+        self._drain_refusal(sock)
+
+    def _drain_refusal(self, sock):
+        # shutdown_request already closed a handler connection's write half.
+        # Gate refusals do that in _send_refusal. Both now share the same bound.
+        try:
+            sock.setblocking(False)
+        except OSError:
+            sock.close()
             return
         with self._gate_lock:
             if self._closing:
@@ -266,7 +294,7 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
         if not slot.acquire(blocking=False):
             self._refuse(sock, 503)
             return
-        connection = _Connection(sock, prefix)
+        connection = _Connection(sock, prefix, self)
         with self._gate_lock:
             if self._closing:
                 slot.release()

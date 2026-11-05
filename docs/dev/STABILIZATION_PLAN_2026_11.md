@@ -54,6 +54,9 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 - The full gate caught Windows resetting refused connections with unread input.
   Added bounded, worker-free refusal draining; 315 focused regressions and all
   79 native thread-window checks passed after the correction.
+- The corrected header gate passed 4,037 full tests. A related delayed-upload
+  probe then reproduced handler-error resets; the same bounded drain now covers
+  handler errors. 318 regressions and all 79 native checks pass; final gates rerun.
 - Full pinned, exact-source CI, packaged browser and upgrade checks are pending for
   0.99.126. [Resource contract and limits](HTTP_LIMITS.md). Maintainer acceptance pending.
 

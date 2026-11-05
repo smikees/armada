@@ -15,6 +15,7 @@ native window; today it's the browser reaching http://127.0.0.1:<port>.
 - `Handler.handle(self)` — —
 - `Handler._bind_request(self, *, mutation=False)` — Capture once per HTTP request, including reused connections, before dispatching work.
 - `Handler._send(self, code, body, ctype='text/html; charset=utf-8', cache: str='', csp: str='')` — —
+- `Handler.send_error(self, code, message=None, explain=None)` — —
 - `Handler._json(self, code, obj)` — —
 - `Handler._query(self)` — —
 - `Handler._body(self)` — —

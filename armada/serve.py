@@ -12,7 +12,7 @@ import http.server, io, json, logging, os, socket, subprocess, sys, threading, t
 from pathlib import Path
 from . import activerealm, reader, render, scheduler, util, brand, origins, local_auth
 from .util import safe_seg
-from .http_limits import BoundedHTTPServer, RequestError, read_body
+from .http_limits import BoundedHTTPServer, RequestError, read_body, defer_refusal
 from .routes import realm as routes_realm, agents as routes_agents, jobs as routes_jobs
 from .routes import caps as routes_caps, catalogue as routes_catalogue, settings as routes_settings
 from .routes import dashboard as routes_dashboard, _shared as routes_shared
@@ -88,6 +88,8 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
             self.realm = current.root  # instance shadow: later selector changes cannot retarget this request
 
     def _send(self, code, body, ctype="text/html; charset=utf-8", cache: str = "", csp: str = ""):
+        if code >= 400:
+            defer_refusal(self.connection)
         ctx = getattr(self, "request_context", None)
         if (ctx and isinstance(body, str) and ctype.startswith("text/html")
                 and not getattr(self, "_sandbox_this", False) and not getattr(self, "_CONTENT_ONLY", False)):
@@ -123,6 +125,10 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
             self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(b)
+
+    def send_error(self, code, message=None, explain=None):
+        defer_refusal(self.connection)
+        return super().send_error(code, message, explain)
 
     def _json(self, code, obj):
         self._send(code, json.dumps(obj), "application/json; charset=utf-8")

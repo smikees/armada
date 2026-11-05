@@ -170,6 +170,27 @@ def test_refused_client_cannot_keep_drain_socket_open(server):
         assert health(server) == 200
 
 
+@pytest.mark.parametrize("extra,status,authorized", [
+    (b"Content-Length: 16777217\r\n", 413, True),
+    (b"Content-Length: 100\r\nContent-Length: 100\r\n", 400, True),
+    (b"Content-Length: 131072\r\n", 401, False),
+])
+def test_handler_error_survives_upload_arriving_after_headers(server, extra, status, authorized):
+    with connect(server) as sock:
+        packet = headers(server, extra)
+        if not authorized:
+            packet = packet.replace(b"Authorization: Bearer " + server.auth.token.encode() + b"\r\n", b"")
+        sock.sendall(packet)
+        reply = http.client.HTTPResponse(sock)
+        reply.begin()
+        assert reply.status == status
+        # Model the upload writer racing the error reader. Already-rejected
+        # input must be drained without resetting the response or dispatching it.
+        sock.sendall(b"x" * 131072)
+        assert reply.read()
+    assert server.calls == []
+
+
 def test_saturated_body_and_stream_lanes_leave_control_capacity(server):
     sockets = []
     try:

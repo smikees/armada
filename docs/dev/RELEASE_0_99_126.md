@@ -63,3 +63,16 @@ including 20 repeated oversized requests with unread bytes and a refusal-drain
 expiry check. The strengthened native thread-window probe passed all 79 checks
 again on the corrected source. Full pinned and exact-source CI gates restart for
 this commit; the prior failed candidate was not published.
+
+## Handler refusal follow-up
+
+The corrected header-gate candidate passed its full suite: **4,037 passed, six
+skipped**. Before publication, a related synthetic delayed-upload probe reproduced
+30/30 connection aborts when an oversized body arrived after a handler's rejection.
+No request reached mutation dispatch, but the client could lose the error response.
+
+Handler error responses, including standard HTTP parsing errors, now share the
+same bounded refusal drain. Regression cases cover late input after 400, 401 and
+413 responses, without dispatching an action. **318 focused checks** and all
+**79 native thread-window checks** passed on this extension. The final release gate
+runs again against the new source; the previous candidate was not published.

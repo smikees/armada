@@ -28,10 +28,15 @@ Strict framing and JSON; invalid input must never become an empty mutation.
 
 —
 
-- `_Connection.__init__(self, sock, prefix)` — —
+- `_Connection.__init__(self, sock, prefix, server)` — —
 - `_Connection.makefile(self, mode, buffering=-1)` — —
 - `_Connection.sendall(self, data)` — —
+- `_Connection.close(self)` — —
 - `_Connection.__getattr__(self, name)` — —
+
+### `defer_refusal(connection)`
+
+Preserve a handler's error response while the client finishes sending input.
 
 ### `_send_refusal(sock, status)`
 
@@ -46,6 +51,7 @@ One header gate, at most 44 request workers, no unbounded worker queue.
 - `BoundedHTTPServer._wake(self)` — —
 - `BoundedHTTPServer.process_request(self, request, address)` — —
 - `BoundedHTTPServer._refuse(self, sock, status)` — —
+- `BoundedHTTPServer._drain_refusal(self, sock)` — —
 - `BoundedHTTPServer._headers(self)` — —
 - `BoundedHTTPServer._dispatch(self, sock, address, prefix)` — —
 - `BoundedHTTPServer.server_close(self)` — —
