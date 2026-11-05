@@ -6,11 +6,11 @@
 
 Runs on Windows (the build machine), with `uv` and Inno Setup 7 installed. What it does:
 
-1. Unpacks the python.org **embeddable** Python 3.12.10 (pinned by SHA-256) into
+1. Unpacks the python.org **embeddable** Python in armada.runtime_spec (pinned by SHA-256) into
    `build/installer/ARMADA/python/`, and edits its `._pth` so the install folder (where `armada\\`
    lives) and `Lib\\site-packages` are on the path. Nothing else is: the `._pth` file puts Python in
    isolated mode, so no PYTHONPATH, user site-packages or other Python on the machine can leak in.
-2. Installs the pinned `requirements.txt` into that `site-packages` for Windows/3.12
+2. Installs the pinned `requirements.txt` into that `site-packages` for the target Windows/Python ABI
    (`uv pip install --target …`): prebuilt wheels for every package with compiled or .NET parts,
    so nothing is compiled at build time.
 3. Copies the committed `armada/` package (git ls-files — no local caches or keys), plus the
@@ -45,12 +45,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-PY_VERSION = "3.12.10"
-PY_URL = f"https://www.python.org/ftp/python/{PY_VERSION}/python-{PY_VERSION}-embed-amd64.zip"
-# SHA-256 of that file, taken 2026-09-24 after checking its MD5 against python.org's release page
-# (fe8ef205f2e9c3ba44d0cf9954e1abd3). A different file is refused.
-PY_SHA256 = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
-PTH_NAME = "python312._pth"
+from armada import runtime_spec, util
+
+PY_VERSION = runtime_spec.PYTHON_VERSION
+PY_URL = runtime_spec.PYTHON_URL
+PY_SHA256 = runtime_spec.PYTHON_SHA256
+PTH_NAME = runtime_spec.PYTHON_PTH
 
 CACHE = ROOT / "build" / "cache"
 STAGE_ROOT = ROOT / "build" / "installer"
@@ -87,24 +87,36 @@ def _git(*args) -> str:
     return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True, check=True).stdout
 
 
-def _embeddable() -> Path:
+def _pinned_download(url: str, expected: str) -> Path:
     CACHE.mkdir(parents=True, exist_ok=True)
-    z = CACHE / Path(PY_URL).name
+    z = CACHE / Path(url).name
     if not z.exists():
-        say(f"downloading {PY_URL}")
-        with urllib.request.urlopen(PY_URL, timeout=120) as r, open(z, "wb") as f:
-            shutil.copyfileobj(r, f)
+        say(f"downloading {url}")
+        with urllib.request.urlopen(url, timeout=120) as response:
+            data = response.read(32 * 1024 * 1024)
+        if hashlib.sha256(data).hexdigest() != expected:
+            sys.exit(f"{z.name}: download does not match the pinned SHA-256 — refusing it")
+        with tempfile.NamedTemporaryFile(dir=CACHE, delete=False) as temporary:
+            temporary.write(data)
+            name = Path(temporary.name)
+        try:
+            os.replace(name, z)
+        finally:
+            name.unlink(missing_ok=True)
     got = hashlib.sha256(z.read_bytes()).hexdigest()
-    if got != PY_SHA256:
-        z.unlink()
-        sys.exit(f"{z.name}: SHA-256 {got} is not the pinned {PY_SHA256} — refusing it")
+    if got != expected:
+        sys.exit(f"{z.name}: SHA-256 {got} is not the pinned {expected} — refusing it")
     return z
+
+
+def _embeddable() -> Path:
+    return _pinned_download(PY_URL, PY_SHA256)
 
 
 def pth_text() -> str:
     """The embeddable Python's path file. Paths are relative to the python\\ folder: `..` is the
     install folder, where `armada\\` sits, so `pythonw -m armada` works from any working folder."""
-    return ("python312.zip\n"
+    return (runtime_spec.PYTHON_ZIP + "\n"
             ".\n"
             "..\n"
             "Lib\\site-packages\n"
@@ -165,7 +177,7 @@ def stage(ver: str) -> Path:
     # wheel on PyPI (proxy-tools 0.1.0, pywebview's) is packaged from its source, which is safe
     # across platforms because there's nothing in it to compile.
     binary_only = [a for n in ("cffi", "pythonnet", "clr-loader", "pywebview") for a in ("--only-binary", n)]
-    subprocess.run(["uv", "pip", "install", "--target", str(site), "--python-version", "3.12",
+    subprocess.run(["uv", "pip", "install", "--target", str(site), "--python-version", runtime_spec.PYTHON_MINOR,
                     "--python-platform", "x86_64-pc-windows-msvc", *binary_only,
                     "--no-cache", "-r", str(ROOT / "requirements.txt")], check=True)
     for junk in site.glob("bin"):
@@ -193,6 +205,8 @@ def stage(ver: str) -> Path:
             shutil.copy2(f, dest)
     if (py / "LICENSE.txt").exists():                    # the embeddable zip carries Python's own
         shutil.copy2(py / "LICENSE.txt", lic / f"python-{PY_VERSION}-LICENSE.txt")
+    sbom = _pinned_download(runtime_spec.SBOM_URL, runtime_spec.SBOM_SHA256)
+    shutil.copy2(sbom, lic / sbom.name)
 
     say("ARMADA (committed files only)")
     files = [f for f in _git("ls-files", "--", "armada").splitlines() if f]
@@ -208,10 +222,22 @@ def stage(ver: str) -> Path:
     _build_branded_launcher(py)
 
     from armada import updater
-    runtime = updater.runtime_tag((ROOT / "requirements.txt").read_text(encoding="utf-8"), "3.12")
-    (STAGE / updater.MARKER.name).write_text(json.dumps(
-        {"runtime": runtime, "version": ver, "python": PY_VERSION, "channel": "github"}, indent=2),
-        encoding="utf-8")
+    runtime = updater.runtime_tag((ROOT / "requirements.txt").read_text(encoding="utf-8"))
+    details = subprocess.run([str(py/'python.exe'), '-c',
+        'import json,sys,ssl,sqlite3,zlib; print(json.dumps(dict('
+        'python=".".join(map(str,sys.version_info[:3])),openssl=ssl.OPENSSL_VERSION,'
+        'sqlite=sqlite3.sqlite_version,zlib=zlib.ZLIB_RUNTIME_VERSION)))'],
+        capture_output=True, text=True, check=True, timeout=30)
+    components = json.loads(details.stdout)
+    if components['python'] != PY_VERSION:
+        sys.exit('Staged Python does not match the pinned security baseline')
+    util.write_json_atomic(STAGE/'runtime-inventory.json', {
+        'format': 1, 'runtime': runtime, 'python': PY_VERSION, 'packages': have,
+        'components': components, 'python_url': PY_URL, 'python_sha256': PY_SHA256,
+        'upstream_sbom': 'licenses/' + sbom.name, 'upstream_sbom_sha256': runtime_spec.SBOM_SHA256,
+    })
+    util.write_json_atomic(STAGE / updater.MARKER.name,
+        {"runtime": runtime, "version": ver, "python": PY_VERSION, "channel": "github"})
     say(f"staged {STAGE}  (runtime {runtime})")
     return STAGE
 
@@ -229,9 +255,13 @@ def _build_branded_launcher(py: Path) -> None:
                 if p.is_file()), None)
     if csc is None:
         sys.exit("The Windows .NET Framework C# compiler is required to build ARMADA.exe")
+    definition = STAGE_ROOT/'RuntimeDefinition.cs'
+    util.write_text_atomic(definition,
+        'internal static class RuntimeDefinition { internal const string PythonDll = '
+        + json.dumps(runtime_spec.PYTHON_DLL) + '; }\n')
     subprocess.run([str(csc), "/nologo", "/target:winexe", "/platform:x64", "/optimize+",
                     f"/win32icon:{STAGE / 'armada.ico'}", f"/out:{py / 'ARMADA.exe'}",
-                    str(ROOT / "installer" / "ArmadaLauncher.cs")], check=True)
+                    str(ROOT / "installer" / "ArmadaLauncher.cs"), str(definition)], check=True)
 
 
 def _webview2_bootstrapper() -> Path:

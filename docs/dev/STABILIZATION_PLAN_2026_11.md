@@ -22,7 +22,7 @@ with a checklist update and owner progress report after each implementation mile
 |---|---|---|---|---|
 | M1 | Protect control records: one shared classification; scoped raw writes cannot change live jobs, approvals, history, configuration or managed state. Keep artifacts writable and legitimate mutations behind validated operations. | Broad own-folder grants refuse control writes, preserve bytes and emit audit warnings; builder/owner behavior and existing provider policy tests pass. | **Verified; released 0.99.123** | Pending |
 | M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; released 0.99.123** | Pending |
-| M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | Pending | Pending |
+| M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Implemented; release validation in progress** | Pending |
 | M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | Pending | Pending |
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | Pending | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | Pending | Pending |
@@ -140,3 +140,18 @@ tool filtering and guarded file operations are not a hostile-code sandbox.
 - Next: M3. Initial Windows x64 / Python 3.14 dependency-resolution preflight
   succeeded for the nine existing pins; actual runtime/native compatibility and
   installer migration are not yet implemented or verified.
+
+### M3 implementation — 5 November 2026
+
+- Selected and verified Python 3.14.10 x64 from the maintained binary line. A shared
+  runtime definition supplies both builders, the generated launcher DLL constant,
+  wheel ABI and full-patch security baseline. Builds record actual components and
+  a separately verified upstream inventory.
+- Old runtime tags require the full installer before package download; matching
+  baselines still stage normally. The previous-client release probe also checks
+  refusal and preservation of synthetic data before a compatible native upgrade.
+- 104 focused checks passed on the new interpreter before the additional marker
+  recovery test; the compiled launcher and 68 real native tray checks also passed.
+- Prepared 0.99.124, owner upgrade instructions and runtime/security documentation.
+  Full isolated/CI, packaged checks, Sandbox evidence and publication are pending.
+  No owner app was restarted. Acceptance remains separate.

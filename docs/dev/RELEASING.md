@@ -163,7 +163,7 @@ report and first-window screenshot under build/sandbox-runs. To rehearse private
 The builder exercises interrupted-update recovery through the compiled native launcher and checks
 named timezones in its bundled runtime. The default suite isolates user homes, refuses external
 network connections and real provider launches, and skips live-realm checks unless --live-realm
-is explicitly supplied. CI tests both the packaged Python patch version and the current 3.12 patch.
+is explicitly supplied. CI tests both the packaged Python patch version and the current 3.14 patch.
 Review Python security updates before each release; refreshing the packaged runtime requires a
 new installer and another Sandbox rehearsal.
 

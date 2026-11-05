@@ -104,6 +104,59 @@ def font_checks(window, js, check):
     window.evaluate_js('document.getElementById("font-probe").remove()')
 
 
+def verify_runtime_boundary(root, previous, candidate, assets):
+    """Previous signed client code must refuse a package requiring a new installer.
+
+    Run under the staged interpreter with the previous installation's runtime tag.
+    This checks old-client behavior, not a clean-machine installer transition.
+    """
+    if previous['runtime'] == candidate['runtime']:
+        return {'required': False, 'ok': True, 'checks': []}
+    marker = root/'installed.json'
+    original = marker.read_bytes()
+    before = hashlib.sha256((root/'armada/__init__.py').read_bytes()).hexdigest()
+    settings = json.loads(original)
+    settings['runtime'] = previous['runtime']
+    home = root.parent/'boundary-home'
+    home.mkdir()
+    sentinel = home/'synthetic-pending-work.json'
+    sentinel.write_text('{"pending":true}', encoding='utf-8')
+    code = '''import hashlib,json,os
+from pathlib import Path
+from armada import updater
+assets=Path(os.environ['ARMADA_BOUNDARY_ASSETS'])
+asked=[]
+def fetch(url,limit):
+    name=url.rsplit('/',1)[-1]
+    asked.append(name)
+    assert not name.endswith('.zip'), 'Old runtime tried to download new code'
+    return (assets/name).read_bytes()
+result=updater.check(fetch=fetch)
+assert result.get('ok') and result.get('needs_installer'), result
+assert updater.state()['status']=='needs-installer'
+assert not updater.STAGED.exists(), 'Old runtime staged incompatible code'
+assert hashlib.sha256((updater.PKG/'__init__.py').read_bytes()).hexdigest()==os.environ['ARMADA_BOUNDARY_BEFORE']
+assert (Path(os.environ['HOME'])/'synthetic-pending-work.json').read_text()=='{"pending":true}'
+print(json.dumps({'ok':True,'checks':['previous client requires installer without downloading the package',
+    'runtime refusal preserves installed code and synthetic pending work']}))
+'''
+    env = {k:v for k,v in os.environ.items() if not k.startswith(('ARMADA_', 'PYTHON', 'VIRTUAL_ENV'))}
+    env.update({name:str(home) for name in ('HOME','USERPROFILE','APPDATA','LOCALAPPDATA')})
+    env.update(ARMADA_DATA_DIR=str(home/'.armada'), ARMADA_NO_EXTERNAL_NOTIFY='1',
+               ARMADA_BOUNDARY_ASSETS=str(assets.resolve()), ARMADA_BOUNDARY_BEFORE=before)
+    try:
+        marker.write_text(json.dumps(settings), encoding='utf-8')
+        from armada.background import process_options
+        child = subprocess.run([str(root/'python/python.exe'), '-c', code], cwd=root, env=env,
+            capture_output=True, text=True, timeout=30, **process_options())
+        if child.returncode:
+            raise RuntimeError('Previous-client runtime boundary failed: '+child.stderr[-2000:])
+        result = json.loads(child.stdout)
+        return dict(result, required=True, previous=previous['runtime'], candidate=candidate['runtime'])
+    finally:
+        marker.write_bytes(original)
+
+
 def verify(stage, previous, candidate, output):
     old, archive = validate_assets(previous)
     new, _ = validate_assets(candidate)
@@ -114,6 +167,7 @@ def verify(stage, previous, candidate, output):
         shutil.copytree(stage, root)
         shutil.rmtree(root/'armada')
         with zipfile.ZipFile(archive) as package: package.extractall(root)
+        boundary = verify_runtime_boundary(root, old, new, candidate)
         config = Path(scratch)/'probe.json'
         config.write_text(json.dumps({'root':str(root), 'home':str(Path(scratch)/'home'),
             'candidate':str(candidate.resolve()), 'output':str(output.resolve()),
@@ -135,6 +189,8 @@ def verify(stage, previous, candidate, output):
             else:
                 raise RuntimeError('Packaged upgrade gate timed out')
         result['checks'].append('isolated probe process tree fully stopped')
+        result['runtime_boundary'] = boundary
+        result['checks'].extend('runtime boundary: '+label for label in boundary['checks'])
         output.write_text(json.dumps(result,indent=2),encoding='utf-8')
         print(f"Native upgrade: {len(result['checks'])} real-page/restart/cleanup checks passed",flush=True)
         return result

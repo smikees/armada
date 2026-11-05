@@ -46,7 +46,7 @@ Update & Restart and the updater does nothing at all in it.
 
 ### `runtime_tag(requirements_text: str, python: str | None=None)`
 
-What the runtime this code needs is: the Python minor version plus the pinned requirements. An update may only replace the package folder when the new code needs the same runtime as the installed one; otherwise it needs a new installer. Comments and blank lines don't count.
+Required Python security baseline plus pinned requirements and bootstrap. An update may only replace the package folder when the new code needs the same runtime as the installed one; otherwise it needs a new installer. A Python patch change also requires an installer. Explicit older tags remain usable in migration tests. Comments and blank lines don't count; the build host's Python is irrelevant.
 
 ### `installed_runtime()`
 

@@ -1,4 +1,4 @@
-# ARMADA runtime dependencies — pinned to what the beta is built and tested with (Python 3.12).
+# ARMADA runtime dependencies — pinned to what the beta is built and tested with (Python 3.14).
 # The installer build (ADR-009) installs exactly these into the bundled Python; THIRD_PARTY_NOTICES.md
 # lists them with their licences. Everything else ARMADA uses is the standard library.
 #

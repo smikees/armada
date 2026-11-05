@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 import pytest
+from armada import runtime_spec
 
 ROOT = Path(__file__).resolve().parents[1]
 ISS = (ROOT / "installer" / "armada.iss").read_text(encoding="utf-8")
@@ -29,7 +30,7 @@ def test_the_path_file_puts_the_install_folder_and_site_packages_on_the_path():
     lines = _build().pth_text().splitlines()
     assert ".." in lines, "without the install folder on the path, `-m armada` can't find the package"
     assert "Lib\\site-packages" in lines and "import site" in lines
-    assert lines[0] == "python312.zip"
+    assert lines[0] == runtime_spec.PYTHON_ZIP
 
 
 def test_the_notices_table_matches_what_the_installer_bundles():
@@ -45,8 +46,8 @@ def test_a_package_without_its_own_licence_has_one_kept_in_the_repo():
 def test_the_python_download_is_pinned_by_hash():
     b = _build()
     assert re.fullmatch(r"[0-9a-f]{64}", b.PY_SHA256)
-    assert b.PY_URL.startswith("https://www.python.org/ftp/python/3.12.")
-    assert b.PTH_NAME == "python312._pth"
+    assert b.PY_URL == runtime_spec.PYTHON_URL
+    assert b.PTH_NAME == runtime_spec.PYTHON_PTH
 
 
 def test_the_shortcut_carries_the_same_app_id_as_the_window():

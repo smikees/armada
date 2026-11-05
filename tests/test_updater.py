@@ -23,7 +23,7 @@ from armada import appconfig, ed25519, scheduler, sysjobs, updater, util
 SEED = bytes(range(32))
 PUB = ed25519.public_key(SEED)
 REQ = "pywebview==6.2.1\nbottle==0.13.4\n"
-RUNTIME = updater.runtime_tag(REQ, "3.12")
+RUNTIME = updater.runtime_tag(REQ)
 
 
 # ---- Ed25519 against RFC 8032 §7.1 ---------------------------------------------------------------
@@ -158,6 +158,24 @@ def test_a_release_needing_a_new_runtime_isnt_downloaded(inst):
     r = updater.check(fetch=f)
     assert r["needs_installer"] and r["url"] == updater.RELEASES_PAGE
     assert not any(u.endswith(".zip") for u in f.asked) and not updater.staged_version()
+
+
+@pytest.mark.parametrize('installed_python', ['3.12', '3.14', '3.14.9', '3.14.10'])
+def test_full_python_security_baseline_controls_package_staging(inst, installed_python):
+    from armada import runtime_spec
+    required = updater.runtime_tag(REQ)
+    old = updater.runtime_tag(REQ, installed_python)
+    (inst/'installed.json').write_text(json.dumps({'runtime': old}))
+    original = (inst/'armada/__init__.py').read_bytes()
+    fetch = _release('1.1.0', runtime=required)
+    result = updater.check(fetch=fetch)
+    if installed_python == runtime_spec.PYTHON_VERSION:
+        assert result['staged'] == '1.1.0'
+    else:
+        assert result['needs_installer'] and updater.status()['status'] == 'needs-installer'
+        assert not any(url.endswith('.zip') for url in fetch.asked)
+        assert not updater.staged_version()
+    assert (inst/'armada/__init__.py').read_bytes() == original
 
 
 @pytest.mark.parametrize("name", ["armada/../evil.py", "evil.py", "/abs/armada/x.py", "C:/armada/x.py"])

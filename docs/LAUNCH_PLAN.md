@@ -12,6 +12,13 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
+Version **0.99.124** is the runtime-security candidate for M3. It upgrades the
+bundled interpreter to Python 3.14.10, shares one runtime definition across both
+builders and the native launcher, and includes the Python patch in compatibility
+tags. Versions before 0.99.124 need the full installer. Targeted/new-runtime native
+preflight passed; full release validation and publication remain pending.
+[Runtime contract](dev/RUNTIME_SECURITY.md) · [Release evidence](dev/RELEASE_0_99_124.md).
+
 Version **0.99.123** is the published security containment release for the
 [stabilization plan](dev/STABILIZATION_PLAN_2026_11.md). Scoped agents cannot rewrite
 live jobs or execution history through a broad folder grant; valid pending proposals

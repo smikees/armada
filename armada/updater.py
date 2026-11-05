@@ -57,7 +57,7 @@ import tempfile
 import armada_bootstrap as bootstrap
 from pathlib import Path
 
-from . import __version__, ed25519, util
+from . import __version__, ed25519, runtime_spec, util
 from .util import swallowed
 
 log = logging.getLogger("armada.updater")
@@ -93,10 +93,12 @@ def installed() -> bool:
 
 
 def runtime_tag(requirements_text: str, python: str | None = None) -> str:
-    """What the runtime this code needs is: the Python minor version plus the pinned requirements.
+    """Required Python security baseline plus pinned requirements and bootstrap.
     An update may only replace the package folder when the new code needs the same runtime as the
-    installed one; otherwise it needs a new installer. Comments and blank lines don't count."""
-    py = python or f"{sys.version_info[0]}.{sys.version_info[1]}"
+    installed one; otherwise it needs a new installer. A Python patch change also
+    requires an installer. Explicit older tags remain usable in migration tests.
+    Comments and blank lines don't count; the build host's Python is irrelevant."""
+    py = python or runtime_spec.PYTHON_VERSION
     lines = sorted(l.split("#", 1)[0].strip().lower() for l in requirements_text.splitlines())
     body = "\n".join(l for l in lines if l) + f"\nbootstrap:{bootstrap.PROTOCOL}"
     return f"py{py}-" + hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]

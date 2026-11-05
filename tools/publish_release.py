@@ -35,6 +35,7 @@ def _run(*cmd, **kw) -> str:
 
 def notes(ver: str, *, unsigned=False) -> str:
     from armada.webui import changelog
+    from armada import runtime_spec
     lines = next((ls for v, ls in changelog._CHANGELOG if v == ver), None)
     if not lines:
         sys.exit(f"no changelog entry for {ver}")
@@ -46,7 +47,8 @@ def notes(ver: str, *, unsigned=False) -> str:
             "ARMADA runs your agents through Claude Code (Anthropic), Codex CLI (OpenAI), or "
             "Antigravity CLI (Google/Gemini), using your connected accounts. The setup wizard "
             "checks installation and sign-in for all three engines.\n\n"
-            "**Upgrading from 0.99.81 or earlier:** run the new installer once to add startup recovery. "
+            f"**Upgrading from before {runtime_spec.INSTALLER_BASELINE_VERSION}:** run the full installer "
+            "to update ARMADA's bundled runtime. Let current work finish and quit ARMADA before running it. "
             "Your realms and settings are preserved. Later compatible "
             "updates install through Settings and verify the update signature.\n\n"
             "What's new:\n\n" + "\n".join(f"- {l}" for l in lines) +

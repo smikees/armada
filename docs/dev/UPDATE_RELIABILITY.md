@@ -1,5 +1,16 @@
 # Update reliability contract (0.99.82)
 
+## Runtime security baseline (0.99.124, November 2026)
+
+The Windows runtime definition is shared by the installer, launcher and signed
+package builder. Tags now include the full Python patch. Versions before 0.99.124
+require its full installer; later patch/dependency/bootstrap baseline changes also
+require an installer. The prior signed client is tested for refusal before package
+download, separately from compatible updates on the new runtime. See
+[runtime security](RUNTIME_SECURITY.md) for provenance and acceptance boundaries.
+
+## Existing update contract
+
 One desktop/server owner is enforced using the Windows token's profile directory,
 independent of realm, installation path, port, ARMADA_DATA_DIR, HOME and USERPROFILE.
 Native library launches claim the same guard as the CLI. A second launch requests

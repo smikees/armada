@@ -17,7 +17,7 @@ The installer ships a Python runtime and these packages (Windows beta).
 
 | Package | Version | Licence | Source |
 |---|---|---|---|
-| Python | 3.12 | PSF-2.0 | https://www.python.org |
+| Python | 3.14.10 | PSF-2.0 | https://www.python.org |
 | pywebview | 6.2.1 | BSD-3-Clause | https://pywebview.flowrl.com |
 | pythonnet | 3.1.0 | MIT | https://pythonnet.github.io |
 | clr-loader | 0.3.1 | MIT | https://github.com/pythonnet/clr-loader |

@@ -42,6 +42,13 @@ plus **Set for all agents** to apply them across the team.
 
 Check also lists Python and WebView2. The installer includes Python; it does not need a separate installation.
 
+### Updating to 0.99.124
+
+If you have 0.99.123 or earlier, this update needs the full installer to replace
+ARMADA's bundled runtime. Let current work finish, quit ARMADA, then download and
+run the installer from the release page. Your realms and settings stay in place.
+Later compatible updates continue to install through Settings.
+
 ## 2. Meet your team
 
 The **Overview** shows everyone. Click an agent to open their page, then **Threads** to talk to

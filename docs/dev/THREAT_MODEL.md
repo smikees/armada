@@ -1,5 +1,13 @@
 # ARMADA threat model
 
+
+**Runtime baseline update (5 November 2026, 0.99.124 candidate):** the installer now
+uses the pinned Python 3.14.10 Windows runtime and verifies its archive and upstream
+inventory. Full-patch runtime tags prevent compatible package updates from claiming
+to replace an old interpreter. Final release/clean-machine evidence remains pending;
+see [the runtime security contract](RUNTIME_SECURITY.md). Historical findings below
+remain historical unless superseded by verified release evidence.
+
 **2026-11-05 containment update (0.99.123):** scoped filesystem writes now share a
 control-record classification with inspector writes. Broad folder grants cannot
 rewrite live jobs, execution evidence, conversations, profiles or managed state.

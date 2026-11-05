@@ -1,5 +1,5 @@
 // Windowless, branded host for the private CPython runtime shipped with ARMADA.
-// It lives beside python312.dll and forwards CLI arguments to CPython in this
+// It lives beside the pinned Python DLL and forwards CLI arguments to CPython in this
 // process, so the native window and Task Manager both belong to ARMADA.exe.
 using System;
 using System.IO;
@@ -16,7 +16,7 @@ internal static class ArmadaLauncher
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool SetDllDirectory(string path);
 
-    [DllImport("python312.dll", CallingConvention = CallingConvention.Cdecl)]
+    [DllImport(RuntimeDefinition.PythonDll, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Py_Main(int argc, IntPtr argv);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]

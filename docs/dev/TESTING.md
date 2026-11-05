@@ -17,12 +17,12 @@ WebView2 session checks and **63** real packaged upgrade checks.
 
 ```powershell
 cd D:\Work\Development\MATCAP
-.venv\Scripts\python -m pytest -q -p no:cacheprovider                 # everything (~2–4 min)
+.venv\Scripts\python -m pytest -q -p no:cacheprovider                 # everything (duration varies)
 .venv\Scripts\python -m pytest -q tests\test_realm_format.py           # one file
 .venv\Scripts\python -m pytest -q -k "golden and settings"             # by name
 ```
 
-Python 3.12+. `-p no:cacheprovider` keeps `.pytest_cache` out of the tree.
+Use Python 3.14 with the pinned requirements and requirements-dev dependencies. `-p no:cacheprovider` keeps `.pytest_cache` out of the tree.
 
 **Know your baseline before you change anything.** Record the results on a clean tree to identify
 regressions, then run the isolated release gate with the final changes. A baseline failure is
