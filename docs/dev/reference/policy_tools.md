@@ -18,6 +18,7 @@ File writes are checked on every call; no shell operation is provided.
 - `PolicyTools.__init__(self, root, agent, audit, *, cancelled=None)` — —
 - `PolicyTools.tools(self)` — —
 - `PolicyTools.call(self, name, arguments)` — —
+- `PolicyTools._validated_content(self, path, content)` — —
 - `PolicyTools.__enter__(self)` — —
 - `PolicyTools.configure(self, engine)` — —
 

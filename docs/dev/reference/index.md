@@ -39,6 +39,7 @@
 | [`connector_registry`](connector_registry.md) | Logical connectors with explicit provider-local registrations; no credential copying. |
 | [`connector_runtime`](connector_runtime.md) | Provider-specific MCP connections for realm capabilities. |
 | [`connector_tools`](connector_tools.md) | Turn-scoped connector setup alongside normal tools; never grants data access. |
+| [`control_files`](control_files.md) | Shared classification of application state versus model-authored output. |
 | [`covenant`](covenant.md) | One shared governing document, named for the realm's chosen vocabulary. |
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
 | [`desktop_launch`](desktop_launch.md) | Start the desktop app with Explorer's lifetime and unvirtualized user context. |

@@ -19,6 +19,18 @@ from ..util import swallowed
 log = logging.getLogger("armada.serve")
 
 
+def _section_path(base, relative):
+    """Validate a section-relative file with the shared Windows-safe path guard."""
+    from ..tool_capture import _safe_path
+    if not isinstance(relative, str) or not relative or relative.endswith(('/', '\\')):
+        raise ValueError('Section paths must name a relative file.')
+    base = Path(base).absolute()
+    if (base.is_symlink() or getattr(base, 'is_junction', lambda: False)()
+            or getattr(base.lstat(), 'st_file_attributes', 0) & 0x400):
+        raise ValueError('Linked section roots are not allowed.')
+    return _safe_path(base, relative)
+
+
 class DashboardRoutes:
     def _get_add_section(self):
         from .. import webui
@@ -321,9 +333,10 @@ class DashboardRoutes:
         src = section.get("source")
         if not snap or not src:
             return
-        root = Path(self.realm).resolve()
-        dest = (Path(self.realm) / snap).resolve()
-        if not str(dest).startswith(str(root)):    # snapshot must live inside the realm
+        try:
+            dest = _section_path(self.realm, snap)
+        except (OSError, ValueError, RuntimeError, TypeError):
+            log.warning('Refused an unsafe section snapshot destination')
             return
 
         def _newest(pattern):
@@ -360,7 +373,10 @@ class DashboardRoutes:
                            '<meta name="viewport" content="width=device-width, initial-scale=1">'
                            + (f"<style>{css}</style>" if css else "")
                            + "</head><body>" + content + "</body></html>")
-            util.write_text_atomic(dest, content)
+            with util.file_lock(dest):
+                if _section_path(self.realm, snap) != dest:
+                    raise ValueError('Snapshot destination changed during refresh.')
+                util.write_text_atomic(dest, content)
         except Exception:  # noqa — a stale/missing snapshot just falls back to the URL
             log.debug('_snapshot_refresh: failed; ignored', exc_info=True)
 
@@ -376,9 +392,13 @@ class DashboardRoutes:
         s = sections[i]
         if not (isinstance(s, dict) and s.get("snapshot")):
             return {"ok": False, "error": "section has no local snapshot"}
-        self._snapshot_refresh(s, force=True)
-        dest = Path(self.realm) / s["snapshot"]
-        return {"ok": dest.is_file(), "ts": int(dest.stat().st_mtime) if dest.is_file() else 0}
+        try:
+            _section_path(self.realm, s['snapshot'])
+            self._snapshot_refresh(s, force=True)
+            dest = _section_path(self.realm, s['snapshot'])
+            return {"ok": dest.is_file(), "ts": int(dest.stat().st_mtime) if dest.is_file() else 0}
+        except (OSError, ValueError, RuntimeError, TypeError):
+            return {"ok": False, "error": "Snapshot path must stay within the realm without links or traversal."}
 
     def _section_asset(self, path: str):
         """Serve a file from an 'app section's local asset directory (sandboxed to that dir),
@@ -397,10 +417,13 @@ class DashboardRoutes:
         base = sections[idx].get("assets")
         if not base:
             self._send(404, "no assets", "text/plain"); return
-        base = Path(base).resolve()
         rel = urllib.parse.unquote(rel.split("?", 1)[0])
-        target = (base / rel).resolve()
-        if not str(target).startswith(str(base)) or not target.is_file() or target.suffix.lower() == ".php":
+        try:
+            target = _section_path(base, rel)
+            valid = target.is_file() and target.suffix.lower() != '.php'
+        except (OSError, ValueError, RuntimeError, TypeError):
+            valid = False
+        if not valid:
             self._send(404, "not found", "text/plain"); return
         self._send(200, target.read_bytes(), self._CT.get(target.suffix.lower(), "application/octet-stream"))
 
@@ -410,8 +433,8 @@ class DashboardRoutes:
             idx = int(path.rsplit("/", 1)[1])
         except ValueError:
             idx = -1
-        sections = getattr(reader.read(self.realm), "sections", []) if True else []
-        if idx < 0 or idx >= len(sections):
+        sections = getattr(reader.read(self.realm), "sections", [])
+        if idx < 0 or idx >= len(sections) or not isinstance(sections[idx], dict):
             self._send(404, "no section", "text/plain")
             return
         s = sections[idx]
@@ -419,9 +442,11 @@ class DashboardRoutes:
         #    <base> so relative css/js/data resolve to /section-asset/<idx>/, plus a tiny shim so
         #    in-page #anchors still scroll (rather than navigating away under the base).
         if isinstance(s, dict) and s.get("assets") and s.get("entry"):
-            base = Path(s["assets"]).resolve()
-            entry = (base / s["entry"]).resolve()
-            if str(entry).startswith(str(base)) and entry.is_file():
+            try:
+                entry = _section_path(s['assets'], s['entry'])
+            except (OSError, ValueError, RuntimeError, TypeError):
+                self._send(404, 'file not found in section', 'text/plain'); return
+            if entry.is_file():
                 htmltext = entry.read_text(encoding="utf-8-sig", errors="replace")
                 from ..request_context import RealmContext, bound_url
                 base = bound_url(f"/section-asset/{idx}/", RealmContext.capture(self.realm), content=True)
@@ -437,9 +462,13 @@ class DashboardRoutes:
                 return
         # 1) local snapshot (mirror) wins — served same-origin, no iframe/firewall issues
         if isinstance(s, dict) and s.get("snapshot"):
-            self._snapshot_refresh(s)              # lazy: pull newest from source if stale
-            snap = (Path(self.realm) / s["snapshot"]).resolve()
-            if str(snap).startswith(str(Path(self.realm).resolve())) and snap.is_file():
+            try:
+                _section_path(self.realm, s['snapshot'])
+                self._snapshot_refresh(s)              # lazy: pull newest from source if stale
+                snap = _section_path(self.realm, s['snapshot'])
+            except (OSError, ValueError, RuntimeError, TypeError):
+                self._send(404, 'file not found in realm', 'text/plain'); return
+            if snap.is_file():
                 self._send(200, snap.read_bytes(), "text/html; charset=utf-8")
                 return
             # no snapshot yet → fall through to the live URL if there is one
@@ -447,8 +476,12 @@ class DashboardRoutes:
             self.send_response(302); self.send_header("Location", s["url"]); self.end_headers()
             return
         rel = (s.get("path") if isinstance(s, dict) else "") or ""
-        f = (Path(self.realm) / rel).resolve()
-        if ".." in rel or not str(f).startswith(str(Path(self.realm).resolve())) or not f.is_file():
+        try:
+            f = _section_path(self.realm, rel)
+            valid = f.is_file()
+        except (OSError, ValueError, RuntimeError, TypeError):
+            valid = False
+        if not valid:
             self._send(404, "file not found in realm", "text/plain")
             return
         ct = "text/html; charset=utf-8" if f.suffix.lower() in (".html", ".htm") else \

@@ -38,7 +38,7 @@ Validate even unused policies; a malformed policy never becomes unrestricted.
 
 Case-insensitive path globs: * stays in a segment; ** spans folders.
 
-### `writable_path(root, policy, value)`
+### `writable_path(root, policy, value, *, agent_records=False)`
 
 Validate the canonical target and every ancestor before any write occurs.
 

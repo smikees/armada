@@ -64,6 +64,7 @@ class AccessPolicy:
     write_scope: tuple[str, ...] | None = None
     read_only: tuple[str, ...] = ()
     builder: bool = False
+    agent: str = ''
 
     @property
     def scoped(self):
@@ -104,7 +105,8 @@ def validate(realm, agent):
     builder = realm.get('policy_builder', 'builder')
     if not isinstance(builder, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', builder):
         raise error('realm.policy_builder must be an agent ID.')
-    return AccessPolicy(tuple(sorted(rules.items())), scope, readonly, agent.get('id') == builder)
+    return AccessPolicy(tuple(sorted(rules.items())), scope, readonly, agent.get('id') == builder,
+                        str(agent.get('id') or ''))
 
 
 def load(root, agent):
@@ -128,7 +130,7 @@ def path_matches(path, pattern):
     return match(0, 0)
 
 
-def writable_path(root, policy, value):
+def writable_path(root, policy, value, *, agent_records=False):
     """Validate the canonical target and every ancestor before any write occurs."""
     from .inspection import checked_path
     root = Path(root).resolve()
@@ -137,12 +139,11 @@ def writable_path(root, policy, value):
     relative = target.relative_to(root).as_posix()
     if not policy.scoped:
         return target
-    # A broad folder grant must never let a model rewrite its own authorization,
-    # provider startup hooks, or the owner's API credentials.
-    parts = relative.casefold().split('/')
-    if (target == root or any(p.startswith('.') for p in parts)
-            or parts[-1] in ('agent.json', 'realm.json', 'agent.md', 'claude.md', 'agents.md')
-            or parts[0] in ('system_jobs.json', 'notifications.state.json')):
+    from .control_files import kind
+    record = kind(root, target, agent=policy.agent)
+    # Only PolicyTools opts into the agent's own notes and validated pending proposals.
+    # Generic output/draft writers never inherit that exception.
+    if record == 'control' or (record in ('memory', 'proposal') and not agent_records):
         raise PermissionError('Write refused: ARMADA control files are owner-managed.')
     if any(path_matches(relative, p) for p in policy.read_only):
         raise PermissionError('Write refused: this path is read-only for agents.')

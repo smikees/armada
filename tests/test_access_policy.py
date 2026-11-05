@@ -108,6 +108,102 @@ def test_control_files_traversal_and_ads_refused(realm, path):
         P.writable_path(realm, P.load(realm, 'analyst'), path)
 
 
+@pytest.mark.parametrize('relative', [
+    'agents/analyst/jobs/unapproved.json',
+    'agents/analyst/jobs/_proposals.jsonl',
+    'agents/analyst/runs/analyst.jsonl',
+    'agents/analyst/runs/annotations/example.json',
+    'agents/analyst/threads/main/messages.jsonl',
+    'agents/analyst/threads/main/summary.md',
+    'agents/analyst/inbox/message.json',
+    'agents/analyst/goals/example.md',
+    'agents/analyst/memory-audits/example.json',
+    'agents/analyst/skills.json',
+    'agents/analyst/mandate.md',
+    'agents/analyst/soul.md',
+    'agents/analyst/tenets.md',
+    'theme.json', 'dashboard.json', 'system_jobs.json',
+    'notifications.jsonl', 'notifications.state.json',
+    'memory/core-context.md', 'goals/example.md',
+    'capture-index/example.json', 'addons/example/addon.json',
+    'agents/other/memory/private.md', 'agents/other/jobs/example.json',
+])
+def test_broad_scope_cannot_rewrite_control_records(realm, monkeypatch, relative):
+    P.save(realm, 'analyst', {'write_scope': ['**']})
+    path = realm / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('original evidence', encoding='utf-8')
+    notifications = []
+    monkeypatch.setattr(notify, 'emit', lambda *a, **kw: notifications.append(a))
+    audit = PolicyAudit(realm, 'analyst')
+    with PolicyTools(realm, 'analyst', audit) as tools:
+        with pytest.raises(PermissionError, match='control'):
+            tools.call('write_file', {'path': relative, 'content': 'forged'})
+    assert path.read_text(encoding='utf-8') == 'original evidence'
+    assert audit.report()['denied_attempts'][0]['path'] == relative
+    assert audit.report()['warnings'] and len(notifications) == 1
+
+
+def test_scoped_proposal_stays_pending_until_owner_approves(realm):
+    from armada import jobs, scheduler
+    proposal = {'id': 'daily-check', 'name': 'Daily check', 'kind': 'agent',
+                'prompt': 'Synthetic only', 'allow_tools': False, 'schedule': 'daily 09:00',
+                'approved_at': 'forged', 'enabled': True, 'proposed_by': 'owner'}
+    audit = PolicyAudit(realm, 'analyst')
+    with PolicyTools(realm, 'analyst', audit) as tools:
+        tools.call('write_file', {'path': 'agents/analyst/jobs/_pending/daily-check.json',
+                                 'content': json.dumps(proposal)})
+        tools.call('write_file', {'path': 'agents/analyst/memory/note.md', 'content': 'My own note'})
+        tools.call('write_file', {'path': 'Finance/data/jobs/report.txt', 'content': 'Business data'})
+    pending = util.read_json_state(realm / 'agents/analyst/jobs/_pending/daily-check.json')
+    assert 'approved_at' not in pending
+    assert pending['proposed_by'] == 'analyst' and pending['enabled'] is False
+    assert list(scheduler.iter_jobs(realm)) == []
+    assert not audit.report()['warnings']
+    assert jobs.approve(realm, 'analyst', 'daily-check')['ok']
+    assert list(scheduler.iter_jobs(realm))[0][1] == 'daily-check'
+
+
+@pytest.mark.parametrize('relative,content', [
+    ('agents/analyst/jobs/_pending/bad.json', '{'),
+    ('agents/analyst/jobs/_pending/bad.json', '{}'),
+    ('agents/analyst/jobs/_pending/bad.txt', 'not a proposal'),
+    ('agents/analyst/jobs/_pending/nested/bad.json', '{}'),
+    ('agents/other/jobs/_pending/bad.json', '{}'),
+])
+def test_pending_exception_cannot_bypass_validation(realm, relative, content):
+    P.save(realm, 'analyst', {'write_scope': ['**']})
+    audit = PolicyAudit(realm, 'analyst')
+    with PolicyTools(realm, 'analyst', audit) as tools:
+        with pytest.raises((PermissionError, ValueError)):
+            tools.call('write_file', {'path': relative, 'content': content})
+    assert not (realm / relative).exists()
+    assert audit.report()['warnings']
+
+
+def test_pending_and_own_memory_exceptions_respect_owner_scope(realm):
+    P.save(realm, 'analyst', {'write_scope': ['Finance/data/**']})
+    with PolicyTools(realm, 'analyst', PolicyAudit(realm, 'analyst')) as tools:
+        for relative in ('agents/analyst/jobs/_pending/daily-check.json', 'agents/analyst/memory/note.md'):
+            with pytest.raises(PermissionError, match='outside'):
+                tools.call('write_file', {'path': relative, 'content': '{}'})
+
+
+def test_agent_record_exceptions_do_not_override_read_only(realm):
+    P.save(realm, None, {'read_only': ['agents/analyst/memory/**', 'agents/analyst/jobs/**']})
+    with PolicyTools(realm, 'analyst', PolicyAudit(realm, 'analyst')) as tools:
+        for relative in ('agents/analyst/jobs/_pending/daily-check.json', 'agents/analyst/memory/note.md'):
+            with pytest.raises(PermissionError, match='read-only'):
+                tools.call('write_file', {'path': relative, 'content': '{}'})
+
+
+def test_scoped_control_guard_cannot_be_bypassed_by_a_nested_realm(realm):
+    nested = realm / 'Finance/data/nested'
+    util.write_json_atomic(nested / 'realm.json', {'name': 'Other realm'})
+    with pytest.raises(PermissionError, match='control'):
+        P.writable_path(realm, P.load(realm, 'analyst'), 'Finance/data/nested/report.txt')
+
+
 def test_path_globs_and_builder(realm):
     assert P.path_matches('Finance/data/a/b.txt', 'finance/data/**')
     assert not P.path_matches('Finance/data2/a.txt', 'Finance/data/**')
@@ -116,6 +212,7 @@ def test_path_globs_and_builder(realm):
     builder = P.load(realm, 'builder')
     assert not builder.scoped
     assert P.writable_path(realm, builder, 'skills/desk/code.py') == realm / 'skills/desk/code.py'
+    assert P.writable_path(realm, builder, 'agents/analyst/jobs/work.json') == realm / 'agents/analyst/jobs/work.json'
 
 
 @pytest.mark.parametrize('value', [None, [], 'all', {'ibkr': []}, {'ibkr': {'allow': '*'}},

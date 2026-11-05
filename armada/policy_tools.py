@@ -60,7 +60,7 @@ class PolicyTools(ManagedTools):
         grants = execution_policy(self.root, self.agent)
         if grants.native_filesystem_ids - grants.allowed_mcp_ids:
             return []  # A write scope never grants a withheld filesystem capability.
-        return [_tool('write_file', 'Write UTF-8 text within your owner-approved write scope. Paths are relative to the realm. Read-only and control files are refused.',
+        return [_tool('write_file', 'Write UTF-8 text within your owner-approved write scope. Paths are relative to the realm. Read-only and control files are refused. Your own memory/*.md notes and valid jobs/_pending/*.json proposals are allowed only within that scope; proposals still need owner approval.',
                       {'path': _string('Realm-relative or absolute output path'), 'content': _string('UTF-8 file contents')},
                       ('path', 'content'), read_only=False),
                 _tool('read_file', 'Read an existing file. Does not change it.',
@@ -78,16 +78,17 @@ class PolicyTools(ManagedTools):
                     raise PermissionError('Unknown filesystem tool or invalid arguments.')
                 if name == 'write_file':
                     policy = access_policy.load(self.root, self.agent)
-                    path = access_policy.writable_path(self.root, policy, arguments['path'])
+                    path = access_policy.writable_path(self.root, policy, arguments['path'], agent_records=True)
                     if len(arguments['content'].encode('utf-8')) > MAX_BYTES:
                         raise ValueError('Files must be at most 1 MiB per write.')
+                    content = self._validated_content(path, arguments['content'])
                     path.parent.mkdir(parents=True, exist_ok=True)
                     with util.file_lock(path):
                         # Re-read authorization while holding the target lock.
                         policy = access_policy.load(self.root, self.agent)
-                        if access_policy.writable_path(self.root, policy, arguments['path']) != path:
+                        if access_policy.writable_path(self.root, policy, arguments['path'], agent_records=True) != path:
                             raise PermissionError('Write target changed during authorization.')
-                        util.write_text_atomic(path, arguments['content'], newline='\n')
+                        util.write_text_atomic(path, content, newline='\n')
                     result = {'path': str(path), 'bytes': path.stat().st_size}
                     self.writes[str(path)] = {'kind': 'output', 'name': path.name, **result}
                     return result
@@ -102,6 +103,23 @@ class PolicyTools(ManagedTools):
             except (PermissionError, ValueError) as exc:
                 self.audit.refuse(tool=name, path=arguments.get('path', '') if isinstance(arguments, dict) else '', reason=str(exc))
                 raise
+
+    def _validated_content(self, path, content):
+        from . import control_files, jobs
+        if control_files.kind(self.root, path, agent=self.agent) != 'proposal':
+            return content
+        try:
+            proposal = json.loads(content)
+        except ValueError as exc:
+            raise ValueError('Job proposal must be valid JSON.') from exc
+        ok, errors, proposal = jobs.validate(proposal)
+        if not ok:
+            raise ValueError('Invalid job proposal: ' + '; '.join(errors))
+        if path.stem != proposal['id']:
+            raise ValueError('Job proposal filename must match its job ID.')
+        proposal.pop('approved_at', None)
+        proposal.update(proposed_by=self.agent, enabled=False)
+        return json.dumps(proposal, ensure_ascii=False, indent=2) + '\n'
 
     def __enter__(self):
         super().__enter__()

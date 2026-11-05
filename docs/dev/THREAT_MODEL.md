@@ -1,5 +1,19 @@
 # ARMADA threat model
 
+**2026-11-05 containment update (0.99.123):** scoped filesystem writes now share a
+control-record classification with inspector writes. Broad folder grants cannot
+rewrite live jobs, execution evidence, conversations, profiles or managed state.
+Own memory notes and validated pending proposals remain available only within owner
+scope; pending proposals cannot claim approval or become live without the owner action.
+Section asset/entry/local-page reads and snapshot writes now use component-aware,
+Windows-safe path validation, replacing unsafe string-prefix checks. Synthetic
+regressions cover sibling-path escapes and the content-server fallback.
+These are tool/application boundaries, not a sandbox against same-account malware.
+The dated sections below retain their historical context. Current policy details
+are in [Access policy](ACCESS_POLICY.md); broader documentation consolidation and
+remaining runtime/HTTP/recovery work are tracked in the
+[stabilization plan](STABILIZATION_PLAN_2026_11.md).
+
 *Phase 5, step 5.8. Written 2026-09-24 (Opus 5.5) against v0.99.44, updated for v0.99.46, from the code, not from how
 the app is meant to work. Two problems found while writing it were fixed the same day (T1, T2);
 the rest are tickets below. Update this page whenever something here changes.*

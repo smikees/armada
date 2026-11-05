@@ -130,7 +130,7 @@ def checked_path(path, roots, *, must_exist=False):
 
 def writable_path(root, agent, job, path, *, artifacts_only=False):
     """Inspector output grants never authorize realm state or another agent's files."""
-    from . import draft_inputs, job_access
+    from . import control_files, draft_inputs, job_access
     root = Path(root).resolve()
     artifacts = root / "agents" / util.safe_seg(agent, "agent") / "artifacts"
     roots = [artifacts]
@@ -139,13 +139,9 @@ def writable_path(root, agent, job, path, *, artifacts_only=False):
     raw = Path(path)
     target = checked_path(raw if raw.is_absolute() else artifacts / raw, roots)
     base = next(Path(p).resolve() for p in roots if target.is_relative_to(Path(p).resolve()))
-    reserved = {"agent.json", "realm.json", "theme.json", "dashboard.json", "skills.json",
-                "notifications.jsonl", "notifications.state.json", "final-answer.md"}
-    blocked = {"memory", "memories", "jobs", "threads", "runs", "inbox", "goals", "addons",
-               "capture-index", ".matcap"}
-    if (not draft_inputs.permitted(target) or target.name.casefold() in reserved
-            or any(p.casefold() in blocked for p in target.relative_to(base).parts)
-            or any(target.is_relative_to(root / p) for p in blocked)
+    if (not draft_inputs.permitted(target) or target.name.casefold() in control_files.CONTROL_NAMES
+            or any(p.casefold() in control_files.CONTROL_DIRS for p in target.relative_to(base).parts)
+            or (target.is_relative_to(root) and control_files.kind(root, target) != 'output')
             or target.is_relative_to(Path(__file__).resolve().parent)):
         raise ValueError("Inspector writes cannot change ARMADA control files, jobs or memory.")
     if target.is_relative_to(root / "agents") and not target.is_relative_to(artifacts):

@@ -36,7 +36,10 @@ Scoped agents write through ARMADA's guarded file tool. Native file writes and
 shell commands are disabled because the Windows engines cannot safely restrict
 arbitrary commands to path patterns. Command jobs are also refused for scoped
 agents. Agent/realm control files cannot be overwritten through a broad folder
-grant. External connectors need their own tool rules; a file scope governs local
+grant. This includes live jobs, run history, conversation records and profiles.
+An agent can still write its own memory notes and valid pending job proposals
+inside its permitted folders. Proposals stay disabled until you approve them.
+External connectors need their own tool rules; a file scope governs local
 files, not a service's remote data.
 
 Denied calls and file writes appear as operational warnings in the run result.

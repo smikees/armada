@@ -20,6 +20,12 @@ write globs; `realm.json.read_only` supplies overriding read-only globs, with
 Run reports add `access_audit` and `operational_warnings`.
 See [Access policy](ACCESS_POLICY.md) for validation, precedence and adapter limits.
 
+Control-file containment (0.99.123, no migration): scoped guarded writes cannot
+alter live jobs, run/conversation evidence, profiles or other managed state. The
+agent's own pending proposals are validated and saved disabled with actual agent
+provenance; only owner approval creates a live job. Own Markdown memory notes and
+ordinary artifacts remain subject to the owner's write scope and read-only rules.
+
 The contract behind "a realm is a portable, Git-versioned folder." Everything ARMADA reads or
 writes lives here; the setup wizard and any importer must produce this layout. Paths are relative
 to the realm root. JSON is read tolerant of a BOM (`utf-8-sig`); Markdown is UTF-8.

@@ -95,6 +95,17 @@ Windows names, symlinks, junctions and reparse points before creating a director
 or writing. The guarded write re-reads policy and rechecks the target under the
 shared file lock, then uses the atomic write utility. Broad own-folder grants do
 not allow overwriting agent/realm authorization or hidden provider/control files.
+The shared `control_files` classification also protects live jobs, run reports and
+annotations, threads, profiles, notification state, managed inbox/goals and nested
+realms. Inspector output grants use the same reserved names and managed trees.
+
+Within an owner's scope, the guarded file tool preserves two agent-authored workflows:
+the agent's own `memory/*.md` notes and `jobs/_pending/*.json` proposals. Proposals
+must pass job validation and match their filename; the broker strips `approved_at`,
+sets the actual agent as proposer and keeps the proposal disabled. The scheduler
+never discovers pending files. Only the owner approval operation creates a live job.
+Other agents' notes and proposals remain control data, even under `**` grants.
+Read-only rules and write scopes still apply to both exceptions.
 
 Windows shell commands cannot be safely confined to arbitrary path globs by these
 adapters. Shell is therefore unavailable whenever `write_scope` or realm read-only
