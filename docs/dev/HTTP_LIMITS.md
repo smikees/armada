@@ -1,6 +1,6 @@
 # Local HTTP resource limits
 
-M4 introduces admission before allocating a handler thread. The cockpit and
+Released in 0.99.126. M4 introduces admission before allocating a handler thread. The cockpit and
 content-origin server each own one header gate and bounded worker lanes.
 
 | Resource | Limit and behavior |

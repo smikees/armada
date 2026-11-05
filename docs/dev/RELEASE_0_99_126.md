@@ -1,78 +1,87 @@
 # 0.99.126 — Bound local requests and provider refreshes
 
-M4 of the stabilization plan. The cockpit and content-origin servers now bound
-incomplete headers, request size, input time and concurrent handlers. Control
-requests have separate capacity from ordinary work and long conversations.
-Malformed JSON is an error before dispatch, rather than silently becoming `{}`.
-Provider refreshes and the older auth-status endpoint share in-flight observations;
-unchanged observations skip configuration writes. Disconnect remains authoritative.
+Published on GitHub and armada.stamih.com on 5 November 2026 from
+`d853dd04b481a4651ac5e2cd3a62ac71ba166961`. M4 of the stabilization plan is
+implemented and verified; maintainer acceptance remains pending.
 
-See [the HTTP resource contract](HTTP_LIMITS.md) for exact limits, single-request
-connection semantics and the remaining local-flood/slow-reader boundaries. There
-is no automatic replay of mutations or agent work. Security checks remain required
-in every lane. The native launcher/runtime baseline is unchanged from 0.99.125;
-versions through 0.99.124 still require the full installer.
+The cockpit and content-origin servers now bound incomplete headers, input size,
+input time and concurrent handlers. Health/stop controls have separate admission
+capacity from ordinary work and conversations. Malformed JSON is rejected before
+mutation dispatch. Refused uploads receive a bounded drain period so unread input
+does not discard their error response with a Windows TCP reset.
 
-## Validation
+Provider status and the older auth-status endpoint share in-flight observations.
+Unchanged observations skip configuration writes; Disconnect stays authoritative
+during a refresh. No mutation or agent work is automatically replayed.
+See [the HTTP contract](HTTP_LIMITS.md) for exact limits and connection semantics.
 
-182 targeted HTTP/provider/authentication/realm/content tests passed. 297 final transport/concurrency, reference and golden-page checks passed, including
-21 socket/concurrency cases and streaming beyond the input deadline. Full
-pinned/CI/native/upgrade gates and publication remain pending. Tests use synthetic
-realms and provider observations; the owner's running app is not restarted.
+## Verified release evidence
 
-The existing unsigned-maintenance distribution continues. Publisher signing and
-clean-machine WebView2 GUI acceptance remain unverified until explicitly recorded.
+| Check | Result |
+|---|---|
+| Mandatory pinned local suite | **4,040 passed, six skipped** |
+| Exact-source Windows CI, Python 3.14 | **4,042 passed, four skipped** |
+| Exact-source Windows CI, Python 3.14.10 | **4,042 passed, four skipped** |
+| PHP relay CI | Passed |
+| Native launcher | Five recovery interruption points; DLL isolation with clean and legacy parents |
+| Packaged WebView2 session / tray | 16 / 68 checks passed |
+| Packaged visible / tray / busy restart | 69 checks each passed |
+| Signed compatible-runtime upgrade | **72 checks passed**, 0.99.125 to 0.99.126 |
+| Final native thread-window probe | **79 checks passed**, including sender/observer Stop, stale run IDs, disconnect and reopening during work |
+| Exact-installer Sandbox | **26 passed; one WebView2 prerequisite failure** — see boundary below |
+| Public downloads and website | Manifest signature, package size/hash/source bytes, installer hash and HTTPS release/download links verified |
 
-Provider defaults are unchanged; official provider model metadata is reviewed at
-this release boundary and connected-provider catalogues remain authoritative.
+[Windows CI 42080120878](https://github.com/smikees/armada/actions/runs/42080120878).
+CI retains the pre-existing Python 3.14 warning in `voice_turns.py`; its cleanup is
+tracked for M8. No live realm or provider was used. The owner's app was not restarted.
 
-Official model metadata reviewed 5 November 2026:
+Installer SHA-256:
+`e50f075a1c81b1bd16918eb6bd8945a5d3bf80de0888c948c07cb1a6f16f7ce3`
+
+Package SHA-256:
+`4680d6fdcb46633c2efca88cdf84be9966a29eadce89846fdb4edec7cb33bf74`
+
+Runtime remains `py3.14.10-7bc0018406bbe195`, compatible with 0.99.125.
+Versions through 0.99.124 still require the full installer once. Finish jobs and
+quit ARMADA before installing; realms and settings are preserved.
+
+## Validation findings and boundaries
+
+The full gate caught a Windows reset when oversized headers left unread input.
+A related delayed-upload probe reproduced 30/30 handler-error connection aborts.
+Gate refusals and handler errors now share bounded, worker-free draining. Regression
+cases cover late input after 400, 401 and 413 responses, oversized headers, drain
+expiry and continued control admission. Failed candidates were not published as releases.
+
+The first auxiliary native Stop run timed out while the full suite was running.
+Its cause was not conclusively established. The 0.99.125 baseline and four
+instrumented M4 runs passed 76 checks each. The readiness check could match text
+from an earlier turn; it now additionally requires the current turn's text and
+an enabled Stop button, with failure diagnostics. Three sequential strengthened
+runs passed 79 checks each, and the final corrected source passed all 79 again.
+No production cancellation fix is claimed from that investigation.
+
+The exact public installer passed locked-file refusal/preservation, payload-hash
+verification, normal installation, imports, timezone, actionable missing-WebView2
+recovery, uninstall, user-data preservation and reinstall. Both WebView2 installers
+returned `-2147219198` in Sandbox. **Clean-machine GUI acceptance remains unverified.**
+The authorized unsigned-maintenance distribution continues; ARMADA publisher signing
+is not configured. Update manifests are separately Ed25519-signed.
+
+Resource limits do not guarantee availability against continuous local flooding.
+The control reserve is server-side; browser connection pools and renderer
+responsiveness are separate. Slow response readers can occupy their lane until a
+write times out. Execution admission remains a separate M8 concern.
+
+## Retained evidence
+
+Local ignored records: `build/release-evidence-0.99.126.json`,
+`build/publish-0.99.126-all-refusals.log`, `build/thread-window-m4-all-refusals.json`,
+`build/sandbox-runs/20261105-191649/`, `build/public-0.99.126/verification.json`
+and `build/website-0.99.126.log`. Earlier failed and diagnostic probes are retained.
+
+Provider defaults are unchanged after reviewing official metadata on 5 November:
 [Claude](https://platform.claude.com/docs/en/models/opus-5-5/overview),
 [Codex](https://developers.openai.com/api/docs/models/gpt-6.1-sol),
 [Gemini](https://aistudio.google.com/docs/models/gemini-3.8-flash).
-
-## Native Stop investigation
-
-The first auxiliary native thread-window run timed out waiting for Stop from the
-observing main window while the full suite was running. Publication was stopped.
-The 0.99.125 baseline passed 76 checks, as did four instrumented M4 repetitions;
-every recorded Stop response reported a cancelled backend turn.
-
-The probe's readiness check reused text present in previous turns and could compare
-equal old snapshots. It now additionally requires the current turn's text and an
-enabled Stop button before clicking. Failure evidence records button state, active
-run count and synthetic cancellation responses. The original timeout's cause was
-not conclusively established; no production cancellation fix is claimed.
-
-Three sequential runs of the strengthened probe passed **79 checks each**, including
-Stop in sender/observer windows, stale run IDs, disconnect and reopening during work.
-Evidence: `build/thread-window-m4-final-{1,2,3}.json`. The framing suite also passed
-21 checks after explicitly accepting legal trailing HTTP header whitespace.
-
-## Windows refusal delivery correction
-
-The fresh full gate stopped with 4,034 passes and one failure: Windows reset an
-oversized-header connection before the client received its 431 response. Immediate
-close while input was unread was the cause. Refusals now shut down the write half
-and retain a bounded read half for at most 0.5 seconds, drained by the existing gate
-without allocating a worker. At most 128 such sockets can exist; server shutdown
-closes them too. Continuous flooding still has no delivery guarantee.
-
-315 focused HTTP/security/realm/reference checks passed after this correction,
-including 20 repeated oversized requests with unread bytes and a refusal-drain
-expiry check. The strengthened native thread-window probe passed all 79 checks
-again on the corrected source. Full pinned and exact-source CI gates restart for
-this commit; the prior failed candidate was not published.
-
-## Handler refusal follow-up
-
-The corrected header-gate candidate passed its full suite: **4,037 passed, six
-skipped**. Before publication, a related synthetic delayed-upload probe reproduced
-30/30 connection aborts when an oversized body arrived after a handler's rejection.
-No request reached mutation dispatch, but the client could lose the error response.
-
-Handler error responses, including standard HTTP parsing errors, now share the
-same bounded refusal drain. Regression cases cover late input after 400, 401 and
-413 responses, without dispatching an action. **318 focused checks** and all
-**79 native thread-window checks** passed on this extension. The final release gate
-runs again against the new source; the previous candidate was not published.
+Connected-provider catalogues remain authoritative.

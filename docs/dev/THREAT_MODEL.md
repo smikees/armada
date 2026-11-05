@@ -1,6 +1,6 @@
 # ARMADA threat model
 
-**Local HTTP resource containment (0.99.126 candidate):** request workers, pending
+**Local HTTP resource containment (released 0.99.126):** request workers, pending
 headers, input size/time and refusal-drain sockets are bounded. Health/stop controls
 have separate admission capacity; all existing authorization checks remain. Provider
 refreshes share three workers. These are resource limits, not availability against

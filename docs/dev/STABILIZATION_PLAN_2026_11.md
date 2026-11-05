@@ -23,7 +23,7 @@ with a checklist update and owner progress report after each implementation mile
 | M1 | Protect control records: one shared classification; scoped raw writes cannot change live jobs, approvals, history, configuration or managed state. Keep artifacts writable and legitimate mutations behind validated operations. | Broad own-folder grants refuse control writes, preserve bytes and emit audit warnings; builder/owner behavior and existing provider policy tests pass. | **Verified; released 0.99.123** | Pending |
 | M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; released 0.99.123** | Pending |
 | M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Verified; released 0.99.124** | Pending |
-| M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | Implemented; 0.99.126 release gates in progress | Pending |
+| M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | **Verified; released 0.99.126** | Pending |
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | Pending | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | Pending | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | Pending | Pending |
@@ -37,28 +37,33 @@ M4 includes provider-status coalescing because it is part of bounding background
 work. M6 precedes native recovery so reliable exports are available before larger
 lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritative.
 
-## M4 implementation — 5 November 2026
+## M4 verified and released — 5 November 2026
 
 - Added a shared header gate, bounded request lanes and separate control capacity.
-  Slow headers and body trickles have total deadlines; malformed and oversized JSON
-  is refused before mutation dispatch. Each connection carries one admitted request.
-- Provider refreshes share at most three workers and one in-flight observation per
-  provider, including the older authentication-status endpoint. Identical observations
-  skip configuration writes; Disconnect remains authoritative during a refresh.
-- 182 targeted HTTP, provider, authentication, realm-context and content-origin tests
-  passed; 297 final transport/concurrency, reference and golden-page checks passed, including
-  21 socket/concurrency cases and streaming beyond the input deadline.
-- Native Stop investigation: publication paused after an initial timeout; stronger
-  current-turn readiness and failure diagnostics added to the probe. Three sequential
-  native runs passed 79 checks each; the initial cause remains unconfirmed.
-- The full gate caught Windows resetting refused connections with unread input.
-  Added bounded, worker-free refusal draining; 315 focused regressions and all
-  79 native thread-window checks passed after the correction.
-- The corrected header gate passed 4,037 full tests. A related delayed-upload
-  probe then reproduced handler-error resets; the same bounded drain now covers
-  handler errors. 318 regressions and all 79 native checks pass; final gates rerun.
-- Full pinned, exact-source CI, packaged browser and upgrade checks are pending for
-  0.99.126. [Resource contract and limits](HTTP_LIMITS.md). Maintainer acceptance pending.
+  Header/body deadlines and strict framing/JSON errors apply before mutation dispatch.
+  Shared refusal draining preserves errors when uploads arrive late, without workers.
+- Provider refreshes share three workers and one in-flight observation per provider,
+  including the older authentication-status endpoint. Identical observations skip
+  configuration writes; Disconnect remains authoritative during a refresh.
+- Published **0.99.126** after **4,040 pinned tests** (six skipped), both exact-source
+  Windows CI jobs (**4,042 each**, four skipped), all packaged native lifecycle
+  checks and **72 signed-upgrade checks** passed. Final native thread-window probe:
+  **79 checks passed**. Public signatures, downloads and matching website verified.
+- Exact installer Sandbox: **26 passed**, one known WebView2 prerequisite failure.
+  Clean-machine GUI and publisher signing remain unverified. The initial intermittent
+  native-test timeout and the Windows refusal fixes are retained in
+  [release evidence](RELEASE_0_99_126.md). [Resource contract](HTTP_LIMITS.md).
+- Owner app was not restarted. Maintainer acceptance remains pending.
+
+## M5 next: isolate damaged records
+
+1. Keep presentation diagnostics separate from strict policy/execution reads.
+2. Show damaged agents/jobs with repair information and hold their work; healthy
+   siblings remain usable. Reads must preserve the original bytes.
+3. Validate owner-requested repairs, preserve evidence and use shared locks/atomic
+   replacement. Never reset security or execution state to permissive defaults.
+4. Test malformed JSON, wrong field types, duplicate keys, unreadable encoding and
+   damaged history rows using synthetic realms; verify refusal before model dispatch.
 
 ## Release boundaries
 

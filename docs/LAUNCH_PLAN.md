@@ -5,9 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.126** is the M4 resilience candidate: bounded local HTTP input/workers,
-reserved control capacity and shared provider refresh. Focused regression tests pass;
-full release gates are in progress. [Limits](dev/HTTP_LIMITS.md) ·
+Version **0.99.126** is the published M4 resilience release: bounded local HTTP
+input/workers, reserved server control capacity and shared provider refresh. The
+pinned suite passed 4,040 tests; both Windows CI jobs, packaged native lifecycle
+checks, 79 native thread-window checks and 72 signed-upgrade checks passed. Public
+signatures/downloads and website verified. Exact-installer Sandbox passed 26 checks
+with the known WebView2 prerequisite failure; clean-machine GUI acceptance remains
+unverified. M5 (damaged-record isolation) is next. [Limits](dev/HTTP_LIMITS.md) ·
 [Evidence](dev/RELEASE_0_99_126.md).
 
 Version **0.99.125** is the published installer correction before M4. It prevents
@@ -32,7 +36,7 @@ tags. Versions before 0.99.124 need the full installer. The pinned gate passed
 4,001 tests (6 skipped); both exact-source Windows CI jobs passed 4,003 (4 skipped).
 Packaged recovery/session/tray/restart and 74 signed upgrade/boundary checks passed.
 Public assets, signatures and website links verified; the owner app was untouched.
-Publisher signing and clean-machine GUI acceptance remain unverified. M4 is next.
+Publisher signing and clean-machine GUI acceptance remain unverified. M4 followed in 0.99.126.
 [Runtime contract](dev/RUNTIME_SECURITY.md) · [Release evidence](dev/RELEASE_0_99_124.md).
 
 Version **0.99.123** is the published security containment release for the
