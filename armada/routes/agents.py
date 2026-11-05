@@ -19,6 +19,16 @@ log = logging.getLogger("armada.serve")
 
 
 class AgentRoutes:
+    def _repair_record(self, body):
+        from .. import records
+        if body.get("reviewed") is not True:
+            return {"ok": False, "error": "Review the replacement and its permissions before applying it."}
+        try:
+            return records.repair(self.realm, body.get("agent"), body.get("job", ""),
+                                  body.get("replacement"), body.get("expected_sha256"))
+        except (OSError, ValueError) as exc:
+            return {"ok": False, "error": str(exc)}
+
     _streams_lock = threading.RLock()
     def _get_chat_stop(self):
         self._json(200, self._chat_stop(self._query()))

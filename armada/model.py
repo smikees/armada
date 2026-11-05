@@ -62,6 +62,7 @@ class Job:
     last_status: Optional[str] = None  # ok | warn | error | quiet | None
     last_seen: Optional[str] = None     # ISO date of most recent run
     runs_30d: int = 0
+    record_error: str = ""
 
 
 @dataclass
@@ -83,6 +84,8 @@ class Agent:
     tokens_30d: int = 0                # summed from run-reports that carry usage (P2 telemetry)
     cost_30d: float | None = 0.0              # summed api-equiv $ over 30d (subscription: quota, not billed)
     appointed: str = ""               # ISO date the agent was appointed/created
+    record_error: str = ""
+    history_errors: list[str] = field(default_factory=list)
     placeholder: str = ""              # set when the agent is planned, not established
 
 

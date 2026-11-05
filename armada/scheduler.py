@@ -252,24 +252,22 @@ def iter_jobs(realm_root: Path):
         if not jdir.is_dir():
             continue
         for jf in sorted(jdir.glob("*.json")):
-            jc = _load_json(jf)
-            if jc:
-                yield ad.name, jc.get("id", jf.stem), jc
+            from . import records
+            jc, problem = records.presentation(jf, "job")
+            if problem:
+                yield ad.name, jf.stem, {"enabled": False, "_record_error": problem}
+            else:
+                yield ad.name, jf.stem, jc
 
 
 def ran_today(realm_root: Path, agent_id: str, job_id: str, day_iso: str,
               not_before: datetime.datetime | None = None) -> bool:
     rf = realm_root / "agents" / agent_id / "runs" / f"{agent_id}.jsonl"
-    if not rf.exists():
-        return False
-    for ln in _read(rf).splitlines():
-        ln = ln.strip()
-        if not ln:
-            continue
-        try:
-            ev = json.loads(ln)
-        except json.JSONDecodeError:
-            continue
+    from . import records, util
+    events, errors = records.history(rf)
+    if errors:
+        raise util.StateError("History needs repair; scheduled work is held to avoid repeating an uncertain run.")
+    for ev in events:
         if ev.get("task") == job_id and str(ev.get("ts", ""))[:10] == day_iso:
             if not_before is not None:
                 try:
@@ -420,7 +418,17 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 break
             # Switched off in the UI. Checked here rather than in due_now() so a manual "Run now"
             # still works on a disabled job — off means "does not fire on its own", not "cannot run".
+            if job.get("_record_error"):
+                fired.append({"agent": agent_id, "job": job_id, "status": "held",
+                              "detail": job["_record_error"]})
+                continue
             if job.get("enabled") is False:
+                continue
+            from . import records, util
+            try:
+                records.admit_agent(realm_root, agent_id)
+            except (OSError, ValueError) as exc:
+                fired.append({"agent": agent_id, "job": job_id, "status": "held", "detail": str(exc)})
                 continue
             from . import job_retries
             try:
@@ -436,7 +444,12 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
             if fire is None:
                 continue
             day_iso = fire.date().isoformat()
-            if not waiting and ran_today(realm_root, agent_id, job_id, day_iso, not_before=_first_fire(job, fire)):
+            try:
+                already_ran = ran_today(realm_root, agent_id, job_id, day_iso, not_before=_first_fire(job, fire))
+                if not waiting and already_ran:
+                    continue
+            except OSError as exc:
+                fired.append({"agent": agent_id, "job": job_id, "status": "held", "detail": str(exc)})
                 continue
             rec = {"agent": agent_id, "job": job_id, "kind": job.get("kind", "agent"),
                    "schedule": job.get("schedule") or job.get("cron")}

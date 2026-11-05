@@ -351,12 +351,11 @@ _AUTONOMY_META = {v: (ic, title, color, hover) for v, title, ic, desc, color, ho
 
 def _autonomy_of(realm_root, aid: str) -> str:
     p = Path(realm_root) / "agents" / aid / "agent.json"
-    v = ""
-    if p.exists():
-        try:
-            v = (json.loads(p.read_text(encoding="utf-8-sig")).get("autonomy") or "")
-        except json.JSONDecodeError:
-            pass
+    from .. import records
+    data, problem = records.presentation(p, "agent")
+    if problem:
+        return "skip"
+    v = data.get("autonomy") or ""
     return _AUTONOMY_ALIAS.get(v, v) or "manual"
 
 
@@ -367,13 +366,10 @@ def _autonomy_badge(mode: str, size: int = 14) -> str:
 
 
 def _agent_model_effort(realm, realm_root, aid: str):
-    ac = {}
-    p = Path(realm_root) / "agents" / aid / "agent.json"
-    if p.exists():
-        try:
-            ac = json.loads(p.read_text(encoding="utf-8-sig"))
-        except json.JSONDecodeError:
-            pass
+    from .. import records
+    ac, problem = records.presentation(Path(realm_root) / "agents" / aid / "agent.json", "agent")
+    if problem:
+        return "Needs repair", ""
     model = ac.get("model") or getattr(realm, "default_model", "") or "Claude Opus 4.8"
     effort = ac.get("effort") or getattr(realm, "default_effort", "") or "high"
     return model, effort
@@ -413,7 +409,9 @@ def _running_jobs(realm_root, agent_id: str) -> set:
 
 def _job_prompt(realm_root, agent_id: str, job_id: str) -> dict:
     p = Path(realm_root) / "agents" / agent_id / "jobs" / f"{job_id}.json"
-    return json.loads(p.read_text(encoding="utf-8-sig")) if p.exists() else {}
+    from .. import records
+    value, problem = records.presentation(p, "job")
+    return value if not problem else {"enabled": False, "_record_error": problem}
 
 
 def _job_created(realm_root, agent_id: str, job_id: str, jc: dict) -> str:

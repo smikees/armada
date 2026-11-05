@@ -65,6 +65,18 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 4. Test malformed JSON, wrong field types, duplicate keys, unreadable encoding and
    damaged history rows using synthetic realms; verify refusal before model dispatch.
 
+### M5 implementation in progress — 5 November 2026
+
+- Added strict record shape checks and diagnostic presentation entries. Healthy
+  pages remain available; damaged agents/jobs show an explicit owner repair page.
+- Commands and automatic job/inbox dispatch validate affected records. Corrupt
+  history holds scheduling without replaying uncertain work or dropping evidence.
+- Owner repair verifies the reviewed digest under the shared lock, validates the
+  replacement and preserves original bytes plus an audit receipt before atomic replace.
+- Focused record, policy-admission, state, scheduler and authenticated HTTP checks
+  passed. The full regression suite and release gates are in progress; M5 is not
+  yet marked complete. [Contract and limits](RECORD_HEALTH.md).
+
 ## Release boundaries
 
 1. **Security containment patch:** M1 + M2, followed by the pinned full isolated

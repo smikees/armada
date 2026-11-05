@@ -71,6 +71,7 @@ def test_schedule_uses_realm_day_catches_up_gap_and_does_not_repeat_fold(
     (tmp_path/'realm.json').write_text(json.dumps({'schema_version':realmformat.CURRENT,'timezone':zone}))
     jobs = tmp_path/'agents/a/jobs'
     jobs.mkdir(parents=True)
+    (jobs.parent/'agent.json').write_text('{"id":"a"}', encoding='utf-8')
     (jobs/'daily.json').write_text(json.dumps({'id':'daily','schedule':schedule}))
     monkeypatch.setattr(preflight,'hold_reason',lambda *_:'')
     monkeypatch.setattr(sysjobs,'run_due',lambda *_:[])

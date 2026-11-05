@@ -177,13 +177,6 @@ def read_json_state(path, *, default=None, max_schema="current") -> dict:
     if max_schema == "current":
         from .realmformat import CURRENT
         max_schema = CURRENT
-    def unique(pairs):
-        data = {}
-        for key, value in pairs:
-            if key in data:
-                raise ValueError("duplicate key")
-            data[key] = value
-        return data
     try:
         raw = path.read_text(encoding="utf-8-sig")
     except FileNotFoundError:
@@ -193,7 +186,8 @@ def read_json_state(path, *, default=None, max_schema="current") -> dict:
     except (OSError, UnicodeError) as exc:
         raise StateError(f"Cannot read {path.name}; preserve the file and repair access or encoding before editing.") from exc
     try:
-        data = json.loads(raw, object_pairs_hook=unique)
+        from .records import decode
+        data = decode(raw)
         if not isinstance(data, dict):
             raise ValueError("expected object")
         if "schema_version" in data:
@@ -216,8 +210,15 @@ def read_json_state(path, *, default=None, max_schema="current") -> dict:
                     raise ValueError("invalid thread metadata")
             if "order" in data and not isinstance(data["order"], list):
                 raise ValueError("invalid thread order")
+        # Ordinary editors must not overwrite a damaged record without retaining
+        # evidence. Only the explicit owner repair path may replace such input.
+        from .records import validate as validate_record
+        if path.name == "agent.json":
+            validate_record(data, "agent", path.parent.name)
+        elif path.parent.name == "jobs" and path.suffix == ".json":
+            validate_record(data, "job", path.stem)
         return data
-    except (ValueError, UnicodeError) as exc:
+    except (ValueError, UnicodeError, RecursionError) as exc:
         raise StateError(f"Invalid state in {path.name}; preserve the file and restore a valid backup before editing.") from exc
 
 

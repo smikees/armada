@@ -112,6 +112,10 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None, sche
         allow_tools = (job or {}).get("allow_tools") is True
     util.assert_realm_writable(Path(realm_root) / "agents" / agent_id / "agent.json", allow_invalid_realm=True)
     agent = _policy_json(Path(realm_root) / "agents" / agent_id / "agent.json")
+    from . import records
+    records.validate(agent, "agent", agent_id)
+    if job is not None:
+        records.validate(job, "job")
     from .access_policy import load as load_access_policy
     load_access_policy(realm_root, agent)
     if "allow_tools" in agent and type(agent["allow_tools"]) is not bool:
@@ -1100,11 +1104,15 @@ def run_inbox(realm_root, agent_id: str, engine="auto") -> dict:
     """
     from . import inbox
     realm_root = Path(realm_root)
+    from . import records
+    try:
+        agent = records.admit_agent(realm_root, agent_id)
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "reason": "record-hold", "detail": str(exc), "handled": 0, "failed": 0}
     batch = inbox.next_batch(realm_root, agent_id)
     if not batch:
         return {"ok": True, "handled": 0}
     agent_dir = realm_root / "agents" / agent_id
-    agent = _load_json(agent_dir / "agent.json") or {}
     who = agent.get("display") or agent_id
     handled, failed = 0, 0
     access = None
@@ -1158,6 +1166,11 @@ def process_message_now(realm_root, agent_id: str, msg_id: str, engine="auto") -
     realm_root = Path(realm_root)
     if not inbox.enabled(realm_root):
         return {"ok": False, "error": "Agent-to-agent tasks are switched off for this realm."}
+    from . import records
+    try:
+        records.admit_agent(realm_root, agent_id)
+    except (OSError, ValueError) as exc:
+        return {"ok": False, "reason": "record-hold", "error": str(exc)}
     target = None
     for m in inbox._list(realm_root, agent_id, inbox.PENDING):
         if m.get("id") == msg_id:
@@ -1218,6 +1231,12 @@ def dispatch_inboxes(realm_root, engine="auto") -> dict:
         checked += 1
         if not inbox.has_mail(realm_root, aid):      # free
             continue
+        from . import records
+        try:
+            records.admit_agent(realm_root, aid)
+        except (OSError, ValueError) as exc:
+            blocked.append({"agent": aid, "reason": "record-hold", "detail": str(exc)})
+            continue
         if not inbox.due(realm_root, aid):           # its cadence hasn't elapsed yet
             continue
         r = run_inbox(realm_root, aid, engine=engine)
@@ -1245,6 +1264,9 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     This is what runs deterministic scripts, data collection and report delivery."""
     from . import util
     util.assert_realm_writable(agent_dir / "agent.json")
+    from . import records
+    records.admit_agent(realm_root, agent_id)
+    records.validate(job, "job", job_id)
     cmd = job.get("run") or job.get("command", "")
     if not cmd:
         raise SystemExit(f"ARMADA: command job '{job_id}' has no 'run' field")
@@ -1435,7 +1457,8 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
         if updater.installed() and updater.apply_requested():
             raise util.StateError("ARMADA is restarting to update. New jobs can start after it reopens.")
         realmops.assert_active(realm_root)
-        job = read_json_state(job_path) if job_path.exists() else {}
+        from . import records
+        job = records.read(job_path, "job") if job_path.exists() else {}
         if not job:
             raise SystemExit(f"ARMADA: no job '{job_id}' for agent '{agent_id}'")
         util.write_json_atomic(agent_dir / "runs" / ".running" / f"{job_id}.json",
@@ -1445,6 +1468,8 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
         agent = _load_json(agent_dir / "agent.json") or {}
     except (OSError, ValueError):
         agent = {}
+    if not isinstance(agent, dict):
+        agent = {}  # Notification label only; admission still reads the original strictly.
     eng = None
 
     who = agent.get("display") or agent.get("name") or agent_id

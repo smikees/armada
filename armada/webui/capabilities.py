@@ -1096,6 +1096,9 @@ def _cap_roster(realm, realm_root) -> str:
               ("skills", "cap-skill"), ("plugins", "cap-plugin"))
     chips = ""
     for a in realm.members:
+        if a.record_error:
+            chips += f'<a href="/agent/{E(a.id)}">{E(a.display)} — Needs repair</a>'
+            continue
         try:
             grants = _caps.grants(realm_root, a.id)
         except Exception:  # noqa — a roster is not worth breaking the page for
@@ -1362,6 +1365,9 @@ def _realm_skills_content(realm, realm_root) -> str:
     _realm_keys = {_caps.cap_key(c) for _k, c in _caps.catalogue_flat(realm_root)}
     per = ""
     for a in realm.agents:
+        if a.record_error:
+            per += f'<p role="alert"><a href="/agent/{E(a.id)}">{E(a.display)} — Needs repair</a></p>'
+            continue
         atk = _agent_toolkit(realm_root, a.id)
         own = {k: [it for it in (atk[k] or []) if _caps.cap_key(it) not in _realm_keys]
                for k in ("connectors", "extensions", "skills", "plugins")}

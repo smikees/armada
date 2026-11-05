@@ -132,6 +132,19 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
                 f'<div id="mc-realmlist" style="position:absolute;top:100%;left:0;z-index:50;min-width:210px;background:var(--color-bg);'
                 f'border:1px solid var(--color-divider);border-radius:var(--r);box-shadow:var(--shadow-md);padding:6px;margin-top:4px">'
                 f'<div style="font-size:11px;color:var(--text-muted);padding:4px 8px">loading…</div></div></details>')
+    notices = []
+    for agent in realm.agents:
+        if agent.record_error:
+            notices.append(f'<a href="/agent/{E(agent.id)}">{E(agent.display)}: needs repair; work held</a>')
+        elif agent.history_errors:
+            notices.append(f'{E(agent.display)}: history needs repair; totals incomplete and scheduled work held. '
+                           f'Preserve agents/{E(agent.id)}/runs/{E(agent.id)}.jsonl and restore a verified backup.')
+        for job in agent.jobs:
+            if job.record_error and not agent.record_error:
+                notices.append(f'<a href="/job/{E(agent.id)}/{E(job.id)}">{E(agent.display)} / {E(job.name)}: needs repair; work held</a>')
+    record_notice = ('<details style="padding:8px 24px;flex:none" role="status">'
+                     '<summary>Some records need repair</summary><ul>' +
+                     ''.join(f'<li>{notice}</li>' for notice in notices) + '</ul></details>') if notices else ''
     return (f'<div class="mc-mainnav" style="display:flex;align-items:center;gap:22px;padding:0 24px;'
             f'border-bottom:1px solid var(--color-divider);flex:none">'
             f'<a href="/" style="text-decoration:none;display:flex;align-items:center;gap:7px">{LOGO}</a>{switcher}'
@@ -161,7 +174,7 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
             # Scheduler banner (5.5): same reasoning — scheduled jobs stop for every page, not one.
             f'<div id="mc-schedbar"></div>'
             # Update bar (5.4): a new version is waiting, or needs the new installer.
-            f'<div id="mc-updbar"></div>'
+            f'<div id="mc-updbar"></div>{record_notice}'
             # confirm.js first: every page gets the app's own dialog, so nothing has to fall back
             # to the browser's confirm()
             f'{_CONFIRM_JS}{_NAVKEYS_JS}{js("pagefind")}{_SWITCHER_JS}{_PENDING_BADGE_JS}{_NEW_REALM_MODAL}'

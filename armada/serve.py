@@ -451,6 +451,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
 
     # Most POSTs are uniform: take the JSON body, return a dict that's sent as JSON. Path → method.
     _POST_JSON = {
+        "/api/repair-record": "_repair_record",
         "/api/voice-start": "_voice_start", "/api/voice-state": "_voice_state", "/api/voice-stop": "_voice_stop",
         "/api/run": "_run", "/api/chat": "_chat", "/api/save-job": "_save_job",
         "/api/dry-run": "_start_dry_run", "/api/dry-run-stop": "_stop_dry_run",

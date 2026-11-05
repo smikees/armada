@@ -1,5 +1,26 @@
 # When something goes wrong
 
+## An agent or job says “Needs repair”
+
+ARMADA holds work that depends on damaged configuration. Other agents remain usable.
+Open the affected agent or job to see the problem. Reading the page does not change
+the original file or reset permissions.
+
+Restore the complete JSON from a trusted backup where possible. Review all fields,
+especially permissions, then select **Preserve original and apply repair**. ARMADA
+validates the replacement and keeps the original bytes and an owner repair receipt
+under `.armada/record-repairs/`. If someone changed the file since you opened it,
+reload and review it again. A failed replacement leaves the original in place.
+
+If history is damaged, usage totals are marked incomplete and that agent's scheduled
+jobs are held to avoid repeating an action whose outcome cannot be read. Preserve
+`agents/<agent>/runs/<agent>.jsonl` and restore verified history from a backup. Do not
+delete the bad rows to make the warning disappear: they may describe completed work.
+Repair does not rerun anything. **Run now** remains an explicit manual action.
+
+Missing or inaccessible files need a verified backup or corrected file access before
+they can be repaired. Files from a newer ARMADA version require that newer version.
+
 ## ARMADA does not open after signing in to Windows
 
 Use the installed ARMADA shortcut. A Windows login task should launch only that desktop;

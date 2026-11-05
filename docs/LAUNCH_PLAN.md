@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.127** prepares M5: damaged agent/job isolation, strict admission,
+visible repair diagnostics and explicit owner repairs preserving original evidence.
+Full release validation and publication are pending. [Record contract](dev/RECORD_HEALTH.md).
+
 Version **0.99.126** is the published M4 resilience release: bounded local HTTP
 input/workers, reserved server control capacity and shared provider refresh. The
 pinned suite passed 4,040 tests; both Windows CI jobs, packaged native lifecycle

@@ -20,6 +20,7 @@ def realm(tmp_path, monkeypatch):
     (tmp_path / "realm.json").write_text('{"schema_version":2}', encoding="utf-8")
     jobs = tmp_path / "agents" / "a" / "jobs"
     jobs.mkdir(parents=True)
+    (jobs.parent / "agent.json").write_text('{"id":"a"}', encoding="utf-8")
     (jobs / "daily.json").write_text(json.dumps({"id": "daily", "schedule": "daily 09:00"}), encoding="utf-8")
     monkeypatch.setattr(preflight, "hold_reason", lambda *a: "")
     monkeypatch.setattr(sysjobs, "run_due", lambda *a: [])

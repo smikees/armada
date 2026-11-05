@@ -104,6 +104,7 @@
 | [`realmformat`](realmformat.md) | The realm's on-disk format version, and the one place that upgrades it. |
 | [`realmops`](realmops.md) | Realm lifecycle — archive, export, delete. |
 | [`recommended`](recommended.md) | Starter capabilities with explicit upstream sources and connection requirements. |
+| [`records`](records.md) | Record health: strict admission, diagnostic views, and explicit owner repair. |
 | [`render`](render.md) | ARMADA cockpit renderer — Realm model -> self-contained cockpit.html. |
 | [`request_context`](request_context.md) | Immutable request/run destinations; the selected realm is only an admission-time default. |
 | [`restart`](restart.md) | Prepare a monitored desktop handover before the old process releases its server. |
@@ -183,6 +184,7 @@
 | [`webui.pages`](webui.pages.md) | ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3. |
 | [`webui.provider_settings`](webui.provider_settings.md) | Shared connection controls for setup and App Settings; no probes during rendering. |
 | [`webui.realmpages`](webui.realmpages.md) | Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts. |
+| [`webui.recordrepair`](webui.recordrepair.md) | Owner repair UI, kept separate from ordinary configuration forms. |
 | [`webui.recovery`](webui.recovery.md) | A self-contained error screen: no realm/config reads, scripts or authenticated assets. |
 | [`webui.schedfmt`](webui.schedfmt.md) | Schedule / status / date-format helpers (carved from _core.py in Phase 3). |
 | [`webui.setup_wizard`](webui.setup_wizard.md) | The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide. |

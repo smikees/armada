@@ -155,6 +155,15 @@ def test_required_outputs_fail_before_any_engine_or_model_turn(realm, monkeypatc
     monkeypatch.setattr(runner, '_notify', lambda *a, **kw: calls.append(a))
     monkeypatch.setattr(runner, '_select_engine', lambda *a, **kw: pytest.fail('selected an engine'))
     monkeypatch.setattr(execution, 'execute_request', lambda *a, **kw: pytest.fail('spent a model turn'))
+    if setting.get('allow_tools') == 'true':
+        # Structurally damaged configuration is now refused before a turn exists;
+        # valid-but-contradictory intent still gets the durable startup failure below.
+        from armada import util
+        with pytest.raises(util.StateError, match='allow_tools must be true or false'):
+            runner.run_job(realm, 'writer', 'report', engine=provider)
+        assert not list((realm / 'agents/writer/runs/.running').glob('*.json'))
+        assert not calls
+        return
     report = runner.run_job(realm, 'writer', 'report', engine=provider)
     assert report['status'] == 'error'
     assert 'configured without tools but requires outputs' in report['summary']

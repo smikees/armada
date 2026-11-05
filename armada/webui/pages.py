@@ -31,13 +31,13 @@ _SETICON_ON = "background:var(--text-12);"
 def render_thread_rail(realm, realm_root, agent_id: str, thread: str) -> str:
     """Entry point for the post-reply rail refresh: render one thread's right rail (or '')."""
     a = next((x for x in realm.agents if x.id == agent_id), None)
-    return _thread_rail(realm_root, a, thread) if a else ""
+    return _thread_rail(realm_root, a, thread) if a and not a.record_error else ""
 
 
 def render_thread_turns(realm, realm_root, agent_id: str, thread: str) -> str:
     """Entry point for the post-reply transcript refresh: render one thread's turns (or '')."""
     a = next((x for x in realm.agents if x.id == agent_id), None)
-    return _render_turns(realm_root, a, thread) if a else ""
+    return _render_turns(realm_root, a, thread) if a and not a.record_error else ""
 
 
 def render_catalogue_results(realm, realm_root, **kw) -> str:
@@ -55,6 +55,8 @@ def render_thread_embed(realm, realm_root, agent_id: str, thread: str = "main", 
         return (f'<!doctype html><html><head><meta charset="utf-8">'
                 f'{_CSS_LINKS}{_theme_style()}</head>'
                 f'<body class="{body_cls}"><div style="padding:16px;font-size:13px">No agent \'{E(agent_id)}\'.</div></body></html>')
+    if a.record_error:
+        return render_agent(realm, realm_root, agent_id, dark=dark)
     names, _ = _ordered_threads(realm_root / "agents" / a.id)
     if thread not in names:
         thread = "main"
@@ -78,6 +80,10 @@ def render_agent(realm, realm_root, agent_id: str, subtab: str = "threads", dark
                 f'{_CSS_LINKS}{_theme_style()}</head>'
                 f'<body class="{body_cls}">{_titlebar(realm)}{_nav(realm)}'
                 f'<div style="padding:24px"><a href="/">← {E(realm.name)}</a><p>No agent \'{E(agent_id)}\'.</p></div></body></html>')
+    if a.record_error:
+        from .recordrepair import panel
+        return _page_shell(realm, "Agents", "Needs repair",
+                           panel(realm_root, a.id, "", a.record_error), dark)
     # The Inbox count is what's WAITING, not the total — a sub-tab badge should tell you there's
     # something to look at, not how much history has accumulated.
     try:
@@ -131,6 +137,13 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
     realm_root = Path(realm_root)
     a = next((x for x in realm.agents if x.id == agent_id), None)
     body_cls = "armada-dark" if dark else ""
+    if a and a.record_error:
+        return render_agent(realm, realm_root, agent_id, dark=dark)
+    j = next((j for j in a.jobs if j.id == job_id), None) if a else None
+    if j and j.record_error:
+        from .recordrepair import panel
+        return _page_shell(realm, "Jobs", "Needs repair",
+                           panel(realm_root, agent_id, job_id, j.record_error), dark)
     jc = _job_prompt(realm_root, agent_id, job_id)
     if not a or not jc:
         return _page_shell(realm, "Jobs", "Job", f'<div style="padding:24px"><a href="/jobs">← Jobs</a><p>No job {E(job_id)}.</p></div>', dark)

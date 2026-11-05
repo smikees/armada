@@ -5,7 +5,7 @@ from __future__ import annotations
 import json, re, datetime
 from pathlib import Path
 from .model import Realm, Agent, Job, Gap
-from . import status as _status
+from . import status as _status, records
 
 
 def _read(p: Path) -> str:
@@ -194,23 +194,30 @@ def read_native(root: Path, *, details=True) -> Realm:
         lo = _epoch
     adir_root = root / "agents"
     for adir in (sorted(p for p in adir_root.iterdir() if p.is_dir()) if adir_root.is_dir() else []):
-        c = json.loads(_read(adir / "agent.json") or "{}")
-        aid = c.get("id", adir.name)
+        c, problem = records.presentation(adir / "agent.json", "agent")
+        if problem:
+            a = Agent(id=adir.name, display=adir.name, status="red", record_error=problem,
+                      bulletin="Needs repair — work is held")
+            if details:
+                for jf in sorted((adir / "jobs").glob("*.json")):
+                    a.jobs.append(Job(id=jf.stem, name=jf.stem, cadence="manual",
+                                      enabled=False, record_error=problem))
+            realm.agents.append(a)
+            realm.gaps.append(Gap("warn", f"{adir.name}: {problem}"))
+            continue
+        aid = adir.name
         latest: dict[str, tuple[str, str]] = {}
         count30 = tok30 = 0
         cost30 = 0.0
+        history_errors = []
         rf = adir / "runs" / f"{aid}.jsonl"
-        if details and rf.exists():
+        if details:
             from .job_history import apply_annotation, annotation_names
             annotations = annotation_names(adir)
-            for ln in _read(rf).splitlines():
-                ln = ln.strip()
-                if not ln:
-                    continue
-                try:
-                    ev = json.loads(ln)
-                except json.JSONDecodeError:
-                    continue
+            events, history_errors = records.history(rf)
+            for message in history_errors:
+                realm.gaps.append(Gap("warn", f"{aid}: {message} Scheduled work is held."))
+            for ev in events:
                 ev = apply_annotation(adir, ev, names=annotations)
                 ts = str(ev.get("ts", ""))[:19]
                 tid = ev.get("task")
@@ -238,11 +245,17 @@ def read_native(root: Path, *, details=True) -> Realm:
                   status=status, bulletin=_first_headline(mandate),
                   runs_30d=count30, tokens_30d=tok30, cost_30d=round(cost30, 4) if cost30 is not None else None, appointed=appointed,
                   skills=skills_mod.load(root, aid) if details else [])
+        a.history_errors = history_errors
         jdir = adir / "jobs"
         if details and jdir.is_dir():
             for jf in sorted(jdir.glob("*.json")):
-                jc = json.loads(_read(jf) or "{}")
-                jid = jc.get("id", jf.stem)
+                jc, problem = records.presentation(jf, "job")
+                if problem:
+                    a.jobs.append(Job(id=jf.stem, name=jf.stem, cadence="manual",
+                                      enabled=False, record_error=problem))
+                    realm.gaps.append(Gap("warn", f"{aid}/{jf.stem}: {problem}"))
+                    continue
+                jid = jf.stem
                 seen = latest.get(jid)
                 kind = jc.get("kind") or ("command" if (jc.get("run") or jc.get("command")) else "agent")
                 cadence = jc.get("schedule") or jc.get("cron") or "manual"

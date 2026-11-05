@@ -259,6 +259,10 @@ def _realm_ministers(realm, realm_root, today) -> str:
     cards = ""
     now = clock.now()
     for a in ([realm.coordinator] if realm.coordinator else []) + realm.members:
+        if a.record_error:
+            cards += (f'<a href="/agent/{E(a.id)}" class="mc-agent mc-frame" style="padding:16px">'
+                      f'<strong>{E(a.display)} — Needs repair</strong><p>{E(a.record_error)}</p></a>')
+            continue
         # The last seven days, rolled up across everything this agent owns. This is a log, not a
         # plan: on a card the strip answers "how has it been going", and every square is a day that
         # has already happened, so day initials would only be repeating what the tooltips say.
@@ -602,6 +606,10 @@ def _job_week_html(week):
 
 def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_job: str = "") -> str:
     """One job, expandable, identical on both pages bar the Kind and Owner cells."""
+    if a.record_error or j.record_error:
+        problem = a.record_error or j.record_error
+        return (f'<div style="padding:16px" role="alert"><a href="/job/{E(a.id)}/{E(j.id)}">'
+                f'{E(a.display)} / {E(j.name)} — Needs repair</a><p>{E(problem)}</p></div>')
     grid = _JOB_GRID_OWNED if show_owner else _JOB_GRID
     jc = _job_prompt(realm_root, a.id, j.id)
     _run = jc.get("run")

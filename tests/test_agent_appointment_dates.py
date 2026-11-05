@@ -25,6 +25,7 @@ def test_recorded_dates_override_filesystem_dates(tmp_path, fields, expected):
 
 
 def test_reader_uses_folder_creation_instead_of_recent_config_save(tmp_path, monkeypatch):
+    (tmp_path / "realm.json").write_text('{"name":"Synthetic"}', encoding="utf-8")
     directory = _profile(tmp_path)
     born = datetime.datetime(2026, 9, 16, 15).timestamp()
     monkeypatch.setattr(agentdates, "_birthtime", lambda path: born)

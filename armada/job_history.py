@@ -26,17 +26,11 @@ def reports(agent_dir, job_id: str | None = None) -> list[dict]:
     ad = Path(agent_dir)
     path = ad / "runs" / f"{ad.name}.jsonl"
     result = []
-    try:
-        lines = path.read_text(encoding="utf-8-sig").splitlines()
-    except FileNotFoundError:
-        return result
+    from . import records
+    events, _ = records.history(path)
     names = annotation_names(ad)
-    for line in lines:
-        try:
-            ev = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(ev, dict) and (job_id is None or ev.get("task") == job_id):
+    for ev in events:
+        if job_id is None or ev.get("task") == job_id:
             result.append(apply_annotation(ad, ev, names=names))
     return result
 
