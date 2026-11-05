@@ -5,10 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.125** is the installer-correction candidate before M4. It prevents
+Version **0.99.125** is the published installer correction before M4. It prevents
 private DLL search inheritance, refuses locked installations before mutation and
-verifies copied payload bytes before marking success. Full release validation is
-pending. [Evidence and remaining boundaries](dev/RELEASE_0_99_125.md).
+verifies copied payload bytes before marking success. The pinned suite passed
+4,010 tests; both Windows CI jobs, packaged native and 74 upgrade checks passed.
+Public signatures/downloads and the matching website were verified. Exact-installer
+Sandbox passed 26 checks; its WebView2 prerequisite failure still leaves
+clean-machine GUI acceptance unverified. [Evidence and remaining boundaries](dev/RELEASE_0_99_125.md).
 
 The Windows beta supports Claude Code, Codex CLI and Gemini through Antigravity CLI.
 Users may connect any one engine or any combination. Threads, jobs, model selection

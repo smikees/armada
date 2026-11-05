@@ -23,7 +23,7 @@ with a checklist update and owner progress report after each implementation mile
 | M1 | Protect control records: one shared classification; scoped raw writes cannot change live jobs, approvals, history, configuration or managed state. Keep artifacts writable and legitimate mutations behind validated operations. | Broad own-folder grants refuse control writes, preserve bytes and emit audit warnings; builder/owner behavior and existing provider policy tests pass. | **Verified; released 0.99.123** | Pending |
 | M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; released 0.99.123** | Pending |
 | M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Verified; released 0.99.124** | Pending |
-| M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | Pending | Pending |
+| M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | In progress in isolated checkout | Pending |
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | Pending | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | Pending | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | Pending | Pending |
@@ -105,7 +105,7 @@ tool filtering and guarded file operations are not a hostile-code sandbox.
 - This is a local repair of 0.99.124, not a new public release. Installer/launcher
   source changes still require the full release procedure before publication.
 
-### Installer release candidate — 5 November 2026
+### Installer correction released — 5 November 2026
 
 - Prepared 0.99.125 before M4. Added embedded payload hashes and post-copy
   verification before the compatibility marker, so skipping a required file
@@ -115,7 +115,11 @@ tool filtering and guarded file operations are not a hostile-code sandbox.
   during staging and covers clean and legacy parents using a synthetic child.
 - Focused installer/runtime/update/release checks and 21 reviewed page snapshots
   passed. Sandbox now reproduces the locked-CRT case before normal installation.
-  Full pinned/CI/native/installer validation and publication are in progress.
+  Published 0.99.125 after 4,010 pinned tests, both exact-source Windows CI jobs,
+  all packaged native gates and 74 signed-upgrade checks passed. Public signatures,
+  downloads and website verified. Exact public installer Sandbox: 26 passes and
+  the known WebView2 prerequisite failure; clean-machine GUI acceptance remains
+  unverified. See [release evidence](RELEASE_0_99_125.md).
 
 ### Plan baseline — 5 November 2026
 
