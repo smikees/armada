@@ -5,6 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.125** is the installer-correction candidate before M4. It prevents
+private DLL search inheritance, refuses locked installations before mutation and
+verifies copied payload bytes before marking success. Full release validation is
+pending. [Evidence and remaining boundaries](dev/RELEASE_0_99_125.md).
+
 The Windows beta supports Claude Code, Codex CLI and Gemini through Antigravity CLI.
 Users may connect any one engine or any combination. Threads, jobs, model selection
 and connector checks share provider-neutral application contracts; adapter limitations

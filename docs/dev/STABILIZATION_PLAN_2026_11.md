@@ -72,6 +72,51 @@ tool filtering and guarded file operations are not a hostile-code sandbox.
 
 ## Milestone log
 
+### Installer regression — 5 November 2026, before M4
+
+- Owner reported access denied replacing `python/vcruntime140.dll` in the full
+  0.99.124 installer. Read-only inspection confirmed Python 3.14.10 installed but
+  the skipped CRT remained 14.42.34438.0 instead of packaged 14.51.36247.0.
+- An external Claude browser helper was observed loading ARMADA's private CRT.
+  The native launcher used inheritable `SetDllDirectory(runtime)`; a synthetic
+  child reproduced that inheritance. Process-local DLL search configuration and
+  clearing the inherited path removed it in the same reproduction.
+- Installer preparation now checks existing files without changing them and
+  refuses locked/inaccessible payloads before deletion; it no longer force-stops
+  ARMADA during upgrade. Automatic Setup logging is enabled.
+- 20 installer/preflight checks passed, including lock refusal, byte preservation
+  and retry after release. Inno Setup compilation and 68 native tray/lifecycle
+  checks through the corrected launcher passed. Full release validation remains
+  pending; this fix is not published yet.
+- Owner installation remains unchanged. Repair requires a coordinated app quit;
+  M4 follows this installer correction.
+
+### Authorized local installer repair — 5 November 2026
+
+- Owner confirmed no running jobs and authorized repair. ARMADA exited through
+  normal window teardown; its original close-to-tray preference was restored.
+  Only the verified browser helper still holding the CRT was stopped.
+- Backed up both originals, verified prepared hashes, and atomically replaced
+  `vcruntime140.dll` plus the corrected native launcher. The installed runtime
+  probe passed and its inheritable DLL directory is empty.
+- Reopened through the production desktop launcher. Authenticated desktop health,
+  normal rendered Jobs page and loaded CRT 14.51.36247.0 verified. No realm/job
+  records were changed by the repair. Backups and hash evidence are retained locally.
+- This is a local repair of 0.99.124, not a new public release. Installer/launcher
+  source changes still require the full release procedure before publication.
+
+### Installer release candidate — 5 November 2026
+
+- Prepared 0.99.125 before M4. Added embedded payload hashes and post-copy
+  verification before the compatibility marker, so skipping a required file
+  cannot produce a successful installation. Whole-installer atomicity is not claimed.
+- Launcher protocol 2 participates in runtime compatibility; versions through
+  0.99.124 require the full installer. The native inheritance probe is mandatory
+  during staging and covers clean and legacy parents using a synthetic child.
+- Focused installer/runtime/update/release checks and 21 reviewed page snapshots
+  passed. Sandbox now reproduces the locked-CRT case before normal installation.
+  Full pinned/CI/native/installer validation and publication are in progress.
+
 ### Plan baseline — 5 November 2026
 
 - Repository clean at `2487d89`, version 0.99.122.

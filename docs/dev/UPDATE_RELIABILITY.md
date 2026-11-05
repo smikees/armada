@@ -11,6 +11,12 @@ download, separately from compatible updates on the new runtime. See
 
 ## Existing update contract
 
+Version 0.99.125 adds native launcher protocol 2 to runtime compatibility. It
+requires the full installer from older tags. Setup refuses locked files before
+mutation and verifies copied payload bytes before writing its new marker; it
+does not force-close running applications. This is separate from compatible
+package-update draining and rollback, and is not whole-installer atomicity.
+
 One desktop/server owner is enforced using the Windows token's profile directory,
 independent of realm, installation path, port, ARMADA_DATA_DIR, HOME and USERPROFILE.
 Native library launches claim the same guard as the CLI. A second launch requests

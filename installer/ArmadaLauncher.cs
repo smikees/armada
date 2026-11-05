@@ -16,6 +16,12 @@ internal static class ArmadaLauncher
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool SetDllDirectory(string path);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetDefaultDllDirectories(uint flags);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr AddDllDirectory(string path);
+
     [DllImport(RuntimeDefinition.PythonDll, CallingConvention = CallingConvention.Cdecl)]
     private static extern int Py_Main(int argc, IntPtr argv);
 
@@ -26,7 +32,12 @@ internal static class ArmadaLauncher
     private static int Main(string[] args)
     {
         string runtime = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-        if (!SetDllDirectory(runtime))
+        // Clear any inherited directory. SetDllDirectory(runtime) leaks the private
+        // CRT into external provider/browser helpers, which can outlive ARMADA and
+        // hold its runtime files open during an installer upgrade. These search
+        // directories are process-local; exclude the current directory and PATH.
+        if (!SetDllDirectory("") || !SetDefaultDllDirectories(0x1000) ||
+            AddDllDirectory(runtime) == IntPtr.Zero)
         {
             MessageBox(IntPtr.Zero, "ARMADA could not locate its Python runtime.", "ARMADA — cannot start", 0x10);
             return 1;

@@ -46,9 +46,25 @@ if (-not $wv -and (Test-Path 'C:\armada-redist\MicrosoftEdgeWebView2RuntimeInsta
 }
 
 # 1. install silently
+# Reproduce an external helper holding an existing CRT before any installation
+# side effects. This fixture belongs solely to the disposable VM.
+$lockedRoot = Join-Path $env:TEMP 'armada-locked-upgrade'
+New-Item -ItemType Directory -Force (Join-Path $lockedRoot 'python') | Out-Null
+$lockedDll = Join-Path $lockedRoot 'python\vcruntime140.dll'
+$oldMarker = Join-Path $lockedRoot 'installed.json'
+[IO.File]::WriteAllText($lockedDll, 'synthetic old runtime')
+[IO.File]::WriteAllText($oldMarker, 'synthetic old marker')
+$held = [IO.File]::Open($lockedDll, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+try {
+  $blocked = Start-Process -WindowStyle Hidden $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=`"$lockedRoot`"", "/LOG=`"$out\locked-upgrade.log`"" -Wait -PassThru
+  Say ($blocked.ExitCode -eq 7) "locked runtime refused before installation (exit $($blocked.ExitCode))"
+  Say (([IO.File]::ReadAllText($lockedDll) -eq 'synthetic old runtime') -and
+       ([IO.File]::ReadAllText($oldMarker) -eq 'synthetic old marker')) 'locked upgrade preserves existing DLL and marker'
+} finally { $held.Dispose() }
 $t0 = Get-Date
 $p = Start-Process -WindowStyle Hidden $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS="desktopicon"',"/LOG=`"$out\setup.log`"" -Wait -PassThru
 Say ($p.ExitCode -eq 0) "installer exit code $($p.ExitCode) in $([int]((Get-Date)-$t0).TotalSeconds)s"
+Say ([bool](Select-String -LiteralPath "$out\setup.log" -SimpleMatch 'All installed payload hashes verified before the compatibility marker.')) 'installed files verified before compatibility marker'
 $wv2 = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv
 if (-not $wv2) { $wv2 = (Get-ItemProperty 'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv }
 if (-not $wv2) {

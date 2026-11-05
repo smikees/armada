@@ -7,6 +7,51 @@ import subprocess
 import tempfile
 
 
+def launcher_isolation(stage):
+    """An actual external child must not inherit the packaged DLL directory."""
+    from armada.background import process_options
+    stage = Path(stage).resolve()
+    csc = Path(os.environ['SystemRoot'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
+    with tempfile.TemporaryDirectory(prefix='armada-loader-probe-') as scratch:
+        root = Path(scratch)
+        source = root/'Child.cs'
+        child = root/'Child.exe'
+        report = root/'child.txt'
+        source.write_text('''using System; using System.IO; using System.Text;
+using System.Runtime.InteropServices;
+class Child {
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode)] static extern uint GetDllDirectory(uint n,StringBuilder s);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode)] static extern IntPtr LoadLibrary(string s);
+ [DllImport("kernel32.dll",CharSet=CharSet.Unicode)] static extern uint GetModuleFileName(IntPtr h,StringBuilder s,uint n);
+ static void Main(string[] a) {
+  var directory=new StringBuilder(32768); GetDllDirectory(32768,directory);
+  var library=new StringBuilder(32768); var h=LoadLibrary("vcruntime140.dll");
+  if(h!=IntPtr.Zero) GetModuleFileName(h,library,32768);
+  File.WriteAllLines(a[0],new string[]{directory.ToString(),library.ToString()});
+ }
+}''', encoding='utf-8')
+        subprocess.run([str(csc),'/nologo','/target:winexe','/platform:x64',
+            '/out:'+str(child),str(source)],check=True,timeout=30,**process_options())
+        host = stage/'python/ARMADA.exe'
+        code = ('import ctypes,subprocess; b=ctypes.create_unicode_buffer(32768); '
+                'ctypes.windll.kernel32.GetDllDirectoryW(32768,b); assert not b.value; '
+                'import ssl,sqlite3,webview; '
+                + 'subprocess.run('+repr([str(child),str(report)])+',check=True,timeout=20)')
+        # Reproduce startup under a legacy parent as well as a clean parent.
+        for inherited in (False, True):
+            command = [str(host),'-c',code]
+            if inherited:
+                parent = ('import ctypes,subprocess; '
+                    + 'ctypes.windll.kernel32.SetDllDirectoryW('+repr(str(stage/'python'))+'); '
+                    + 'subprocess.run('+repr(command)+',check=True,timeout=30)')
+                command = [str(stage/'python/python.exe'),'-c',parent]
+            subprocess.run(command,cwd=root,check=True,timeout=45,**process_options())
+            lines = report.read_text(encoding='utf-8-sig').splitlines()
+            if lines[0] or (len(lines)>1 and lines[1].lower().startswith(str(stage).lower())):
+                raise RuntimeError('External child inherited the private runtime DLL search path')
+    print('Native launcher: external DLL isolation passed with clean and legacy parents',flush=True)
+
+
 def recovery(stage):
     stage = Path(stage)
     if list(stage.rglob('support_key.txt')):

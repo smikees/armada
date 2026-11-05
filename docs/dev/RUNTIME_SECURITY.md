@@ -1,5 +1,14 @@
 # Windows runtime security baseline
 
+**0.99.125 installer correction:** launcher protocol 2 now participates in the
+runtime tag. Older tags require the full installer even with the same Python
+patch. The native host uses process-local DLL search directories; external helpers
+must not inherit the private runtime directory. Setup refuses locked files before
+mutation and verifies copied payload hashes before publishing its compatibility
+marker. Full installer upgrades require the owner to quit ARMADA; Setup no longer
+force-stops it. See [0.99.125 evidence](RELEASE_0_99_125.md). The historical 0.99.124
+baseline and migration evidence below remain applicable to its release.
+
 Release 0.99.124 moves the Windows installer from Python 3.12.10 to
 **Python 3.14.10 x64**, the maintained 3.14 binary line. The source of truth is
 `armada/runtime_spec.py`: version, full security baseline, Python ABI/DLL/path
@@ -78,7 +87,8 @@ the clean-machine prerequisite failure and the unmodified owner installation.
    execution. Neither signing nor clean-machine acceptance is inferred from local
    success. See [the release procedure](RELEASING.md).
 
-The full installer still force-stops processes under its own chosen installation
-directory. Users must finish work and quit first. A cooperative full-installer
-handover remains separate from the compatible updater's drain/recovery contract.
+The 0.99.124 full installer force-stopped processes in its installation directory.
+Version 0.99.125 supersedes that behavior with preflight refusal. Users must finish
+work and quit first. A cooperative full-installer handover remains separate from
+the compatible updater's drain/recovery contract.
 No owner application is restarted or installed over for development validation.

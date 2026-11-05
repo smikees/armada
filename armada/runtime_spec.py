@@ -5,7 +5,9 @@ an application-only update cannot replace Python or its bundled dependencies.
 """
 
 PYTHON_VERSION = '3.14.10'
-INSTALLER_BASELINE_VERSION = '0.99.124'
+INSTALLER_BASELINE_VERSION = '0.99.125'
+# The native host is outside package updates. Bump when its safety contract changes.
+LAUNCHER_PROTOCOL = 2
 PYTHON_MINOR = '.'.join(PYTHON_VERSION.split('.')[:2])
 PYTHON_ABI = PYTHON_MINOR.replace('.', '')
 PYTHON_DLL = f'python{PYTHON_ABI}.dll'

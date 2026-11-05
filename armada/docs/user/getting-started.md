@@ -42,11 +42,14 @@ plus **Set for all agents** to apply them across the team.
 
 Check also lists Python and WebView2. The installer includes Python; it does not need a separate installation.
 
-### Updating to 0.99.124
+### Updating to 0.99.125
 
-If you have 0.99.123 or earlier, this update needs the full installer to replace
-ARMADA's bundled runtime. Let current work finish, quit ARMADA, then download and
+If you have 0.99.124 or earlier, this update needs the full installer to replace
+ARMADA's native launcher and bundled runtime. Let current work finish, quit ARMADA, then download and
 run the installer from the release page. Your realms and settings stay in place.
+If Setup says a file is in use, quit ARMADA from its tray menu and close any
+helper using that file, then retry. Do not skip runtime files. Setup verifies its
+installed files before marking the update complete.
 Later compatible updates continue to install through Settings.
 
 ## 2. Meet your team

@@ -93,14 +93,15 @@ def installed() -> bool:
 
 
 def runtime_tag(requirements_text: str, python: str | None = None) -> str:
-    """Required Python security baseline plus pinned requirements and bootstrap.
+    """Python security baseline plus pinned requirements, bootstrap and native host.
     An update may only replace the package folder when the new code needs the same runtime as the
     installed one; otherwise it needs a new installer. A Python patch change also
     requires an installer. Explicit older tags remain usable in migration tests.
     Comments and blank lines don't count; the build host's Python is irrelevant."""
     py = python or runtime_spec.PYTHON_VERSION
     lines = sorted(l.split("#", 1)[0].strip().lower() for l in requirements_text.splitlines())
-    body = "\n".join(l for l in lines if l) + f"\nbootstrap:{bootstrap.PROTOCOL}"
+    body = ("\n".join(l for l in lines if l) + f"\nbootstrap:{bootstrap.PROTOCOL}"
+            + f"\nlauncher:{runtime_spec.LAUNCHER_PROTOCOL}")
     return f"py{py}-" + hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
 
 

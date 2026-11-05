@@ -359,6 +359,8 @@ def smoke(stage_dir: Path, ver: str) -> None:
                 p.communicate(timeout=15)       # let it let go of its log file before cleanup
     from tools.installer_probe import recovery
     recovery(stage_dir)
+    from tools.installer_probe import launcher_isolation
+    launcher_isolation(stage_dir)
     from tools.webview_session_probe import verify
     verify(stage_dir)
     from tools.startup_recovery_probe import verify_tray
@@ -381,6 +383,15 @@ def compile_installer(stage_dir: Path, ver: str, *, allow_unsigned: bool = False
     config = None if allow_unsigned else sign_windows.configuration()
     if config:
         sign_windows.sign_payload(stage_dir, config)
+    # Hash after signing and all smoke tests; the installer verifies these exact
+    # bytes before writing installed.json, so Skip cannot claim a complete runtime.
+    util.write_json_atomic(stage_dir.parent/'payload-hashes.json', {
+        'format': 1, 'files': [
+            {'path': p.relative_to(stage_dir).as_posix(),
+             'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
+            for p in sorted(stage_dir.rglob('*'))
+            if p.is_file() and p.relative_to(stage_dir).as_posix() != 'installed.json'
+        ]})
     DIST.mkdir(exist_ok=True)
     iscc = _iscc()
     say(f"compiling with {iscc}")

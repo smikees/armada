@@ -19,6 +19,12 @@ def test_patch_baseline_does_not_depend_on_the_build_hosts_python(monkeypatch):
     assert updater.runtime_tag('a==1') != first
 
 
+def test_native_launcher_change_requires_a_full_installer(monkeypatch):
+    first = updater.runtime_tag('a==1')
+    monkeypatch.setattr(runtime_spec, 'LAUNCHER_PROTOCOL', runtime_spec.LAUNCHER_PROTOCOL + 1)
+    assert updater.runtime_tag('a==1') != first
+
+
 def test_signed_manifest_and_installer_share_the_full_patch_baseline(tmp_path, monkeypatch):
     (tmp_path/'armada').mkdir()
     (tmp_path/'armada/__init__.py').write_text('__version__ = "1.1.0"\n')

@@ -68,9 +68,10 @@ WizardSmallImageFileDynamicDark=art\mark-dark-58.png,art\mark-dark-77.png,art\ma
 Compression=lzma2/max
 SolidCompression=yes
 OutputBaseFilename=ARMADA-Setup-{#AppVersion}
-; We stop ARMADA's own processes ourselves (StopArmada below); Restart Manager would ask about every
-; python.exe on the machine.
+; Preflight refuses files in use before destructive install steps. Never force-close
+; unrelated applications that inherited a runtime DLL from an older launcher.
 CloseApplications=no
+SetupLogging=yes
 
 [Messages]
 WelcomeLabel1=Welcome to ARMADA
@@ -98,10 +99,15 @@ Type: filesandordirs; Name: "{app}\.armada-staging-*"
 Type: files; Name: "{app}\.armada-update*"
 
 [Files]
-Source: "{#Stage}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#Stage}\*"; DestDir: "{app}"; Excludes: "installed.json"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Publish the compatibility marker only after every installed payload file verifies.
+Source: "{#Stage}\installed.json"; DestDir: "{app}"; Flags: ignoreversion; BeforeInstall: VerifyInstalledPayload
 ; Microsoft's WebView2 bootstrapper, unpacked (and run, below) only when the runtime is missing.
 ; Without WebView2 the window falls back to Internet Explorer's engine and can't draw the app.
 Source: "{#Redist}\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
+Source: "check-install-files.ps1"; Flags: dontcopy
+Source: "verify-install-files.ps1"; Flags: dontcopy
+Source: "{#Stage}\..\payload-hashes.json"; Flags: dontcopy
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{#AppExe}"; Parameters: "-m armada app"; WorkingDir: "{app}"; \
@@ -260,9 +266,50 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Rc: Integer;
+  Report: String;
+  Detail: AnsiString;
 begin
-  StopArmada(ExpandConstant('{app}'));
   Result := '';
+  ExtractTemporaryFile('check-install-files.ps1');
+  Report := ExpandConstant('{tmp}\install-preflight.txt');
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
+      ExpandConstant('{tmp}\check-install-files.ps1') + '" -InstallRoot "' +
+      ExpandConstant('{app}') + '" -Report "' + Report + '"',
+      '', SW_HIDE, ewWaitUntilTerminated, Rc) then
+    Result := 'Setup could not check the existing installation. No files have been changed. Retry Setup.'
+  else if Rc <> 0 then begin
+    if LoadStringFromFile(Report, Detail) then
+      Result := UTF8Decode(Detail);
+    if Result = '' then
+      Result := 'Setup could not check the existing installation. Quit ARMADA and retry Setup.';
+  end;
+end;
+
+procedure VerifyInstalledPayload();
+var
+  Rc: Integer;
+  Report, Message: String;
+  Detail: AnsiString;
+begin
+  ExtractTemporaryFile('verify-install-files.ps1');
+  ExtractTemporaryFile('payload-hashes.json');
+  Report := ExpandConstant('{tmp}\install-verification.txt');
+  Message := 'Setup could not verify the installed files. Run Setup again before opening ARMADA.';
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
+      ExpandConstant('{tmp}\verify-install-files.ps1') + '" -InstallRoot "' +
+      ExpandConstant('{app}') + '" -Manifest "' + ExpandConstant('{tmp}\payload-hashes.json') +
+      '" -Report "' + Report + '"', '', SW_HIDE, ewWaitUntilTerminated, Rc) then
+    RaiseException(Message);
+  if Rc <> 0 then begin
+    if LoadStringFromFile(Report, Detail) and (Detail <> '') then
+      Message := UTF8Decode(Detail);
+    RaiseException(Message);
+  end;
+  Log('All installed payload hashes verified before the compatibility marker.');
 end;
 
 procedure CurPageChanged(CurPageID: Integer);

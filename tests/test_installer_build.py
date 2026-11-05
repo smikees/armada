@@ -73,12 +73,19 @@ def test_uninstall_never_touches_the_users_data():
                    for l in section.splitlines() if not l.startswith(";"))
 
 
-def test_uninstall_and_upgrade_only_stop_processes_running_this_installs_python():
+def test_uninstall_only_stops_processes_running_this_installs_python():
     stop = ISS[ISS.index("procedure StopArmada"):ISS.index("function PrepareToInstall")]
     assert "StartsWith(" in stop and "\\python\\" in stop
     assert "Get-CimInstance Win32_Process" in stop
     assert "ExecutablePath" in stop and "Stop-Process -Id $_.ProcessId" in stop
     assert "taskkill" not in ISS.lower()                       # would kill every Python on the machine
+
+
+def test_upgrade_checks_before_mutation_and_verifies_before_publishing_marker():
+    prepare = ISS[ISS.index('function PrepareToInstall'):ISS.index('procedure VerifyInstalledPayload')]
+    assert 'StopArmada(' not in prepare and 'check-install-files.ps1' in prepare
+    assert 'BeforeInstall: VerifyInstalledPayload' in ISS
+    assert 'Excludes: "installed.json"' in ISS
 
 
 def test_webview2_is_installed_when_missing():
