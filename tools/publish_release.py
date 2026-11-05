@@ -85,7 +85,7 @@ def main(argv=()) -> None:
     if _run("git", "status", "--porcelain"):
         sys.exit("uncommitted changes — a release is a commit")
     sha = _run("git", "rev-parse", "HEAD")
-    from release_gate import run as run_gate
+    from tools.release_gate import run as run_gate
     run_gate()
     if _run('git','rev-parse','HEAD') != sha or _run('git','status','--porcelain'):
         sys.exit('Source changed during the local gate; validate the new commit again')

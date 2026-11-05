@@ -65,7 +65,6 @@ def test_gate_uses_a_private_home_and_propagates_failure(monkeypatch):
     [{'head_sha':'current','event':'push','status':'completed','conclusion':'failure'}],
     [{'head_sha':'current','event':'pull_request','status':'completed','conclusion':'success'}]])
 def test_publish_refuses_absent_stale_failed_or_pr_only_ci(monkeypatch, ci):
-    monkeypatch.setitem(sys.modules, 'release_gate', release_gate)
     monkeypatch.setattr(release_gate, 'run', lambda: None)
     def fake_run(*args, **kw):
         if args[:2] == ('git', 'status'): return ''
@@ -94,7 +93,6 @@ def test_publish_waits_for_pending_exact_source_ci(monkeypatch):
 
 def test_publish_rejects_a_commit_changed_during_the_local_gate(monkeypatch):
     changed=[]
-    monkeypatch.setitem(sys.modules,'release_gate',release_gate)
     monkeypatch.setattr(release_gate,'run',lambda:changed.append(True))
     def read(*args,**kw):
         if args[:2]==('git','status'):return ''

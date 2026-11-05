@@ -357,11 +357,11 @@ def smoke(stage_dir: Path, ver: str) -> None:
             if p.poll() is None:
                 p.kill()
                 p.communicate(timeout=15)       # let it let go of its log file before cleanup
-    from installer_probe import recovery
+    from tools.installer_probe import recovery
     recovery(stage_dir)
-    from webview_session_probe import verify
+    from tools.webview_session_probe import verify
     verify(stage_dir)
-    from startup_recovery_probe import verify_tray
+    from tools.startup_recovery_probe import verify_tray
     verify_tray(stage_dir)
     say("smoke: ok")
 
