@@ -109,3 +109,16 @@ tool filtering and guarded file operations are not a hostile-code sandbox.
 - Additional reparse-root and read-only-exception checks join the full release gate.
 - M1 + M2 are prepared for 0.99.123. Full gate, exact-source CI, packaged native
   checks and publication are pending; the owner app remains untouched.
+
+### Release validation correction — 5 November 2026
+
+- The owner explicitly authorized the 0.99.123 public push, GitHub release and
+  matching website publication using the existing unsigned-beta distribution.
+- The first publisher attempt passed its local suite and exact-source Windows CI,
+  then correctly stopped at a failed native restart assertion before any upload.
+- A controlled reproduction identified a probe ordering race: already-visible
+  state did not acknowledge the queued tray Open callback. The probe now waits
+  for that callback before sending Close and fails on missing/failed callbacks.
+- Twelve focused tests passed; the same controlled native race passed 69 checks.
+  The application payload is unchanged by this correction. Full release gates
+  are being rerun against the corrected probe commit; M1/M2 remain release pending.

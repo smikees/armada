@@ -18,6 +18,31 @@ import traceback
 from unittest.mock import patch
 
 
+def open_tray_and_wait(tray, action, *, timeout=3):
+    """Wait for this Open callback, even when the window was already visible."""
+    delivered = threading.Event()
+    failures = []
+    original = tray.show
+
+    def observed_show():
+        try:
+            original()
+        except Exception as exc:
+            failures.append(exc)
+        finally:
+            delivered.set()
+
+    tray.show = observed_show
+    try:
+        tray._dispatcher.BeginInvoke(action(lambda: tray._icon.ContextMenuStrip.Items[0].PerformClick()))
+        if not delivered.wait(timeout):
+            raise AssertionError('Tray Open callback was not delivered')
+        if failures:
+            raise AssertionError('Tray Open callback failed') from failures[0]
+    finally:
+        tray.show = original
+
+
 def verify_tray(stage):
     """Installer gate: exercise the staged package with real tray/WinForms loops."""
     import subprocess
@@ -135,7 +160,6 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
             native.Invoke(Action(prepare))
             tray = trays[0]
             assert tray._context is not None and tray._icon is not None
-            menu = tray._icon.ContextMenuStrip
             user = c.WinDLL('user32', use_last_error=True)
             user.PostMessageW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
             user.SendMessageTimeoutW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM,
@@ -145,7 +169,9 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
                 value = c.c_size_t()
                 assert user.SendMessageTimeoutW(hwnd, 0, 0, 0, 3, 1000, c.byref(value)), 'UI thread not responding'
             def open_tray():
-                tray._dispatcher.BeginInvoke(Action(lambda: menu.Items[0].PerformClick()))
+                # Visible can already be true before the asynchronously dispatched
+                # Open runs. A following Close must not overtake that callback.
+                open_tray_and_wait(tray, Action)
             window.evaluate_js("document.body.insertAdjacentHTML('beforeend','<textarea id=mc-msg>unsent draft</textarea>')")
             for index in range(20):
                 open_tray()

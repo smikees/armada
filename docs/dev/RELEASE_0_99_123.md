@@ -36,6 +36,19 @@ snapshot destination cannot be reported as a successful existing output.
   signed upgrade validation: pending publication procedure.
 - All tests use synthetic realms. No owner app restart, live job or provider call.
 
+The first publication attempt stopped before uploading anything: its local suite
+passed 3,985 tests (6 skipped) and both Windows CI jobs passed 3,987 (4 skipped),
+but a native restart probe reported `close hides main 1`. Investigation reproduced
+a probe ordering race: an already-visible window satisfied the Open assertion
+before the queued tray callback ran, allowing that earlier Open to arrive after
+Close. The application correctly honored the newly delivered restore request.
+
+The probe now waits for its actual Open callback to finish before testing Close;
+it still fails on callback timeout or error. Three regression tests and the existing
+visibility tests passed (12 total). The same controlled native race then passed all
+69 restart checks. Application code is unchanged by this probe correction. The
+full exact-commit release gates must pass again before publication.
+
 ## Provider and runtime review
 
 Release preferences were reviewed on November 5 against official metadata:
