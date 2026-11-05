@@ -141,10 +141,33 @@ def test_idle_client_burst_is_bounded_and_controls_respond(server):
         assert health(server, "/api/chat-stop") == 200
         with server._gate_lock:
             assert len(server._pending) <= 8
+            assert len(server._rejecting) <= 8
             assert len(server._active) <= 5
     finally:
         for sock in sockets:
             sock.close()
+
+
+def test_oversized_headers_deliver_error_with_unread_input(server):
+    for _ in range(20):
+        with connect(server) as sock:
+            sock.sendall(b"GET / HTTP/1.1\r\nX: " + b"x" * (http_limits.HEADER_BYTES * 2))
+            code, body = response(sock)
+            assert code == 431
+            assert json.loads(body)["error"]
+    assert health(server) == 200
+
+
+def test_refused_client_cannot_keep_drain_socket_open(server):
+    with connect(server) as sock:
+        sock.sendall(b"INVALID\r\n\r\n")
+        assert response(sock)[0] == 400
+        deadline = time.monotonic() + 1.5
+        while server._rejecting and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert not server._rejecting
+        assert sock.recv(1) == b""
+        assert health(server) == 200
 
 
 def test_saturated_body_and_stream_lanes_leave_control_capacity(server):

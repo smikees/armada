@@ -48,3 +48,18 @@ Three sequential runs of the strengthened probe passed **79 checks each**, inclu
 Stop in sender/observer windows, stale run IDs, disconnect and reopening during work.
 Evidence: `build/thread-window-m4-final-{1,2,3}.json`. The framing suite also passed
 21 checks after explicitly accepting legal trailing HTTP header whitespace.
+
+## Windows refusal delivery correction
+
+The fresh full gate stopped with 4,034 passes and one failure: Windows reset an
+oversized-header connection before the client received its 431 response. Immediate
+close while input was unread was the cause. Refusals now shut down the write half
+and retain a bounded read half for at most 0.5 seconds, drained by the existing gate
+without allocating a worker. At most 128 such sockets can exist; server shutdown
+closes them too. Continuous flooding still has no delivery guarantee.
+
+315 focused HTTP/security/realm/reference checks passed after this correction,
+including 20 repeated oversized requests with unread bytes and a refusal-drain
+expiry check. The strengthened native thread-window probe passed all 79 checks
+again on the corrected source. Full pinned and exact-source CI gates restart for
+this commit; the prior failed candidate was not published.

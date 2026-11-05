@@ -1,5 +1,12 @@
 # ARMADA threat model
 
+**Local HTTP resource containment (0.99.126 candidate):** request workers, pending
+headers, input size/time and refusal-drain sockets are bounded. Health/stop controls
+have separate admission capacity; all existing authorization checks remain. Provider
+refreshes share three workers. These are resource limits, not availability against
+a continuously flooding local process. See [limits](HTTP_LIMITS.md) and
+[validation evidence](RELEASE_0_99_126.md).
+
 
 **Runtime baseline update (5 November 2026, released 0.99.124):** the installer now
 uses the pinned Python 3.14.10 Windows runtime and verifies its archive and upstream

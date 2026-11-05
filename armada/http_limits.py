@@ -22,6 +22,7 @@ HEADER_SECONDS = 5.0
 BODY_SECONDS = 15.0
 WRITE_SECONDS = 30.0
 PENDING_CONNECTIONS = 128
+REJECTION_SECONDS = 0.5
 LANES = {"ordinary": 24, "stream": 16, "control": 4}
 CONTROL = {("GET", "/health"), ("GET", "/api/instance"),
            ("GET", "/api/chat-stop"), ("POST", "/api/voice-stop"),
@@ -108,8 +109,10 @@ class _Connection:
         return getattr(self.socket, name)
 
 
-def _refuse(sock, status):
-    # Never wait on a client while holding the gate. Small best-effort response.
+def _send_refusal(sock, status):
+    # Never wait on a client while holding the gate. The server retains the read
+    # half briefly afterwards: closing with unread input can discard this response
+    # with a TCP reset on Windows, even for an ordinary oversized request.
     try:
         sock.setblocking(False)
         reason = http.server.BaseHTTPRequestHandler.responses[status][0]
@@ -121,10 +124,11 @@ def _refuse(sock, status):
         sock.send((f"HTTP/1.0 {status} {reason}\r\nConnection: close\r\n"
                    f"Content-Type: application/json\r\nContent-Length: {len(body)}\r\n"
                    f"{retry}\r\n").encode("ascii") + body)
+        sock.shutdown(socket.SHUT_WR)
+        return True
     except OSError:
-        pass
-    finally:
         sock.close()
+        return False
 
 
 class BoundedHTTPServer(http.server.ThreadingHTTPServer):
@@ -139,6 +143,7 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
     def __init__(self, *args, **kwargs):
         self._gate_lock = threading.Lock()
         self._pending = {}
+        self._rejecting = {}
         self._active = set()
         self._closing = False
         self._slots = {name: threading.BoundedSemaphore(count) for name, count in LANES.items()}
@@ -162,6 +167,7 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
 
     def process_request(self, request, address):
         request.setblocking(False)
+        oldest = None
         with self._gate_lock:
             if self._closing:
                 request.close()
@@ -171,8 +177,23 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
                 # health request to reach the parser during an idle-client burst.
                 oldest = next(iter(self._pending))
                 self._pending.pop(oldest)
-                _refuse(oldest, 503)
             self._pending[request] = (address, bytearray(), time.monotonic() + HEADER_SECONDS)
+        if oldest is not None:
+            self._refuse(oldest, 503)
+        self._wake()
+
+    def _refuse(self, sock, status):
+        if not _send_refusal(sock, status):
+            return
+        with self._gate_lock:
+            if self._closing:
+                sock.close()
+                return
+            if len(self._rejecting) >= PENDING_CONNECTIONS:
+                oldest = next(iter(self._rejecting))
+                self._rejecting.pop(oldest)
+                oldest.close()
+            self._rejecting[sock] = time.monotonic() + REJECTION_SECONDS
         self._wake()
 
     def _headers(self):
@@ -181,8 +202,9 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
                 if self._closing:
                     return
                 pending = dict(self._pending)
+                rejecting = dict(self._rejecting)
             try:
-                ready, _, _ = select.select([self._wake_read, *pending], [], [], 0.1)
+                ready, _, _ = select.select([self._wake_read, *pending, *rejecting], [], [], 0.1)
             except (OSError, ValueError):
                 continue  # an evicted/closed socket was in the snapshot
             if self._wake_read in ready:
@@ -215,21 +237,34 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
                     if self._pending.pop(sock, None) is None:
                         continue
                 if status:
-                    _refuse(sock, status)
+                    self._refuse(sock, status)
                 else:
                     self._dispatch(sock, address, prefix)
+            for sock, deadline in rejecting.items():
+                done = time.monotonic() >= deadline
+                if not done and sock in ready:
+                    try:
+                        done = not sock.recv(65536)
+                    except BlockingIOError:
+                        continue
+                    except OSError:
+                        done = True
+                if done:
+                    with self._gate_lock:
+                        if self._rejecting.pop(sock, None) is not None:
+                            sock.close()
 
     def _dispatch(self, sock, address, prefix):
         try:
             method, target, _ = bytes(prefix).split(b"\r\n", 1)[0].decode("iso-8859-1").split()
             route = (method, urlsplit(target).path)
         except ValueError:
-            _refuse(sock, 400)
+            self._refuse(sock, 400)
             return
         lane = "control" if route in CONTROL else "stream" if route in STREAMS else "ordinary"
         slot = self._slots[lane]
         if not slot.acquire(blocking=False):
-            _refuse(sock, 503)
+            self._refuse(sock, 503)
             return
         connection = _Connection(sock, prefix)
         with self._gate_lock:
@@ -257,8 +292,9 @@ class BoundedHTTPServer(http.server.ThreadingHTTPServer):
     def server_close(self):
         with self._gate_lock:
             self._closing = True
-            connections = [*self._pending, *self._active]
+            connections = [*self._pending, *self._active, *self._rejecting]
             self._pending.clear()
+            self._rejecting.clear()
         self._wake()
         for connection in connections:
             try:

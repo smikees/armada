@@ -51,6 +51,9 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 - Native Stop investigation: publication paused after an initial timeout; stronger
   current-turn readiness and failure diagnostics added to the probe. Three sequential
   native runs passed 79 checks each; the initial cause remains unconfirmed.
+- The full gate caught Windows resetting refused connections with unread input.
+  Added bounded, worker-free refusal draining; 315 focused regressions and all
+  79 native thread-window checks passed after the correction.
 - Full pinned, exact-source CI, packaged browser and upgrade checks are pending for
   0.99.126. [Resource contract and limits](HTTP_LIMITS.md). Maintainer acceptance pending.
 

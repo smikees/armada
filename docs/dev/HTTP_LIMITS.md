@@ -6,6 +6,7 @@ content-origin server each own one header gate and bounded worker lanes.
 | Resource | Limit and behavior |
 |---|---|
 | Incomplete connections | 128; an arriving connection evicts the oldest incomplete one at capacity |
+| Refusal delivery | At most 128 read halves retained for up to 0.5 seconds to drain unread input after sending the error; no worker allocated |
 | Headers | 32 KiB, including request line; five seconds total to finish |
 | Ordinary requests | 24 concurrent handlers; additional completed requests receive 503 |
 | Chat/support streams | 16 concurrent handlers, separate from ordinary requests |
@@ -18,7 +19,10 @@ The gate consumes partial headers without creating a thread for each socket.
 Only complete headers reach a handler. A connection carries one request; streaming
 responses remain open until their operation finishes, but another request must
 pass admission on another connection. Server close releases pending and active
-sockets. Application work does not automatically replay when a connection closes.
+sockets, including refusal drains. Keeping the read half briefly avoids Windows
+discarding a refusal response with a reset when input is still unread. Refusal
+delivery remains best-effort under continuous flooding or client disconnects.
+Application work does not automatically replay when a connection closes.
 
 Body framing requires a single decimal Content-Length and rejects Transfer-Encoding.
 Invalid UTF-8, JSON, non-object JSON, non-JSON numeric constants and incomplete
