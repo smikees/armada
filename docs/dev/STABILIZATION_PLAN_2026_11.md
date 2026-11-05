@@ -48,6 +48,9 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 - 182 targeted HTTP, provider, authentication, realm-context and content-origin tests
   passed; 297 final transport/concurrency, reference and golden-page checks passed, including
   21 socket/concurrency cases and streaming beyond the input deadline.
+- Native Stop investigation: publication paused after an initial timeout; stronger
+  current-turn readiness and failure diagnostics added to the probe. Three sequential
+  native runs passed 79 checks each; the initial cause remains unconfirmed.
 - Full pinned, exact-source CI, packaged browser and upgrade checks are pending for
   0.99.126. [Resource contract and limits](HTTP_LIMITS.md). Maintainer acceptance pending.
 

@@ -96,7 +96,7 @@ def test_invalid_body_never_dispatches(server, extra, body, status):
 
 
 def test_valid_and_empty_bodies_remain_usable(server):
-    for extra, body in [(b"Content-Length: 7\r\n", b'{"x":1}'), (b"", b"")]:
+    for extra, body in [(b"Content-Length: 7 \t\r\n", b'{"x":1}'), (b"", b"")]:
         with connect(server) as sock:
             sock.sendall(headers(server, extra) + body)
             assert response(sock)[0] == 200

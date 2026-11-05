@@ -45,6 +45,11 @@ def run(output):
         util.write_json_atomic(cfg_path, cfg)
 
         class Fixture(serve.Handler):
+            def _chat_stop(self, query):
+                answer = super()._chat_stop(query)
+                result.setdefault("stop_calls", []).append({"answer": answer})
+                return answer
+
             def _route_get(self):
                 if self.path.split("?")[0] == "/probe-main":
                     from armada import reader, webui
@@ -306,6 +311,12 @@ def run(output):
                     wait_for(lambda: stopper.evaluate_js("mcGen") and "Checking the synthetic figures." in text(stopper),
                              "Stop observes the active conversation in " + label)
                     wait_for(lambda: transcript(main) == transcript(companion), "live snapshots match before Stop in " + label)
+                    # The progress phrase also occurs in earlier turns. Equal
+                    # snapshots alone can be equal *old* snapshots while the new
+                    # turn is arriving. Require the current turn's enabled control.
+                    wait_for(lambda: ("Cancel from " + label) in text(stopper)
+                             and not stopper.evaluate_js("document.getElementById('mc-stop').disabled"),
+                             "Stop enabled for current turn in " + label)
                     stopper.evaluate_js("mcTid='deliberately-stale-id';document.getElementById('mc-stop').click()")
                     wait_for(lambda: idle(main) and idle(companion), "Stop actually cancels the backend from " + label)
                     wait_for(lambda: transcript(main) == transcript(companion), "cancelled snapshots match from " + label)
@@ -363,6 +374,16 @@ def run(output):
                 result["ok"] = True
             except Exception:
                 result["error"] = traceback.format_exc()
+                for label, window in (("main", main), ("companion", companion)):
+                    try:
+                        result[label + "_state"] = window.evaluate_js(
+                            "JSON.stringify({generating:mcGen,stopBusy:mcStopBusy,"
+                            "stopRequested:mcStopRequested,stopDisabled:"
+                            "document.getElementById('mc-stop').disabled})")
+                    except Exception as exc:
+                        result[label + "_state_error"] = str(exc)
+                from armada.execution import ACTIVE_RUNS
+                result["active_runs"] = len(ACTIVE_RUNS)
             finally:
                 release.set()
                 output.write_text(json.dumps(result, indent=2), encoding="utf-8")

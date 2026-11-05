@@ -30,3 +30,21 @@ Official model metadata reviewed 5 November 2026:
 [Claude](https://platform.claude.com/docs/en/models/opus-5-5/overview),
 [Codex](https://developers.openai.com/api/docs/models/gpt-6.1-sol),
 [Gemini](https://aistudio.google.com/docs/models/gemini-3.8-flash).
+
+## Native Stop investigation
+
+The first auxiliary native thread-window run timed out waiting for Stop from the
+observing main window while the full suite was running. Publication was stopped.
+The 0.99.125 baseline passed 76 checks, as did four instrumented M4 repetitions;
+every recorded Stop response reported a cancelled backend turn.
+
+The probe's readiness check reused text present in previous turns and could compare
+equal old snapshots. It now additionally requires the current turn's text and an
+enabled Stop button before clicking. Failure evidence records button state, active
+run count and synthetic cancellation responses. The original timeout's cause was
+not conclusively established; no production cancellation fix is claimed.
+
+Three sequential runs of the strengthened probe passed **79 checks each**, including
+Stop in sender/observer windows, stale run IDs, disconnect and reopening during work.
+Evidence: `build/thread-window-m4-final-{1,2,3}.json`. The framing suite also passed
+21 checks after explicitly accepting legal trailing HTTP header whitespace.

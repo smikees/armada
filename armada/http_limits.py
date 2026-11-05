@@ -38,7 +38,7 @@ class RequestError(ValueError):
 
 def read_body(handler):
     """Strict framing and JSON; invalid input must never become an empty mutation."""
-    lengths = handler.headers.get_all("Content-Length", [])
+    lengths = [value.strip(" \t") for value in handler.headers.get_all("Content-Length", [])]
     if handler.headers.get_all("Transfer-Encoding", []):
         raise RequestError(400, "Transfer-Encoding is not supported; send Content-Length.")
     if len(lengths) > 1 or (lengths and (not lengths[0].isascii() or not lengths[0].isdecimal())):
