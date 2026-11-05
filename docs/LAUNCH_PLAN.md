@@ -5,6 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.126** is the M4 resilience candidate: bounded local HTTP input/workers,
+reserved control capacity and shared provider refresh. Focused regression tests pass;
+full release gates are in progress. [Limits](dev/HTTP_LIMITS.md) ·
+[Evidence](dev/RELEASE_0_99_126.md).
+
 Version **0.99.125** is the published installer correction before M4. It prevents
 private DLL search inheritance, refuses locked installations before mutation and
 verifies copied payload bytes before marking success. The pinned suite passed

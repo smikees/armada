@@ -26,6 +26,13 @@ def server(monkeypatch, tmp_path):
 
         def _route_post(self):
             calls.append(self._body())
+            if self.path == "/api/chat-stream" and hasattr(self.server, "stream_release"):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                assert self.server.stream_release.wait(2)
+                self.wfile.write(b'data: {"done":true}\n\n')
+                return
             self._json(200, {"accepted": True})
 
         def _route_get(self):
@@ -167,6 +174,21 @@ def test_second_request_cannot_bypass_admission(server):
         sock.sendall(headers(server) + headers(server))
         assert response(sock)[0] == 200
     assert server.calls == [{}]
+
+
+def test_stream_can_outlive_input_deadline(server):
+    server.stream_release = threading.Event()
+    try:
+        with connect(server) as sock:
+            sock.sendall(headers(server, path=b"/api/chat-stream"))
+            reply = http.client.HTTPResponse(sock)
+            reply.begin()
+            assert reply.status == 200
+            time.sleep(http_limits.BODY_SECONDS + 0.1)
+            server.stream_release.set()
+            assert reply.read() == b'data: {"done":true}\n\n'
+    finally:
+        server.stream_release.set()
 
 
 def test_server_close_releases_idle_and_active_clients(server, monkeypatch):
