@@ -24,7 +24,7 @@ with a checklist update and owner progress report after each implementation mile
 | M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; released 0.99.123** | Pending |
 | M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Verified; released 0.99.124** | Pending |
 | M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | **Verified; released 0.99.126** | Pending |
-| M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | Pending | Pending |
+| M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Locally verified; release pending** | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | Pending | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | Pending | Pending |
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Pending | Pending |
@@ -55,7 +55,7 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   [release evidence](RELEASE_0_99_126.md). [Resource contract](HTTP_LIMITS.md).
 - Owner app was not restarted. Maintainer acceptance remains pending.
 
-## M5 next: isolate damaged records
+## M5: isolate damaged records
 
 1. Keep presentation diagnostics separate from strict policy/execution reads.
 2. Show damaged agents/jobs with repair information and hold their work; healthy
@@ -65,7 +65,7 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 4. Test malformed JSON, wrong field types, duplicate keys, unreadable encoding and
    damaged history rows using synthetic realms; verify refusal before model dispatch.
 
-### M5 implementation in progress — 5 November 2026
+### M5 locally verified — 5 November 2026
 
 - Added strict record shape checks and diagnostic presentation entries. Healthy
   pages remain available; damaged agents/jobs show an explicit owner repair page.
@@ -73,9 +73,16 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   history holds scheduling without replaying uncertain work or dropping evidence.
 - Owner repair verifies the reviewed digest under the shared lock, validates the
   replacement and preserves original bytes plus an audit receipt before atomic replace.
-- Focused record, policy-admission, state, scheduler and authenticated HTTP checks
-  passed. The full regression suite and release gates are in progress; M5 is not
-  yet marked complete. [Contract and limits](RECORD_HEALTH.md).
+- Pinned isolated gate at `c2ffa92`: **4,087 passed, six skipped**. Final review
+  additionally reproduced an invalid retry-count detail-page failure; shared retry
+  validation now routes it to repair. **383 focused checks passed** after that fix.
+  The earlier combined final page/state/reference check passed 401 tests.
+- Public push was blocked by automatic approval review, which requires explicit
+  approval for this 0.99.127 candidate. No push, release or website change occurred.
+  The mandatory final-source full gate, exact-source CI and packaged checks will
+  run before publication after approval. Owner app remains untouched; acceptance
+  stays pending. [Contract and limits](RECORD_HEALTH.md).
+- Next milestone after M5 publication: M6, atomic exports and restore semantics.
 
 ## Release boundaries
 

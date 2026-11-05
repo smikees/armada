@@ -196,6 +196,17 @@ def test_legacy_free_text_budget_and_default_timeout_are_valid(realm):
     assert records.read(path, "job")["budget"] == "10K token"
 
 
+@pytest.mark.parametrize("value", ["bad", None, True, 4])
+def test_invalid_retry_configuration_shows_repair_instead_of_breaking_detail(realm, value):
+    path = records.target(realm, "broken", "daily")
+    raw = json.dumps({"id": "daily", "retries": value}).encode()
+    path.write_bytes(raw)
+    view = reader.read(realm)
+    assert "Needs repair" in webui.render_job(view, realm, "broken", "daily")
+    assert "Healthy" in webui.render_agent(view, realm, "healthy")
+    assert path.read_bytes() == raw
+
+
 def test_bad_inbox_recipient_does_not_consume_mail_or_block_siblings(realm, monkeypatch):
     from armada import inbox
     records.target(realm, "broken").write_bytes(b'{')

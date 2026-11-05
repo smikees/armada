@@ -57,6 +57,12 @@ def validate(data: dict, kind: str, identity: str | None = None) -> dict:
             raise util.StateError(f"Invalid {kind} record: {field} must be text or a list of arguments.")
     if "env" in data and not isinstance(data["env"], dict):
         raise util.StateError(f"Invalid {kind} record: env must be an object.")
+    if kind == "job" and "retries" in data:
+        from .job_retries import validate as validate_retries
+        try:
+            validate_retries(data["retries"])
+        except ValueError as exc:
+            raise util.StateError(f"Invalid job record: {exc}") from exc
     for field in ("timeout", "max_budget_usd"):
         value = data.get(field)
         if value in (None, ""):

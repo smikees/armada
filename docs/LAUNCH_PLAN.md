@@ -7,7 +7,10 @@ alone do not complete a product acceptance gate.
 
 Version **0.99.127** prepares M5: damaged agent/job isolation, strict admission,
 visible repair diagnostics and explicit owner repairs preserving original evidence.
-Full release validation and publication are pending. [Record contract](dev/RECORD_HEALTH.md).
+The pinned implementation gate passed 4,087 tests with six skips; a subsequent
+retry-field repair fix passed 383 focused checks. Public push approval, final-source
+release gates and publication are pending. [Record contract](dev/RECORD_HEALTH.md) ·
+[Candidate evidence](dev/RELEASE_0_99_127.md).
 
 Version **0.99.126** is the published M4 resilience release: bounded local HTTP
 input/workers, reserved server control capacity and shared provider refresh. The
