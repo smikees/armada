@@ -12,12 +12,16 @@ and differences in telemetry remain explicit.
 
 The current release is recorded in the [README](../README.md),
 [changelog](../armada/webui/changelog.py) and [GitHub releases](https://github.com/smikees/armada/releases).
-Version **0.99.123** is the security containment candidate for the
+Version **0.99.123** is the published security containment release for the
 [stabilization plan](dev/STABILIZATION_PLAN_2026_11.md). Scoped agents cannot rewrite
 live jobs or execution history through a broad folder grant; valid pending proposals
 and own memory notes stay available within scope. Section file and snapshot paths
-are confined using Windows-safe component checks. Targeted regression checks passed;
-full isolated, exact-source CI, packaged and publication gates are pending.
+are confined using Windows-safe component checks. Published on GitHub and
+armada.stamih.com after 3,988 isolated tests passed (6 skipped), both exact-source
+Windows CI jobs, packaged recovery/session/tray/restart gates and 72 signed-upgrade
+checks. A diagnosed native probe ordering race was corrected before publication.
+Public signatures, package bytes, installer hash and website links were verified;
+the owner's app was not restarted. M1/M2 are released; M3's runtime upgrade is next.
 [Release evidence](dev/RELEASE_0_99_123.md).
 
 Version **0.99.122** replaces abrupt desktop update exit with normal native teardown

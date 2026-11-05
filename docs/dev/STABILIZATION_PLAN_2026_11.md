@@ -20,8 +20,8 @@ with a checklist update and owner progress report after each implementation mile
 
 | ID | Work and intended outcome | Required evidence | Implementation | Acceptance |
 |---|---|---|---|---|
-| M1 | Protect control records: one shared classification; scoped raw writes cannot change live jobs, approvals, history, configuration or managed state. Keep artifacts writable and legitimate mutations behind validated operations. | Broad own-folder grants refuse control writes, preserve bytes and emit audit warnings; builder/owner behavior and existing provider policy tests pass. | **Verified; release pending** | Pending |
-| M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; release pending** | Pending |
+| M1 | Protect control records: one shared classification; scoped raw writes cannot change live jobs, approvals, history, configuration or managed state. Keep artifacts writable and legitimate mutations behind validated operations. | Broad own-folder grants refuse control writes, preserve bytes and emit audit warnings; builder/owner behavior and existing provider policy tests pass. | **Verified; released 0.99.123** | Pending |
+| M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; released 0.99.123** | Pending |
 | M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | Pending | Pending |
 | M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | Pending | Pending |
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | Pending | Pending |
@@ -122,3 +122,21 @@ tool filtering and guarded file operations are not a hostile-code sandbox.
 - Twelve focused tests passed; the same controlled native race passed 69 checks.
   The application payload is unchanged by this correction. Full release gates
   are being rerun against the corrected probe commit; M1/M2 remain release pending.
+
+
+### M1 + M2 published — 5 November 2026
+
+- Released 0.99.123 from `e3f7c2b` on GitHub and armada.stamih.com through the
+  mandatory publisher after correcting the native probe ordering race.
+- Final publisher gate: 3,988 passed / 6 skipped. Both exact-source Windows CI
+  jobs: 3,990 passed / 4 skipped; PHP relay passed. Packaged recovery/session/tray,
+  all three restart cases and 72 signed-upgrade checks passed.
+- Downloaded public signatures, package/module bytes and installer hash verified;
+  live website version and release/download links match. Replaced website files
+  were backed up and upload hashes checked before publication.
+- The owner app was not restarted. Builder/owner boundaries are preserved.
+  Maintainer acceptance remains pending; unsigned publisher/clean-machine and
+  runtime-security limitations remain explicit in the release evidence.
+- Next: M3. Initial Windows x64 / Python 3.14 dependency-resolution preflight
+  succeeded for the nine existing pins; actual runtime/native compatibility and
+  installer migration are not yet implemented or verified.
