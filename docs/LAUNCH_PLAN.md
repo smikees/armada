@@ -5,12 +5,14 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.127** prepares M5: damaged agent/job isolation, strict admission,
-visible repair diagnostics and explicit owner repairs preserving original evidence.
-The pinned implementation gate passed 4,087 tests with six skips; a subsequent
-retry-field repair fix passed 383 focused checks. Public push approval, final-source
-release gates and publication are pending. [Record contract](dev/RECORD_HEALTH.md) ·
-[Candidate evidence](dev/RELEASE_0_99_127.md).
+Version **0.99.127** is the published M5 release: damaged agent/job isolation,
+strict admission, visible repair diagnostics and explicit owner repairs preserving
+evidence. The final pinned suite passed **4,091 tests**; both Windows CI jobs passed
+**4,093 each**. Packaged native lifecycle and **72 signed-upgrade checks** passed.
+Public signatures/downloads and website links verified. Owner app untouched;
+maintainer acceptance and existing publisher/clean-machine boundaries remain pending.
+**M6 (atomic exports) is next.** [Record contract](dev/RECORD_HEALTH.md) ·
+[Release evidence](dev/RELEASE_0_99_127.md).
 
 Version **0.99.126** is the published M4 resilience release: bounded local HTTP
 input/workers, reserved server control capacity and shared provider refresh. The
@@ -18,7 +20,7 @@ pinned suite passed 4,040 tests; both Windows CI jobs, packaged native lifecycle
 checks, 79 native thread-window checks and 72 signed-upgrade checks passed. Public
 signatures/downloads and website verified. Exact-installer Sandbox passed 26 checks
 with the known WebView2 prerequisite failure; clean-machine GUI acceptance remains
-unverified. M5 (damaged-record isolation) is next. [Limits](dev/HTTP_LIMITS.md) ·
+unverified. [Limits](dev/HTTP_LIMITS.md) ·
 [Evidence](dev/RELEASE_0_99_126.md).
 
 Version **0.99.125** is the published installer correction before M4. It prevents

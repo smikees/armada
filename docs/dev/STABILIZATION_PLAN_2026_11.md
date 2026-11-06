@@ -24,7 +24,7 @@ with a checklist update and owner progress report after each implementation mile
 | M2 | Confine section assets, entries, snapshots and local pages using component-aware path validation, including Windows path/link edge cases. | Synthetic HTTP traversal regression, snapshot write refusal, allowed nested assets, content-origin and fallback checks. | **Verified; released 0.99.123** | Pending |
 | M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Verified; released 0.99.124** | Pending |
 | M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | **Verified; released 0.99.126** | Pending |
-| M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Locally verified; release pending** | Pending |
+| M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Verified; released 0.99.127** | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | Pending | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | Pending | Pending |
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Pending | Pending |
@@ -77,12 +77,24 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   additionally reproduced an invalid retry-count detail-page failure; shared retry
   validation now routes it to repair. **383 focused checks passed** after that fix.
   The earlier combined final page/state/reference check passed 401 tests.
-- Public push was blocked by automatic approval review, which requires explicit
-  approval for this 0.99.127 candidate. No push, release or website change occurred.
-  The mandatory final-source full gate, exact-source CI and packaged checks will
-  run before publication after approval. Owner app remains untouched; acceptance
-  stays pending. [Contract and limits](RECORD_HEALTH.md).
-- Next milestone after M5 publication: M6, atomic exports and restore semantics.
+- Public push was initially blocked by automatic approval review. The owner
+  explicitly approved the 0.99.127 push and publication on 6 November.
+
+### M5 published — 6 November 2026
+
+- Released **0.99.127** from `719de63` through the mandatory publisher. Final pinned
+  gate: **4,091 passed / six skipped**. Both exact-source Windows CI jobs:
+  **4,093 passed / four skipped**; relay passed.
+- Packaged launcher recovery/DLL isolation, 16 WebView2 session checks, 68 tray checks,
+  69 checks in each restart mode and **72 signed-upgrade checks** all passed.
+- Public manifest signature, package/source bytes, installer hash and matching
+  website links verified. Website files were backed up; index.html published last.
+- Owner app was not restarted. Maintainer acceptance remains pending. Existing
+  unsigned publisher and clean-machine WebView2 boundaries remain explicit;
+  Sandbox was not rerun for this app-only change. [Release evidence](RELEASE_0_99_127.md).
+- Next: **M6**, atomic exports, collision-resistant filenames, manifests and restore
+  semantics. Read-only review confirms exports currently write directly to a final
+  ZIP named with minute precision; implementation has not begun.
 
 ## Release boundaries
 
