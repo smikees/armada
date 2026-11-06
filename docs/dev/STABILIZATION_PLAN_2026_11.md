@@ -28,7 +28,7 @@ with a checklist update and owner progress report after each implementation mile
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | **Verified; released 0.99.128** | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Verified; released 0.99.129** | Pending |
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Released 0.99.130 — full local/CI, native and signed-upgrade gates passed; public downloads and website verified | Pending |
-| M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Implemented — 157 focused tests passed; final release gates pending | Pending |
+| M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | **Verified; released 0.99.131** | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Pending | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Pending | Pending |
 | M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | Pending | Pending |
@@ -215,6 +215,28 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 
 No production realm or owner-app restart is authorized for testing. Caches are presentation
 accelerators, never grants, durable claims or replacements for JSON/Markdown evidence.
+
+### M9 verified and published — 6 November 2026
+
+- Released **0.99.131** from `ea7df53`: mandatory publisher **4,232 passed / six skips**;
+  both exact-source Windows CI jobs **4,234 passed / four skips**. Shared-window probe
+  **79 checks**, all packaged native gates and **72 signed-upgrade checks** passed.
+- Disposable summaries and date offsets preserve canonical records. Incremental
+  parsing verifies the entire old prefix; rewrites, truncation and annotations
+  rebuild. Policy and execution admission remain uncached.
+- Conversation previews no longer depend on unrelated reports. Concurrent rebuilds
+  coalesce; transcript and counters share one reconciled snapshot. Polls enumerate
+  thread summaries once. Full-scan usage oracles and concurrent-writer tests passed.
+- Synthetic warm p50: detailed realm **282 → 4 ms**, Usage **696 → 32 ms**, thread
+  poll **34 → 17 ms**, four-window batch **105 → 55 ms**. The single cold detailed
+  read increased **356 → 643 ms** to build reusable indexes; no startup-speed claim.
+  [Methodology and limitations](HISTORY_READS.md).
+- Public signature, downloads/source bytes, installer hash and matching website
+  verified. Owner app untouched; maintainer acceptance remains pending.
+  [Release evidence](RELEASE_0_99_131.md).
+- Next: **M10**, deferred page resources and background snapshot fetching while
+  preserving tabs, filters, focus, drafts and scroll. Then M11 owner workflows and
+  accessibility, followed by M12 contracts, stress evidence and acceptance.
 
 ## Release boundaries
 
