@@ -5,6 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.131** is the M9 candidate: rebuildable history summaries, recent-date
+queries, independent previews and shared transcript/metrics snapshots. Expanded
+synthetic checks passed **157 tests** (three skipped); full-source, exact-source CI
+and packaged release verification are pending. The owner authorized publication.
+[History-read contract and timings](dev/HISTORY_READS.md) ·
+[Release evidence](dev/RELEASE_0_99_131.md). M10 follows after M9 release verification.
+
 Version **0.99.130** is the published M8 release: fair bounded dispatch across realms,
 shared desktop/scheduler/CLI capacity, durable queued chat and cross-process cancellation.
 The final publisher gate passed **4,198 tests** (six skipped); both exact-source Windows
@@ -12,7 +19,7 @@ CI jobs passed **4,200** (four skipped). Native shared-window confirmation passe
 checks, and all packaged lifecycle/recovery gates plus **72 signed-upgrade checks** passed.
 Public signatures, package/source bytes, installer hash and matching website verified.
 Owner app untouched. Maintainer acceptance and existing unsigned-publisher/clean-machine
-boundaries remain pending. M9 is next, not started.
+boundaries remain pending. M9 implementation is recorded above.
 [Execution admission](dev/EXECUTION_ADMISSION.md) · [Release evidence](dev/RELEASE_0_99_130.md).
 
 Version **0.99.129** is the published M7 release: native renderer/browser recovery,

@@ -210,25 +210,11 @@ def read_native(root: Path, *, details=True) -> Realm:
         count30 = tok30 = 0
         cost30 = 0.0
         history_errors = []
-        rf = adir / "runs" / f"{aid}.jsonl"
         if details:
-            from .job_history import apply_annotation, annotation_names
-            annotations = annotation_names(adir)
-            events, history_errors = records.history(rf)
+            from .run_summary import totals
+            latest, count30, tok30, cost30, history_errors = totals(adir, lo)
             for message in history_errors:
                 realm.gaps.append(Gap("warn", f"{aid}: {message} Scheduled work is held."))
-            for ev in events:
-                ev = apply_annotation(adir, ev, names=annotations)
-                ts = str(ev.get("ts", ""))[:19]
-                tid = ev.get("task")
-                if tid and (tid not in latest or ts > latest[tid][0]):
-                    latest[tid] = (ts, str(ev.get("status", "ok")))
-                if len(ts[:10]) == 10 and ts[:10] >= lo:
-                    count30 += 1
-                    tk = ev.get("tokens")
-                    if isinstance(tk, dict):
-                        tok30 += int(tk.get("total", 0) or 0)
-                        cost30 = cost30 + float(tk["api_equiv_usd"]) if cost30 is not None and tk.get("api_equiv_usd") is not None else None
         status = "unknown"
         if latest:
             s = max(latest.values(), key=lambda x: x[0])[1]

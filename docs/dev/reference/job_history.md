@@ -10,7 +10,7 @@ Keep large transcripts out of the small accounting log used by every dashboard.
 
 —
 
-### `reports(agent_dir, job_id: str | None=None)`
+### `reports(agent_dir, job_id: str | None=None, *, since: str | None=None)`
 
 —
 
@@ -33,10 +33,6 @@ Add a dated correction to an existing run, never editing its original report.
 ### `legacy_turns(agent_dir, thread: str, messages: list[dict])`
 
 Match completed old job turns by report timestamp; never rewrite the chat log.
-
-### `_legacy_reports(agent_dir, mtime, size)`
-
-—
 
 ### `transcript(agent_dir, ev: dict)`
 

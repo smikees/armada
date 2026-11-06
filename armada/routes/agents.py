@@ -59,7 +59,7 @@ class AgentRoutes:
         q = self._query()
         try:
             self._send(200, webui.render_thread_embed(
-                reader.read(self.realm), self.realm, safe_seg(q.get("agent", ""), "agent"),
+                reader.roster(self.realm), self.realm, safe_seg(q.get("agent", ""), "agent"),
                 safe_seg(q.get("thread", "main"), "thread"), dark="dark" in q))
         except SystemExit as e:
             self._err_page(e, bare=True)
@@ -116,7 +116,7 @@ class AgentRoutes:
     def _get_thread_turns(self):
         from .. import webui
         q = self._query()
-        self._send(200, webui.render_thread_turns(reader.read(self.realm), self.realm,
+        self._send(200, webui.render_thread_turns(reader.roster(self.realm), self.realm,
                                                   safe_seg(q.get("agent", ""), "agent"),
                                                   safe_seg(q.get("thread", "main"), "thread")))
 
@@ -130,7 +130,7 @@ class AgentRoutes:
     def _get_thread_rail(self):
         from .. import webui
         q = self._query()
-        self._send(200, webui.render_thread_rail(reader.read(self.realm), self.realm,
+        self._send(200, webui.render_thread_rail(reader.roster(self.realm), self.realm,
                                                  safe_seg(q.get("agent", ""), "agent"),
                                                  safe_seg(q.get("thread", "main"), "thread")))
 

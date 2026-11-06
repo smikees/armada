@@ -28,7 +28,7 @@ with a checklist update and owner progress report after each implementation mile
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | **Verified; released 0.99.128** | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Verified; released 0.99.129** | Pending |
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Released 0.99.130 — full local/CI, native and signed-upgrade gates passed; public downloads and website verified | Pending |
-| M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Pending | Pending |
+| M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Implemented — 157 focused tests passed; final release gates pending | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Pending | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Pending | Pending |
 | M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | Pending | Pending |
@@ -199,7 +199,22 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   Public signature, downloads/source bytes, installer hash and matching website verified.
   [Release evidence](RELEASE_0_99_130.md). Owner app untouched; maintainer acceptance and
   existing publisher-signing/clean-machine boundaries remain pending.
-- Next: **M9**, read performance and cache invalidation; not started.
+- M9 started on 6 November, with owner authorization to publish after verification.
+
+### M9 implementation order
+
+1. Measure synthetic long-history and multi-window reads; coalesce same-key cache rebuilds
+   and use roster-only reads where history is not consumed.
+2. Add bounded, disposable run summaries and date-indexed presentation queries. Verify the
+   old prefix before incremental append parsing; rebuild after replacement, truncation,
+   edits or annotation changes. Keep canonical history and fresh policy admission separate.
+3. Give legacy-job filtering a per-conversation dependency so unrelated run activity does
+   not rebuild every preview. Preserve external edit/compaction/progress invalidation.
+4. Compare p50/p95 and semantic results, run policy/corruption/multi-window regressions,
+   then full pinned/CI/native/upgrade release gates and publish matching GitHub/website assets.
+
+No production realm or owner-app restart is authorized for testing. Caches are presentation
+accelerators, never grants, durable claims or replacements for JSON/Markdown evidence.
 
 ## Release boundaries
 

@@ -29,6 +29,10 @@ A missing config is damaged too; callers must render an explicit held record.
 
 Display valid rows, diagnose excluded rows; never rewrite the evidence.
 
+### `history_lines(path, lines, *, start_line=0)`
+
+Shared row validation for full reads and disposable incremental presentation indexes.
+
 ### `target(root, agent, job='')`
 
 —

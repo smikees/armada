@@ -213,22 +213,23 @@ def _totals_30d(realm, realm_root, today: datetime.date, *, details=False):
     agents = ([realm.coordinator] if realm.coordinator else []) + list(realm.members)
     from ..token_cost import for_run
     tok, usd, known_tok, known_usd, unknown_tok, unknown_usd = 0, 0., 0, 0, 0, 0
-    records = (ev for a in agents for ev in _runs(realm_root, a.id))
+    from ..run_summary import usage
+    records = (ev for a in agents for ev in usage(realm_root / 'agents' / a.id))
     import itertools
-    for ev in itertools.chain(records, sysusage.runs(realm_root)):
+    for ev in itertools.chain(records, usage(system_root=realm_root)):
         dd = str(ev.get("ts", ""))[:10]
         if len(dd) != 10 or dd < lo30 or dd > today.isoformat() or (epoch and dd < epoch):
             continue
         tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
         if tk.get('total') is None:
-            unknown_tok += 1
+            unknown_tok += ev.get('_count', 1)
         else:
-            tok += int(tk['total']); known_tok += 1
+            tok += int(tk['total']); known_tok += ev.get('_count', 1)
         cost = for_run(ev)
         if cost is None:
-            unknown_usd += 1
+            unknown_usd += ev.get('_count', 1)
         else:
-            usd += cost; known_usd += 1
+            usd += cost; known_usd += ev.get('_count', 1)
     total = tok if known_tok or not unknown_tok else None
     cost = round(usd, 2) if known_usd or not unknown_usd else None
     if details:
@@ -286,11 +287,12 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
     split per agent (default) or per model."""
     realm_root = Path(realm_root)
     from ..token_cost import for_run
+    from ..run_summary import usage
     today = clock.today()
     agents = ([realm.coordinator] if realm.coordinator else []) + list(realm.members)
     agent_color = {a.display: (_agent_stored_color(realm_root, a.id) or _AGENT_PALETTE[i % len(_AGENT_PALETTE)])
                    for i, a in enumerate(agents)}
-    recs = []   # (date_iso, agent_display, model_label, tokens, usd)
+    recs = []   # (date_iso, agent_display, model_label, tokens, usd, run_count)
     model_ids = {}  # Keep concrete ids: catalog display names aren't provider identifiers.
 
     def usage_model(value):
@@ -303,23 +305,23 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
         model_ids[label] = mid
         return label
     for a in agents:
-        for ev in _runs(realm_root, a.id):
+        for ev in usage(realm_root / 'agents' / a.id):
             dd = str(ev.get("ts", ""))[:10]
             if len(dd) != 10:
                 continue
             tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
             recs.append((dd, a.display, usage_model(ev.get("model")),
-                         int(tk["total"]) if tk.get("total") is not None else None, for_run(ev)))
+                         int(tk["total"]) if tk.get("total") is not None else None, for_run(ev), ev.get('_count', 1)))
     # System — ARMADA's own spend (system jobs that call Claude, Alexander's support turns). A
     # default line in every usage view, even at zero, so the owner can see it's accounted for.
     agent_color[sysusage.NAME] = sysusage.COLOR
-    for ev in sysusage.runs(realm_root):
+    for ev in usage(system_root=realm_root):
         dd = str(ev.get("ts", ""))[:10]
         if len(dd) != 10:
             continue
         tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
         recs.append((dd, sysusage.NAME, usage_model(ev.get("model")),
-                     int(tk["total"]) if tk.get("total") is not None else None, for_run(ev)))
+                     int(tk["total"]) if tk.get("total") is not None else None, for_run(ev), ev.get('_count', 1)))
 
     # usage epoch: a clean-slate cutoff (realm.json 'usage_epoch', ISO date). Runs before it are kept
     # on disk (job history/calendars still use them) but excluded from usage totals, so usage can be
@@ -346,7 +348,7 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
         p = usage_model(mid)
         if p not in model_universe:
             model_universe.append(p)
-    for _dd, _disp, lbl, _t, _u in recs:
+    for _dd, _disp, lbl, _t, _u, _count in recs:
         if lbl in model_ids and lbl not in model_universe:
             model_universe.append(lbl)
     model_colors = {p: _model_color_map([mid])[mid] for p, mid in model_ids.items()}
@@ -383,12 +385,12 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
         keys = {k for k, _ in order}
         perbucket = {k: {} for k in keys}
         unknown_runs = 0
-        for dd, disp, lbl, tok, _u in recs:
+        for dd, disp, lbl, tok, _u, count in recs:
             k = bkey(dd)
             if k not in perbucket:
                 continue
             if tok is None:
-                unknown_runs += 1
+                unknown_runs += count
                 continue
             seg = disp if by == "agents" else lbl
             perbucket[k][seg] = perbucket[k].get(seg, 0) + tok
@@ -423,12 +425,12 @@ def _usage_data(realm, realm_root, mode: str, window: str, by: str = "agents") -
     per_model: dict[str, int] = {}
     total, usd = 0, 0.0
     unknown_runs = 0
-    for dd, disp, lbl, tok, u in recs:
+    for dd, disp, lbl, tok, u, count in recs:
         if dd < loi or dd > hii:
             continue
         usd = usd + u if usd is not None and u is not None else None
         if tok is None:
-            unknown_runs += 1
+            unknown_runs += count
             continue
         per_agent[disp] = per_agent.get(disp, 0) + tok
         per_model[lbl] = per_model.get(lbl, 0) + tok
@@ -614,7 +616,7 @@ def _from_hand(realm, realm_root) -> str:
 def _attention(realm, realm_root, today) -> str:
     items = []
     for a in realm.agents:
-        for ev in _runs(realm_root, a.id):
+        for ev in _runs(realm_root, a.id, since=today.isoformat()):
             st = status.normalize(ev.get("status", ""))
             if status.is_bad(st) and str(ev.get("ts", ""))[:10] == today.isoformat():
                 failed = st == status.FAILED
@@ -641,7 +643,7 @@ def _attention(realm, realm_root, today) -> str:
 def _today(realm, realm_root, today) -> str:
     evs = []
     for a in realm.agents:
-        for ev in _runs(realm_root, a.id):
+        for ev in _runs(realm_root, a.id, since=today.isoformat()):
             if str(ev.get("ts", ""))[:10] == today.isoformat():
                 evs.append((str(ev.get("ts", ""))[11:16], a.display,
                             E(str(ev.get("task", ""))), str(ev.get("status", "ok")).lower(),

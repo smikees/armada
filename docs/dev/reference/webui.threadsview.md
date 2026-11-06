@@ -58,7 +58,7 @@ Flag a thread as having unseen output (drives the teal 'unseen' status dot). Cal
 
 Opening/viewing a thread clears its unseen flag. Updates the in-memory meta the current render reads from (if given) so the thread list shows it read immediately, and persists to disk.
 
-### `_ordered_threads(agent_dir)`
+### `_ordered_threads(agent_dir, *, summaries=None)`
 
 Thread slugs in display order: main first, then pinned, then the rest (by saved order, else name).
 
@@ -114,7 +114,11 @@ The 'Artifacts' rail block: Input artifacts (owner attachments) + Output artifac
 
 The right rail for a thread: loaded-context breakdown + capabilities used + artifacts. Factored out of _tab_threads so it can be refetched on its own after a reply (new outputs appear without a full reload). Carries id='mc-rail' so chat.js can swap it in place.
 
-### `_render_turns(realm_root, a, selected: str)`
+### `_turn_snapshot(realm_root, aid, selected, th)`
+
+Reconcile completion once; transcript and metrics consume this same generation.
+
+### `_render_turns(realm_root, a, selected: str, *, state=None)`
 
 Render just the transcript turns for a thread (server-canonical Markdown, icons, segments). Shared by _chat_center and the /api/thread-turns refresh endpoint, so the live view after a reply becomes identical to a reloaded page (no client/server rendering drift).
 

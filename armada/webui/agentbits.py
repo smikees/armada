@@ -113,9 +113,9 @@ def _portrait(realm_root, a, size: int, color: str = "", dot: bool = False, dot_
             f'width:{size + peek}px;height:{size}px;vertical-align:top">{disc}{av}{status}</span>')
 
 
-def _runs(realm_root: Path, agent_id: str) -> list[dict]:
+def _runs(realm_root: Path, agent_id: str, *, since=None) -> list[dict]:
     from ..job_history import reports
-    return reports(Path(realm_root) / "agents" / agent_id)
+    return reports(Path(realm_root) / "agents" / agent_id, since=since)
 
 
 def _health7(runs: list[dict], today: datetime.date) -> list[str]:
@@ -845,7 +845,7 @@ def _agent_health7(realm_root, a, now, back: int = 6, fwd: int = 0):
     if not jobs:
         return [(d.strftime("%A"), f"{d.day} {datefmt.MON[d.month - 1]}", "Not scheduled", d.weekday() >= 5)
                 for d in days]
-    runs_all = _runs(realm_root, a.id)
+    runs_all = _runs(realm_root, a.id, since=(today - datetime.timedelta(days=back)).isoformat())
     running = _running_jobs(realm_root, a.id)
     worst = ["Not scheduled"] * len(days)
     for j in jobs:

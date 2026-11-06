@@ -16,3 +16,4 @@ Observe appends, replacements and interrupted transactions across processes.
 
 - `ViewCache.__init__(self, limit=128, bytes_limit=8 * 1024 * 1024)` — —
 - `ViewCache.read(self, key, stamp, build)` — —
+- `ViewCache._read(self, key, stamp, build)` — —

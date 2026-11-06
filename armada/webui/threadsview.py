@@ -151,11 +151,15 @@ def _clear_thread_unread(agent_dir, slug: str, render_meta: dict | None = None) 
         log.warning("Could not persist read state", exc_info=True)
 
 
-def _ordered_threads(agent_dir):
+def _ordered_threads(agent_dir, *, summaries=None):
     """Thread slugs in display order: main first, then pinned, then the rest (by saved order, else name)."""
     from ..threads import Thread
     names = Thread.list_threads(agent_dir)
-    names = [n for n in names if n == "main" or not _thread_summary(Thread(agent_dir, n))[1]]
+    summaries = summaries if summaries is not None else {}
+    for name in names:
+        if name != 'main':
+            summaries[name] = _thread_summary(Thread(agent_dir, name))
+    names = [n for n in names if n == "main" or not summaries[n][1]]
     if "main" not in names:
         names = ["main"] + names
     meta = _thread_meta(agent_dir)
@@ -371,7 +375,7 @@ def thread_metrics(realm_root, aid: str, selected: str, *, thread=None, snapshot
     th = thread or Thread(Path(realm_root) / "agents" / aid, selected)
     summ, msgs = snapshot if snapshot is not None else th.display_snapshot()
     label = _agent_model_label(realm_root, aid)
-    history_chars = len(th.render())
+    history_chars = len(th._render(summ, msgs))
     threshold = max(1, model.compaction_threshold_chars(label))
     return {"messages": sum(m.get("role") in ("user", "assistant") and m.get("kind") != "job" for m in msgs),
             "pct": min(100, round(100 * history_chars / threshold)),
@@ -585,7 +589,18 @@ def _thread_rail(realm_root, a, selected: str) -> str:
             f'{caps_block}{arts_block}</div>')
 
 
-def _render_turns(realm_root, a, selected: str) -> str:
+def _turn_snapshot(realm_root, aid, selected, th):
+    """Reconcile completion once; transcript and metrics consume this same generation."""
+    summ, msgs = th.display_snapshot()
+    pending = th.open_turn([m for m in msgs if m.get("kind") != "job"])
+    running = bool(pending) and _chat_running(realm_root, aid, selected)
+    if pending and not running:
+        # Completion can land between the transcript read and the marker check.
+        summ, msgs = th.display_snapshot()
+    return summ, msgs, running
+
+
+def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
     """Render just the transcript turns for a thread (server-canonical Markdown, icons, segments).
     Shared by _chat_center and the /api/thread-turns refresh endpoint, so the live view after a
     reply becomes identical to a reloaded page (no client/server rendering drift)."""
@@ -595,14 +610,8 @@ def _render_turns(realm_root, a, selected: str) -> str:
     from .. import voice
     call = voice.current(realm_root, a.id, selected)
     speech = call.snapshot() if call and not call.finished.is_set() else None
-    summ, msgs = th.display_snapshot()
+    summ, msgs, running = state if state is not None else _turn_snapshot(realm_root, a.id, selected, th)
     pending = th.open_turn([m for m in msgs if m.get("kind") != "job"])
-    running = bool(pending) and _chat_running(realm_root, a.id, selected)
-    if pending and not running:
-        # Completion can land between the transcript read and the marker check. Reconcile
-        # before rendering, or this page can lose both the answer and the poller's spinner.
-        summ, msgs = th.display_snapshot()
-        pending = th.open_turn([m for m in msgs if m.get("kind") != "job"])
     av = _portrait(realm_root, a, 28)
     userav = _user_avatar(realm_root, 28)
     turns = ""
@@ -782,10 +791,11 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
     from ..threads import Thread
     agent_dir = Path(realm_root) / "agents" / a.id
     th = Thread(agent_dir, selected)
-    summ, msgs = th.display_snapshot()
+    state = _turn_snapshot(realm_root, a.id, selected, th)
+    summ, msgs = state[:2]
     av = _portrait(realm_root, a, 28)       # for the optimistic-turn <template> that chat.js clones
     userav = _user_avatar(realm_root, 28)
-    turns = _render_turns(realm_root, a, selected)
+    turns = _render_turns(realm_root, a, selected, state=state)
     # display title matches the side pane (capitalised / custom-renamed), not the raw slug
     from ..engine.selection import engine_for
     voice_available = engine_for(realm_root, a.id) == 'codex'

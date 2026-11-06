@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from . import clock as _clock
@@ -39,8 +40,11 @@ def record(realm_root, task: str, model: str, tokens: dict, ok: bool = True) -> 
           "task": task, "model": model or "", "status": "ok" if ok else "failed",
           "tokens": tokens if isinstance(tokens, dict) else {}}
     try:
-        with _path(realm_root).open("a", encoding="utf-8") as f:
+        from .util import file_lock
+        with file_lock(_path(realm_root)), _path(realm_root).open("a", encoding="utf-8") as f:
             f.write(json.dumps(ev, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
     except Exception:  # noqa
         swallowed(log, 'record: failed; ignored')
 

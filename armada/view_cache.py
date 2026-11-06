@@ -15,24 +15,32 @@ def file_stamp(path):
 
 def history_stamp(thread, *, progress=False):
     """Observe appends, replacements and interrupted transactions across processes."""
-    paths = [thread.msgs, thread.summary_f, thread.dir / '.history-revision',
-             thread.dir.parent.parent / 'runs' / (thread.dir.parent.parent.name + '.jsonl')]
+    paths = [thread.msgs, thread.summary_f, thread.dir / '.history-revision']
     if progress and thread.dir.is_dir():
         paths.extend(sorted(thread.dir.glob('.progress-*.json')))
     # A pending transaction must go through HistoryStore recovery, never a cached view.
     if (thread.dir / '.history-transaction.json').exists():
         return object()
-    return tuple((str(p), file_stamp(p)) for p in paths)
+    from .run_summary import legacy_stamp
+    return (tuple((str(p), file_stamp(p)) for p in paths),
+            legacy_stamp(thread.dir.parent.parent, thread.name))
 
 
 class ViewCache:
     def __init__(self, limit=128, bytes_limit=8 * 1024 * 1024):
         self.limit, self.bytes_limit = limit, bytes_limit
         self.lock = threading.Lock()
+        # Fixed stripes bound lock bookkeeping even when callers supply many keys.
+        # A second window rechecks the stamp after the first finishes its rebuild.
+        self.builders = tuple(threading.RLock() for _ in range(64))
         self.values = OrderedDict()
         self.bytes = 0
 
     def read(self, key, stamp, build):
+        with self.builders[hash(key) % len(self.builders)]:
+            return self._read(key, stamp, build)
+
+    def _read(self, key, stamp, build):
         before = stamp()
         now = time.monotonic()
         with self.lock:
@@ -50,7 +58,7 @@ class ViewCache:
             if old:
                 self.bytes -= old[3]
             if size <= self.bytes_limit:
-                self.values[key] = (before, now, value, size)
+                self.values[key] = (before, time.monotonic(), value, size)
                 self.bytes += size
             while len(self.values) > self.limit or self.bytes > self.bytes_limit:
                 self.bytes -= self.values.popitem(last=False)[1][3]

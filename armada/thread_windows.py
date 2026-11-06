@@ -25,7 +25,7 @@ COMPANION_POST = frozenset({
 })
 
 
-def target(root, agent, thread):
+def target(root, agent, thread, *, _previews=None):
     """Validate an existing thread without silently falling back to main."""
     from .webui.threadsview import _ordered_threads, _thread_title
     agent = util.safe_seg(agent, "agent")
@@ -35,9 +35,17 @@ def target(root, agent, thread):
     a = next((a for a in realm.agents if a.id == agent), None)
     if a is None:
         raise util.StateError("This agent is no longer available.")
-    names, meta = _ordered_threads(Path(context.root) / "agents" / agent)
+    ad = Path(context.root) / 'agents' / agent
+    summaries = {}
+    names, meta = _ordered_threads(ad, summaries=summaries)
     if thread not in names:
         raise util.StateError("This thread is no longer available. It may have been archived or deleted.")
+    if _previews is not None:
+        from .threads import Thread
+        from .webui.threadsview import _thread_summary
+        for name in names:
+            value = summaries[name] if name in summaries else _thread_summary(Thread(ad, name))
+            _previews[name] = value[0]
     route = "/thread-window?" + urlencode({"agent": agent, "thread": thread, "_realm": context.realm_id})
     return context, a, _thread_title(meta, thread), route
 
@@ -45,9 +53,10 @@ def target(root, agent, thread):
 def state(root, agent, thread, revision=""):
     """Canonical conversation snapshot, shared by the cockpit, widget and companion."""
     from .execution import ACTIVE_RUNS, RUNS_LOCK
-    from .webui.threadsview import _render_turns, thread_metrics, _ordered_threads, _thread_preview
+    from .webui.threadsview import _render_turns, thread_metrics, _turn_snapshot
     from .threads import Thread
-    context, a, title, _ = target(root, agent, thread)
+    previews = {}
+    context, a, title, _ = target(root, agent, thread, _previews=previews)
     with RUNS_LOCK:
         runs = [run for run in ACTIVE_RUNS.values()
                 if run.context.realm.realm_id == context.realm_id
@@ -69,16 +78,16 @@ def state(root, agent, thread, revision=""):
                 _portrait(root, a, 28), _user_avatar(root, 28),
                 _chat_running(root, agent, thread), json.dumps(speech, sort_keys=True),
                 label, model.context_window_tokens(label))
-    html, metrics = _renders.read((context.realm_id, agent, thread), stamp, lambda: (
-        bind_content_html(_render_turns(root, a, thread), context),
-        thread_metrics(root, agent, thread)))
+    def build():
+        snapshot = _turn_snapshot(root, agent, thread, th)
+        return (bind_content_html(_render_turns(root, a, thread, state=snapshot), context),
+                thread_metrics(root, agent, thread, thread=th, snapshot=snapshot[:2]))
+    html, metrics = _renders.read((context.realm_id, agent, thread), stamp, build)
     payload['metrics'] = dict(metrics)
     digest = hashlib.sha256((html + json.dumps(payload, sort_keys=True)).encode("utf-8")).hexdigest()
     payload["revision"] = digest
     if revision != digest:
         payload["html"] = html
     # A different thread's preview can change without rerendering this conversation.
-    agent_dir = Path(root)/'agents'/agent
-    payload['previews'] = {name: _thread_preview(Thread(agent_dir, name))
-                           for name in _ordered_threads(agent_dir)[0]}
+    payload['previews'] = previews
     return payload

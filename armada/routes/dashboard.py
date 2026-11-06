@@ -532,7 +532,7 @@ class DashboardRoutes:
     def _usage_api(self, mode: str, window: str, by: str = "agents") -> dict:
         from .. import webui
         try:
-            realm = reader.read(self.realm)
+            realm = reader.roster(self.realm)
             return webui._usage_data(realm, self.realm, mode, window, by)
         except Exception as e:  # noqa
             swallowed(log, '_usage_api: failed; error returned to the caller')

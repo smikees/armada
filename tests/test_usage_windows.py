@@ -1,12 +1,12 @@
 """Usage line-mode windowing (armada.webui._usage_data): today / 7d / mtd filter run telemetry.
 
-Stubs _runs so no realm on disk is needed. Asserts hold regardless of the calendar date the test
+Stubs presentation usage rows so no realm on disk is needed. Asserts hold regardless of the calendar date the test
 runs on: 'today' is only the current day, '7d' includes a 2-days-ago run, and a 40-day-old run is
 excluded from every window (guards against the old 'all windows show the same total' behaviour).
 """
 import datetime
 import types
-from armada import webui
+from armada import webui, run_summary
 
 
 def _ts(d):
@@ -24,8 +24,8 @@ def _make(monkeypatch):
     runs = [_run(webui, 100, 0),      # today
             _run(webui, 50, 2),       # 2 days ago  -> in 7d
             _run(webui, 9999, 40)]    # 40 days ago -> outside today / 7d / mtd
-    # _runs is an internal helper in webui._core; patch it there so the internal callers see it
-    monkeypatch.setattr(webui._core, "_runs", lambda root, aid: runs if aid == "warren" else [])
+    monkeypatch.setattr(run_summary, 'usage', lambda ad=None, **kw:
+                        runs if ad is not None and ad.name == 'warren' else [])
     # stop _usage_data's model-catalog lookup from touching the network/disk during tests
     monkeypatch.setattr(webui.models, "options", lambda root: [("claude-opus-5", "Claude Opus 5")])
     return realm
@@ -99,7 +99,7 @@ def _model_usage(monkeypatch, runs, options, mode="line"):
     realm = types.SimpleNamespace(coordinator=None, members=[agent])
     records = [{"ts": _ts(clock.today()), "model": mid, "tokens": {"total": tokens}}
                for mid, tokens in runs]
-    monkeypatch.setattr(webui._core, "_runs", lambda *a: records)
+    monkeypatch.setattr(run_summary, 'usage', lambda ad=None, **kw: records if ad is not None else [])
     monkeypatch.setattr(webui.models, "options", lambda root: options)
     monkeypatch.setattr(webui._core.sysusage, "runs", lambda root: [])
     return webui._usage_data(realm, "/nonexistent", mode, "today", "models")

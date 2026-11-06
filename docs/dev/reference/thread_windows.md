@@ -2,7 +2,7 @@
 
 Realm-bound destinations and shared state for independent thread views.
 
-### `target(root, agent, thread)`
+### `target(root, agent, thread, *, _previews=None)`
 
 Validate an existing thread without silently falling back to main.
 

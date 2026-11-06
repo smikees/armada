@@ -124,6 +124,7 @@
 | [`routes.realm`](routes.realm.md) | Realm lifecycle: switch/new/archive/export/delete, preflight, workspace/approot, icon, settings, covenant. |
 | [`routes.settings`](routes.settings.md) | Settings, the signed-in user, notification channels (incl |
 | [`routes.voice`](routes.voice.md) | Authenticated local signaling only; microphone audio never crosses these routes. |
+| [`run_summary`](run_summary.md) | Disposable presentation summaries and date indexes; never execution or policy evidence. |
 | [`runner`](runner.md) | Runner (SPEC §8) — runs ONE job through an engine and writes a tokenized run-report. |
 | [`runtime_spec`](runtime_spec.md) | Pinned Windows runtime shared by packaging and update compatibility checks. |
 | [`schedsvc`](schedsvc.md) | Scheduler lifecycle for the Armada desktop app. |

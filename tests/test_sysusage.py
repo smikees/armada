@@ -7,13 +7,15 @@ import datetime
 import json
 import types
 
-from armada import sysjobs, sysusage, webui
+from armada import sysjobs, sysusage, webui, run_summary
 
 
 def _realm(monkeypatch, agent_runs=()):
     warren = types.SimpleNamespace(id="warren", display="Warren")
     realm = types.SimpleNamespace(coordinator=None, members=[warren])
-    monkeypatch.setattr(webui._core, "_runs", lambda root, aid: list(agent_runs) if aid == "warren" else [])
+    original = run_summary.usage
+    monkeypatch.setattr(run_summary, 'usage', lambda ad=None, **kw:
+        original(**kw) if ad is None else list(agent_runs) if ad.name == 'warren' else [])
     monkeypatch.setattr(webui.models, "options", lambda root: [("claude-opus-5", "Claude Opus 5")])
     return realm
 

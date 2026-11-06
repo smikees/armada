@@ -26,7 +26,7 @@ The activity dot, sat on the avatar's lower-right corner.
 
 An uploaded avatar image if present, else the generic bust.
 
-### `_runs(realm_root: Path, agent_id: str)`
+### `_runs(realm_root: Path, agent_id: str, *, since=None)`
 
 —
 

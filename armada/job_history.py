@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-from functools import lru_cache
 from pathlib import Path
 
 from .util import safe_seg
@@ -22,8 +21,12 @@ def thread_name(job_id: str) -> str:
     return JOB_PREFIX + safe_seg(job_id, "job")
 
 
-def reports(agent_dir, job_id: str | None = None) -> list[dict]:
+def reports(agent_dir, job_id: str | None = None, *, since: str | None = None) -> list[dict]:
     ad = Path(agent_dir)
+    if since is not None:
+        from .run_summary import recent
+        rows = recent(ad, since)
+        return [row for row in rows if job_id is None or row.get('task') == job_id]
     path = ad / "runs" / f"{ad.name}.jsonl"
     result = []
     from . import records
@@ -132,17 +135,15 @@ def legacy_turns(agent_dir, thread: str, messages: list[dict]) -> set[int]:
     Retain original indexes for edit/restart actions. Ambiguous matches are left alone.
     """
     ad = Path(agent_dir)
-    path = ad / "runs" / f"{ad.name}.jsonl"
-    try:
-        stat = path.stat()
-    except FileNotFoundError:
-        return set()
+    from .run_summary import legacy_stamp
     hidden = set()
-    for ev in _legacy_reports(str(ad), stat.st_mtime_ns, stat.st_size):
-        if (ev.get("thread") or "main") != thread or not ev.get("ts"):
-            continue
-        matches = [i for i, m in enumerate(messages) if m.get("role") == "assistant"
-                   and m.get("ts") == ev.get("ts")]
+    timestamps = legacy_stamp(ad, thread)[0]
+    by_ts = {}
+    for i, message in enumerate(messages):
+        if (message.get('role') == 'assistant' and isinstance(message.get('ts'), str)
+                and message['ts'] in timestamps):
+            by_ts.setdefault(message['ts'], []).append(i)
+    for timestamp, matches in by_ts.items():
         if len(matches) != 1:
             continue
         i = matches[0]
@@ -150,16 +151,9 @@ def legacy_turns(agent_dir, thread: str, messages: list[dict]) -> set[int]:
         turn = messages[i].get("turn")
         if turn:
             hidden.update(n for n, m in enumerate(messages) if m.get("turn") == turn)
-        elif i and messages[i - 1].get("role") == "user" and messages[i - 1].get("ts") == ev.get("ts"):
+        elif i and messages[i - 1].get("role") == "user" and messages[i - 1].get("ts") == timestamp:
             hidden.add(i - 1)
     return hidden
-
-
-@lru_cache(maxsize=64)
-def _legacy_reports(agent_dir, mtime, size):
-    return tuple({k: ev.get(k) for k in ("thread", "ts")} for ev in reports(agent_dir)
-                 if ev.get("kind") == "job" and not str(ev.get("thread", "main")).startswith(JOB_PREFIX)
-                 and not str(ev.get("task", "")).startswith("inbox:") and ev.get("task") != "adhoc")
 
 
 def transcript(agent_dir, ev: dict) -> dict:

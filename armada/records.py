@@ -105,13 +105,20 @@ def history(path: Path) -> tuple[list[dict], list[str]]:
     """Display valid rows, diagnose excluded rows; never rewrite the evidence."""
     path = Path(path)
     try:
-        lines = path.read_text(encoding="utf-8-sig").splitlines()
+        # JSONL uses LF; Unicode line separators inside a JSON string are content.
+        lines = path.read_text(encoding="utf-8-sig").split('\n')
     except FileNotFoundError:
         return [], []
     except (OSError, UnicodeError):
         return [], [f"{path.name}: cannot read history; repair access or encoding."]
+    return history_lines(path, lines)
+
+
+def history_lines(path, lines, *, start_line=0):
+    """Shared row validation for full reads and disposable incremental presentation indexes."""
+    path = Path(path)
     rows, errors = [], []
-    for number, line in enumerate(lines, 1):
+    for number, line in enumerate(lines, start_line + 1):
         if not line.strip():
             continue
         try:
