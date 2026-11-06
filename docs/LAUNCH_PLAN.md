@@ -5,14 +5,22 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.128** is the published M6 release: atomic exports with verified
+manifests, visible incomplete-copy warnings and fresh paused recovery. Final pinned
+gate: **4,139 passed**; both exact-source Windows CI jobs: **4,141 each**. Packaged
+native lifecycle and **72 signed-upgrade checks** passed. Public signatures,
+downloads/source bytes and matching website links verified. Owner app untouched;
+maintainer acceptance and existing publisher/clean-machine boundaries remain open.
+**M7 (native presentation recovery) is next.** [Export contract](dev/REALM_EXPORTS.md)
+· [Release evidence](dev/RELEASE_0_99_128.md).
+
 Version **0.99.127** is the published M5 release: damaged agent/job isolation,
 strict admission, visible repair diagnostics and explicit owner repairs preserving
 evidence. The final pinned suite passed **4,091 tests**; both Windows CI jobs passed
 **4,093 each**. Packaged native lifecycle and **72 signed-upgrade checks** passed.
 Public signatures/downloads and website links verified. Owner app untouched;
 maintainer acceptance and existing publisher/clean-machine boundaries remain pending.
-**M6 (atomic exports and paused recovery) is locally verified: 4,139 pinned tests
-passed, six skipped. Exact-source release checks and 0.99.128 publication are pending.** [Record contract](dev/RECORD_HEALTH.md) ·
+M6 followed in 0.99.128. [Record contract](dev/RECORD_HEALTH.md) ·
 [Release evidence](dev/RELEASE_0_99_127.md).
 
 Version **0.99.126** is the published M4 resilience release: bounded local HTTP
