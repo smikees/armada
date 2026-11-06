@@ -328,7 +328,7 @@ def _first_fire(job, fire):
 
 def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
          at: Optional[datetime.datetime] = None, dry_run: bool = False,
-         *, _lease: _state.Lease | None = None) -> list[dict]:
+         *, _lease: _state.Lease | None = None, _dispatch=None) -> list[dict]:
     """One pass, with at most one automatic attempt per job and realm-local day.
 
     A daemon passes its actual lease, never a boolean bypass. Every caller also takes that
@@ -407,7 +407,9 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
         if not dry_run:
             try:
                 from . import sysjobs
-                for r in sysjobs.run_due(realm_root):
+                results = (sysjobs.run_due(realm_root) if _dispatch is None
+                           else _enqueue_system_jobs(_dispatch, realm_root))
+                for r in results:
                     fired.append({"agent": "system", "job": r.get("id"), "kind": "system",
                                   "status": r.get("status", "ok" if r.get("ok") else "error"),
                                   "detail": r.get("detail") or r.get("error") or ""})
@@ -468,6 +470,15 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 rec["status"] = "would-fire"
                 fired.append(rec)
                 continue
+            if _dispatch is not None:
+                try:
+                    queued = _enqueue_job(_dispatch, lease, realm_root, agent_id, job_id,
+                                          job, engine, day_iso, waiting)
+                    if queued:
+                        fired.append({**rec, **queued})
+                except (OSError, ValueError) as exc:
+                    fired.append({**rec, 'status': 'held', 'detail': str(exc)})
+                continue
             try:
                 attempt, fresh = _state.claim(lease, agent_id, job_id, day_iso)
             except OSError as exc:
@@ -512,6 +523,78 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
             _lock_release(lease)
 
 
+def _enqueue_job(dispatcher, lease, root, agent, jid, job, engine, day, waiting):
+    from .request_context import RunContext
+    from .job_history import thread_name
+    from .engine.selection import engine_for
+    import hashlib
+    rid = 'scheduled-' + hashlib.sha256(f'{agent}/{jid}/{day}'.encode()).hexdigest()[:32]
+    context = RunContext.capture(root, agent, thread_name(jid), run_id=rid)
+    if dispatcher.contains(context.key):
+        return None
+    command = job.get('kind') == 'command' or job.get('run') or job.get('command')
+    provider = 'command' if command else engine_for(root, agent, job, override=engine)
+    outcome = {}
+
+    def prepare():
+        attempt, fresh = _state.claim(lease, agent, jid, day)
+        if not fresh and waiting:
+            attempt = _state.resume_waiting(lease, agent, jid, day)
+            fresh = True
+        if not fresh:
+            if attempt['state'] == 'claimed':
+                outcome.update(status='held', detail='Previous attempt has no recorded outcome; inspect before using Run now.')
+            return None
+        outcome.update(status='queued', attempt_id=attempt['attempt_id'])
+
+        def cancel(reason):
+            try:
+                if waiting:
+                    from . import job_retries
+                    job_retries.cancel_waiting(root, agent, jid, waiting.get('series_id'))
+            finally:
+                # Even if the backoff journal could not be changed, the stopped claim
+                # must forbid automatic restoration of that old retry.
+                _state.finish(lease, attempt, 'stopped')
+            print(f'  {root.name}: {agent}/{jid} stopped before execution: {reason}', flush=True)
+
+        def run():
+            from . import runner, realmops, records
+            status = 'error'
+            try:
+                realmops.assert_active(root)
+                current = records.read(root / 'agents' / agent / 'jobs' / f'{jid}.json', 'job')
+                if current.get('enabled') is False:
+                    cancel('This job was switched off while queued.')
+                    return
+                report = runner.run_job(root, agent, jid, engine=engine,
+                                        allow_tools=current.get('allow_tools') is True)
+                status = report.get('status', 'ok')
+            except Exception:
+                log.exception('Scheduled job failed: %s/%s', agent, jid)
+            _state.finish(lease, attempt, status)
+            print(f'  {root.name}: {agent}/{jid} finished → {status}', flush=True)
+        return run, cancel
+
+    dispatcher.submit(context, provider, prepare)
+    return outcome or None
+
+
+def _enqueue_system_jobs(dispatcher, root):
+    from . import sysjobs
+    from .request_context import RunContext
+    for job in sysjobs.JOBS:
+        jid = job['id']
+        context = RunContext.capture(root, 'system', 'system-' + jid, run_id='system-' + jid)
+        if dispatcher.contains(context.key) or not sysjobs.due(root, jid):
+            continue
+        # System jobs retain their own durable claim inside run_one. A queued wrapper has
+        # performed no work and may be rediscovered later; model children use normal slots.
+        dispatcher.submit(context, 'maintenance',
+            lambda jid=jid: (lambda: sysjobs.run_one(root, jid), lambda reason: None))
+        yield {'id': jid, 'status': 'queued'}
+
+
 def _adopt_new_realms(rescan, owned: dict, others: list) -> None:
     """Take on realms registered since the daemon started (created or added in the app while it
     was running). Without this, a new realm's jobs never fired until the scheduler was restarted —
@@ -543,7 +626,7 @@ def _adopt_new_realms(rescan, owned: dict, others: list) -> None:
             print(f"  also firing ▶ {p} (new since start)", flush=True)
 
 
-def _reconcile_leases(rescan, owned, others, *, primary=None, listener_stop=None):
+def _reconcile_leases(rescan, owned, others, *, primary=None, listener_stop=None, dispatcher=None):
     """Drop idle locks after archive/removal or a cooperative deletion request."""
     from . import realmops
     wanted = None
@@ -562,6 +645,10 @@ def _reconcile_leases(rescan, owned, others, *, primary=None, listener_stop=None
             continue
         if not release:
             continue
+        if dispatcher is not None:
+            dispatcher.cancel_pending(p, 'This realm is no longer scheduled.')
+            if dispatcher.busy(p):
+                continue  # Its worker must finish recording before releasing the realm lease.
         if p == primary and listener_stop is not None:
             listener_stop.set()
         _lock_release(lease)
@@ -608,6 +695,8 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
     import threading
     listener_stop = threading.Event()
     listener = None
+    from .dispatch import Dispatcher
+    dispatcher = Dispatcher()
     try:
         for p in others:
             if p.resolve() in {r.resolve() for r in owned}:
@@ -662,11 +751,13 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 break
             from . import updater
             if updater.admission_paused():
+                for p in list(owned):
+                    dispatcher.cancel_pending(p, 'ARMADA is preparing an update. This queued attempt was stopped.')
                 time.sleep(1)
                 continue
             from . import clock
             now = clock.now()  # Display-only; each tick validates its own realm clock.
-            _reconcile_leases(rescan, owned, others, primary=realm_root, listener_stop=listener_stop)
+            _reconcile_leases(rescan, owned, others, primary=realm_root, listener_stop=listener_stop, dispatcher=dispatcher)
             if rescan is not None:
                 _adopt_new_realms(rescan, owned, others)
             if realm_root in owned and listener_stop.is_set() and (listener is None or not listener.is_alive()):
@@ -676,7 +767,7 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 # One realm's problem is its own. A folder that has been moved or deleted since
                 # startup must not take the other realms' jobs down with it.
                 try:
-                    fired = tick(p, engine=engine, grace_min=grace_min, _lease=owned[p])
+                    fired = tick(p, engine=engine, grace_min=grace_min, _lease=owned[p], _dispatch=dispatcher)
                 except Exception as e:  # noqa
                     swallowed(log, 'run_daemon: failed; reported to the caller')
                     print(f"  [{now.strftime('%H:%M')}] {p.name}: tick failed — {e}", flush=True)
@@ -687,6 +778,7 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                           f"({r['kind']}) → {r['status']}", flush=True)
                     if r.get("detail") or r.get("error"):
                         print(f"    {r.get('detail') or r.get('error')}", flush=True)
+            dispatcher.pump()
             if _update_wanted():
                 print("  an ARMADA update is in place — restarting on the new version", flush=True)
                 restart = not app_owner
@@ -698,12 +790,14 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 if app_owner and (not _util.pid_alive(app_owner) or
                                   (_util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
                     break
-                _reconcile_leases(rescan, owned, others, primary=realm_root, listener_stop=listener_stop)
+                _reconcile_leases(rescan, owned, others, primary=realm_root, listener_stop=listener_stop, dispatcher=dispatcher)
+                dispatcher.pump()
                 time.sleep(1)
     except KeyboardInterrupt:
         print("\nARMADA scheduler stopped.")
     finally:
         listener_stop.set()
+        dispatcher.close()
         # Released before the restart too: on Windows the restarted scheduler is a new process, and
         # it must find the realms free rather than held by a pid that's about to exit.
         for lease in owned.values():

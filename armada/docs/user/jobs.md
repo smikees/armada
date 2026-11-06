@@ -1,5 +1,23 @@
 # Jobs
 
+### When work is queued
+
+ARMADA shares execution capacity across the desktop, scheduler and command line: up to
+four executions, two per provider, two per realm and one per conversation at a time.
+Other work waits in a bounded queue. Eligible realms take turns, so a slow job need not
+hold up the whole scheduler. Stop applies to queued work too; a stopped scheduled attempt
+does not run automatically again that day. If the queue is full, ARMADA reports it instead
+of creating unlimited background workers.
+
+Queued chat messages are saved before waiting, so navigating away does not lose your request.
+Each conversation processes one turn at a time; later queued messages stay out of the active
+turn's context.
+
+Update preparation stops scheduled work that has not started and waits for running work.
+After a crash, ARMADA frees abandoned capacity but holds jobs whose outcome is uncertain.
+Inspect their results before choosing Run now. Automatic replay could duplicate deliveries
+or other external changes.
+
 Everything that runs on a schedule, in one list. **User** is your team's jobs; **System** is the
 upkeep ARMADA does for itself (refreshing the model list, checking capabilities for updates,
 pruning old history).

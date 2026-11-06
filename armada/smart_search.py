@@ -507,7 +507,9 @@ def _run(sess: Session, query: str) -> dict:
     SearchTools = _search_tools_class()
     sess.step("Alexander is reading your request")
     with SearchTools(sess) as tools:
-        res = tools.configure(eng).run(skill["body"], prompt, model=MODEL, effort=EFFORT, timeout=TIMEOUT)
+        from .engine.contracts import RunRequest, execute_request
+        res = execute_request(tools.configure(eng), RunRequest(skill['body'], prompt,
+                              model=MODEL, effort=EFFORT, timeout=TIMEOUT))
     if not res.ok:
         return {"ok": False, "error": res.error or "The search didn't finish.", "steps": list(sess.steps)}
     data = _extract(res.output) or {}

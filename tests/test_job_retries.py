@@ -32,6 +32,23 @@ def test_exact_retry_budget_and_persisted_attempts(setup, n):
     if n: assert calls[1]['prompt']==job['prompt']
 
 
+def test_owner_stop_during_backoff_never_launches_next_attempt(setup, monkeypatch):
+    from armada import execution_admission
+    root, job = setup
+    stopped = False
+    monkeypatch.setattr(jr, 'BACKOFF', (30, 60, 120))
+    monkeypatch.setattr(execution_admission, 'cancelled', lambda: stopped)
+    def wait(_):
+        nonlocal stopped
+        stopped = True
+    calls = []
+    result = jr.execute(root, 'a', 'j', job, lambda j: calls.append(j) or report(),
+                        sleep=wait, clock=lambda: 100)
+    assert len(calls) == 1 and result['status'] == 'stopped'
+    journal = util.read_json_state(jr.state_path(root, 'a', 'j'))
+    assert journal['state'] == 'cancelled' and len(journal['attempts']) == 1
+
+
 @pytest.mark.parametrize('execution,delivery', [('completed','failed'),('completed','sent'),
     ('stopped','failed'),('failed','sent'),('timed_out','unknown')])
 def test_does_not_repeat_completed_cancelled_or_uncertain_delivery(setup, execution, delivery):

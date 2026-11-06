@@ -93,7 +93,7 @@ class Thread:
             arec["caps_used"] = caps               # [{"type":..,"id":..,"name":..}]  capabilities actually exercised
         self._write(urec, arec)
 
-    def begin_turn(self, user: str, attachments=None) -> str:
+    def begin_turn(self, user: str, attachments=None, *, queued=False) -> str:
         """Record what the owner said, now, before the agent has said anything back.
 
         The turn used to be written in one piece when the reply landed, which meant the owner's
@@ -108,6 +108,8 @@ class Thread:
         ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         tid = f"{ts}-{uuid.uuid4().hex[:8]}"
         rec = {"role": "user", "ts": ts, "content": user, "turn": tid}
+        if queued:
+            rec['queued_request'] = True
         if attachments:
             rec["attachments"] = attachments
         self._write(rec)
@@ -283,8 +285,10 @@ class Thread:
         prompt = ("Compress the conversation below into 4–7 tight bullet points that preserve decisions, "
                   "concrete facts/numbers, and open items. No preamble.\n\n"
                   + (f"Existing summary to fold in:\n{prev}\n\n" if prev else "") + transcript)
-        res = engine.run(system="You are a precise note-taker. Output only the bullet summary.",
-                         prompt=prompt, allow_tools=False)
+        from .engine.contracts import RunRequest, execute_request
+        res = execute_request(engine, RunRequest(
+            system="You are a precise note-taker. Output only the bullet summary.",
+            prompt=prompt, allow_tools=False))
         if not res.ok or not res.output.strip():
             return False  # A provider/auth failure must never discard the unsummarized history.
         # The model already folded in the old summary. Appending it again duplicates old context.

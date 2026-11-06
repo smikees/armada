@@ -55,6 +55,17 @@ def pending(root, agent, job):
     return _waiting(data)
 
 
+def cancel_waiting(root, agent, job, series_id):
+    """Withdraw only the backoff that this queued scheduler attempt resumed."""
+    path = state_path(root, agent, job)
+    with util.file_lock(path, timeout=.05):
+        data = util.read_json_state(path, default=dict)
+        waiting = _waiting(data)
+        if waiting and waiting.get('series_id') == series_id:
+            data.update(state='cancelled', reason='Queued retry stopped before execution.')
+            util.write_json_atomic(path, data)
+
+
 def _waiting(data):
     if not isinstance(data, dict):
         raise util.StateError('Invalid retry journal; inspect before retrying.')
@@ -89,10 +100,25 @@ def execute(root, agent, job_id, job, run, *, sleep=time.sleep, clock=time.time)
         journal = previous if resume else {'schema_version': 1, 'series_id': uuid.uuid4().hex,
             'attempts': [], 'max_retries': count(job), 'started_at': clock()}
         maximum = min(journal['max_retries'], count(job))
+        def stopped():
+            from . import execution_admission
+            if not execution_admission.cancelled():
+                return None
+            journal.update(state='cancelled', reason='Retry stopped by the owner.')
+            util.write_json_atomic(path, journal)
+            prior = journal.get('last_report', {})
+            return {**prior, 'status': 'stopped', 'summary': journal['reason'],
+                    'result': {**prior.get('result', {}), 'execution': 'stopped'}}
         while True:
+            cancelled = stopped()
+            if cancelled is not None:
+                return cancelled
             if resume:
                 # Bounded slices let disabling/archiving a job stop a queued retry.
                 while clock() < journal['next_at']:
+                    cancelled = stopped()
+                    if cancelled is not None:
+                        return cancelled
                     current = util.read_json_state(Path(root)/'agents'/agent/'jobs'/f'{job_id}.json')
                     if current.get('enabled') is False or realmops.archived(root) or len(journal['attempts']) > count(current):
                         journal.update(state='cancelled', reason='Retry cancelled by current job or realm settings.')

@@ -34,6 +34,8 @@ def run(output):
     with tempfile.TemporaryDirectory(prefix="armada-thread-window-", ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         os.environ["ARMADA_DATA_DIR"] = str(root / "data")
+        from armada import execution_admission
+        execution_admission._directory = lambda: root / 'data' / 'execution'
         os.environ["ARMADA_NO_MODEL_SYNC"] = "1"
         os.environ["HOME"] = os.environ["USERPROFILE"] = str(root / "home")
         (root / "home").mkdir()

@@ -22,6 +22,10 @@ Bounded job retries with durable attempt evidence and conservative replay rules.
 
 —
 
+### `cancel_waiting(root, agent, job, series_id)`
+
+Withdraw only the backoff that this queued scheduler attempt resumed.
+
 ### `_waiting(data)`
 
 —

@@ -54,6 +54,11 @@ def busy(realm_root) -> bool:
     """Activity owned by another Armada process also prevents archive/deletion."""
     from . import util
     root = Path(realm_root)
+    from . import execution_admission
+    from .request_context import RealmContext
+    identity = RealmContext.capture(root).realm_id
+    if any(row['realm'] == identity for row in execution_admission.snapshot()):
+        return True
     records = [util.read_json_state(p, default=dict)
                for p in root.glob("agents/*/runs/.running/*.json")]
     state = util.read_json_state(root / "system_jobs.json", default=dict)

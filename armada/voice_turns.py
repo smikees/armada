@@ -39,6 +39,8 @@ def submit(root, agent, thread, text, *, voice_session, voice_item, reply=None, 
     session.active.kind = 'voice_work'
     th = Thread(Path(context.realm.root)/'agents'/agent, thread)
     with _lock:
+        if sum(len(queue) for queue in _queues.values()) >= 32 or (key not in _queues and len(_queues) >= 4):
+            raise util.StateError('Voice work is busy. Wait for a reply before sending another request.')
         session.__enter__()
         try:
             th._write({'role': 'user', 'content': text, 'turn': context.run_id,
@@ -60,6 +62,8 @@ def submit(root, agent, thread, text, *, voice_session, voice_item, reply=None, 
 def _drain(key):
     while True:
         with _lock:
+            if key not in _queues:
+                return
             context, session, text, reply, spoken_reply = _queues[key][0]
         th = Thread(Path(context.realm.root)/'agents'/context.agent, context.thread)
         try:
@@ -119,4 +123,3 @@ def _drain(key):
                 queue.popleft()
                 if not queue:
                     del _queues[key]
-                    return

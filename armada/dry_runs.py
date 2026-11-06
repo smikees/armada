@@ -203,7 +203,18 @@ def _execute(root, folder, job, info, session, engine):
                     log.exception("Could not stop dry-run process")
     watcher = threading.Thread(target=watch_stop, daemon=True)
     watcher.start()
+    from contextlib import ExitStack
+    from . import execution_admission
+    from .execution import RunSession
+    capacity = ExitStack()
     try:
+        selected_engine = None if is_command(job) else engine or get_engine(model_provider(info['model']))
+        resource = 'command' if selected_engine is None else selected_engine.name
+        info['status'] = 'queued'
+        _save_info(folder, info)
+        capacity.enter_context(execution_admission.scope(session.context, resource,
+            cancelled=lambda: session.active.cancelled,
+            on_cancel=lambda: RunSession.cancel(session.context.key)))
         info["status"] = "running"
         _save_info(folder, info)
         if session.active.cancelled:
@@ -229,7 +240,7 @@ def _execute(root, folder, job, info, session, engine):
                     roots=(str(folder / "output"),), checks=[])
         else:
             from .managed_tools import ManagedTools
-            eng = engine or get_engine(model_provider(info["model"]))
+            eng = selected_engine
             agent = info['_agent']
             chosen = {**agent, "model": info["model"]}
             # A test uses precisely the selected model, with no production fallback or retry.
@@ -291,7 +302,7 @@ def _execute(root, folder, job, info, session, engine):
                 runtime_error=result.error, roots=(str(folder / "output"),), checks=[])
     except Exception as exc:
         log.exception("Dry run failed")
-        result = RunResult(ok=False, error=str(exc))
+        result = RunResult(ok=False, error=str(exc), cancelled=isinstance(exc, execution_admission.Cancelled))
     finally:
         try:
             if capture is not None:
@@ -344,9 +355,12 @@ def _execute(root, folder, job, info, session, engine):
         finally:
             closed.set()
             watcher.join(timeout=1)
-            session.close()
-            with _LOCK:
-                _ACTIVE.pop((str(root), info["run_id"]), None)
+            try:
+                capacity.close()
+            finally:
+                session.close()
+                with _LOCK:
+                    _ACTIVE.pop((str(root), info["run_id"]), None)
 
 
 def _command(root, folder, job, info, session):

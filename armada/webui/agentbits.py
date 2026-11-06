@@ -145,6 +145,14 @@ def _running_markers(realm_root, agent_id: str) -> set:
     """Stems of fresh .running markers (jobs *and* the reserved '_chat' interactive-run marker)."""
     d = Path(realm_root) / "agents" / agent_id / "runs" / ".running"
     out = set()
+    try:
+        from .. import execution_admission
+        from ..job_history import JOB_PREFIX
+        for row in execution_admission.view(realm_root, agent_id):
+            thread = row['thread']
+            out.add(thread[len(JOB_PREFIX):] if thread.startswith(JOB_PREFIX) else '_chat-' + row['run_id'])
+    except (OSError, ValueError):
+        log.debug('Execution activity unavailable', exc_info=True)
     if d.is_dir():
         cutoff = time.time() - 30 * 60          # ignore stale markers (crashed runs)
         for p in d.glob("*.json"):
@@ -175,6 +183,12 @@ def _chat_running(realm_root, agent_id: str, thread: str) -> bool:
     Each run owns its marker; one run finishing cannot clear another thread's activity.
     Legacy single-chat markers remain readable until old processes have stopped.
     """
+    try:
+        from .. import execution_admission
+        if execution_admission.view(realm_root, agent_id, thread):
+            return True
+    except (OSError, ValueError):
+        log.debug('Execution activity unavailable', exc_info=True)
     directory = Path(realm_root) / "agents" / agent_id / "runs" / ".running"
     for stem in _running_markers(realm_root, agent_id):
         if stem != "_chat" and not stem.startswith("_chat-"):

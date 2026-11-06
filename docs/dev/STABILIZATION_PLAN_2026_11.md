@@ -27,7 +27,7 @@ with a checklist update and owner progress report after each implementation mile
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Verified; released 0.99.127** | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | **Verified; released 0.99.128** | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Verified; released 0.99.129** | Pending |
-| M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Pending | Pending |
+| M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Candidate 0.99.130 — full local gate and native confirmation passed; release gates pending | Pending |
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Pending | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Pending | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Pending | Pending |
@@ -154,6 +154,33 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 - [Recovery contract and limits](DESKTOP_PRESENTATION_RECOVERY.md). The historical
   compositor ghost incident is not claimed conclusively reproduced or eliminated.
 - Next: **M8**, fair bounded dispatch and cross-process execution admission.
+
+### M8 progress — bounded scheduling and execution
+
+- Started account-wide kernel-owned admission and daemon discovery/worker separation.
+- Added shared provider/realm/conversation limits, bounded queueing, cross-process Stop
+  requests, update blockers and scheduler lease retention while workers drain.
+- Bounded the voice backlog and removed exception-suppressing cleanup control flow.
+- Fixed a reproduced manual/scheduled invocation-lock race; queued chat is durable and
+  later pending requests cannot enter the active model context.
+- Initial 58-test concurrency gate, expanded 186-test regression gate and nine-test
+  dispatcher gate passed (including 64 tasks across eight realms). Native shared-window
+  probe passed 79 checks, including the repeat after queue-persistence changes.
+- The first broad suite was deliberately stopped to repair the reproduced lock race;
+  its partial progress is not counted as a passed gate. The next completed suite had
+  4,155 passes / six skips / 37 failures, exposing early adapter creation and duplicate
+  setup. Resource selection is now metadata-only, with full preparation repeated only
+  after waiting. All guard/correction tests passed in a 220-test batch. Concurrent run
+  reports now hold an OS lock through append/flush; split-write regression passes.
+- Corrected native confirmation passed all 79 checks. The next broad gate passed its
+  earlier failures and was stopped around 78% for a newly identified restored-retry Stop
+  edge case. Cancel now withdraws the backoff journal; a stopped claim refuses restoration
+  even if that write fails. Retry/ownership regression: 101 passed.
+- Final pinned full gate: **4,197 passed / six skipped in 672.95s**, exit zero, with
+  all source corrections included. Native shared-window confirmation: **79 checks passed**.
+- Design and remaining checks: [Execution admission](EXECUTION_ADMISSION.md).
+- Implementation and local validation complete. Exact-source CI, mandatory publisher repeat,
+  packaged checks, signed upgrade and public verification remain; no M8 release or acceptance claimed.
 
 ## Release boundaries
 

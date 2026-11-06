@@ -451,6 +451,9 @@ def pending_work() -> list:
     from . import activerealm, execution
     with execution.RUNS_LOCK:
         blockers = [{'kind': 'task', 'label': 'Active conversation or job'} for _ in execution.ACTIVE_RUNS]
+    from . import execution_admission
+    blockers.extend({'kind': 'task', 'label': f"{row['agent']}/{row['thread']} ({row['state']})"}
+                    for row in execution_admission.snapshot())
     for root in activerealm.every():
         root = Path(root)
         for path in root.glob('agents/*/runs/.running/*.json'):

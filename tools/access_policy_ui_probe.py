@@ -20,6 +20,8 @@ def run(output):
     result = {'ok': False, 'checks': [], 'screenshots': []}
     with tempfile.TemporaryDirectory(prefix='armada-policy-ui-', ignore_cleanup_errors=True) as folder, fixture_inputs():
         root = Path(folder)
+        from armada import execution_admission
+        execution_admission._directory = lambda: root / 'data' / 'execution'
         os.environ.update(HOME=str(root / 'home'), USERPROFILE=str(root / 'home'),
             ARMADA_DATA_DIR=str(root / 'data'), ARMADA_NO_MODEL_SYNC='1', ARMADA_NOTIFY_MUTE='1')
         (root / 'home').mkdir()

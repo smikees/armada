@@ -171,6 +171,23 @@ def test_failed_normal_runner_is_saved_as_failure(work, monkeypatch):
     assert not (root/'agents/a/proof.txt').exists()
 
 
+def test_cleanup_does_not_suppress_base_exception(work, monkeypatch):
+    from collections import deque
+    from types import SimpleNamespace
+    root, th, *_ = work
+    context = RunContext.capture(root, 'a', 'main')
+    key = (context.realm.realm_id, 'a', 'main')
+    closed = []
+    session = SimpleNamespace(active=SimpleNamespace(cancelled=False), close=lambda: closed.append(True))
+    voice_turns._queues[key] = deque([(context, session, 'work', None, False)])
+    def interrupted(*a):
+        raise KeyboardInterrupt('injected worker interruption')
+    monkeypatch.setattr(voice_turns, '_target', interrupted)
+    with pytest.raises(KeyboardInterrupt, match='worker interruption'):
+        voice_turns._drain(key)
+    assert closed == [True] and key not in voice_turns._queues
+
+
 def test_archived_queued_request_is_not_executed(work):
     root, th, started, release, requests = work
     submit(root, 'First')

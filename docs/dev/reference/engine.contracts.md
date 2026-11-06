@@ -37,4 +37,8 @@ Reject requirements we cannot enforce, before context compaction or CLI launch.
 
 ### `execute_request(engine, request: RunRequest, *, on_event=None, on_proc=None)`
 
+—
+
+### `_execute_request(engine, request: RunRequest, *, on_event=None, on_proc=None)`
+
 Compatibility boundary for older injected adapters; production adapters use execute().

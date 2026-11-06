@@ -703,7 +703,9 @@ def review_url(url: str, engine: str = "claude", timeout: int = 300) -> dict:
     # page can carry instructions aimed at whoever reads it; a reviewer that could also run commands,
     # write files or use the owner's connectors is the worst place to meet those. It fetches and reads
     # — which is all the protocol asks of it — and a shallower review is the price.
-    res = eng.run(skill["body"], prompt, only_tools=list(REVIEW_TOOLS), timeout=timeout)
+    from ..engine.contracts import RunRequest, execute_request
+    res = execute_request(eng, RunRequest(skill['body'], prompt,
+                          only_tools=tuple(REVIEW_TOOLS), timeout=timeout))
     if not res.ok:
         return {"ok": False, "error": res.error or "The review didn't complete."}
     data = _extract_json(res.output)

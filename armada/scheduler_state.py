@@ -213,6 +213,8 @@ def resume_waiting(lease, agent, job, day):
         entry = data['attempts'].get(_key(agent, job))
         if not entry:
             raise util.StateError('Retry has no scheduler claim.')
+        if entry.get('status') == 'stopped':
+            raise util.StateError('This scheduled attempt was stopped. Inspect the pending retry before using Run now.')
         entry.update(owner_token=lease.token, state='claimed')
         util.write_json_atomic(path, data)
         return entry

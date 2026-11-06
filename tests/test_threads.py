@@ -84,7 +84,7 @@ def test_ordered_threads_excludes_archived(tmp_path):
 
 def test_compaction_preserves_events(tmp_path):
     class _Eng:
-        def run(self, system, prompt, allow_tools=False):
+        def run(self, system, prompt, allow_tools=False, **kwargs):
             return type("R", (), {"ok": True, "output": "- summary bullet"})()
     th = Thread(tmp_path, "main")
     th.append_event("scheduled_task", title="AMZN cover watch")

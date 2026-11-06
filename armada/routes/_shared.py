@@ -52,8 +52,9 @@ def _llm_title(agent_dir, first_msg: str) -> str:
         system = ("Write a very short title (3-6 words) that summarises the TOPIC of the user's message, "
                   "like a chat title. Be specific but brief. Reply with ONLY the title — no quotes, no "
                   "trailing punctuation, no preamble.")
-        res = get_engine(provider).run(system=system, prompt=msg[:2000], model="haiku" if provider == "claude" else None,
-                                 cwd=str(agent_dir), allow_tools=False, timeout=45)
+        from ..engine.contracts import RunRequest, execute_request
+        res = execute_request(get_engine(provider), RunRequest(system=system, prompt=msg[:2000],
+            model='haiku' if provider == 'claude' else None, cwd=str(agent_dir), allow_tools=False, timeout=45))
         if res.ok and res.output:
             t = res.output.strip().splitlines()[0].strip().strip('"\'`').strip().rstrip(".!?,;:")
             if 0 < len(t) <= 80:
@@ -113,7 +114,12 @@ def _job_detail(realm_root, agent_id, job_id, selected_run="") -> dict:
     chosen = next((ev for ev in all_runs if str(ev.get("run_id") or ev.get("ts")) == selected_run), None)
     html = '<div style="color:var(--text-muted)">No runs yet.</div>'
     if not selected_run and running:
-        html = _working_turn(avatar, display, th.progress(pending["turn"]) if pending else None)
+        progress = th.progress(pending['turn']) if pending else None
+        from .. import execution_admission
+        queued = execution_admission.view(realm_root, agent_id, job_history.thread_name(job_id))
+        if not progress and any(row['state'] == 'queued' for row in queued):
+            progress = {'text': '', 'activity': 'Queued — waiting for execution capacity…'}
+        html = _working_turn(avatar, display, progress)
     elif chosen or runs:
         ev = chosen or runs[0]
         content = job_history.transcript(ad, ev)

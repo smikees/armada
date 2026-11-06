@@ -104,15 +104,23 @@ Most recent due fire time. Catch-up claims belong to its day, even after midnigh
 
 Keep the once-per-scheduled-day contract for cadences with multiple daily fires.
 
-### `tick(realm_root, engine: str='auto', grace_min: Optional[int]=None, at: Optional[datetime.datetime]=None, dry_run: bool=False, *, _lease: _state.Lease | None=None)`
+### `tick(realm_root, engine: str='auto', grace_min: Optional[int]=None, at: Optional[datetime.datetime]=None, dry_run: bool=False, *, _lease: _state.Lease | None=None, _dispatch=None)`
 
 One pass, with at most one automatic attempt per job and realm-local day.
+
+### `_enqueue_job(dispatcher, lease, root, agent, jid, job, engine, day, waiting)`
+
+—
+
+### `_enqueue_system_jobs(dispatcher, root)`
+
+—
 
 ### `_adopt_new_realms(rescan, owned: dict, others: list)`
 
 Take on realms registered since the daemon started (created or added in the app while it was running). Without this, a new realm's jobs never fired until the scheduler was restarted — and the scheduler is the thing nobody restarts. A realm another live process already owns is left to it.
 
-### `_reconcile_leases(rescan, owned, others, *, primary=None, listener_stop=None)`
+### `_reconcile_leases(rescan, owned, others, *, primary=None, listener_stop=None, dispatcher=None)`
 
 Drop idle locks after archive/removal or a cooperative deletion request.
 

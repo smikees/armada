@@ -16,6 +16,9 @@ from armada.engine.base import RunResult, Usage
 
 class _FakeEngine:
     """Records what it was asked to do and returns a scripted answer."""
+    from armada.engine.contracts import ProviderCapabilities
+    name = 'mock'
+    capabilities = ProviderCapabilities(sealed_tools=True)
 
     def __init__(self, result=None, doctor_ok=True, doctor_detail="fine"):
         self.result = result or RunResult(ok=True, output="{}")

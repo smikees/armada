@@ -317,7 +317,8 @@ _CHILD = """
 import os, sys, time
 from pathlib import Path
 from types import SimpleNamespace
-from armada import util
+from armada import util, instance
+instance._account_directory = lambda: Path(sys.argv[1]) / '.synthetic-account'
 from armada.threads import Thread
 from armada.thread_store import CompactionConflict
 th = Thread(Path(sys.argv[1]))

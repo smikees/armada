@@ -306,9 +306,13 @@ class AgentRoutes:
                             and getattr(active, 'kind', '') != 'voice_audio']
                     for key in keys:
                         RunSession.cancel(key, self._streams, self._streams_lock)
-                return {"ok": True, "stopped": bool(keys)}
+                from .. import execution_admission
+                remote = execution_admission.cancel(realm_id, agent=agent, thread=thread)
+                return {"ok": True, "stopped": bool(keys or remote)}
             result = RunSession.cancel((realm_id, q.get("tid", "")), self._streams, self._streams_lock)
-            return {**result, "stopped": "note" not in result}
+            from .. import execution_admission
+            remote = execution_admission.cancel(realm_id, run_id=q.get('tid', ''))
+            return {**result, "stopped": "note" not in result or bool(remote)}
         except Exception as exc:
             log.exception("Could not cancel turn")
             return {"ok": False, "error": str(exc)}

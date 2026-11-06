@@ -105,6 +105,18 @@ def validate_request(provider: str, capabilities: ProviderCapabilities, request:
 
 
 def execute_request(engine, request: RunRequest, *, on_event=None, on_proc=None):
+    from ..execution_admission import provider_call, Cancelled
+    from .base import RunResult
+    from .process import safe_emit
+    try:
+        with provider_call(getattr(engine, 'name', 'unknown'), request.cwd, on_proc,
+                on_wait=lambda: safe_emit(on_event, {'kind': 'status', 'activity': 'Queued — waiting for execution capacity…'})) as bind:
+            return _execute_request(engine, request, on_event=on_event, on_proc=bind)
+    except Cancelled as exc:
+        return RunResult(ok=False, cancelled=True, error=str(exc))
+
+
+def _execute_request(engine, request: RunRequest, *, on_event=None, on_proc=None):
     """Compatibility boundary for older injected adapters; production adapters use execute()."""
     from .base import EngineAdapter, RunResult, Usage
     from .process import safe_emit

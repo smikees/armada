@@ -1254,8 +1254,14 @@ def _write_report(agent_dir: Path, agent_id: str, report: dict) -> Path:
     runs = agent_dir / "runs"
     runs.mkdir(exist_ok=True)
     f = runs / f"{agent_id}.jsonl"
-    with f.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(report, ensure_ascii=False) + "\n")
+    from . import util
+    # Concurrent jobs/chats share an agent's ledger. Large UTF-8 records may span
+    # multiple writes; serialize the whole append, including flush, across processes.
+    with util.file_lock(f, validate_state=False):
+        with f.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(report, ensure_ascii=False) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
     return f
 
 
@@ -1311,8 +1317,20 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
                 audit.refuse(tool='shell', reason='Shell commands cannot be confined to this agent’s write scope.')
                 result = ProcessResult(error='Shell is disabled for agents with a write scope or realm read-only paths.')
             else:
-                audit.offer(['shell'])
-                result = supervise_command(argv, cwd=cwd, timeout=timeout, env=env, on_proc=session.bind)
+                from . import execution_admission
+                try:
+                    with execution_admission.scope(context, 'command',
+                            cancelled=lambda: session.active.cancelled,
+                            on_cancel=lambda: RunSession.cancel(context.key)):
+                        policy = load_access_policy(realm_root, agent_id)
+                        if policy.scoped:
+                            audit.refuse(tool='shell', reason='Shell cannot be confined to this write scope.')
+                            result = ProcessResult(error='Shell is disabled for this write scope.')
+                        else:
+                            audit.offer(['shell'])
+                            result = supervise_command(argv, cwd=cwd, timeout=timeout, env=env, on_proc=session.bind)
+                except execution_admission.Cancelled as exc:
+                    result = ProcessResult(error=str(exc), cancelled=True)
         except CapabilityPolicyError as exc:
             result = ProcessResult(error=str(exc))
     out = result.stdout.strip()
@@ -1444,8 +1462,22 @@ def run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str 
             thread: str = "main", allow_tools: bool = False) -> dict:
     from . import util
     lock = Path(realm_root) / 'agents' / agent_id / 'runs' / '.invocations' / f'{job_id}.json'
-    with util.file_lock(lock, timeout=.05):
-        return _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools)
+    from . import records, execution_admission
+    from .job_history import thread_name
+    job = records.read(Path(realm_root) / 'agents' / agent_id / 'jobs' / f'{job_id}.json', 'job')
+    command = job.get('kind') == 'command' or job.get('run') or job.get('command')
+    if command:
+        resource = 'command'
+    elif isinstance(engine, (str, type(None))):
+        resource = engine_for(realm_root, agent_id, job, override=engine)
+    else:
+        resource = getattr(engine, 'name', 'unknown')
+    context = RunContext.capture(realm_root, agent_id, thread_name(job_id))
+    # Never hold an invocation lock while queued behind its already-admitted scheduler
+    # ticket: that worker needs this same lock to complete and release conversation capacity.
+    with execution_admission.scope(context, resource):
+        with util.file_lock(lock, timeout=.05):
+            return _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools)
 
 
 def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):

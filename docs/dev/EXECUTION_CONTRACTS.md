@@ -14,6 +14,14 @@ and cleanup. HTTP shares that session for SSE; it transports events and optional
 thread after completion, without mutating the conversation through private rendering helpers.
 Plain chat and scheduled/delegated model turns acquire their own session.
 
+M8 adds [account-wide execution admission](EXECUTION_ADMISSION.md) outside the local
+session registry. Kernel-owned tickets bound provider, realm and conversation concurrency;
+the scheduler queues claimed work and creates workers only after shared admission. Commands,
+dry runs, compaction and auxiliary model requests use the same capacity accounting. Stop can
+reach the owning process through the shared cancellation record. Policy is revalidated after
+waiting, and malformed capacity state holds new work. Direct adapter calls are compatibility
+interfaces; application callers use `execute_request` to participate in shared admission.
+
 Context construction and artifact-capture helpers still live in `runner` for compatibility.
 The coordinator calls those helpers, but lifecycle decisions live only in `execution`.
 The outer scheduled-job wrapper retains job notifications and its job activity indicator;

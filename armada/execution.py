@@ -211,6 +211,9 @@ class TurnCoordinator:
         th = Thread(agent_dir, thread)
         turn = req.admitted_turn
         cap = eng = raw_capture = None
+        from contextlib import ExitStack
+        from . import execution_admission
+        capacity = ExitStack()
         managed = None
         partial = []
         activity_events = []
@@ -223,6 +226,8 @@ class TurnCoordinator:
         compacted = False
         started = time.monotonic()
         attachments = []
+        saved = None
+        waited = False
         message = req.message
         result = RunResult(ok=False, error="Turn did not finish.")
         job_result = None
@@ -264,6 +269,8 @@ class TurnCoordinator:
                         {"Bash": "Running a command…", "WebSearch": "Searching the web…",
                          "Edit": "Updating a file…", "Read": "Reading a file…"}.get(ev.get("name"), "Using a tool…")
                         if kind == "tool" else "Thinking…")
+            if kind == 'status':
+                activity = ev.get('activity') or ev.get('text') or activity
             now = time.monotonic()
             current_activity = activity
             if turn and kind in ("text", "tool", "thinking", "tool_result") and (kind != "text" or now - last_checkpoint >= .15):
@@ -285,6 +292,18 @@ class TurnCoordinator:
             if self.on_proc and self.on_proc != self.session.bind:
                 self.on_proc(handle)
 
+        def queued():
+            nonlocal turn, attachments, saved, waited
+            waited = True
+            if turn is None and not req.task:
+                saved = r._save_images(agent_dir, thread, list(req.images))
+                attachments = [{'kind': 'image', 'name': s['name'], 'file': s['file']} for s in saved]
+                attachments += [{'kind': 'file', 'name': str(fn)} for fn in req.files if str(fn).strip()]
+                turn = th.begin_turn(message, attachments=attachments or None, queued=True)
+            if turn:
+                th.save_progress(turn, '', 'Queued — waiting for execution capacity…')
+            event({'kind': 'status', 'text': 'Queued — waiting for execution capacity…'})
+
         try:
             if turn:
                 existing = [m for m in th._messages() if m.get('turn') == turn]
@@ -292,7 +311,18 @@ class TurnCoordinator:
                         or existing[0].get('content') != message or not existing[0].get('voice_request')):
                     raise ValueError('The admitted spoken request is no longer pending.')
             try:
-                eng, agent = r._prepare_agent_run(root, aid, req.engine, req.allow_tools or bool(req.images), req.job, scheduled_job)
+                selected, agent = r._prepare_agent_run(root, aid, req.engine,
+                    req.allow_tools or bool(req.images), req.job, scheduled_job)
+                capacity.enter_context(execution_admission.scope(context, selected.name,
+                    cancelled=lambda: self.session.active.cancelled,
+                    on_cancel=lambda: RunSession.cancel(context.key, self.session.registry, self.session.lock),
+                    on_wait=queued))
+                # Resolve permissions afresh after waiting; queued work carries no stale grant.
+                eng = selected
+                if waited:
+                    eng, agent = r._prepare_agent_run(root, aid, req.engine, req.allow_tools or bool(req.images), req.job, scheduled_job)
+                if eng.name != selected.name:
+                    raise util.StateError('The provider changed while this turn was queued. Please start a new turn.')
                 if not agent:
                     raise ValueError(f"no agent '{aid}'")
                 job = req.job or {}
@@ -333,7 +363,8 @@ class TurnCoordinator:
                             + ". Read manifest.jsonl for file names and filter entries by run_id "
                             + context.run_id + ". Scripts inherit ARMADA_RAW_DIR. Wait/retry briefly if the "
                             "immediately preceding result has not yet appeared. Do not retype captured results.")
-                saved = r._save_images(agent_dir, thread, list(req.images))
+                if saved is None:
+                    saved = r._save_images(agent_dir, thread, list(req.images))
                 attachments = [{"kind": "image", "name": s["name"], "file": s["file"]} for s in saved]
                 attachments += [{"kind": "file", "name": str(fn)} for fn in req.files if str(fn).strip()]
                 core = memory.assemble_core(root, agent_dir, run_agent)
@@ -393,15 +424,12 @@ class TurnCoordinator:
                     core = r._tool_preamble(root, agent_dir,
                                             _eng if _eng in ("claude", "codex", "gemini") else None) + "\n" + core
                 compacted = th.compact_if_needed(compact_engine, threshold_chars=r._compact_threshold(root, agent, req.job))
-                if req.admitted_turn:
-                    summary, messages = th.snapshot()
-                    _, pending = th._turn_groups(messages)
-                    # Exclude this request and later queued speech; include completed earlier
-                    # replies even when those landed after this owner's message was admitted.
-                    convo = th._render(summary, [m for i, m in enumerate(messages)
-                        if not (i in pending and m.get('voice_request'))])
-                else:
-                    convo = th.render()
+                summary, messages = th.snapshot()
+                _, pending = th._turn_groups(messages)
+                # Pending queue entries are durable owner input, not earlier conversation.
+                # Never leak a later request into the active turn or replay one after a crash.
+                convo = th._render(summary, [m for i, m in enumerate(messages)
+                    if not (i in pending and (m.get('voice_request') or m.get('queued_request')))])
                 msg = message
                 if scheduled_job:
                     msg += job_results.instructions(context.run_id, result_job)
@@ -439,7 +467,9 @@ class TurnCoordinator:
                 live_text.close()
                 log.exception("Agent turn failed for %s", aid)
                 from .job_tools import ToolConfigurationError
-                if isinstance(exc, ToolConfigurationError):
+                if isinstance(exc, execution_admission.Cancelled):
+                    result = RunResult(ok=False, cancelled=True, error=str(exc))
+                elif isinstance(exc, ToolConfigurationError):
                     from .engine.startup import failed
                     result = failed(str(exc), code="job_tools")
                 else:
@@ -576,4 +606,7 @@ class TurnCoordinator:
                 if managed is not None:
                     managed.__exit__()
             finally:
-                self.session.close()
+                try:
+                    capacity.close()
+                finally:
+                    self.session.close()

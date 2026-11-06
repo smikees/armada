@@ -53,10 +53,15 @@ ARMADA.exe ─► armada app ─► app.py (pywebview window)
 SCHEDULER.vbs ─┐
 app.py launch ─┴► armada schedule ─► scheduler.run_daemon()   (windowless pythonw, detached)
   (schedsvc.ensure_running)          every 60 s, for EVERY registered realm (rescanned each pass):
-                                       realmformat.ensure → preflight hold? → sysjobs.run_due
-                                       → due jobs → runner.run_job → engine.run → run report
+                                       realmformat.ensure → preflight hold? → discover due work
+                                       → bounded tickets + durable claims → admitted workers
+                                       → runner.run_job → TurnCoordinator → engine → run report
                                      thread: telegram.listen (active realm only)
 ```
+
+**M8 (November 2026):** discovery no longer waits for execution. `dispatch.Dispatcher`
+starts only admitted workers; `execution_admission` shares bounded capacity and cancellation
+across desktop, scheduler and CLI processes. See [limits, fairness and crash semantics](EXECUTION_ADMISSION.md).
 
 - **The server** selects a default realm (`Handler.realm`; `/switch` moves it and
   `activerealm` remembers it on the machine). Each request captures an immutable destination;

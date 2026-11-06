@@ -25,6 +25,8 @@ def run(output, width=1280):
         root = Path(directory).resolve()
         assert root.parent == Path(tempfile.gettempdir()).resolve()
         os.environ["ARMADA_DATA_DIR"] = str(root / "data")
+        from armada import execution_admission
+        execution_admission._directory = lambda: root / 'data' / 'execution'
         os.environ["ARMADA_NO_MODEL_SYNC"] = "1"
         os.environ["ARMADA_NOTIFY_MUTE"] = "1"
         os.environ["HOME"] = os.environ["USERPROFILE"] = str(root / "home")

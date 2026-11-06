@@ -47,6 +47,7 @@
 | [`desktop_operations`](desktop_operations.md) | Bounded asynchronous native script calls; no worker thread per browser call. |
 | [`desktop_recovery`](desktop_recovery.md) | Recover Windows presentation independently of execution and server ownership. |
 | [`desktop_visibility`](desktop_visibility.md) | Nonblocking close-to-tray/restore transitions, with the newest request winning. |
+| [`dispatch`](dispatch.md) | A bounded scheduler queue |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
 | [`draft_inputs`](draft_inputs.md) | Bounded frozen file inputs for draft scripts and paired model tests. |
 | [`draft_skills`](draft_skills.md) | Owner-fingerprinted skill bundles, executed only in Windows draft isolation. |
@@ -72,6 +73,7 @@
 | [`engine.startup`](engine.startup.md) | Failures before a provider turn starts, with no business-job replay. |
 | [`engine.windows_job`](engine.windows_job.md) | Windows CLI process-tree ownership using documented Job Object and thread APIs. |
 | [`execution`](execution.md) | Own agent turns across HTTP, plain chat, jobs, inbox and Telegram. |
+| [`execution_admission`](execution_admission.md) | Account-wide bounded execution, with kernel-owned tickets and fair realm turns. |
 | [`fonts`](fonts.md) | The app's font faces — a temporary Appearance setting (v0.99.62), to become part of themes/skins. |
 | [`goals`](goals.md) | Realm goals — the objectives agents actively advance (distinct from passive memory). |
 | [`http_limits`](http_limits.md) | Bound local HTTP input before allocating request workers. |

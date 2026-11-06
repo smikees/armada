@@ -71,6 +71,8 @@ def run(output: Path, *, source_root: str = '', legacy: bool = False) -> int:
         return value
     with tempfile.TemporaryDirectory(prefix='armada-webview-', ignore_cleanup_errors=True) as directory:
         os.environ['ARMADA_DATA_DIR'] = directory
+        from armada import execution_admission
+        execution_admission._directory = lambda: Path(directory) / 'execution'
 
         class Fixture(serve.Handler):
             realm = None
