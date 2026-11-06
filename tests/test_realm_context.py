@@ -12,6 +12,7 @@ import pytest
 
 from armada import origins, runner, serve, util
 from armada.engine.base import RunResult
+from armada.engine.process import RunProcess
 from armada.request_context import RealmContext, RunContext, navigation_url
 from armada.routes.agents import AgentRoutes
 from armada.threads import Thread
@@ -112,20 +113,29 @@ def test_same_ids_in_two_realms_keep_turns_reports_titles_and_cancellation_separ
     errors = []
     workers = []
     title_roots = []
+    cancellation_seen = threading.Event()
+    finish_cancelled = threading.Event()
     contexts = [RunContext.capture(c.root, "captain", "new-chat-race", "same-run") for c in realms]
 
     class Engine:
         name = "mock"
         def run_stream(self, *, cwd, on_proc, on_event, **kwargs):
             root = str(Path(cwd).parent.parent)
-            class Process:
+            class Process(RunProcess):
                 def kill(self):
-                    killed.append(root)
+                    # Local Stop and shared admission can both request cancellation.
+                    # Match the production handle: repeated requests set one event.
+                    super().kill()
                     release[root].set()
-            on_proc(Process())
+            process = Process(None)
+            on_proc(process)
             on_event({"kind": "text", "text": "partial " + root})
             started[root].set()
             assert release[root].wait(15)
+            if process._cancel.is_set():
+                cancellation_seen.set()
+                assert finish_cancelled.wait(10)
+                killed.append(root)
             (Path(cwd) / "result.txt").write_text(root)
             return RunResult(root not in killed, "answer " + root)
 
@@ -189,6 +199,10 @@ def test_same_ids_in_two_realms_keep_turns_reports_titles_and_cancellation_separ
             assert request(server, "/api/chat-stop?tid=same-run", context=a)[0] == 200
             assert killed == [] and contexts[1].key in serve.Handler._streams
             assert request(server, "/api/chat-stop?tid=same-run", context=b)[0] == 200
+            assert cancellation_seen.wait(10)
+            # Deliberately repeat Stop while the owned process is draining.
+            assert request(server, "/api/chat-stop?tid=same-run", context=b)[0] == 200
+            finish_cancelled.set()
             for worker in workers:
                 worker.join(10)
             assert not errors and killed == [b.root]
@@ -202,6 +216,7 @@ def test_same_ids_in_two_realms_keep_turns_reports_titles_and_cancellation_separ
                 assert any(r.get("realm_id") == c.realm_id and r.get("run_id") == "same-run" for r in reports)
                 assert not run.marker.exists() and run.key not in serve.Handler._streams
         finally:
+            finish_cancelled.set()
             for event in release.values():
                 event.set()
             for worker in workers:

@@ -178,6 +178,13 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   even if that write fails. Retry/ownership regression: 101 passed.
 - Final pinned full gate: **4,197 passed / six skipped in 672.95s**, exit zero, with
   all source corrections included. Native shared-window confirmation: **79 checks passed**.
+- Owner approved the gated 0.99.130 release and `3171fa4` was pushed. The publisher repeat
+  found one timing-sensitive test-double failure (4,196 passed / six skipped): repeated
+  Stop requests were counted twice. The test now uses the production idempotent handle
+  and deliberately repeats Stop during cleanup. All realm-isolation assertions remain;
+  the corrected 94-test batch passed in 20.79s. Application source is unchanged. The
+  publisher stopped without publishing; exact-source CI and full publisher gates restart
+  from the test/evidence correction.
 - Design and remaining checks: [Execution admission](EXECUTION_ADMISSION.md).
 - Implementation and local validation complete. Exact-source CI, mandatory publisher repeat,
   packaged checks, signed upgrade and public verification remain; no M8 release or acceptance claimed.

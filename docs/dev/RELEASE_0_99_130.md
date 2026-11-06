@@ -36,6 +36,14 @@ suppresses exceptions. See [the admission contract](EXECUTION_ADMISSION.md).
   fails. The 101-test retry/ownership batch passed in 18.11s, including tomorrow's job
   remaining eligible after a normal cancellation. The final complete gate above passed.
 - References regenerated. Changed goldens are limited to release notes and queueing help.
+- Candidate `3171fa4` was pushed with the owner's explicit 0.99.130 release approval.
+  Its mandatory publisher repeat stopped with 4,196 passes, six skips and one failure
+  in 673.89s: the cross-realm test double counted repeated Stop requests as separate
+  cancellations. The production cancellation handle is idempotent. The test now uses
+  that handle and deliberately repeats Stop while cleanup is paused, preserving all
+  realm-isolation assertions. The 94-test cancellation/contract batch passed in 20.79s.
+  Application source is unchanged; the corrected test and evidence require a new exact-source
+  CI/publisher run. No artifact was published by the failed run.
 
 Release-owned defaults were reviewed against official [Claude model documentation](https://platform.claude.com/docs/en/models/overview),
 [OpenAI model documentation](https://developers.openai.com/codex/models), and
@@ -57,5 +65,6 @@ Crashes can leave external effects uncertain; capacity recovery never authorizes
 
 Python 3.14.10, launcher protocol 2 and the existing Windows distribution remain unchanged.
 Publisher signing and clean-machine WebView2 acceptance limitations remain open. Update
-assets still require Ed25519 signing and all required release gates. No M8 publication or
-unsigned-maintenance approval has yet been claimed.
+assets still require Ed25519 signing and all required release gates. The owner explicitly
+approved gated 0.99.130 publication using the existing unsigned beta distribution; publication
+remains pending.
