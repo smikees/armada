@@ -31,6 +31,10 @@ owner frees capacity; the caller's durable attempt record retains any uncertain 
 
 —
 
+### `_read_snapshot(*, timeout=5.0)`
+
+—
+
 ### `_prune(state)`
 
 —

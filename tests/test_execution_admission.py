@@ -99,6 +99,58 @@ def test_running_cancellation_and_nested_scope_share_one_slot(tmp_path):
     assert admission.snapshot() == []
 
 
+def test_cancellation_snapshot_waits_for_ledger_replacement(tmp_path, monkeypatch, tickets):
+    ticket = tickets(context(tmp_path))
+    assert ticket.ready()
+    replacing, publish, observed, stopped = (threading.Event() for _ in range(4))
+    original_read, original_write = admission._read, util.write_json_atomic
+    errors = []
+
+    def read():
+        if threading.current_thread().name == 'execution-cancellation':
+            if replacing.is_set():
+                raise PermissionError('Windows replacement temporarily denies this read')
+            observed.set()
+        return original_read()
+
+    def write(path, data, **kwargs):
+        if threading.current_thread().name == 'ledger-writer':
+            replacing.set()
+            assert publish.wait(10)
+            try:
+                return original_write(path, data, **kwargs)
+            finally:
+                replacing.clear()
+        return original_write(path, data, **kwargs)
+
+    def mutate():
+        try:
+            with admission._transaction() as state:
+                state['last_realm'] = 'another-realm'
+        except BaseException as exc:
+            errors.append(exc)
+
+    monkeypatch.setattr(admission, '_read', read)
+    monkeypatch.setattr(util, 'write_json_atomic', write)
+    writer = threading.Thread(target=mutate, name='ledger-writer')
+    writer.start()
+    try:
+        assert replacing.wait(5)
+        with ticket.activate(stopped.set):
+            # The watcher must wait for the writer, not misdiagnose its replacement
+            # as lost ownership and cancel an otherwise healthy process.
+            assert not stopped.wait(.3)
+            publish.set()
+            writer.join(5)
+            assert not writer.is_alive() and not errors
+            assert observed.wait(5) and not ticket.cancelled and not stopped.is_set()
+            admission.cancel(ticket.context.realm.realm_id, run_id=ticket.context.run_id)
+            assert stopped.wait(5)  # A real Stop is still delivered after the writer.
+    finally:
+        publish.set()
+        writer.join(5)
+
+
 def test_maintenance_wrapper_cancellation_reaches_model_child(tmp_path):
     parent = context(tmp_path, thread='system')
     child = context(tmp_path, thread='model')

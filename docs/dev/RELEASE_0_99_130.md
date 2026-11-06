@@ -16,8 +16,8 @@ suppresses exceptions. See [the admission contract](EXECUTION_ADMISSION.md).
 
 ## Candidate validation
 
-- Final pinned isolated gate: **4,197 passed, six skipped in 672.95s** on Python
-  3.14.10. Exit status zero. All source changes below are included in this result.
+- Initial final-source pinned gate: **4,197 passed, six skipped in 672.95s** on Python
+  3.14.10. Exit status zero. The later Windows snapshot correction below requires a new gate.
 
 - Initial concurrency gate: 58 passed. Expanded regression: 186 passed.
 - Dispatcher gate: nine passed, including 64 tasks across eight synthetic realms, with
@@ -44,6 +44,16 @@ suppresses exceptions. See [the admission contract](EXECUTION_ADMISSION.md).
   realm-isolation assertions. The 94-test cancellation/contract batch passed in 20.79s.
   Application source is unchanged; the corrected test and evidence require a new exact-source
   CI/publisher run. No artifact was published by the failed run.
+- At `f2e43ba`, the publisher passed **4,197 tests / six skips in 670.42s** and the pinned
+  Windows CI job passed **4,199 / four skips**. The second Windows job found a real race:
+  a watcher opening the ledger during replacement received a transient access error and
+  cancelled healthy work. Snapshot reads now share the writer's kernel lock. The forced
+  overlap regression fails with the old reader and passes with the fix; the related
+  **106-test batch passed in 29.16s**. Persistent invalid/unreadable state still fails closed.
+  A superseded CI run also exposed a four-second test-only drain deadline on a slow disk;
+  the deadline is now 15 seconds, with progress/capacity/uniqueness assertions unchanged.
+  Publication stopped at CI without creating assets. Native shared-window confirmation after
+  this fix passed all **79 checks**. Full exact-source gates restart after this fix.
 
 Release-owned defaults were reviewed against official [Claude model documentation](https://platform.claude.com/docs/en/models/overview),
 [OpenAI model documentation](https://developers.openai.com/codex/models), and

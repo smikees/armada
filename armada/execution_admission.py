@@ -72,6 +72,13 @@ def _read():
     return state
 
 
+def _read_snapshot(*, timeout=5.0):
+    # Windows can deny opening a file during its replacement. Coordinate readers
+    # with our writers; atomic replacement alone does not guarantee a readable handle.
+    with util.file_lock(_state_path(), timeout=timeout, validate_state=False):
+        return _read()
+
+
 def _prune(state):
     # Probe the stable kernel lock, not PID liveness (PIDs can be reused).
     for slot in list(state['tickets']):
@@ -206,9 +213,9 @@ class Ticket:
     def _watch(self):
         while not self._stop.wait(POLL_SECONDS):
             try:
-                # Atomic snapshots suffice for cancellation; monitoring never rewrites state
-                # or performs a kernel probe for every queued ticket on every poll.
-                cancelled = self._row(_read())['cancelled']
+                # Serialize the read with replacement, without rewriting state or probing
+                # every ticket's kernel ownership on every cancellation poll.
+                cancelled = self._row(_read_snapshot())['cancelled']
             except OSError:
                 # Losing admission evidence fails closed; never continue provider work on
                 # an assumed grant. Callbacks retain the process owner's kill semantics.
@@ -314,7 +321,7 @@ def view(root, agent=None, thread=None):
     """Read-only presentation hint. Kernel ownership, never this hint, admits execution."""
     from .request_context import RealmContext
     identity = RealmContext.capture(root).realm_id
-    return [dict(row) for row in _read()['tickets'].values()
+    return [dict(row) for row in _read_snapshot(timeout=.05)['tickets'].values()
             if row['realm'] == identity and (agent is None or row['agent'] == agent)
             and (thread is None or row['thread'] == thread) and util.pid_alive(row['pid'])]
 

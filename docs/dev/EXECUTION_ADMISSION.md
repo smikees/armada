@@ -31,6 +31,9 @@ stable slot files. A PID is diagnostic only. A crash releases its kernel ownersh
 later bounded sweep frees capacity. The separate scheduler/system-job attempt ledger
 retains the uncertain result. No timeout steals a live ticket, and no queue record is an
 instruction to replay work on startup. Corrupt or future-version admission state holds work.
+Cancellation and presentation snapshots use the same ledger lock as writers: on Windows,
+atomic replacement alone can still briefly deny a concurrent reader. Snapshot reads do not
+rewrite the ledger or probe every ticket. Persistent access/validation failures still stop work.
 
 Permissions and provider selection are checked again after queueing. Tickets grant capacity,
 not access. A queued provider change is refused rather than charging the wrong resource.
@@ -86,7 +89,10 @@ A **101-test** retry/ownership batch additionally verifies that cancelling a res
 cannot resurrect its old backoff, including a journal-write failure, while a normally cancelled
 retry leaves tomorrow's independent job eligible.
 
-The final pinned full suite passed **4,197 tests**, with six skips, in 672.95s. Native
-shared-window confirmation passed **79 checks**. Exact-source Windows CI and required
-publisher/package/upgrade gates remain pending. Generated references and both changed
+The initial final-source suite passed **4,197 tests**, with six skips, in 672.95s. Native
+shared-window confirmation passed **79 checks**. The publisher repeated 4,197 passes after
+correcting a cancellation test double, but Windows CI then exposed a snapshot/replacement
+race. Coordinated snapshot reads pass the **106-test** correction batch; substituting the
+old unsynchronized behavior makes the forced-overlap regression fail. Exact-source full
+CI/publisher/package/upgrade gates remain pending for that fix. Generated references and both changed
 goldens (release notes and queueing help only) have been reviewed.

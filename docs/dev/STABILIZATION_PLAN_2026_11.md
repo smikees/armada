@@ -27,7 +27,7 @@ with a checklist update and owner progress report after each implementation mile
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Verified; released 0.99.127** | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | **Verified; released 0.99.128** | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Verified; released 0.99.129** | Pending |
-| M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Candidate 0.99.130 — full local gate and native confirmation passed; release gates pending | Pending |
+| M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Candidate 0.99.130 — CI snapshot race fixed; final-source release gates restarting | Pending |
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Pending | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Pending | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Pending | Pending |
@@ -186,6 +186,14 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   publisher stopped without publishing; exact-source CI and full publisher gates restart
   from the test/evidence correction.
 - Design and remaining checks: [Execution admission](EXECUTION_ADMISSION.md).
+- The corrected publisher suite passed **4,197 / six skips**, and pinned Windows CI
+  passed **4,199 / four skips**. The second CI job exposed a real Windows read/replacement
+  overlap that stopped healthy work. Cancellation/presentation readers now share the
+  ledger writer lock; persistent bad state still fails closed. The 106-test correction
+  batch passed and the new overlap regression was confirmed to fail with the old reader.
+  A scheduler test's cleanup allowance is now 15 seconds for slow CI disks; all behavioral
+  assertions remain. Native confirmation after the fix passed **79 checks**. Final-source
+  CI/publisher checks restart; no assets published.
 - Implementation and local validation complete. Exact-source CI, mandatory publisher repeat,
   packaged checks, signed upgrade and public verification remain; no M8 release or acceptance claimed.
 

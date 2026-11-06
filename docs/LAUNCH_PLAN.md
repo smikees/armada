@@ -16,8 +16,9 @@ The publisher repeated the full gate and all packaged native checks, including
 **72 signed-upgrade checks** passed. Public signatures, downloads/source bytes and
 matching website verified. Owner app untouched; maintainer acceptance remains pending.
 **M8 (fair bounded scheduling/execution admission) is implemented in candidate 0.99.130;
-the final local gate passed 4,197 tests (six skipped) and native confirmation passed 79 checks.
-CI and publication gates remain pending.** See [execution admission](dev/EXECUTION_ADMISSION.md).
+local gates passed 4,197 tests (six skipped) and native confirmation passed 79 checks.
+CI exposed a Windows snapshot race; the fix passed 106 targeted tests and the final-source
+release gates are restarting.** See [execution admission](dev/EXECUTION_ADMISSION.md).
 [Recovery contract](dev/DESKTOP_PRESENTATION_RECOVERY.md) ·
 [Release evidence](dev/RELEASE_0_99_129.md).
 

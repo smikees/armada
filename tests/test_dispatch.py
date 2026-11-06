@@ -32,7 +32,9 @@ def isolated(monkeypatch):
     monkeypatch.setattr(sysjobs, 'JOBS', [])
 
 
-def drain(pool, seconds=4):
+def drain(pool, seconds=15):
+    # This checks eventual cleanup, not disk-speed latency. A shared Windows CI
+    # runner can take several seconds to flush the five durable job results.
     until = time.monotonic() + seconds
     while (pool.pending or pool.running) and time.monotonic() < until:
         pool.pump()
