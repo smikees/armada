@@ -1,6 +1,6 @@
 # Desktop presentation recovery
 
-M7, prepared for 0.99.129. The Windows Form owns a presentation controller; the
+M7, released in 0.99.129. The Windows Form owns a presentation controller; the
 local server, execution coordinator and scheduler retain their existing ownership.
 Replacing a failed view never relaunches an engine or resubmits a request.
 

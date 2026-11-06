@@ -26,7 +26,7 @@ with a checklist update and owner progress report after each implementation mile
 | M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | **Verified; released 0.99.126** | Pending |
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Verified; released 0.99.127** | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | **Verified; released 0.99.128** | Pending |
-| M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Locally and packaged verified; public release gates pending** | Pending |
+| M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Verified; released 0.99.129** | Pending |
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Pending | Pending |
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Pending | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Pending | Pending |
@@ -126,7 +126,7 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
 - Contract: [Realm exports](REALM_EXPORTS.md). [Release evidence](RELEASE_0_99_128.md).
   Next: **M7**, native presentation recovery.
 
-## M7 implementation — 6 November 2026
+## M7 verified and released — 6 November 2026
 
 - Added per-window native recovery, bounded browser operations, retry limits and
   authenticated return to the last safe display route without restarting execution.
@@ -143,10 +143,17 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   **323 tests**. Corrected full pinned gate: **4,166 passed, six skipped** (634.23s).
   The final probe correction repeated that result in **642.07s**. Packaged launcher
   recovery/DLL isolation, session16, tray68, restart69 in each mode and presentation86
-  all passed. Exact-source CI, signed-upgrade gate and publication remain pending.
-  No owner app restart or live provider call.
+  all passed. The mandatory publisher repeated the full gate (**4,166 / six skipped**)
+  and every packaged check. Both exact-source Windows CI jobs passed **4,168 / four
+  skipped**; relay and **72 signed-upgrade checks** passed.
+- Released **0.99.129** from `f797b01` after explicit owner approval. Public signatures,
+  package/source bytes, installer hash and matching website verified. Replaced
+  website files were backed up and index.html published last. No owner app restart
+  or live provider call. Maintainer acceptance and existing publisher/clean-machine
+  boundaries remain pending. [Release evidence](RELEASE_0_99_129.md).
 - [Recovery contract and limits](DESKTOP_PRESENTATION_RECOVERY.md). The historical
   compositor ghost incident is not claimed conclusively reproduced or eliminated.
+- Next: **M8**, fair bounded dispatch and cross-process execution admission.
 
 ## Release boundaries
 

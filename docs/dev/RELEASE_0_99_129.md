@@ -1,6 +1,8 @@
 # 0.99.129 — Native view recovery without replaying work
 
-M7 candidate, 6 November 2026. Publication and maintainer acceptance are pending.
+Published on GitHub and armada.stamih.com on 6 November 2026 from
+`f797b01cda01ab78cb281d555bff9e1b057fafaa`, after explicit owner approval.
+M7 is implemented, verified and released. Maintainer acceptance remains pending.
 
 The Windows Form now owns bounded renderer/browser recovery independently of
 server execution. Failed controls are disposed and replaced inside the same HWND.
@@ -33,8 +35,11 @@ See [the complete recovery contract](DESKTOP_PRESENTATION_RECOVERY.md).
 - Corrected full pinned isolated gate: **4,166 passed, six skipped** in 634.23s;
   repeated with the final probe correction: **4,166 / six skipped** in 642.07s.
   Generated references are current; both changed golden pages were reviewed.
-  Exact-source Windows CI, signed-upgrade gate and public verification
-  remain pending.
+  The mandatory publisher repeated the full gate: **4,166 / six skipped** in 642.77s.
+- Exact-source [Windows CI run 42240011585](https://github.com/smikees/armada/actions/runs/42240011585):
+  **4,168 passed, four skipped** in each job (Python 3.14.10: 883.96s; current 3.14:
+  732.47s). Relay passed. Both retain the existing Python warning in `voice_turns.py`
+  at line 122, tracked for M8.
 - The first packaged run stopped at the lost-acknowledgement probe: it still
   intercepted direct `evaluate_js` calls, which are now behind the bounded-call
   interface. Injection at the production call interface passed all **16 session
@@ -43,10 +48,23 @@ See [the complete recovery contract](DESKTOP_PRESENTATION_RECOVERY.md).
   preflight passed all five launcher recovery interruption points, clean/legacy
   DLL isolation, **16** WebView2 session checks, **68** tray checks, **69** teardown
   checks in each of visible/tray/busy restart modes, and **86** presentation checks.
+- The publisher repeated every packaged gate successfully. Signed compatible-runtime
+  upgrade from **0.99.128 to 0.99.129: 72 checks passed**.
+- Public verification passed: signed manifest, exact release commit, package hash
+  and changed source bytes, installer hash, and matching website version/release/
+  download links. GitHub has all four assets as a normal release.
+- Website publication backed up replaced files, verified uploads and published
+  index.html last. Backup set: `20261106T152743Z`.
 - The owner app has not been restarted. Tests use isolated synthetic profiles;
   no live realm, connector or provider execution is used.
 - Release model preferences are unchanged. Connected-provider/catalogue filtering
   and unknown-model provider-default fallback remain authoritative.
+
+Installer SHA-256:
+`ad1fbc85ef06ecb072dc757fa3647e5ace896e7d076a3315da9788b5ef8404d6` (23,277,671 bytes).
+
+Package SHA-256:
+`d4fe9d6f8104197ef0fb44e5c5871299ba316dce7701977f8f3e591eedfafc82`.
 
 ## Boundaries
 
@@ -61,7 +79,9 @@ unchanged. The installer adds a mandatory presentation fault probe; runtime and
 launcher dependencies are unchanged. The existing unsigned maintenance beta and
 clean-machine WebView2 acceptance limitations remain open. No trusted Windows
 publisher or clean-machine GUI acceptance claim is made. Update assets still
-require Ed25519 signing and the enforced release procedure.
+require Ed25519 signing and the enforced release procedure. Windows Sandbox was
+not rerun for this app-only release; the owner-authorized maintenance path retained
+all application, CI, native and signed-upgrade gates.
 
 ## Release decision
 
