@@ -27,7 +27,7 @@ with a checklist update and owner progress report after each implementation mile
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Verified; released 0.99.127** | Pending |
 | M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | **Verified; released 0.99.128** | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Verified; released 0.99.129** | Pending |
-| M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Candidate 0.99.130 — CI snapshot race fixed; final-source release gates restarting | Pending |
+| M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Released 0.99.130 — full local/CI, native and signed-upgrade gates passed; public downloads and website verified | Pending |
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Pending | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Pending | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Pending | Pending |
@@ -153,7 +153,7 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   boundaries remain pending. [Release evidence](RELEASE_0_99_129.md).
 - [Recovery contract and limits](DESKTOP_PRESENTATION_RECOVERY.md). The historical
   compositor ghost incident is not claimed conclusively reproduced or eliminated.
-- Next: **M8**, fair bounded dispatch and cross-process execution admission.
+- M8 followed in **0.99.130**, with fair bounded dispatch and cross-process execution admission.
 
 ### M8 progress — bounded scheduling and execution
 
@@ -176,26 +176,30 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   earlier failures and was stopped around 78% for a newly identified restored-retry Stop
   edge case. Cancel now withdraws the backoff journal; a stopped claim refuses restoration
   even if that write fails. Retry/ownership regression: 101 passed.
-- Final pinned full gate: **4,197 passed / six skipped in 672.95s**, exit zero, with
-  all source corrections included. Native shared-window confirmation: **79 checks passed**.
+- Initial candidate pinned gate: **4,197 passed / six skipped in 672.95s**, exit zero.
+  Native shared-window confirmation: **79 checks passed**.
 - Owner approved the gated 0.99.130 release and `3171fa4` was pushed. The publisher repeat
   found one timing-sensitive test-double failure (4,196 passed / six skipped): repeated
   Stop requests were counted twice. The test now uses the production idempotent handle
   and deliberately repeats Stop during cleanup. All realm-isolation assertions remain;
-  the corrected 94-test batch passed in 20.79s. Application source is unchanged. The
-  publisher stopped without publishing; exact-source CI and full publisher gates restart
-  from the test/evidence correction.
-- Design and remaining checks: [Execution admission](EXECUTION_ADMISSION.md).
+  the corrected 94-test batch passed in 20.79s. Application source was unchanged by this
+  correction. The publisher stopped without publishing and gates restarted from the correction.
+- Design: [Execution admission](EXECUTION_ADMISSION.md).
 - The corrected publisher suite passed **4,197 / six skips**, and pinned Windows CI
   passed **4,199 / four skips**. The second CI job exposed a real Windows read/replacement
   overlap that stopped healthy work. Cancellation/presentation readers now share the
   ledger writer lock; persistent bad state still fails closed. The 106-test correction
   batch passed and the new overlap regression was confirmed to fail with the old reader.
   A scheduler test's cleanup allowance is now 15 seconds for slow CI disks; all behavioral
-  assertions remain. Native confirmation after the fix passed **79 checks**. Final-source
-  CI/publisher checks restart; no assets published.
-- Implementation and local validation complete. Exact-source CI, mandatory publisher repeat,
-  packaged checks, signed upgrade and public verification remain; no M8 release or acceptance claimed.
+  assertions remain. Native confirmation after the fix passed **79 checks**; final-source
+  CI/publisher checks were repeated before publishing.
+- Released **0.99.130** from `0a0971a`: mandatory publisher **4,198 passed / six skips**;
+  both exact-source Windows CI jobs **4,200 passed / four skips**. All packaged native
+  gates passed, including **86 presentation checks** and **72 signed-upgrade checks**.
+  Public signature, downloads/source bytes, installer hash and matching website verified.
+  [Release evidence](RELEASE_0_99_130.md). Owner app untouched; maintainer acceptance and
+  existing publisher-signing/clean-machine boundaries remain pending.
+- Next: **M9**, read performance and cache invalidation; not started.
 
 ## Release boundaries
 

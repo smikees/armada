@@ -1,7 +1,6 @@
 # Bounded execution and scheduler dispatch (M8)
 
-Status: implemented and locally validated in candidate 0.99.130; release gates and
-maintainer acceptance pending.
+Status: released in 0.99.130; maintainer acceptance pending.
 
 ## Decision and limits
 
@@ -93,6 +92,9 @@ The initial final-source suite passed **4,197 tests**, with six skips, in 672.95
 shared-window confirmation passed **79 checks**. The publisher repeated 4,197 passes after
 correcting a cancellation test double, but Windows CI then exposed a snapshot/replacement
 race. Coordinated snapshot reads pass the **106-test** correction batch; substituting the
-old unsynchronized behavior makes the forced-overlap regression fail. Exact-source full
-CI/publisher/package/upgrade gates remain pending for that fix. Generated references and both changed
-goldens (release notes and queueing help only) have been reviewed.
+old unsynchronized behavior makes the forced-overlap regression fail. The final publisher
+gate passed **4,198 tests / six skips**, and both exact-source Windows CI jobs passed
+**4,200 / four skips**. All packaged native gates and **72 signed-upgrade checks** passed;
+public signatures/downloads and matching website were verified. Generated references and both
+changed goldens (release notes and queueing help only) have been reviewed.
+See [release evidence](RELEASE_0_99_130.md) for hashes and remaining distribution boundaries.

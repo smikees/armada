@@ -1,6 +1,9 @@
 # 0.99.130 — Fair, bounded execution across realms
 
-M8 release candidate. Not yet published; maintainer acceptance remains pending.
+M8 released on 6 November 2026 from
+[`0a0971a`](https://github.com/smikees/armada/commit/0a0971a7c7b35468ddfc56de5705d80c633b552a).
+[GitHub release](https://github.com/smikees/armada/releases/tag/v0.99.130) and
+[website](https://armada.stamih.com/) verified. Maintainer acceptance remains pending.
 
 The daemon discovers scheduled work separately from execution. Account-wide kernel-owned
 tickets share capacity across the desktop, scheduler and command line: four executions,
@@ -14,10 +17,26 @@ manual request cannot block the scheduled job it is queued behind. Large shared 
 appends hold an OS lock through flush. Voice backlog is bounded and its cleanup no longer
 suppresses exceptions. See [the admission contract](EXECUTION_ADMISSION.md).
 
-## Candidate validation
+## Final release verification
+
+- Mandatory publisher on the released source: **4,198 passed, six skipped in 672.13s**.
+- [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/42262140170):
+  both configurations passed **4,200 tests / four skips** (713.58s and 808.25s); relay passed.
+- Native shared-window confirmation: **79 checks**. Packaged launcher recovery passed all
+  five interruption points; clean/legacy-parent DLL isolation passed. Packaged WebView2:
+  **16 checks**; tray: **68**; visible/tray/busy restart: **69 each**; presentation recovery:
+  **86**. Fresh light/dark main and compact recovery panels were reviewed.
+- Signed **0.99.129 → 0.99.130** upgrade passed **72 checks** with normal close-to-tray enabled.
+- Public Ed25519 manifest signature, version/commit, package size/hash and changed source
+  bytes verified. Public installer matches build evidence. Website HTTPS returned 200 with
+  matching version/release/installer links; previous files were backed up and index uploaded last.
+- Installer SHA-256: `0fa14e32b36b42f0361031f343ebb73d014841fd21c0052520791ee2203401bf`.
+- Package SHA-256: `e7b417617ec8276b6823fb05c94d5a4c88c2e566b6fadf9c4f18b6914fbbc946`.
+
+## Implementation and pre-release fixes
 
 - Initial final-source pinned gate: **4,197 passed, six skipped in 672.95s** on Python
-  3.14.10. Exit status zero. The later Windows snapshot correction below requires a new gate.
+  3.14.10. Exit status zero. The later Windows snapshot correction required the new gate above.
 
 - Initial concurrency gate: 58 passed. Expanded regression: 186 passed.
 - Dispatcher gate: nine passed, including 64 tasks across eight synthetic realms, with
@@ -42,8 +61,8 @@ suppresses exceptions. See [the admission contract](EXECUTION_ADMISSION.md).
   cancellations. The production cancellation handle is idempotent. The test now uses
   that handle and deliberately repeats Stop while cleanup is paused, preserving all
   realm-isolation assertions. The 94-test cancellation/contract batch passed in 20.79s.
-  Application source is unchanged; the corrected test and evidence require a new exact-source
-  CI/publisher run. No artifact was published by the failed run.
+  Application source was unchanged by that correction; the corrected test and evidence
+  received a new exact-source CI/publisher run. No artifact was published by the failed run.
 - At `f2e43ba`, the publisher passed **4,197 tests / six skips in 670.42s** and the pinned
   Windows CI job passed **4,199 / four skips**. The second Windows job found a real race:
   a watcher opening the ledger during replacement received a transient access error and
@@ -53,7 +72,7 @@ suppresses exceptions. See [the admission contract](EXECUTION_ADMISSION.md).
   A superseded CI run also exposed a four-second test-only drain deadline on a slow disk;
   the deadline is now 15 seconds, with progress/capacity/uniqueness assertions unchanged.
   Publication stopped at CI without creating assets. Native shared-window confirmation after
-  this fix passed all **79 checks**. Full exact-source gates restart after this fix.
+  this fix passed all **79 checks**. The full exact-source gates above passed after this fix.
 
 Release-owned defaults were reviewed against official [Claude model documentation](https://platform.claude.com/docs/en/models/overview),
 [OpenAI model documentation](https://developers.openai.com/codex/models), and
@@ -61,10 +80,8 @@ Release-owned defaults were reviewed against official [Claude model documentatio
 The existing preferences remain runtime-catalogue gated, with provider-default fallback;
 no account's availability is inferred from the UI seed catalogue or these public pages.
 
-## Remaining release gates and limits
+## Limits
 
-Exact-source Windows CI, mandatory publisher repeat, packaged native checks, signed
-.129→.130 upgrade and public/website verification remain pending.
 No owner app restart or live realm/provider testing was performed.
 
 This is cooperative application admission, not a security boundary against other programs
@@ -76,5 +93,5 @@ Crashes can leave external effects uncertain; capacity recovery never authorizes
 Python 3.14.10, launcher protocol 2 and the existing Windows distribution remain unchanged.
 Publisher signing and clean-machine WebView2 acceptance limitations remain open. Update
 assets still require Ed25519 signing and all required release gates. The owner explicitly
-approved gated 0.99.130 publication using the existing unsigned beta distribution; publication
-remains pending.
+approved gated 0.99.130 publication using the existing unsigned beta distribution. All required
+maintenance gates passed; publisher signing and clean-machine acceptance are not claimed.

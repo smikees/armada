@@ -5,6 +5,16 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.130** is the published M8 release: fair bounded dispatch across realms,
+shared desktop/scheduler/CLI capacity, durable queued chat and cross-process cancellation.
+The final publisher gate passed **4,198 tests** (six skipped); both exact-source Windows
+CI jobs passed **4,200** (four skipped). Native shared-window confirmation passed **79**
+checks, and all packaged lifecycle/recovery gates plus **72 signed-upgrade checks** passed.
+Public signatures, package/source bytes, installer hash and matching website verified.
+Owner app untouched. Maintainer acceptance and existing unsigned-publisher/clean-machine
+boundaries remain pending. M9 is next, not started.
+[Execution admission](dev/EXECUTION_ADMISSION.md) · [Release evidence](dev/RELEASE_0_99_130.md).
+
 Version **0.99.129** is the published M7 release: native renderer/browser recovery,
 bounded script operations and unsent composer recovery without request replay.
 The synthetic native probe passed **86 recovery/lifecycle checks**, including
@@ -15,10 +25,6 @@ The publisher repeated the full gate and all packaged native checks, including
 **86** presentation checks. Both exact-source Windows CI jobs passed **4,168 tests**;
 **72 signed-upgrade checks** passed. Public signatures, downloads/source bytes and
 matching website verified. Owner app untouched; maintainer acceptance remains pending.
-**M8 (fair bounded scheduling/execution admission) is implemented in candidate 0.99.130;
-local gates passed 4,197 tests (six skipped) and native confirmation passed 79 checks.
-CI exposed a Windows snapshot race; the fix passed 106 targeted tests and the final-source
-release gates are restarting.** See [execution admission](dev/EXECUTION_ADMISSION.md).
 [Recovery contract](dev/DESKTOP_PRESENTATION_RECOVERY.md) ·
 [Release evidence](dev/RELEASE_0_99_129.md).
 
