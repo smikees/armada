@@ -44,6 +44,8 @@
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
 | [`desktop_launch`](desktop_launch.md) | Start the desktop app with Explorer's lifetime and unvirtualized user context. |
 | [`desktop_navigation`](desktop_navigation.md) | Keep private desktop navigation inside its authenticated WebView2 profile. |
+| [`desktop_operations`](desktop_operations.md) | Bounded asynchronous native script calls; no worker thread per browser call. |
+| [`desktop_recovery`](desktop_recovery.md) | Recover Windows presentation independently of execution and server ownership. |
 | [`desktop_visibility`](desktop_visibility.md) | Nonblocking close-to-tray/restore transitions, with the newest request winning. |
 | [`doctor`](doctor.md) | Preflight `doctor` (SPEC §17) — verifies the environment before a run. |
 | [`draft_inputs`](draft_inputs.md) | Bounded frozen file inputs for draft scripts and paired model tests. |

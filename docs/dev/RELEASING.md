@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.128. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.129. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
 on [armada.stamih.com](https://armada.stamih.com).
@@ -76,6 +76,13 @@ control are disposed, the HWND disappears and the tray loop stops. Browser proce
 exit must follow within five seconds of control teardown.
 Evidence is retained as `build/restart-<case>-staged.json`. The signed upgrade probe
 keeps the normal close-to-tray setting enabled.
+
+Installer staging also requires `tools/presentation_probe.py`: isolated renderer
+crash, stalled JavaScript, shared browser-process loss, draft recovery, retry
+limits, no request replay and subsequent busy-restart teardown. Evidence is kept
+in `build/presentation-recovery-staged.json`. Review its light/dark native panel
+captures for both the main window and compact companion. This probe must never
+target the owner's running app or a browser profile outside its synthetic fixture.
 
 For dry-run/inspector controls, also run `python tools/dry_run_probe.py --output <result.json>`
 in the Windows pywebview environment. It uses a synthetic job/engine and checks model selection,

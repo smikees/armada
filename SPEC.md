@@ -65,6 +65,11 @@ updates through a stable recovery bootstrap. Updates wait for actual active work
 across realms and block new admissions. UI progress distinguishes work, scheduler
 shutdown and restart. Bundled dependency changes require an installer.
 
+Renderer/browser failure can replace the desktop view while server-owned work
+continues. Recovery is bounded, restores available unsent composer text, and never
+replays a submitted action. Repeated failures show native restore/close controls.
+This does not guarantee recovery from Windows compositor or native UI hangs.
+
 ## 7. Distribution
 
 The beta includes Python and requires WebView2. Setup can install the selected

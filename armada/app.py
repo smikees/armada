@@ -50,7 +50,7 @@ def save_window_state():
     if _main_window is None: return
     from . import util
     try:
-        data = _main_window.evaluate_js("({route:location.pathname+location.search,realm:document.querySelector('meta[name=\"armada-realm\"]')?.content||'',draft:document.getElementById('mc-msg')?.value||''})")
+        data = _browser_result(_main_window, "({route:location.pathname+location.search,realm:document.querySelector('meta[name=\"armada-realm\"]')?.content||'',draft:document.getElementById('mc-msg')?.value||''})", timeout=1.5)
         if not isinstance(data, dict) or not str(data.get('route', '')).startswith('/'):
             return
         if data['route'].startswith(('/auth', '//')): return
@@ -76,6 +76,10 @@ def _webview_options():
 
 def _browser_result(window, script, timeout=10):
     """pywebview resolves a JavaScript Promise through its callback, not its return value."""
+    controller = getattr(getattr(window, 'native', None), '_armada_presentation', None)
+    from .desktop_operations import ScriptCalls
+    if isinstance(getattr(controller, 'calls', None), ScriptCalls):
+        return controller.calls.evaluate(script, timeout)
     deadline = time.monotonic() + timeout
     if not _browser_calls.acquire(timeout=max(0, timeout)):
         raise OSError('The browser is busy with an unresponsive operation')
@@ -126,14 +130,21 @@ def _deliver_alexander(window, payload):
     delivered = False
     stop = threading.Event()
     script = _alexander_delivery_script(payload, uuid.uuid4().hex)
+    generation = getattr(window, '_armada_presentation_generation', 0)
 
     def ready():
         nonlocal delivered
         with lock:
             if delivered:
                 return
+            if getattr(window, '_armada_presentation_generation', 0) != generation:
+                stop.set()
+                delivered = True
+                window.events.loaded -= ready
+                log.warning('View recovery cancelled uncertain Alexander request delivery; it will not be resent')
+                return
             try:
-                sent = window.evaluate_js(script)
+                sent = _browser_result(window, script, timeout=1)
             except Exception:
                 log.debug('Alexander receiver is not ready yet', exc_info=True)
                 return  # The browser/bridge may still be initializing.
@@ -369,7 +380,7 @@ def show_main(*, href: str = "", report: str = "") -> bool:
         from .local_auth import browser_url
         _main_window.load_url(browser_url(_app_url, href))
     elif report:
-        _main_window.evaluate_js("window.mcSupportOpen({message:" + json.dumps(report[:6000]) + "})")
+        _browser_result(_main_window, "window.mcSupportOpen({message:" + json.dumps(report[:6000]) + "})", timeout=2)
     return True
 
 # A stable AppUserModelID so Windows treats the window as its own app (not "pythonw.exe") — this is
@@ -659,6 +670,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
             except Exception:  # noqa — settings/event unavailable on this init path; ignore
                 log.debug('_ready_with_ctxmenu: failed; ignored', exc_info=True)
         _ec.EdgeChrome.on_webview_ready = _ready_with_ctxmenu
+        from .desktop_recovery import install as install_recovery
+        install_recovery(lambda: _app_url, lambda: _quitting)
     except Exception:  # noqa — non-EdgeChromium backend or API drift: skip, app still runs
         log.debug('run: failed; ignored', exc_info=True)
 

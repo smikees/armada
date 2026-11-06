@@ -95,16 +95,27 @@ class DesktopLifecycleTests(unittest.TestCase):
                 for callback in list(self.callbacks): callback()
         event = Event()
         window = Mock(events=Mock(loaded=event, closed=Event()))
-        window.evaluate_js.side_effect = [False, False, True]
-        with patch.object(app.threading, 'Thread'):
+        with patch.object(app.threading, 'Thread'), patch.object(app, '_browser_result', side_effect=[False, False, True]) as evaluate:
             app._deliver_alexander(window, {'message': 'Help'})
-        self.assertEqual(len(event.callbacks), 1)  # initial document is not the companion
-        event.emit()  # auth bootstrap
-        self.assertEqual(len(event.callbacks), 1)
-        event.emit()  # authenticated page
-        event.emit()  # later navigation cannot resend
+            self.assertEqual(len(event.callbacks), 1)  # initial document is not the companion
+            event.emit()  # auth bootstrap
+            self.assertEqual(len(event.callbacks), 1)
+            event.emit()  # authenticated page
+            event.emit()  # later navigation cannot resend
         self.assertEqual(len(event.callbacks), 0)
-        self.assertEqual(window.evaluate_js.call_count, 3)
+        self.assertEqual(evaluate.call_count, 3)
+
+        # A lost acknowledgement followed by a new renderer is uncertain work,
+        # not another chance to send the original request.
+        event = Event()
+        window = Mock(events=Mock(loaded=event, closed=Event()), _armada_presentation_generation=0)
+        with patch.object(app.threading, 'Thread'), patch.object(app, '_browser_result', side_effect=OSError('lost acknowledgement')) as evaluate:
+            app._deliver_alexander(window, {'message': 'Help'})
+            window._armada_presentation_generation = 1
+            event.emit()
+            event.emit()
+        self.assertEqual(evaluate.call_count, 1)
+        self.assertEqual(event.callbacks, [])
 
     def test_webview_uses_shared_protected_profile_without_per_window_cookie_deletion(self):
         from pathlib import Path

@@ -1,5 +1,22 @@
 # When something goes wrong
 
+## The window freezes or loses its page
+
+ARMADA tries to restore a crashed or frozen browser view while existing work keeps
+running. Available unsent chat and Alexander text returns with the page. Recovery
+does not send your last message again; check the saved conversation before retrying
+a request whose outcome is unclear.
+
+If recovery fails repeatedly, select **Restore view** on the native recovery panel.
+**Close window** follows your usual close-to-tray setting. For a full exit, use
+**Quit** from ARMADA's tray menu after current work finishes. Closing a companion
+closes only that window.
+
+This recovery handles browser failures. A stuck Windows desktop surface or graphics
+driver can need separate troubleshooting. Report what happened and the approximate
+time so the app log can distinguish these cases. Attachments and text that had not
+reached the recovery copy may need to be added again.
+
 ## An agent or job says “Needs repair”
 
 ARMADA holds work that depends on damaged configuration. Other agents remain usable.

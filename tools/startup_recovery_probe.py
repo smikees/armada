@@ -74,7 +74,7 @@ def verify_tray(stage):
             print(f"Native restart ({mode}): {len(restart['checks'])} teardown checks passed", flush=True)
 
 
-def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
+def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None, presentation=None):
     if not staged:
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import webview
@@ -89,6 +89,10 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
     external_urls = []
     local_popups = []
     restart_completed = []
+    effects = {'started': 0, 'finished': 0}
+    finish_effect = threading.Event()
+    draft_script = ((Path(app.__file__).parent/'webui/static/js/chat.js').read_text(encoding='utf-8')
+                    .split('function mcAutosize()', 1)[0]) if presentation else ''
     handle_popup = desktop_navigation.handle_popup
     def observed_popup(backend, args, base):
         handled = handle_popup(backend, args, base)
@@ -105,8 +109,13 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
                 path = self.path.split('?')[0]
                 if path in ('/', '/resume'):
                     self._send(200, '<!doctype html><html><head>'+assets.CSS_LINKS+
+                               ('<meta name="armada-realm" content="none">' if presentation else '')+
                                '</head><body><main id="probe-home">Synthetic ARMADA home</main>'
-                               '<a id="probe-nav" href="/?_realm=none">Overview</a></body></html>')
+                               '<a id="probe-nav" href="/?_realm=none">Overview</a>'+
+                               ('<textarea id="mc-msg"></textarea><script>'+draft_script+'</script>' if presentation else '')+
+                               '</body></html>')
+                elif presentation and path == '/alexander':
+                    self._get_alexander()
                 elif path == '/settings':
                     raise RuntimeError('Synthetic Settings failure')
                 elif path == '/expire-session':
@@ -117,6 +126,16 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
                     self._json(200, {})
                 else:
                     super()._route_get()
+
+            def _route_post(self):
+                if presentation and self.path.split('?')[0] == '/api/probe-effect':
+                    self._body()
+                    effects['started'] += 1
+                    finish_effect.wait(40)
+                    effects['finished'] += 1
+                    self._json(200, {'ok': True})
+                else:
+                    super()._route_post()
 
         def wait_for(fn, label, timeout=30):
             deadline = time.monotonic()+timeout
@@ -172,7 +191,7 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
                 # Visible can already be true before the asynchronously dispatched
                 # Open runs. A following Close must not overtake that callback.
                 open_tray_and_wait(tray, Action)
-            window.evaluate_js("document.body.insertAdjacentHTML('beforeend','<textarea id=mc-msg>unsent draft</textarea>')")
+            window.evaluate_js("(()=>{let e=document.getElementById('mc-msg');if(!e){e=document.createElement('textarea');e.id='mc-msg';document.body.append(e);}e.value='unsent draft';e.dispatchEvent(new Event('input'));})()")
             for index in range(20):
                 open_tray()
                 wait_for(lambda: native.Visible, f'tray restores main {index + 1}', timeout=3)
@@ -290,10 +309,13 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
                          'recovery navigation drops stale realm')
                 if tray_lifecycle:
                     exercise_tray(window)
+                if presentation:
+                    presentation(window, result, wait_for, before, effects, finish_effect)
                 result['ok'] = True
             except BaseException:
                 result['error'] = traceback.format_exc()
             finally:
+                finish_effect.set()
                 if restart_mode and result['ok']:
                     from System import Action, Func, Int32
                     from System.Diagnostics import Process
@@ -353,7 +375,7 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
             else:
                 stack.enter_context(patch.object(DesktopVisibility, '_native_apply', invisible_apply))
             def watchdog():
-                if not done.wait(80):
+                if not done.wait(180 if presentation else 80):
                     output.write_text(json.dumps(dict(result, ok=False, error='native probe timed out; '+result.get('error', 'unfinished teardown')), indent=2), encoding='utf-8')
                     os._exit(2)
             threading.Thread(target=watchdog, daemon=True).start()
@@ -367,7 +389,7 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None):
                     if restart_mode:
                         assert restart_completed == [True]
                     state = json.loads((root/'data'/'desktop-state.json').read_text(encoding='utf-8'))
-                    assert state['route'] == '/'
+                    assert state['route'] == ('/?_realm=none' if presentation else '/')
                     if tray_lifecycle:
                         assert state['draft'] == 'unsent draft'
                         assert not trays[0]._thread.IsAlive

@@ -4,6 +4,7 @@
 (function(){
   const KEY='mc-alex-conv';
   const WINDOW=location.pathname==='/alexander';
+  const DRAFT_KEY='armada-alex-draft:'+(document.querySelector('meta[name="armada-realm"]')?.content||'')+':'+(WINDOW?'window':'panel');
   const I={
     x:'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M6 6l12 12M18 6L6 18"/></svg>',
     fresh:'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 20H6l-3 3V6a2 2 0 0 1 2-2h7m5-1v6m-3-3h6"/></svg>',
@@ -14,6 +15,8 @@
     ok:'<svg width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 12.5l4.5 4.5L19 7.5"/></svg>'};
   let el=null, busy=false, pending=null, sourcePage='';
   const $=s=>el&&el.querySelector(s);
+  function saveDraft(){const value=($('textarea')?.value||'').slice(0,6000);try{if(value)localStorage.setItem(DRAFT_KEY,value);else localStorage.removeItem(DRAFT_KEY);}catch(e){}try{if(window.__armadaNativeDrafts)window.chrome?.webview?.postMessage({type:'armada-unsent-draft',kind:'alexander',key:DRAFT_KEY,value});}catch(e){}}
+  window.mcRestoreAlexanderDraft=(key,value)=>{if(key!==DRAFT_KEY)return;try{if(value)localStorage.setItem(key,value);else localStorage.removeItem(key);}catch(e){}const ta=$('textarea');if(ta)ta.value=value;};
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function conv(){try{return localStorage.getItem(KEY)||'';}catch(e){return '';}}
   function setConv(id){try{localStorage.setItem(KEY,id||'');}catch(e){}}
@@ -47,6 +50,8 @@
       b.addEventListener('mousedown',e=>e.stopPropagation());});
     $('[data-report]').onclick=()=>{if(WINDOW){post('/api/alexander-main-action',{report:' '});return;}close();if(window.mcSupportOpen)mcSupportOpen();};
     const ta=$('textarea');
+    try{ta.value=localStorage.getItem(DRAFT_KEY)||'';}catch(e){}
+    ta.addEventListener('input',saveDraft);window.addEventListener('pagehide',saveDraft);window.addEventListener('armada-native-drafts-ready',saveDraft);
     ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(160,ta.scrollHeight)+'px';});
     ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
     $('form').onsubmit=e=>{e.preventDefault();send();};
@@ -112,7 +117,7 @@
 
   async function send(item){
     if(busy)return;const ta=$('textarea');const text=(ta.value||'').trim();if(!text)return;
-    busy=true;ta.value='';ta.style.height='auto';
+    busy=true;ta.value='';saveDraft();ta.style.height='auto';
     bubble('owner',esc(text));
     const think=document.createElement('div');think.className='mc-ax-msg is-alexander is-thinking';
     think.innerHTML='<img src="/static/alexander.png" alt="" width="26" height="26"><div class="mc-ax-text"><span class="mc-ax-dots"><i></i><i></i><i></i></span><span class="mc-ax-status">Reading your realm</span></div>';

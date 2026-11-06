@@ -67,7 +67,7 @@ def _defines(path: Path, dotted: str) -> bool:
 
 def _routes() -> tuple[set, list]:
     src = (ROOT / "armada" / "serve.py").read_text(encoding="utf-8")
-    exact = set(re.findall(r'"(/[\w\-./]*)":\s*"_', src)) | set(re.findall(r'if path == "(/[\w\-./]*)"', src))
+    exact = set(re.findall(r'"(/[\w\-./]*)":\s*"_', src)) | set(re.findall(r'if (?:path|route) == "(/[\w\-./]*)"', src))
     prefixes = re.findall(r'\("(/[\w\-./]*)",\s*"_', src)
     return exact, prefixes
 

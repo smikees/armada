@@ -5,13 +5,24 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.129** is the M7 candidate: native renderer/browser recovery,
+bounded script operations and unsent composer recovery without request replay.
+The synthetic native probe passed **86 recovery/lifecycle checks**, including
+same HWND/server/auth, shared-process companion recovery and full busy teardown.
+Light/dark main and 400px companion recovery panels were reviewed. The full pinned
+gate passed **4,166 tests** (six skipped). Exact-source CI, packaged validation and
+publication are pending. Owner app
+untouched; maintainer acceptance remains pending.
+[Recovery contract](dev/DESKTOP_PRESENTATION_RECOVERY.md) ·
+[Release evidence](dev/RELEASE_0_99_129.md).
+
 Version **0.99.128** is the published M6 release: atomic exports with verified
 manifests, visible incomplete-copy warnings and fresh paused recovery. Final pinned
 gate: **4,139 passed**; both exact-source Windows CI jobs: **4,141 each**. Packaged
 native lifecycle and **72 signed-upgrade checks** passed. Public signatures,
 downloads/source bytes and matching website links verified. Owner app untouched;
 maintainer acceptance and existing publisher/clean-machine boundaries remain open.
-**M7 (native presentation recovery) is next.** [Export contract](dev/REALM_EXPORTS.md)
+**M7 (native presentation recovery) is in final validation.** [Export contract](dev/REALM_EXPORTS.md)
 · [Release evidence](dev/RELEASE_0_99_128.md).
 
 Version **0.99.127** is the published M5 release: damaged agent/job isolation,

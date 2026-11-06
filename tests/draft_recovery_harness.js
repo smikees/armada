@@ -1,0 +1,33 @@
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const vm=require('vm');
+const source=fs.readFileSync(path.join(__dirname,'../armada/webui/static/js/chat.js'),'utf8').split('function mcAutosize()')[0];
+const saved=new Map();
+function load(realm,search){
+  const handlers={},messages=[];const input={value:'',addEventListener:(key,fn)=>handlers[key]=fn};
+  const document={getElementById:()=>input,querySelector:()=>({content:realm})};
+  const localStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)};
+  const window={__armadaNativeDrafts:true,location:{pathname:'/agent/scribe',search},addEventListener:(key,fn)=>handlers[key]=fn,chrome:{webview:{postMessage:m=>messages.push(m)}}};
+  vm.runInNewContext(source,{document,localStorage,window,URLSearchParams});
+  return {input,handlers,messages,window};
+}
+const legacy='armada-draft:synthetic:/agent/scribe?thread=main&_realm=synthetic';
+saved.set(legacy,'legacy unsent draft');
+let page=load('synthetic','?thread=main&_realm=synthetic');
+assert.equal(page.input.value,'legacy unsent draft');
+assert(!saved.has(legacy));
+page.input.value='preserved across recovery';page.handlers.input();
+page=load('synthetic','?thread=main');
+assert.equal(page.input.value,'preserved across recovery');
+assert.equal(load('other-realm','?thread=main&_realm=synthetic').input.value,'');
+page.input.value='';page.handlers.input();
+assert.equal(page.messages.at(-1).value,'');
+assert.equal(load('synthetic','?thread=main&_realm=synthetic').input.value,'');
+page.window.mcRestoreChatDraft('armada-draft:other:/agent/scribe?thread=main','wrong realm');
+assert.equal(page.input.value,'');
+page.window.mcRestoreChatDraft('armada-draft:synthetic:/agent/scribe?thread=main','recovered native draft');
+assert.equal(page.input.value,'recovered native draft');
+page.input.value='x'.repeat(70000);page.handlers.input();
+assert.equal(load('synthetic','?thread=main&_realm=synthetic').input.value.length,65536);
+console.log('Realm-bound recovery drafts preserve, migrate, clear and stay bounded');

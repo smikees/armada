@@ -8,7 +8,7 @@ const document={readyState:'complete',getElementById:id=>id==='mc-chatmsg'?note:
   querySelectorAll:()=>[],querySelector:()=>null,
   addEventListener:(name,fn)=>(listeners[name]??=[]).push(fn)};
 let response={ok:true};
-const ctx={document,mcIcon:()=>'',addEventListener:()=>{},
+const ctx={document,URLSearchParams,mcIcon:()=>'',addEventListener:()=>{},
   fetch:async(url,options)=>{requests.push({url,options});return {json:async()=>response};}};
 ctx.window=ctx;ctx.parent=ctx;
 vm.createContext(ctx);

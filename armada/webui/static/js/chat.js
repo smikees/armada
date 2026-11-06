@@ -1,7 +1,11 @@
 const _mi=document.getElementById('mc-msg');
-const mcDraftKey='armada-draft:'+(document.querySelector?.('meta[name="armada-realm"]')?.content||'')+':'+(window.location?.pathname||'')+(window.location?.search||'');
-function mcSaveDraft(){try{if(_mi&&_mi.value)localStorage.setItem(mcDraftKey,_mi.value.slice(0,65536));else localStorage.removeItem(mcDraftKey);}catch(e){}}
-if(_mi){try{_mi.value=localStorage.getItem(mcDraftKey)||'';}catch(e){} _mi.addEventListener('input',mcSaveDraft);window.addEventListener('pagehide',mcSaveDraft);}
+const mcDraftBase='armada-draft:'+(document.querySelector?.('meta[name="armada-realm"]')?.content||'')+':'+(window.location?.pathname||'');
+const mcDraftQuery=new URLSearchParams(window.location?.search||'');mcDraftQuery.delete('_realm');
+const mcDraftKey=mcDraftBase+(mcDraftQuery.toString()?'?'+mcDraftQuery.toString():'');
+const mcLegacyDraftKey=mcDraftBase+(window.location?.search||'');
+function mcSaveDraft(notify=true){const value=(_mi?.value||'').slice(0,65536);try{if(value)localStorage.setItem(mcDraftKey,value);else localStorage.removeItem(mcDraftKey);if(mcLegacyDraftKey!==mcDraftKey)localStorage.removeItem(mcLegacyDraftKey);}catch(e){}try{if(notify&&window.__armadaNativeDrafts)window.chrome?.webview?.postMessage({type:'armada-unsent-draft',kind:'chat',key:mcDraftKey,value});}catch(e){}}
+window.mcRestoreChatDraft=(key,value)=>{if(_mi&&key===mcDraftKey){_mi.value=value;mcSaveDraft(false);if(typeof mcAutosize==='function')mcAutosize();if(typeof mcSyncSend==='function')mcSyncSend();}};
+if(_mi){try{_mi.value=localStorage.getItem(mcDraftKey)??localStorage.getItem(mcLegacyDraftKey)??'';mcSaveDraft(false);}catch(e){} _mi.addEventListener('input',mcSaveDraft);window.addEventListener('pagehide',mcSaveDraft);window.addEventListener('armada-native-drafts-ready',mcSaveDraft);}
 function mcAutosize(){if(!_mi)return;_mi.style.height='auto';const h=Math.min(260,Math.max(26,_mi.scrollHeight));_mi.style.height=h+'px';_mi.style.overflowY=_mi.scrollHeight>260?'auto':'hidden';}
 if(_mi){ mcAutosize();
   _mi.addEventListener('input',()=>{mcAutosize();mcSyncSend();});

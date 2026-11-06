@@ -33,6 +33,12 @@ Read with: [`SCHEMA.md`](SCHEMA.md) (the realm on disk), [`ENGINE_SEAM_AUDIT.md`
 
 ## 1. What runs
 
+**6 November 2026:** native presentation now has a per-Form recovery owner,
+independent of server/execution ownership. Bounded script tasks and a native
+recovery panel allow renderer/browser replacement without replaying requests.
+See [desktop presentation recovery](DESKTOP_PRESENTATION_RECOVERY.md) for retry,
+authentication, draft and operating-system boundaries.
+
 ARMADA is a local, single-user app over a folder. One desktop/server owner per Windows account, plus its owned scheduler service:
 
 ```

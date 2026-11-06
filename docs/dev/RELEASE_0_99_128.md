@@ -31,7 +31,7 @@ require explicit acknowledgement. See [the full contract](REALM_EXPORTS.md).
 - Exact-source Windows CI: **4,141 passed, four skipped** on each Python job
   (3.14.10: 675.45s; 3.14: 811.24s). PHP relay passed.
   [CI run 42223624322](https://github.com/smikees/armada/actions/runs/42223624322).
-  Both retain the existing `voice_turns.py:122` Python warning, tracked for M8.
+  Both retain the existing Python warning in `voice_turns.py` at line 122, tracked for M8.
 - Packaged launcher: all five recovery interruption points and DLL isolation with
   clean/legacy parents passed. WebView2 sessions: **16** checks; tray: **68**;
   visible/tray/busy restart: **69 each**.
