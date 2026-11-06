@@ -10,8 +10,9 @@ bounded script operations and unsent composer recovery without request replay.
 The synthetic native probe passed **86 recovery/lifecycle checks**, including
 same HWND/server/auth, shared-process companion recovery and full busy teardown.
 Light/dark main and 400px companion recovery panels were reviewed. The full pinned
-gate passed **4,166 tests** (six skipped). Exact-source CI, packaged validation and
-publication are pending. Owner app
+gate passed **4,166 tests** (six skipped), including the final probe correction.
+All packaged native checks passed, including **86** presentation checks. Exact-source
+CI, signed-upgrade gate and publication are pending. Owner app
 untouched; maintainer acceptance remains pending.
 [Recovery contract](dev/DESKTOP_PRESENTATION_RECOVERY.md) ·
 [Release evidence](dev/RELEASE_0_99_129.md).

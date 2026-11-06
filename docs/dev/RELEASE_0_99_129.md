@@ -30,10 +30,19 @@ See [the complete recovery contract](DESKTOP_PRESENTATION_RECOVERY.md).
   native error-category diagnostics, recognize the existing instance route in the
   documentation checker, clarify a historical line-number reference and supply
   the browser URL API in the Node fixture. Targeted follow-up: **323 passed**.
-- Corrected full pinned isolated gate: **4,166 passed, six skipped** in 634.23s.
+- Corrected full pinned isolated gate: **4,166 passed, six skipped** in 634.23s;
+  repeated with the final probe correction: **4,166 / six skipped** in 642.07s.
   Generated references are current; both changed golden pages were reviewed.
-  Exact-source Windows CI, packaged native/upgrade gates and public verification
+  Exact-source Windows CI, signed-upgrade gate and public verification
   remain pending.
+- The first packaged run stopped at the lost-acknowledgement probe: it still
+  intercepted direct `evaluate_js` calls, which are now behind the bounded-call
+  interface. Injection at the production call interface passed all **16 session
+  checks**, still requiring one delivery after two acknowledgements. Application
+  bytes are unchanged by this probe correction. The repeated complete packaged
+  preflight passed all five launcher recovery interruption points, clean/legacy
+  DLL isolation, **16** WebView2 session checks, **68** tray checks, **69** teardown
+  checks in each of visible/tray/busy restart modes, and **86** presentation checks.
 - The owner app has not been restarted. Tests use isolated synthetic profiles;
   no live realm, connector or provider execution is used.
 - Release model preferences are unchanged. Connected-provider/catalogue filtering

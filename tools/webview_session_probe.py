@@ -57,6 +57,18 @@ def run(output: Path, *, source_root: str = '', legacy: bool = False) -> int:
 
     result = {'ok': False, 'checks': []}
     windows = []
+    deliveries = {}
+    browser_result = app._browser_result
+    def uncertain(window, script, *args, **kwargs):
+        value = browser_result(window, script, *args, **kwargs)
+        state = deliveries.get(window)
+        if state is not None and '__mcAlexDeliveryIds' in script and value is True:
+            dropped, acknowledged = state
+            acknowledged.append(True)
+            if not dropped:
+                dropped.append(True)
+                return None  # Real JS ran; lose its native acknowledgement, not its delivery.
+        return value
     with tempfile.TemporaryDirectory(prefix='armada-webview-', ignore_cleanup_errors=True) as directory:
         os.environ['ARMADA_DATA_DIR'] = directory
 
@@ -120,16 +132,7 @@ def run(output: Path, *, source_root: str = '', legacy: bool = False) -> int:
                         acknowledged = []
                         def hidden(*args, **kwargs):
                             window=create(*args, **dict(kwargs, hidden=True))
-                            evaluate=window.evaluate_js
-                            def uncertain(script,*args,**kwargs):
-                                value=evaluate(script,*args,**kwargs)
-                                if '__mcAlexDeliveryIds' in script and value is True:
-                                    acknowledged.append(True)
-                                    if not dropped:
-                                        dropped.append(True)
-                                        return None  # Real JS ran; simulate loss of its native acknowledgement.
-                                return value
-                            window.evaluate_js=uncertain
+                            deliveries[window] = (dropped, acknowledged)
                             return window
                         with patch.object(app, '_main_window', main), patch.object(app, '_app_url', url), \
                              patch.object(app, '_alex_window', None), patch.object(webview, 'create_window', hidden):
@@ -169,7 +172,8 @@ def run(output: Path, *, source_root: str = '', legacy: bool = False) -> int:
 
         try:
             options = {} if legacy else app._webview_options()
-            webview.start(exercise, gui='edgechromium', **options)
+            with patch.object(app, '_browser_result', uncertain):
+                webview.start(exercise, gui='edgechromium', **options)
         finally:
             server.shutdown()
             server.server_close()
