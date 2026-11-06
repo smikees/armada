@@ -93,6 +93,19 @@ def write_json_atomic(path, obj, indent: int = 2) -> None:
     write_text_atomic(path, json.dumps(obj, ensure_ascii=False, indent=indent))
 
 
+def publish_new_file(staged, destination) -> None:
+    """Publish a closed, fsynced file on the same volume without replacing any existing name.
+
+    Windows rename refuses existing destinations. Elsewhere a hard link provides the
+    no-replace operation; unsupported filesystems fail rather than copy a partial result.
+    The caller owns cleanup of the staging path (which remains after a POSIX link).
+    """
+    if os.name == "nt":
+        os.rename(staged, destination)
+    else:
+        os.link(staged, destination)
+
+
 def sweep_temp_files(root, older_than_sec: float = 3600.0) -> int:
     """Delete stale `.tmp-*` files left by an atomic write that never completed. Returns the count.
 

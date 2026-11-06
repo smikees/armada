@@ -16,10 +16,8 @@ Deletion also refuses to touch the realm ARMADA is currently serving: switch awa
 avoids the app pulling the floor out from under itself mid-request.
 """
 from __future__ import annotations
-import datetime as _dt
 import os
 import shutil
-import zipfile
 from pathlib import Path
 import hashlib
 import tempfile
@@ -117,19 +115,8 @@ def restore(realm_root):
     with lifecycle_lock(realm_root):
         util.mutate_json(Path(realm_root) / "realm.json", lambda cfg: cfg.pop("archived", None))
 
-# Folders never worth carrying to another machine: caches and transient run markers.
-_SKIP_DIRS = {"__pycache__", ".git", ".venv", "node_modules"}
-# Files that carry credentials rather than realm content (THREAT_MODEL T9). An export is a thing you
-# hand to someone or store somewhere; an MCP server's API key or a .env shouldn't ride along by
-# accident. They're listed in the result so the owner is told, not surprised.
-_SECRET_NAMES = {".mcp.json", ".env", "credentials.json", ".credentials.json", "secrets.json",
-                 "telegram.json"}
-_SECRET_SUFFIXES = (".env", ".pem", ".key", ".pfx", ".p12")
-
-
-def _is_secret(name: str) -> bool:
-    n = name.lower()
-    return n in _SECRET_NAMES or n.endswith(_SECRET_SUFFIXES) or n.startswith(".env.")
+# Compatibility names for callers; export rules are owned by realm_export.
+from .realm_export import SKIP_DIRS as _SKIP_DIRS, is_secret as _is_secret
 
 
 def _same(a, b) -> bool:
@@ -141,59 +128,9 @@ def _same(a, b) -> bool:
 
 
 def export(realm_root, dest_dir=None) -> dict:
-    """Zip the realm folder. Returns {ok, path, files, bytes} plus {skipped, skipped_n} if any
-    file could not be read — see below for why that is reported rather than swallowed."""
-    src = Path(realm_root).resolve()
-    if not src.is_dir():
-        return {"ok": False, "error": "That realm folder no longer exists."}
-    stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M")
-    out = Path(dest_dir).resolve() if dest_dir else src.parent
-    try:
-        out.mkdir(parents=True, exist_ok=True)
-    except Exception as e:  # noqa
-        swallowed(log, 'export: failed; error returned to the caller')
-        return {"ok": False, "error": f"Can't write to {out}: {e}"}
-    zpath = out / f"{src.name}-{stamp}.zip"
-    n = 0
-    skipped: list[str] = []
-    secrets: list[str] = []
-    try:
-        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
-            for root, dirs, files in os.walk(src):
-                dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
-                for f in files:
-                    p = Path(root) / f
-                    if p == zpath:              # never zip the archive into itself
-                        continue
-                    if _is_secret(f):
-                        try:
-                            secrets.append(p.relative_to(src).as_posix())
-                        except ValueError:
-                            secrets.append(f)
-                        continue
-                    try:
-                        z.write(p, p.relative_to(src.parent))
-                        n += 1
-                    except Exception:  # noqa — a locked file shouldn't abort the whole export
-                        # …but it must not vanish silently either. This is a backup of years of an
-                        # agent team's memory, and a backup that quietly omits files is discovered
-                        # at restore time — the one moment nothing can be done about it. A thread
-                        # being written by the scheduler is exactly the kind of file that locks.
-                        swallowed(log, 'export: failed; falling back')
-                        try:
-                            skipped.append(p.relative_to(src).as_posix())
-                        except ValueError:
-                            skipped.append(p.name)
-        res = {"ok": True, "path": str(zpath), "files": n, "bytes": zpath.stat().st_size}
-        if secrets:
-            res["secrets_left_out"] = secrets[:50]
-        if skipped:
-            res["skipped_n"] = len(skipped)
-            res["skipped"] = skipped[:50]       # enough to identify the problem, not a whole tree
-        return res
-    except Exception as e:  # noqa
-        swallowed(log, 'export: failed; error returned to the caller')
-        return {"ok": False, "error": str(e)[:200]}
+    """Create and verify an atomic portable copy; see realm_export for its contract."""
+    from .realm_export import export as create_export
+    return create_export(realm_root, dest_dir)
 
 
 def _recycle(path: Path) -> dict:

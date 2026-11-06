@@ -71,6 +71,9 @@ app.py launch ─┴► armada schedule ─► scheduler.run_daemon()   (windowl
   process-tree ownership; each adapter retains its protocol parser. See [CLI turn lifecycle](PROCESS_LIFECYCLE.md).
 - **Logs** go to `~/.armada/logs/` — `armada.log` (server), `scheduler.log` (scheduler).
 
+Realm export/recovery is owned by `realm_export.py`, with atomic no-replace publication,
+verified manifests and a fresh paused recovery destination. See [Realm exports](REALM_EXPORTS.md).
+
 ## 2. Module map
 
 Arrows point down: a module may import from the layers below it, not above.

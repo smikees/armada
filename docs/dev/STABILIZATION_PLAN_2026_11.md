@@ -25,7 +25,7 @@ with a checklist update and owner progress report after each implementation mile
 | M3 | Maintain the shipped runtime: inventory components and select/test a security-maintained Windows Python baseline; record publisher-signing and clean-machine distribution limits separately. | Official advisories, dependency compatibility, packaged native lifecycle/update gates and an installer migration plan. | **Verified; released 0.99.124** | Pending |
 | M4 | Bound HTTP input and background probes: admission limits, header/body deadlines, strict body errors, shared provider refresh and unchanged-state write suppression. | Slow/incomplete clients, oversized/invalid bodies, bounded workers, Stop/health responsiveness, concurrent refresh tests. | **Verified; released 0.99.126** | Pending |
 | M5 | Isolate corrupt records: tolerant presentation reads, strict execution/policy reads, visible repair information without permissive defaults. | One damaged agent/job does not break healthy views; affected work is held; repair preserves evidence. | **Verified; released 0.99.127** | Pending |
-| M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | Pending | Pending |
+| M6 | Make exports collision-resistant and atomic, with a verified manifest and clear consistency/restore semantics. | Same-time exports, interrupted archive creation, skipped files, escaping links, synthetic restore. | **Locally verified; release pending (0.99.128)** | Pending |
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | Pending | Pending |
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Pending | Pending |
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | Pending | Pending |
@@ -94,7 +94,28 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   Sandbox was not rerun for this app-only change. [Release evidence](RELEASE_0_99_127.md).
 - Next: **M6**, atomic exports, collision-resistant filenames, manifests and restore
   semantics. Read-only review confirms exports currently write directly to a final
-  ZIP named with minute precision; implementation has not begun.
+  ZIP named with minute precision; M6 implementation follows below.
+
+## M6: verified exports and paused recovery — 6 November 2026
+
+- Implemented unique filenames, same-volume staging, full manifest/hash verification
+  and atomic publication that cannot overwrite an existing export.
+- Added visible incomplete-copy/change reporting, explicit live-copy semantics,
+  link/reparse exclusion and destination-outside-source enforcement. Durable claims,
+  history and skill pins are preserved; credential/runtime omissions are listed.
+- Added owner CLI verification/recovery into a fresh Windows folder. Recovery checks
+  archive paths/hashes, pauses all job switches and retains claims/policies. It never
+  registers, launches or merges realms. Incomplete recovery requires an explicit flag.
+- Synthetic tests cover concurrency, write/read failures, hard process exit, changes,
+  junction escape, ZIP64, hostile archives, limits and paused recovery/failure paths.
+- Also removed the calendar expiry from M5's damaged-history test by freezing its clock.
+- Full pinned isolated gate: **4,139 passed, six skipped** (660.73s). The focused
+  export fault/recovery suite passed all **44 checks**. Both changed golden pages
+  were reviewed; references and JavaScript/Python syntax checks are current.
+- Exact-source CI, packaged checks and public release verification remain pending;
+  this is not acceptance or a release claim. The owner app was not restarted.
+- Contract and limitations: [Realm exports](REALM_EXPORTS.md). Release candidate:
+  [0.99.128](RELEASE_0_99_128.md). Next milestone after release: **M7**, native recovery.
 
 ## Release boundaries
 

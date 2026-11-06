@@ -67,7 +67,12 @@ def test_scheduler_holds_bad_record_and_keeps_healthy_work(realm):
 
 
 @pytest.mark.parametrize("bad", ['[]', '{"tokens":{"total":"oops"}}', '{"task":[]}', '{', '{"ts":NaN}', '{"ts":"2026-11-05garbage"}'])
-def test_damaged_history_is_visible_and_never_replayed(realm, bad):
+def test_damaged_history_is_visible_and_never_replayed(realm, bad, monkeypatch):
+    class FixedDateTime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 11, 5, 9, tzinfo=tz)
+    monkeypatch.setattr(reader.datetime, "datetime", FixedDateTime)
     path = realm / "agents" / "broken" / "runs" / "broken.jsonl"
     path.parent.mkdir()
     raw = ('{"task":"daily","ts":"2026-11-05T08:00:00","tokens":{"total":12}}\n' + bad).encode()

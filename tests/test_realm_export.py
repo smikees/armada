@@ -6,7 +6,7 @@ import os
 import zipfile
 from pathlib import Path
 
-from armada import realmops
+from armada import realmops, realm_export
 
 
 def _realm(tmp_path):
@@ -73,14 +73,14 @@ def test_an_unreadable_file_is_reported_not_swallowed(tmp_path, monkeypatch):
     ones didn't make it. Reporting a plain success over a hole is how a backup fails silently."""
     r = _realm(tmp_path)
     doomed = "messages.jsonl"
-    real_write = zipfile.ZipFile.write
+    real_capture = realm_export._capture
 
-    def flaky(self, filename, arcname=None, *a, **kw):
-        if Path(filename).name == doomed:
+    def flaky(src, rel, signature, spool):
+        if Path(rel).name == doomed:
             raise PermissionError("file is in use by another process")
-        return real_write(self, filename, arcname, *a, **kw)
+        return real_capture(src, rel, signature, spool)
 
-    monkeypatch.setattr(zipfile.ZipFile, "write", flaky)
+    monkeypatch.setattr(realm_export, "_capture", flaky)
     res = realmops.export(r, tmp_path / "out")
 
     assert res["ok"], "one locked file must not abort the whole export"
@@ -94,10 +94,10 @@ def test_skipped_list_is_bounded(tmp_path, monkeypatch):
     for i in range(80):
         (r / f"f{i}.txt").write_text("x", encoding="utf-8")
 
-    def always_fail(self, filename, arcname=None, *a, **kw):
+    def always_fail(*args):
         raise OSError("nope")
 
-    monkeypatch.setattr(zipfile.ZipFile, "write", always_fail)
+    monkeypatch.setattr(realm_export, "_capture", always_fail)
     res = realmops.export(r, tmp_path / "out")
     assert res["skipped_n"] > 50               # the true count is honest
     assert len(res["skipped"]) == 50           # the sample is capped
@@ -108,10 +108,9 @@ def test_missing_realm_is_an_error_not_an_empty_archive(tmp_path):
     assert not res["ok"] and "error" in res
 
 
-def test_the_archive_never_contains_itself(tmp_path):
-    """Exporting into the realm's own parent writes the zip beside it; a second export must not
-    swallow the first one's output into itself."""
+def test_export_destination_must_be_outside_the_realm(tmp_path):
     r = _realm(tmp_path)
-    first = realmops.export(r, r)             # dest inside the realm
-    assert first["ok"]
-    assert not any(n.endswith(Path(first["path"]).name) for n in _members(first["path"]))
+    for target in (r, r / "backups"):
+        result = realmops.export(r, target)
+        assert not result["ok"] and "outside" in result["error"]
+    assert not (r / "backups").exists()

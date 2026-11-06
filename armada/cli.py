@@ -127,7 +127,25 @@ def main(argv=None):
     rm = sub.add_parser("refresh-models", help="sync the model catalog from Claude's live /v1/models list")
     rm.add_argument("realm", nargs="?", default=".")
 
+    bk = sub.add_parser("backup", help="verify or recover a realm export without starting work")
+    bksub = bk.add_subparsers(dest="backup_cmd", required=True)
+    bv = bksub.add_parser("verify", help="check all files against the export manifest")
+    bv.add_argument("archive")
+    br = bksub.add_parser("restore", help="recover into a new, paused Windows folder")
+    br.add_argument("archive")
+    br.add_argument("destination")
+    br.add_argument("--allow-incomplete", action="store_true", help="recover available files after reviewing omissions")
+
     args = ap.parse_args(argv)
+
+    if args.cmd == "backup":
+        import json
+        from . import realm_export
+        result = (realm_export.verify(args.archive) if args.backup_cmd == "verify" else
+                  realm_export.restore_copy(args.archive, args.destination, allow_incomplete=args.allow_incomplete))
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["ok"] else 1
+
 
     if args.cmd in ("system-refresh", "refresh-models", "run", "skills") and hasattr(args, "realm"):
         from . import util

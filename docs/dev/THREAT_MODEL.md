@@ -142,3 +142,13 @@ hourly ceiling limit it, they don't prevent it).
 3. Only open realms you made or trust — a realm carries jobs that run on a schedule.
 4. The Telegram bot answers one private chat: yours. Don't link a group.
 5. ARMADA never asks for, stores or sends your Claude password or keys.
+
+
+### M6 export boundary — November 2026
+
+Exports reject observed links/reparse paths and publish only after manifest/hash
+verification. Recovery rejects traversal, aliases, duplicate/unlisted members and
+oversized archive metadata, creates a fresh paused folder and never executes content.
+Hashes check integrity, not archive authorship. Named credential exclusions are not
+secret scanning; live copies are not transactional snapshots. See
+[the export/recovery contract](REALM_EXPORTS.md) for limits and trusted-owner boundaries.

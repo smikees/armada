@@ -75,8 +75,12 @@ you use them.
 - **Agent-to-agent communication** — defaults for the [Inbox](inbox.md).
 - **Notifications** — which events notify you (job failed, approval needed, …) and on which
   channel (desktop, Telegram); whether this realm may notify you while you're in another one.
-- **Export** — a `.zip` of the realm next to its folder. Files that hold keys or passwords
-  (`.mcp.json`, `.env`, key files) are left out, and the message says which.
+- **Export** — saves a uniquely named `.zip` beside the realm and verifies its contents
+  before showing it in your file manager. Earlier exports are preserved. Named credential
+  files (`.mcp.json`, `.env`, key files) and caches are excluded; the manifest lists omissions.
+  Other files can still contain private information. An **Incomplete export** warning means
+  files could not be copied or changed during copying. Finish active work and export again.
+  Exports are live copies, not snapshots of one moment.
 - **Archive / Delete** — archive switches off all agent and system jobs, hides the realm from ARMADA,
   and retains its folder and history. Adding it back leaves its jobs off until you enable them. Delete
   moves the folder to the Recycle Bin. If you archive or delete the realm you are viewing, ARMADA
@@ -133,3 +137,26 @@ Old update helpers are cleaned up automatically; no extra background service is 
 Version 0.99.82 needs the full installer once when upgrading from 0.99.81 or earlier,
 to add startup recovery to the stable launcher. Your realms and settings are preserved.
 Later releases with a compatible runtime use **Restart to update**.
+
+## Verify and recover an export
+
+Keep the original ZIP. It contains `.armada-export.json` inside the realm folder,
+listing file hashes and omissions. In a Python environment with ARMADA available:
+
+```powershell
+python -m armada backup verify "D:\Backups\realm-export.zip"
+python -m armada backup restore "D:\Backups\realm-export.zip" "D:\Realms\Recovered"
+```
+
+Recovery works on Windows and requires a **new folder** under an existing parent.
+It checks the archive, copies it into that new folder and pauses all jobs. It never
+replaces an existing realm, adds the copy to ARMADA or starts work. Review the
+recovered files and workspace paths, reconnect credentials, then add the folder
+using **New realm**. Job switches remain off until you enable them.
+
+An incomplete export needs an explicit `--allow-incomplete` on the restore command
+after you review its manifest. Missing files cannot be recovered from that ZIP.
+Older exports without a manifest cannot be verified by this command; inspect and
+recover them separately. Verification checks integrity, not who created the ZIP:
+only restore archives you trust. Keep the original until recovery has been checked.
+There is no graphical restore control yet.

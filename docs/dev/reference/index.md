@@ -100,6 +100,7 @@
 | [`provider_login`](provider_login.md) | Owned browser-login processes |
 | [`providers`](providers.md) | App-wide provider connections |
 | [`reader`](reader.md) | Realm readers for the native schema and legacy schedule-folder imports. |
+| [`realm_export`](realm_export.md) | Verified portable realm copies |
 | [`realm_registry`](realm_registry.md) | Machine realm discovery with one strict, exclusive mutation boundary. |
 | [`realmformat`](realmformat.md) | The realm's on-disk format version, and the one place that upgrades it. |
 | [`realmops`](realmops.md) | Realm lifecycle — archive, export, delete. |

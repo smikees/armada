@@ -29,6 +29,10 @@ Write text so a crash/concurrent reader never sees a half-written file.
 
 Serialize `obj` to JSON and write it atomically (see write_text_atomic).
 
+### `publish_new_file(staged, destination)`
+
+Publish a closed, fsynced file on the same volume without replacing any existing name.
+
 ### `sweep_temp_files(root, older_than_sec: float=3600.0)`
 
 Delete stale `.tmp-*` files left by an atomic write that never completed. Returns the count.

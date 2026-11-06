@@ -41,17 +41,13 @@ Disable definitions and all system jobs; never change another realm's machine se
 
 Explicit re-adoption releases the archive guard; job switches stay off.
 
-### `_is_secret(name: str)`
-
-—
-
 ### `_same(a, b)`
 
 —
 
 ### `export(realm_root, dest_dir=None)`
 
-Zip the realm folder. Returns {ok, path, files, bytes} plus {skipped, skipped_n} if any file could not be read — see below for why that is reported rather than swallowed.
+Create and verify an atomic portable copy; see realm_export for its contract.
 
 ### `_recycle(path: Path)`
 

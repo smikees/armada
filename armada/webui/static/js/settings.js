@@ -219,15 +219,16 @@ function mcRealmSay(t,bad){const m=document.getElementById('st-msg');
 async function mcRealmExport(b){
   b.disabled=true;mcRealmSay('building the archive — this can take a moment…');
   try{const r=await(await fetch('/api/realm-export',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
-    if(r.ok&&r.skipped_n){const mb=(r.bytes/1048576).toFixed(1);const s=(r.skipped||[]).slice(0,3).join(', ');
-      // A partial archive still reports ok — say so plainly rather than let a success message
-      // stand in for a backup that is missing files.
-      mcRealmSay('exported '+r.files+' files ('+mb+' MB), but '+r.skipped_n+' could not be read and '+
-        'are NOT in the archive: '+s+(r.skipped_n>3?', …':'')+' — close anything using them and export again',true);}
-    else if(r.ok){const mb=(r.bytes/1048576).toFixed(1);
-      const sec=(r.secrets_left_out||[]);
-      mcRealmSay('exported '+r.files+' files ('+mb+' MB) — shown in your file manager'+
-        (sec.length?'. Left out because they hold keys or passwords: '+sec.slice(0,3).join(', ')+(sec.length>3?', …':''):''));}
+    if(r.ok){const mb=(r.bytes/1048576).toFixed(1);const sec=(r.secrets_left_out||[]);
+      let message=(r.complete?'Export saved and verified: ':'Incomplete export saved and verified: ')+
+        r.files+' files ('+mb+' MB). Shown in your file manager.';
+      if(r.skipped_n)message+=' '+r.skipped_n+' files or folders could not be copied: '+
+        (r.skipped||[]).slice(0,3).join(', ')+(r.skipped_n>3?', ...':'')+'.';
+      if(r.changed_n)message+=' '+r.changed_n+' paths changed during the copy.';
+      if(!r.complete)message+=' Review the manifest, finish active work and export again.';
+      message+=' This is a live copy, not a snapshot of one moment.';
+      if(sec.length)message+=' Credential files left out: '+sec.slice(0,3).join(', ')+(r.secrets_left_out_n>3?', ...':'')+'.';
+      mcRealmSay(message,!r.complete);}
     else mcRealmSay(r.error||'export failed',true);}
   catch(e){mcRealmSay('export failed: '+e,true);}
   b.disabled=false;}

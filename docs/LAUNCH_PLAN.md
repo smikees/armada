@@ -11,7 +11,8 @@ evidence. The final pinned suite passed **4,091 tests**; both Windows CI jobs pa
 **4,093 each**. Packaged native lifecycle and **72 signed-upgrade checks** passed.
 Public signatures/downloads and website links verified. Owner app untouched;
 maintainer acceptance and existing publisher/clean-machine boundaries remain pending.
-**M6 (atomic exports) is next.** [Record contract](dev/RECORD_HEALTH.md) ·
+**M6 (atomic exports and paused recovery) is locally verified: 4,139 pinned tests
+passed, six skipped. Exact-source release checks and 0.99.128 publication are pending.** [Record contract](dev/RECORD_HEALTH.md) ·
 [Release evidence](dev/RELEASE_0_99_127.md).
 
 Version **0.99.126** is the published M4 resilience release: bounded local HTTP
