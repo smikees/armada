@@ -73,7 +73,7 @@ function limitRowHTML(provider,period,w,d){
     +(available?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p+'"':'')+'>'
     +(available?'<i style="width:'+p+'%;background:'+limClr(p)+'"></i>':'')+'</span>'
     +(available?'<span class="mc-limit-text"><span class="mc-limit-pct">'+p+'%</span>'
-      +(reset?'<span class="mc-limit-reset">Reset in '+esc(reset)+'</span>':'')+'</span>':
+      +(reset?'<span class="mc-limit-reset" title="Reset in '+esc(reset)+'">Reset in '+esc(reset)+'</span>':'')+'</span>':
       '<span class="mc-limit-unavailable">'+(d&&d.stale&&known?p+'% · last reading':d&&d.reason==='disconnected'?'Disconnected':d&&d.available&&!known?'Not reported':'Unavailable')+'</span>')+'</div>';
 }
 function headerLimitsHTML(claude,codex,bucket,gemini){

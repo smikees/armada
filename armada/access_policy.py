@@ -152,23 +152,59 @@ def writable_path(root, policy, value, *, agent_records=False):
     return target
 
 
+def _updated(before, changes, agent):
+    fields = {'tool_policy', 'write_scope'} if agent else {'tool_policy', 'read_only', 'policy_builder'}
+    if not isinstance(changes, dict) or set(changes) - fields:
+        raise error('unknown access-policy field.')
+    updated = dict(before)
+    for key, value in changes.items():
+        if key == 'write_scope' and value is None:
+            updated.pop(key, None)
+        else:
+            updated[key] = value
+    return updated, fields
+
+
+def preview(root, agent, changes, provider, *, realm_defaults=False):
+    """Evaluate an unsaved owner edit with the execution validator, without writes or discovery."""
+    from . import capabilities, tool_admission
+    if provider not in ('claude', 'codex', 'gemini'):
+        raise error('Unknown provider.')
+    root = Path(root)
+    agent = util.safe_seg(agent, 'agent')
+    realm = capabilities._policy_json(root / 'realm.json')
+    data = capabilities._policy_json(root / 'agents' / agent / 'agent.json')
+    before = validate(realm, dict(data, id=agent))
+    if realm_defaults:
+        realm, _ = _updated(realm, changes, None)
+        validate(realm, {})
+        for path in (root / 'agents').glob('*/agent.json'):
+            validate(realm, capabilities._policy_json(path))
+    else:
+        data, _ = _updated(data, changes, agent)
+    after = validate(realm, dict(data, id=agent))
+    grants = capabilities.execution_policy(root, agent)
+    previous = {row['id']: row for row in tool_admission.describe_access(root, provider, before, grants)}
+    rows = tool_admission.describe_access(root, provider, after, grants)
+    for row in rows:
+        old = set(previous[row['id']]['can_call'])
+        row['newly_allowed'] = [n for n in row['can_call'] if n not in old]
+        row['newly_denied'] = sorted(old - set(row['can_call']))
+    return {'ok': True, 'agent': agent, 'connectors': rows, 'builder': after.builder,
+            'write_scope': after.write_scope, 'read_only': after.read_only, 'scoped': after.scoped,
+            'notice': 'Preview only; nothing saved. Uses recorded tool names and current connector grants. '
+                      'Provider availability and permissions are checked again when a run starts.'}
+
+
 def save(root, agent, changes):
     """Owner API mutation; policy and its change log are one locked atomic write."""
     from . import clock
     from .capabilities import _policy_json
     root = Path(root)
-    fields = {'tool_policy', 'write_scope'} if agent else {'tool_policy', 'read_only', 'policy_builder'}
-    if not isinstance(changes, dict) or set(changes) - fields:
-        raise error('unknown access-policy field.')
     path = root / 'agents' / util.safe_seg(agent, 'agent') / 'agent.json' if agent else root / 'realm.json'
     with util.file_lock(path):
         before = _policy_json(path)
-        updated = dict(before)
-        for key, value in changes.items():
-            if key == 'write_scope' and value is None:
-                updated.pop(key, None)
-            else:
-                updated[key] = value
+        updated, fields = _updated(before, changes, agent)
         if agent:
             validate(_policy_json(root / 'realm.json'), updated)
         else:

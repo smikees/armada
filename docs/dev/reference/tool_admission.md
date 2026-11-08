@@ -25,6 +25,14 @@ Owner-confirmed inventory for providers without a no-model listing API.
 
 —
 
+### `compile_rules(root, provider, policy, grants)`
+
+Pure local compilation shared by execution and owner previews; does not grant access.
+
+### `describe_access(root, provider, policy, grants)`
+
+Local presentation of compiled access; provider login/CLI capability is checked at run time.
+
 ### class `ToolAdmission`
 
 —

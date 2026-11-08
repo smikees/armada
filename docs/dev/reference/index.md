@@ -179,6 +179,7 @@
 | [`webui.agentcommon`](webui.agentcommon.md) | Shared agent/realm page helpers (Phase 3 split of agentpages): job cards, artefact gathering, autonomy/colour controls, filter dropdowns and the status-filter p |
 | [`webui.agentframe`](webui.agentframe.md) | Agent frame (Phase 3 split of agentpages): agent header/body + the Jobs/Inbox/Configure sub-tabs, avatar + appoint modals. |
 | [`webui.alexander_window`](webui.alexander_window.md) | Transparent shell for Alexander's independent desktop companion. |
+| [`webui.attention`](webui.attention.md) | Actionable owner summary from local records, without provider probes. |
 | [`webui.capabilities`](webui.capabilities.md) | Capabilities / connectors / skills rendering (Layer 2, Phase 3). |
 | [`webui.catalogue`](webui.catalogue.md) | Catalogue tab rendering: search results, filters, the bring-a-link review report, and the info box (ADR-004) — everything that renders from CATALOGUE/registry d |
 | [`webui.changelog`](webui.changelog.md) | Changelog data + its modal renderer (carved out of _core.py in Phase 3). |

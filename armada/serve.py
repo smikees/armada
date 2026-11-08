@@ -506,6 +506,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         "/api/workspace-migrate": "_workspace_migrate", "/api/set-approot": "_set_approot",
         "/api/cap-grant": "_cap_grant", "/api/cap-revoke": "_cap_revoke",
         "/api/save-access-policy": "_save_access_policy",
+        "/api/preview-access-policy": "_preview_access_policy",
         "/api/refresh-tool-inventory": "_refresh_tool_inventory",
         "/api/save-tool-inventory": "_save_tool_inventory",
         "/api/capability-move": "_capability_move", "/api/capability-exclusive": "_capability_exclusive",

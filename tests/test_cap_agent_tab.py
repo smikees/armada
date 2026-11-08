@@ -88,7 +88,8 @@ def test_the_count_matches_the_grant_model(realm):
 def test_the_coordinator_tab_explains_the_role_instead(realm):
     m, a = _agent(realm, "hand")
     html = UI._tab_skills(m, realm, a)
-    assert "can use every capability in the realm" in html
+    assert "inherits the realm’s capability grants" in html
+    assert "Tool restrictions and file write limits still apply" in html
     assert "In the realm, not available to" not in html
     for name in ("IBKR", "filesystem", "windows-mcp"):
         assert name in html

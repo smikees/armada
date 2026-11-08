@@ -10,6 +10,7 @@
 //
 // Resolves to false (cancelled), true (confirmed), or the typed string when mustType was given.
 (function(){
+  let sequence=0;
   // Drop-in replacement for the browser's alert(): same call shape, app-native dialog, and
   // awaitable if the caller cares when it's dismissed.
   window.mcAlert=function(message,title){
@@ -52,6 +53,9 @@
         '" data-yes></button></div></div>';
       ov.querySelector('[data-t]').textContent=title||'Are you sure?';
       ov.querySelector('[data-d]').textContent=detail||'';
+      const id='mc-confirm-'+(++sequence);
+      ov.querySelector('[data-t]').id=id+'-title';ov.querySelector('[data-d]').id=id+'-detail';
+      ov.setAttribute('aria-labelledby',id+'-title');ov.setAttribute('aria-describedby',id+'-detail');
       const yes=ov.querySelector('[data-yes]'),inp=ov.querySelector('[data-i]');
       yes.textContent=opts.ok||'Confirm';
       if(inp){
@@ -60,21 +64,23 @@
         const nm=ov.querySelector('[data-n]');
         if(nm)nm.textContent=String(mustType);
         yes.disabled=true;
+        inp.setAttribute('aria-label','Type '+String(mustType)+' to confirm');
         inp.addEventListener('input',function(){
           yes.disabled=inp.value.trim().toLowerCase()!==String(mustType).toLowerCase();});
       }
-      function close(v){document.removeEventListener('keydown',key);ov.remove();resolve(v);}
+      let closed=false,releaseFocus;
+      function close(v){if(closed)return;closed=true;ov.removeEventListener('keydown',key);ov.remove();releaseFocus?.();resolve(v);}
       function key(e){
-        if(e.key==='Escape')close(false);
-        if(e.key==='Enter'&&!yes.disabled)close(inp?inp.value.trim():true);
+        // Enter on Cancel must activate Cancel, never the destructive action.
+        if(e.key==='Enter'&&e.target===inp&&!yes.disabled){e.preventDefault();close(inp.value.trim());}
       }
       const no=ov.querySelector('[data-no]');
       if(no)no.onclick=function(){close(false);};
       yes.onclick=function(){close(inp?inp.value.trim():true);};
       ov.addEventListener('mousedown',function(e){if(e.target===ov)close(false);});
-      document.addEventListener('keydown',key);
+      ov.addEventListener('keydown',key);
       document.body.appendChild(ov);
-      (inp||yes).focus();
+      releaseFocus=mcDialogFocus(ov,()=>close(false),null,inp||no||yes);
     });
   };
 })();

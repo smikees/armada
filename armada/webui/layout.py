@@ -145,17 +145,17 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
     record_notice = ('<details style="padding:8px 24px;flex:none" role="status">'
                      '<summary>Some records need repair</summary><ul>' +
                      ''.join(f'<li>{notice}</li>' for notice in notices) + '</ul></details>') if notices else ''
-    return (f'<div class="mc-mainnav" style="display:flex;align-items:center;gap:22px;padding:0 24px;'
+    return (f'<div class="mc-mainnav" role="navigation" aria-label="Main navigation" style="display:flex;align-items:center;gap:22px;padding:0 24px;'
             f'border-bottom:1px solid var(--color-divider);flex:none">'
-            f'<a href="/" style="text-decoration:none;display:flex;align-items:center;gap:7px">{LOGO}</a>{switcher}'
-            f'<div class="mc-navtabs" style="display:flex;gap:18px;align-items:stretch;align-self:stretch">{tab_html}{usr_sep}</div>'
-            f'<div style="margin-left:auto;display:flex;align-items:center;align-self:stretch;gap:16px">'
+            f'<a href="/" aria-label="ARMADA overview" style="text-decoration:none;display:flex;align-items:center;gap:7px">{LOGO}</a>{switcher}'
+            f'<div class="mc-navtabs" tabindex="0" aria-label="Pages" style="display:flex;gap:18px;align-items:stretch;align-self:stretch">{tab_html}{usr_sep}</div>'
+            f'<div class="mc-nav-actions" style="margin-left:auto;display:flex;align-items:center;align-self:stretch;gap:16px">'
             # Bell opens the notification centre in place. It used to navigate to /approvals, which
             # meant losing your page to check whether anything had happened.
             f'<span id="mc-bellwrap" style="position:relative;display:flex">'
-            f'<a id="mc-bell" title="Notifications" onclick="mcBellToggle(event)" '
-            f'style="text-decoration:none;display:flex;align-items:center;cursor:pointer;'
-            f'color:var(--text-strong)">{_icon("bell")}</a>'
+            f'<button type="button" id="mc-bell" title="Notifications" aria-label="Notifications" aria-expanded="false" aria-controls="mc-bellpanel" onclick="mcBellToggle(event)" '
+            f'style="background:none;border:0;padding:0;display:flex;align-items:center;cursor:pointer;'
+            f'color:var(--text-strong)">{_icon("bell")}</button>'
             # One unread signal, not two. A numeric badge and a dot both pinned to the same corner
             # overlapped into a blob; the dot says "there's something new" and the exact count is
             # in the panel header, which is where you look when you actually care about it.

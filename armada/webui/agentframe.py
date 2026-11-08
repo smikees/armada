@@ -496,7 +496,7 @@ def _avatar_modal(agent_id: str) -> str:
         f'style="width:64px;height:64px;border-radius:50%;cursor:pointer;border:2px solid transparent;background:var(--color-accent-100)"'
         f' onmouseover="this.style.borderColor=\'var(--color-accent)\'" onmouseout="this.style.borderColor=\'transparent\'">'
         for i in range(1, n + 1))
-    return (f'<div id="mc-avatar-modal" class="mc-modal-ov" onclick="if(event.target===this)mcAvatarModal(false)">'
+    return (f'<div id="mc-avatar-modal" class="mc-modal-ov" aria-label="Choose agent avatar" onclick="if(event.target===this)mcAvatarModal(false)">'
             f'<div class="mc-modal-box" style="width:min(560px,92vw);max-height:78vh;overflow:auto">'
             f'<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);'
             f'font-weight:600;font-size:16px">Pick an avatar</div>'

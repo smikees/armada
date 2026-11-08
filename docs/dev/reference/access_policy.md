@@ -42,6 +42,14 @@ Case-insensitive path globs: * stays in a segment; ** spans folders.
 
 Validate the canonical target and every ancestor before any write occurs.
 
+### `_updated(before, changes, agent)`
+
+—
+
+### `preview(root, agent, changes, provider, *, realm_defaults=False)`
+
+Evaluate an unsaved owner edit with the execution validator, without writes or discovery.
+
 ### `save(root, agent, changes)`
 
 Owner API mutation; policy and its change log are one locked atomic write.

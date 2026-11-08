@@ -10,13 +10,35 @@ function mcGrid(){return document.getElementById('mc-grid');}
 // --- dashboard state (persisted in the realm's dashboard.json, portable/versioned) ---
 window.MC_DASH=window.MC_DASH||{single:{},order:[],spans:{},heights:{},threads:[]};
 if(!MC_DASH.heights)MC_DASH.heights={};
-let _mcSaveT=null;
+let _mcSaveT=null,mcLayoutPending=null,mcLayoutSaving=false,mcLayoutUncertain=false;
+async function mcDashFlush(){
+  if(mcLayoutSaving||!mcLayoutPending)return;
+  const payload=mcLayoutPending;mcLayoutPending=null;mcLayoutSaving=true;
+  const status=document.getElementById('mc-layout-status');
+  function say(message,state){if(status){status.hidden=false;status.textContent=message;status.dataset.state=state;}}
+  say('Saving layout…','working');
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+  try{
+    const response=await fetch('/api/save-dashboard',{method:'POST',signal:controller.signal,
+      headers:{'Content-Type':'application/json'},body:payload});
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw Error(result.error||'Layout save was refused.');
+    say('Layout saved.','saved');
+  }catch(error){
+    // A timeout can leave an unknown server outcome. Do not replay or let a later
+    // request race it; the owner can reload to observe the authoritative layout.
+    mcLayoutUncertain=true;mcLayoutPending=null;clearTimeout(_mcSaveT);
+    say('Could not confirm the layout save. Reload to check before making more layout changes.','error');
+  }finally{clearTimeout(timer);mcLayoutSaving=false;if(mcLayoutPending)mcDashFlush();}
+}
 function mcDashSave(){
+  if(mcLayoutUncertain)return;
   const g=mcGrid();if(g){const order=[],spans={};
     [...g.children].filter(c=>c.classList.contains('mc-w')).forEach(c=>{order.push(c.dataset.id);spans[c.dataset.id]=+c.dataset.span||10;});
     MC_DASH.order=order;MC_DASH.spans=spans;}
   clearTimeout(_mcSaveT);
-  _mcSaveT=setTimeout(()=>{fetch('/api/save-dashboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(MC_DASH)}).catch(()=>{});},250);}
+  mcLayoutPending=JSON.stringify(MC_DASH);
+  _mcSaveT=setTimeout(mcDashFlush,250);}
 // --- thread widgets (multi-instance) ---
 function mcTWLoad(){return MC_DASH.threads||(MC_DASH.threads=[]);}
 function mcTWSave(l){MC_DASH.threads=l;mcDashSave();}
