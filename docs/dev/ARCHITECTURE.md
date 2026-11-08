@@ -1,5 +1,10 @@
 # ARMADA — architecture
 
+**8 November 2026:** [Stabilization contracts](STABILIZATION_CONTRACTS.md) is the
+current ownership map, provider adapter contract and guarantee/limit matrix after
+M1–M12. It supersedes broader historical guarantees below and defines the repeatable
+stress/performance gate. Product acceptance remains the maintainer's decision.
+
 **Current implementation (October 2026).** The engine seam now supports Claude Code, Codex CLI
 and Gemini through Antigravity CLI. Provider discovery and authentication use Windows-installed
 CLIs; the desktop launcher starts independently of provider desktop apps. Jobs persist execution,

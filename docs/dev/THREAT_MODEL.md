@@ -1,5 +1,11 @@
 # ARMADA threat model
 
+**8 November 2026:** see the current [guarantee matrix](STABILIZATION_CONTRACTS.md)
+for M1–M12 containment, ownership and verified limits. In particular, per-agent
+tool/file policy is not an OS sandbox; cache reads do not authorize execution;
+signed updates are distinct from Windows publisher signing. Historical findings
+below remain dated evidence rather than claims about the current implementation.
+
 **Local HTTP resource containment (released 0.99.126):** request workers, pending
 headers, input size/time and refusal-drain sockets are bounded. Health/stop controls
 have separate admission capacity; all existing authorization checks remain. Provider
