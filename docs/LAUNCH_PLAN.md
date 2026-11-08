@@ -5,13 +5,27 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.134** is the published M12 release. **All M1–M12 implementation
+milestones are verified and released; maintainer product acceptance is still pending.**
+Current security/ownership contracts and repeatable synthetic stress/performance
+gates are in place. The final clean-source gate passed three concurrent realms,
+protected writes, paused restores, long-history budgets and three native-window
+cycles plus page/owner workflows. Publisher: **4,309 passed / six skipped**; both
+exact-source Windows CI jobs: **4,311 / four skipped**. All packaged lifecycle and
+**72 signed-upgrade checks** passed. Fresh recovery captures were reviewed. Public
+signatures, package/source bytes, installer hash and matching website links verified.
+Owner app and live realms/providers were untouched. Next: maintainer acceptance,
+then Windows publisher signing and clean-machine WebView2 acceptance.
+[Contracts and acceptance checklist](dev/STABILIZATION_CONTRACTS.md) ·
+[Release evidence](dev/RELEASE_0_99_134.md).
+
 Version **0.99.133** is the published M11 release: permission previews, responsive
 owner workflows, keyboard-safe dialogs and visible save outcomes. Publisher:
 **4,267 passed** (six skipped); both exact-source CI jobs: **4,269** (four skipped).
 Native owner/page/shared-window checks, packaged lifecycle and 72 signed-upgrade
 checks passed. Public signatures, source bytes, installer hash and website verified.
-Owner app untouched; maintainer acceptance remains pending. M12 final stress and
-contract consolidation follows. [Owner workflows](dev/OWNER_WORKFLOWS.md) ·
+Owner app untouched; maintainer acceptance remains pending. M12 followed in 0.99.134.
+[Owner workflows](dev/OWNER_WORKFLOWS.md) ·
 [Release evidence](dev/RELEASE_0_99_133.md).
 
 Version **0.99.132** is the published M10 release: lazy page resources, preserved
@@ -20,7 +34,7 @@ navigation state and bounded background snapshot refresh. Publisher: **4,245 pas
 page-work and shared-window checks, all packaged lifecycle checks and **72 signed-upgrade
 checks** passed. Public signatures, package/source bytes, installer hash and website
 links verified. Owner app untouched; maintainer acceptance remains pending.
-M11 owner workflows and M12 stress/contract consolidation follow.
+M11 and M12 followed in 0.99.133 and 0.99.134.
 [Page-work contract](dev/PAGE_WORK.md) · [Release evidence](dev/RELEASE_0_99_132.md).
 
 Version **0.99.131** is the published M9 release: rebuildable history summaries,

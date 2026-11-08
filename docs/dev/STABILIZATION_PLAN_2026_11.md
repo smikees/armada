@@ -31,13 +31,13 @@ with a checklist update and owner progress report after each implementation mile
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | **Verified; released 0.99.131** | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | **Verified; released 0.99.132** | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | **Verified; released 0.99.133** | Pending |
-| M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | Implemented — 0.99.134 final gates pending | Pending |
+| M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | **Verified; released 0.99.134** | Pending |
 
 M4 includes provider-status coalescing because it is part of bounding background
 work. M6 precedes native recovery so reliable exports are available before larger
 lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritative.
 
-## M12 implementation — 8 November 2026
+## M12 verified and released — 8 November 2026
 
 - Consolidated the current ownership map, provider adapter contract, security
   guarantees and explicit limitations. Historical architecture/threat-model pages
@@ -50,8 +50,11 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   protected-write refusals, three paused restores. Performance budgets passed.
   Development gate passed in 214.7s, including three native shared-window cycles
   (79 checks each), six page-work and 16 owner-workflow checks. Evidence validation
-  and documentation: 344 tests passed. Final committed-source native/stress and
-  publication gates are pending.
+  and documentation: 344 tests passed. Final clean committed-source stress/native
+  gate passed in 205.82s. Publisher: **4,309 passed / six skipped**; both exact-source
+  Windows CI jobs: **4,311 / four skipped**. All packaged lifecycle checks and
+  **72 signed-upgrade checks** passed. Fresh recovery captures were reviewed.
+  Public signatures, package/source bytes, installer hash and website links verified.
 - Maintainer product acceptance remains explicit and separate; Windows publisher
   signing and clean-machine WebView2 acceptance are not claimed complete.
   [Release evidence](RELEASE_0_99_134.md).
