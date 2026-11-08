@@ -31,11 +31,30 @@ with a checklist update and owner progress report after each implementation mile
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | **Verified; released 0.99.131** | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | **Verified; released 0.99.132** | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Locally verified — 0.99.133 release gates pending | Pending |
-| M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | Pending | Pending |
+| M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | Implemented — 0.99.134 final gates pending | Pending |
 
 M4 includes provider-status coalescing because it is part of bounding background
 work. M6 precedes native recovery so reliable exports are available before larger
 lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritative.
+
+## M12 implementation — 8 November 2026
+
+- Consolidated the current ownership map, provider adapter contract, security
+  guarantees and explicit limitations. Historical architecture/threat-model pages
+  point to the [current contract](STABILIZATION_CONTRACTS.md).
+- Added a bounded synthetic gate: security/fault matrix, three concurrent realms,
+  twelve logical readers, guarded writes, admission, verified paused restores,
+  long-history percentiles and three native shared-window cycles plus owner/page
+  workflows. No live realm, account or provider is accepted as input.
+- Initial fault matrix: 233 passed. Load: 360 reads, 90 writes/admissions, 180
+  protected-write refusals, three paused restores. Performance budgets passed.
+  Development gate passed in 214.7s, including three native shared-window cycles
+  (79 checks each), six page-work and 16 owner-workflow checks. Evidence validation
+  and documentation: 344 tests passed. Final committed-source native/stress and
+  publication gates are pending.
+- Maintainer product acceptance remains explicit and separate; Windows publisher
+  signing and clean-machine WebView2 acceptance are not claimed complete.
+  [Release evidence](RELEASE_0_99_134.md).
 
 ## M11 locally verified — 8 November 2026
 

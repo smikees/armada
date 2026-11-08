@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.133. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.134. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
 on [armada.stamih.com](https://armada.stamih.com).
@@ -47,6 +47,10 @@ UI seed catalogue as proof that a specific model is still supported.
    text for search) — expected.
 4. Full suite with the release changes in place. Record the result and any platform-only checks
    that remain unverified. Do not publish an installer while required checks fail.
+   Changes spanning admission, persistence, history reads or desktop lifecycle also
+   run `python tools/stabilization_gate.py --output build/stabilization.json` on the
+   final committed source. Retain its unique evidence directory. This supplements
+   the full suite and packaged gates; see [contracts and budgets](STABILIZATION_CONTRACTS.md).
 5. Installer staging runs the mandatory hidden WebView2 session gate using the branded embedded
    runtime. It opens, closes and reopens Alexander through the production opener, verifies
    one-time support payload delivery after authentication and checks that cockpit Usage remains
