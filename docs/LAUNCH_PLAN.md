@@ -5,6 +5,17 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.135** is the published navigation follow-up: menu selections
+immediately show the destination and a loading view, with safe slow-load
+cancellation. Native delayed-response feedback measured 2.6ms (DOM state).
+Release validation also exposed and fixed a concurrent-startup owner-publication
+race. Publisher: **4,316 passed / six skipped**; both exact-source Windows CI jobs:
+**4,318 / four skipped**. Native startup, full stabilization, packaged lifecycle
+and **72 signed-upgrade checks** passed. Public signatures, source bytes,
+installer hash and website links verified. Owner app/live data untouched.
+[Navigation design](dev/NAVIGATION_FEEDBACK.md) ·
+[Release evidence](dev/RELEASE_0_99_135.md).
+
 Version **0.99.134** is the published M12 release. **All M1–M12 implementation
 milestones are verified and released; maintainer product acceptance is still pending.**
 Current security/ownership contracts and repeatable synthetic stress/performance
