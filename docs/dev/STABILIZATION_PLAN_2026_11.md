@@ -30,12 +30,31 @@ with a checklist update and owner progress report after each implementation mile
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Released 0.99.130 — full local/CI, native and signed-upgrade gates passed; public downloads and website verified | Pending |
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | **Verified; released 0.99.131** | Pending |
 | M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Locally verified — 0.99.132 release gates pending | Pending |
-| M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Pending | Pending |
+| M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Locally verified — 0.99.133 release gates pending | Pending |
 | M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | Pending | Pending |
 
 M4 includes provider-status coalescing because it is part of bounding background
 work. M6 precedes native recovery so reliable exports are available before larger
 lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritative.
+
+## M11 locally verified — 8 November 2026
+
+- Agent access previews and current tool lists share execution's local policy
+  compiler, including alias intersections, literal grants, missing inventories,
+  provider bindings and replacement of scoped filesystem connectors. Previews
+  do not write permissions. Owner saves retain atomic writes and audit receipts.
+- Navigation adapts to narrow windows; dashboard spans remain saved unchanged.
+  Attention links to local repair/review work. Layout saves serialize/coalesce and
+  report outcomes; an unknown result stops further saves until reload.
+- Shared confirmations and lazy dialogs have named focus ownership, Tab/Escape
+  handling and focus return. Enter on Cancel cannot confirm a destructive action.
+- Focused owner/capability checks passed 118 tests; the expanded compiler/adapter
+  batch passed 132. Final native checks: six page-work, 79 shared-window/Stop and
+  16 owner-journey checks, plus assertions for untouched policy bytes and denied
+  tools. Reviewed 1024px light and 150% zoom dark captures and all golden diffs.
+- Full release gates/publication are pending. [Workflow contracts and limits](OWNER_WORKFLOWS.md).
+  This is not a full accessibility certification or a new provider authorization.
+  Owner app and live realms/providers remain untouched. Next: M12 contracts and stress evidence.
 
 ## M10 locally verified — 8 November 2026
 

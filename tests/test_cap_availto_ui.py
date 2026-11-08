@@ -166,7 +166,8 @@ def test_the_roster_is_draggable_and_excludes_the_coordinator(realm):
     assert 'draggable="true"' in html and "mcCapDragStart" in html
     assert "Warren" in html and "Galen" in html
     assert html.count("mcCapDragStart") == 3          # the three members, not Marcus
-    assert "can use every capability" in html         # the coordinator is explained instead
+    assert "inherits the realm’s capability grants" in html  # coordinator grants are explained
+    assert "Tool restrictions and file write limits still apply" in html
 
 
 def test_the_roster_explains_a_realm_with_no_coordinator(realm):

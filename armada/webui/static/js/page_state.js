@@ -1,12 +1,17 @@
 // Presentation only: never store settings, passwords, permissions or form submissions.
 (function(){
   'use strict';
+  const dialogs=new WeakMap();
   window.mcPrepareDialog=function(id,show){
     const dialog=document.getElementById(id);if(!dialog)return;
     if(show)dialog.querySelectorAll('template[data-lazy-dialog]').forEach(t=>{
       t.replaceWith(t.content.cloneNode(true));
     });
     dialog.style.display=show?'flex':'none';
+    if(show&&!dialogs.has(dialog)){
+      const title=dialog.getAttribute('aria-label')||dialog.querySelector('h1,h2,h3,.mc-h-card')?.textContent?.trim()||'Dialog';
+      dialogs.set(dialog,mcDialogFocus(dialog,()=>mcPrepareDialog(id,false),title));
+    }else if(!show){dialogs.get(dialog)?.();dialogs.delete(dialog);}
   };
   const realm=document.querySelector('meta[name="armada-realm"]')?.content;
   if(!realm)return;

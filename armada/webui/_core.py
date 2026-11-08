@@ -770,7 +770,7 @@ def _user_avatar_modal() -> str:
         f'style="width:64px;height:64px;border-radius:50%;cursor:pointer;border:2px solid transparent;background:var(--color-accent-100)"'
         f' onmouseover="this.style.borderColor=\'var(--color-accent)\'" onmouseout="this.style.borderColor=\'transparent\'">'
         for i in range(1, n + 1))
-    return (f'<div id="us-avatar-modal" class="mc-modal-ov" onclick="if(event.target===this)mcUserAvatarModal(false)">'
+    return (f'<div id="us-avatar-modal" class="mc-modal-ov" aria-label="Choose your avatar" onclick="if(event.target===this)mcUserAvatarModal(false)">'
             f'<div class="mc-modal-box" style="width:min(560px,92vw);max-height:78vh;overflow:auto">'
             f'<div style="display:flex;align-items:center;margin-bottom:12px"><div class="mc-h-card" style="margin-bottom:0px">Pick an avatar</div>'
             f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcUserAvatarModal(false)">Close</button></div>'

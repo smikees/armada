@@ -145,8 +145,8 @@ def _tab_skills(realm, realm_root, a) -> str:
     rest = _caps.requestable(realm_root, a.id)
 
     if a.is_coordinator:
-        why = (f'As {E(realm.theme_coordinator)}, {E(a.display)} can use every capability in the '
-               f'realm. That follows the role — there is no per-capability list to manage here.')
+        why = (f'As {E(realm.theme_coordinator)}, {E(a.display)} inherits the realm’s capability grants. '
+               f'Tool restrictions and file write limits still apply; review Tools and file access below.')
     else:
         n = sum(len(v) for v in usable.values())
         why = (f'{E(a.display)} can use only what you have given them: '
@@ -175,7 +175,8 @@ def _tab_skills(realm, realm_root, a) -> str:
         else:
             why += (f'<div class="mc-reach-summary" data-state="ok">{_icon(eng, 13)}'
                     f'<div><b>{E(a.display)} runs on {E(capreach.LABEL[eng])}.</b> '
-                    f'Everything below works there.</div></div>')
+                    f'The listed connections support this engine. Tool restrictions still apply; '
+                    f'connection availability is checked when a run starts.</div></div>')
 
     # This page answers one question — what can this agent use — and every control that belongs to
     # the catalogue (Manage, the connector refresh, updates) lives on the realm page. Repeating
@@ -762,7 +763,7 @@ def _cap_availto_chips(realm, realm_root, it: dict, kind: str) -> str:
         return (f'<span class="mc-reach-cant" title="{E(why)}">{_icon(e, 10)}'
                 f'on {E(capreach.LABEL.get(e, e))} · can\'t use it</span>')
     for c in coords:
-        out += (f'<span title="{E(realm.theme_coordinator)} — can use every capability" '
+        out += (f'<span title="{E(realm.theme_coordinator)} — inherits capability grants; tool restrictions still apply" '
                 f'style="{pinned};padding-right:9px">{_portrait(realm_root, c, 18)}{E(c.display)}'
                 f'{cant(c)}<span style="display:inline-flex;color:var(--text-38)">'
                 f'{_icon("pin",11)}</span></span>')
@@ -1152,8 +1153,8 @@ def _cap_roster(realm, realm_root) -> str:
     if realm.coordinator:
         note = (f'<div style="font-size:11px;color:var(--text-faint);'
                 f'margin-top:8px;padding-top:8px;border-top:1px solid var(--color-divider)">'
-                f'{E(realm.theme_coordinator)} ({E(realm.coordinator.display)}) can use every '
-                f'capability in the realm.</div>')
+                f'{E(realm.theme_coordinator)} ({E(realm.coordinator.display)}) inherits the realm’s '
+                f'capability grants. Tool restrictions and file write limits still apply.</div>')
     else:
         note = ('<div style="font-size:11px;color:var(--text-faint);'
                 'margin-top:8px;padding-top:8px;border-top:1px solid var(--color-divider)">'

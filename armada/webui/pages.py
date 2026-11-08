@@ -18,6 +18,7 @@ from ..assets import (INBOX_JS as _INBOX_JS_ASSET, STA2A_TOGGLE_JS as _STA2A_TOG
 globals().update({k: v for k, v in vars(_core).items() if not k.startswith('__')})
 from ._base import _J, _pill, _tone, _ask_alexander  # _J: JS-string-in-attribute escaping (5.8)
 from .capabilities import _reach_hint  # engine reach under the job's model picker
+from .attention import panel as _attention_summary
 import logging
 from ..util import swallowed
 log = logging.getLogger(__name__)
@@ -1697,6 +1698,8 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
   <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">
    <button id="mc-addwidget" class="btn btn-secondary" onclick="mcAddWidget()">{addicon}&nbsp;Manage widgets</button></div>
  </div>
+ {_attention_summary(realm, realm_root)}
+ <p id="mc-layout-status" role="status" aria-live="polite" hidden></p>
  {grid}
  <div style="position:absolute;left:0;right:0;bottom:0;height:22px;pointer-events:none;z-index:1;
   background:linear-gradient(to bottom,transparent,var(--color-bg))"></div>

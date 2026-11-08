@@ -38,6 +38,7 @@ CSS_LINKS = (f'<link rel="stylesheet" href="/static/industry.css{CSSV}">'
              # Local formula assets: no CDN request or conversation data leaves this renderer.
              f'<script src="/static/js/math.js{CSSV}" defer></script>'
              f'<script src="/static/js/page_state.js{CSSV}" defer></script>'
+             f'<script src="/static/js/dialogs.js{CSSV}"></script>'
              # Synchronous: scale stylesheet rules and parsed inline text before first paint.
              f'<script src="/static/js/font_size.js{CSSV}"></script>'
              # Every first-party surface, including setup, widget frames and Alexander.

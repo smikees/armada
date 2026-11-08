@@ -4,6 +4,7 @@ E = html.escape
 
 
 _CHANGELOG = [
+    ('0.99.133', ['Preview an agent’s connector tools and file limits before saving. The preview highlights newly allowed or blocked tools and does not change permissions.', 'Navigation and dashboard widgets adapt to narrower windows and zoom. Overview links to damaged records, recent failures and approvals that need your attention.', 'Confirmation dialogs keep keyboard focus inside, return it on close, and start on Cancel. Enter on Cancel no longer risks confirming an action.', 'Dashboard layout saves run in order and show whether they succeeded. An unconfirmed save asks you to reload and check instead of silently losing the error.']),
     ('0.99.132', ['Pages load less unused content: formula assets load when a formula appears, and avatar choices and menu rows are prepared when opened.', 'Returning to a page preserves your job filters, place and focused field. Conversation drafts remain unsent and available.', 'Section copies refresh in the background. Slow sources no longer hold up the page; failed refreshes keep the previous copy and show an error.']),
     ('0.99.131', ['Long run histories are quicker to revisit: Overview and Usage reuse rebuildable summaries instead of reading every report on each refresh.', 'Conversation windows do less repeated work. Unrelated job reports leave previews cached, and message counts and context meters use the same conversation snapshot.', 'Edited or truncated history rebuilds its display summaries. Permission and execution checks still read the authoritative records fresh.']),
     ('0.99.130', ['Scheduled jobs now queue fairly across realms instead of making every realm wait for a slow job. Desktop, scheduler and command-line work share bounded provider and conversation capacity. Queued chat messages are saved before waiting and remain visible after navigation.', 'Stop reaches queued and running work across ARMADA processes. Queued turns use fresh permissions before starting, and a crash frees capacity without replaying jobs whose outcome is uncertain.', 'Model-assisted titles, searches, reviews, compaction and dry runs share execution limits too. Voice queues have a firm size limit, and voice cleanup preserves failures instead of accidentally suppressing them.', 'Update preparation stops scheduled attempts that have not started. Running work keeps its ownership until cleanup finishes; retry waits also respond to Stop.']),
@@ -650,7 +651,7 @@ def _changelog_modal(ver: str) -> str:
         label = E(v) if v == 'Unreleased' else 'v' + E(v)
         blocks += (f'<div style="margin-bottom:12px"><div style="font-family:var(--font-heading);font-weight:600;font-size:14px">{label}{cur}</div>'
                    f'<ul style="margin:4px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5">{lis}</ul></div>')
-    return (f'<div id="mc-changelog" class="mc-modal-ov" onclick="if(event.target===this)mcChangelog(false)">'
+    return (f'<div id="mc-changelog" class="mc-modal-ov" aria-label="Changelog" onclick="if(event.target===this)mcChangelog(false)">'
             f'<div class="mc-modal-box" style="padding:20px;width:min(560px,92vw);max-height:80vh;overflow:auto">'
             f'<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);'
             f'font-weight:600;font-size:17px">Changelog</div>'

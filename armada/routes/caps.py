@@ -18,6 +18,16 @@ log = logging.getLogger("armada.serve")
 
 
 class CapabilityRoutes:
+    def _preview_access_policy(self, body):
+        from .. import access_policy
+        try:
+            if type(body.get('realm_defaults', False)) is not bool:
+                raise ValueError('realm_defaults must be true or false.')
+            return access_policy.preview(self.realm, body.get('agent'), body.get('policy'),
+                                         body.get('provider'), realm_defaults=body.get('realm_defaults', False))
+        except (OSError, ValueError) as exc:
+            return {'ok': False, 'error': str(exc)}
+
     def _save_access_policy(self, body):
         from .. import access_policy
         try:

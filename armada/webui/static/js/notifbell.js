@@ -111,8 +111,8 @@
       'border-bottom:1px solid var(--color-divider)">'+
       '<span style="font-family:var(--font-heading);font-weight:600;font-size:13.5px">Notifications</span>'+
       (unread?'<span style="font-size:11px;color:var(--text-muted)">'+unread+' new</span>':'')+
-      '<a onclick="mcBellRead()" style="margin-left:auto;font-size:11.5px;cursor:pointer;'+
-      'color:var(--color-accent)">Mark all read</a></div>';
+      '<button type="button" onclick="mcBellRead()" style="border:0;background:none;font:inherit;margin-left:auto;font-size:11.5px;cursor:pointer;'+
+      'color:var(--color-accent)">Mark all read</button></div>';
     const body=items.length
       ? group(items).map(rowHTML).join('')
       : '<div style="padding:20px 14px;font-size:12px;color:var(--text-muted);text-align:center">'+
@@ -121,6 +121,7 @@
   }
 
   function paint(){
+    document.getElementById('mc-bell')?.setAttribute('aria-expanded',String(open));
     const p=document.getElementById('mc-bellpanel'); if(!p)return;
     p.innerHTML=panelHTML();
     p.style.cssText='position:absolute;top:26px;right:-6px;z-index:300;width:344px;'+
@@ -171,7 +172,7 @@
     const w=document.getElementById('mc-bellwrap');
     if(w&&!w.contains(e.target)){open=false;paint();}
   });
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open){open=false;paint();}});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open){open=false;paint();document.getElementById('mc-bell')?.focus();}});
 
   load();
   setInterval(function(){if(!document.hidden)load();},30000);

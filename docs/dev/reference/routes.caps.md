@@ -12,6 +12,7 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `CapabilityRoutes._preview_access_policy(self, body)` — —
 - `CapabilityRoutes._save_access_policy(self, body)` — —
 - `CapabilityRoutes._refresh_tool_inventory(self, body)` — —
 - `CapabilityRoutes._save_tool_inventory(self, body)` — —

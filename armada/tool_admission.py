@@ -85,6 +85,78 @@ def known_names(root, cap, provider):
     return sorted(set(values))
 
 
+def compile_rules(root, provider, policy, grants):
+    """Pure local compilation shared by execution and owner previews; does not grant access."""
+    compiled, denied, logical = {}, {}, {}
+    for kind, cap in capabilities.catalogue_flat(root):
+        cid = cap.get('id')
+        if kind not in capabilities.MCP_KINDS or not cid or cid not in grants.allowed_mcp_ids:
+            continue
+        actual = provider_cap(cap, provider)
+        if actual.get('_unbound'):
+            continue
+        from .capreach import reach
+        if provider in ('claude', 'codex', 'gemini') and not reach(kind, cap).available_on(provider):
+            continue
+        sid = server_id(actual['id']) if provider == 'claude' else registration_id(actual['id'])
+        if cid not in dict(policy.tools) and not (policy.scoped and cid in grants.native_filesystem_ids):
+            continue
+        if actual.get('_native_app'):
+            raise access_policy.error('tool policies require an MCP connection; native apps cannot enforce this policy.')
+        names = known_names(root, cap, provider)
+        rule = policy.rule(cid)
+        # Literal grants need no discovery. Glob grants never invent tool names.
+        names = sorted(set(names) | {p for p in rule.allow or () if TOOL_NAME.fullmatch(p)})
+        blocked_filesystem = policy.scoped and cid in grants.native_filesystem_ids
+        if not names and not blocked_filesystem and rule.allow != ():
+            raise access_policy.error(f'No tool inventory for {cid}. Refresh connector tools before running this policy.')
+        allowed = set(n for n in names if rule.permits(n)) if not blocked_filesystem else set()
+        # Multiple logical capabilities pointing to the same registration intersect.
+        compiled[sid] = sorted(allowed & set(compiled.get(sid, allowed)))
+        denied[sid] = sorted(set(denied.get(sid, ())) | (set(names) - allowed))
+        logical.setdefault(sid, []).append(cid)
+    return compiled, denied, logical
+
+
+def describe_access(root, provider, policy, grants):
+    """Local presentation of compiled access; provider login/CLI capability is checked at run time."""
+    from .capreach import reach
+    normalize = server_id if provider == 'claude' else registration_id
+    provider_grants = capabilities.provider_policy(grants, provider)
+    offered_servers = {normalize(s) for s in provider_grants.allowed_mcp_ids}
+    run_error = ''
+    try:
+        compiled, _, _ = compile_rules(root, provider, policy, grants)
+    except ValueError as exc:
+        compiled, run_error = {}, str(exc)
+    rows = []
+    for kind, cap in capabilities.catalogue_flat(root):
+        cid = cap.get('id')
+        if kind not in capabilities.MCP_KINDS or not cid:
+            continue
+        known = known_names(root, cap, provider)
+        rule = policy.rule(cid)
+        literals = {p for p in rule.allow or () if TOOL_NAME.fullmatch(p)}
+        names = sorted(set(known) | literals)
+        actual = provider_cap(cap, provider)
+        sid = normalize(actual.get('id') or cid)
+        reason = run_error
+        offered = actual['id'] in provider_grants.allowed_app_ids if actual.get('_native_app') else sid in offered_servers
+        if not reason and (cid not in grants.allowed_mcp_ids or not offered):
+            reason = 'This connector is not granted for this engine.'
+        if not reason and (actual.get('_unbound') or not reach(kind, cap).available_on(provider)):
+            reason = 'This connector has no supported connection for this engine.'
+        if not reason and policy.scoped and cid in grants.native_filesystem_ids:
+            reason = 'The guarded file tool replaces this connector for restricted file access.'
+        allowed = [n for n in names if not reason and rule.permits(n)
+                   and (sid not in compiled or n in compiled[sid])]
+        rows.append({'id': cid, 'name': cap.get('name') or cid, 'can_call': allowed,
+                     'cannot_call': [n for n in names if n not in allowed],
+                     'inventory_known': bool(known), 'literal_names': sorted(literals - set(known)),
+                     'reason': reason})
+    return rows
+
+
 class ToolAdmission:
     def __init__(self, root, agent, provider, audit):
         self.root, self.agent, self.provider, self.audit = Path(root), agent, provider, audit
@@ -94,36 +166,7 @@ class ToolAdmission:
         grants = capabilities.execution_policy(root, agent)
         self.granted = capabilities.provider_policy(grants, provider).allowed_mcp_ids
         self.seen_attempts = set()
-        self.allowed = {}
-        self.denied = {}
-        self.logical = {}
-        for kind, cap in capabilities.catalogue_flat(root):
-            cid = cap.get('id')
-            if kind not in capabilities.MCP_KINDS or not cid or cid not in grants.allowed_mcp_ids:
-                continue
-            actual = provider_cap(cap, provider)
-            if actual.get('_unbound'):
-                continue
-            from .capreach import reach
-            if provider in ('claude', 'codex', 'gemini') and not reach(kind, cap).available_on(provider):
-                continue
-            sid = server_id(actual['id']) if provider == 'claude' else registration_id(actual['id'])
-            if cid not in dict(self.policy.tools) and not (self.policy.scoped and cid in grants.native_filesystem_ids):
-                continue
-            if actual.get('_native_app'):
-                raise access_policy.error('tool policies require an MCP connection; native apps cannot enforce this policy.')
-            names = known_names(root, cap, provider)
-            rule = self.policy.rule(cid)
-            # Literal grants need no discovery. Glob grants never invent tool names.
-            names = sorted(set(names) | {p for p in rule.allow or () if TOOL_NAME.fullmatch(p)})
-            blocked_filesystem = self.policy.scoped and cid in grants.native_filesystem_ids
-            if not names and not blocked_filesystem and rule.allow != ():
-                raise access_policy.error(f'No tool inventory for {cid}. Refresh connector tools before running this policy.')
-            allowed = set(n for n in names if rule.permits(n)) if not blocked_filesystem else set()
-            # Multiple logical capabilities pointing to the same registration intersect.
-            self.allowed[sid] = sorted(allowed & set(self.allowed.get(sid, allowed)))
-            self.denied[sid] = sorted(set(self.denied.get(sid, ())) | (set(names) - allowed))
-            self.logical.setdefault(sid, []).append(cid)
+        self.allowed, self.denied, self.logical = compile_rules(root, provider, self.policy, grants)
 
     def offer(self, sid, names):
         selected = [n for n in names if sid not in self.allowed or n in self.allowed[sid]]

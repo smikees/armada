@@ -109,7 +109,7 @@ def _register(realm, realm_root, today, section: bool = False) -> str:
     appoint = '' if section else '<a onclick="mcOpenAppoint()" style="font-size:11.5px;color:var(--color-accent);text-decoration:none;cursor:pointer">+ Appoint</a>'
     return (f'<div class="mc-widget" style="height:100%;display:flex;flex-direction:column;overflow:hidden">'
             f'{_wid_header("Register", meta, appoint, widget_id="register", chrome=not section)}'
-            f'<div class="mc-scroll" style="flex:1;min-height:0;overflow:auto">'
+            f'<div class="mc-scroll mc-register-scroll" tabindex="0" aria-label="Agent register; scroll for more columns" style="flex:1;min-height:0;overflow:auto">'
             f'<table class="table" style="font-size:12.5px"><thead><tr>'
             f'<th style="padding-left:12px">Member</th><th>Model</th>'
             f'<th style="text-align:center;width:60px">Goals</th>'
