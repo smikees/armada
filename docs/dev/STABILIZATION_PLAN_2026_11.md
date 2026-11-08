@@ -29,7 +29,7 @@ with a checklist update and owner progress report after each implementation mile
 | M7 | Add explicit desktop presentation recovery for renderer/browser failure and unresponsiveness. Keep execution independent and never replay work. | Packaged native failure injection, bounded recovery/close, repeated tray/update cycles, drafts restored, no orphan surfaces. | **Verified; released 0.99.129** | Pending |
 | M8 | Separate scheduling from execution with bounded fair dispatch, per-provider/resource limits and cross-process admission ownership. | Independent realms progress under a slow job; capacity/ordering hold; queued/running cancellation; uncertain outcomes never replay automatically. | Released 0.99.130 — full local/CI, native and signed-upgrade gates passed; public downloads and website verified | Pending |
 | M9 | Remove lifetime-history work from common reads: narrow queries, rebuildable incremental summaries, independent thread previews and coalesced cache rebuilds. | Long-history and multi-window p50/p95; external edit/truncation invalidation; fresh policy checks remain authoritative. | **Verified; released 0.99.131** | Pending |
-| M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | Locally verified — 0.99.132 release gates pending | Pending |
+| M10 | Reduce page work: defer unused math/avatar/settings resources and move missing-snapshot fetches out of render requests. Preserve interaction state. | Browser resource measurements, slow snapshot source, warm navigation, selected tab/filter/focus/draft/scroll behavior. | **Verified; released 0.99.132** | Pending |
 | M11 | Improve owner workflows: responsive dashboard/navigation, clear effective permissions with previews, attention summary and consistent operation outcomes; keyboard/zoom/accessibility pass. | Synthetic 1024px and scaled-display journeys, accurate policy summaries, keyboard/focus/dialog tests and reviewed light/dark captures. | Pending | Pending |
 | M12 | Consolidate ownership/contracts and current security documentation; add repeatable stress/performance gates and finish release acceptance evidence. | Current guarantee matrix, module/adapter contracts, bounded multi-realm/window soak, restore and native release evidence; explicit maintainer sign-off. | Pending | Pending |
 
@@ -37,7 +37,7 @@ M4 includes provider-status coalescing because it is part of bounding background
 work. M6 precedes native recovery so reliable exports are available before larger
 lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritative.
 
-## M10 locally verified — 8 November 2026
+## M10 verified and released — 8 November 2026
 
 - Math assets load on first formula; avatar/changelog contents and select menu rows
   defer until opened. Settings DOM count fell by about two-thirds, with 298 KB of
@@ -50,8 +50,11 @@ lifecycle changes. M9 indexes remain disposable: JSON/Markdown stays authoritati
   job filters and unsent conversation drafts. Native shared windows passed 79 checks.
   Reviewed the light Settings and dark changelog captures and all 21 golden diffs.
 - Local filesystem blocking remains possible inside the bounded worker pool.
-  [Contract and measurement limits](PAGE_WORK.md). Full release gates/publication
-  are pending; no owner app restart or live provider/realm test was performed.
+  [Contract and measurement limits](PAGE_WORK.md). Publisher: 4,245 passed / six
+  skipped; both exact-source CI jobs: 4,247 / four skipped. Packaged lifecycle and
+  72 signed-upgrade checks passed. Public signatures, source bytes, installer hash
+  and website links verified. No owner app restart or live provider/realm test.
+  [Release evidence](RELEASE_0_99_132.md). Maintainer acceptance remains pending.
 - Next: M11 responsive workflows, permission previews and keyboard accessibility;
   then M12 ownership/security contracts and repeatable stress evidence.
 

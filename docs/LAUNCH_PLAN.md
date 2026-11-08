@@ -5,6 +5,15 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.132** is the published M10 release: lazy page resources, preserved
+navigation state and bounded background snapshot refresh. Publisher: **4,245 passed**
+(six skipped); both exact-source Windows CI jobs: **4,247** (four skipped). Native
+page-work and shared-window checks, all packaged lifecycle checks and **72 signed-upgrade
+checks** passed. Public signatures, package/source bytes, installer hash and website
+links verified. Owner app untouched; maintainer acceptance remains pending.
+M11 owner workflows and M12 stress/contract consolidation follow.
+[Page-work contract](dev/PAGE_WORK.md) · [Release evidence](dev/RELEASE_0_99_132.md).
+
 Version **0.99.131** is the published M9 release: rebuildable history summaries,
 recent-date queries, independent previews and shared transcript/metrics snapshots.
 The mandatory publisher passed **4,232 tests** (six skipped); both exact-source
@@ -12,7 +21,7 @@ Windows CI jobs passed **4,234** (four skipped). Native shared windows passed **
 checks; all packaged lifecycle/recovery gates and **72 signed-upgrade checks** passed.
 Public signatures, package/source bytes, installer hash and matching website verified.
 Owner app untouched. Maintainer acceptance and existing unsigned-publisher/clean-machine
-boundaries remain pending. **M10 is next**: reduce page work and preserve navigation state.
+boundaries remain pending. M10 followed in 0.99.132.
 [History-read contract and timings](dev/HISTORY_READS.md) ·
 [Release evidence](dev/RELEASE_0_99_131.md).
 
