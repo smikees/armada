@@ -159,7 +159,7 @@ def claim(role, port):
     try:
         gate.__enter__()
     except util.FileLockTimeout:
-        activate(current(), role)
+        activate(_wait_for_owner(), role)
         yield False
         return
     try:
@@ -178,6 +178,20 @@ def claim(role, port):
                 _path().unlink(missing_ok=True)
                 _owner = None
         gate.__exit__(None, None, None)
+
+
+def _wait_for_owner(timeout=10.0):
+    """A held lock can precede publication of its owner's atomic state file."""
+    deadline = time.monotonic() + timeout
+    while True:
+        owner = current()
+        if owner:
+            return owner
+        if time.monotonic() >= deadline:
+            raise ActivationError(
+                "Another ARMADA process is starting, but its details are not ready. "
+                "Wait a moment and try opening ARMADA again.")
+        time.sleep(.05)
 
 
 def _publish(**updates):

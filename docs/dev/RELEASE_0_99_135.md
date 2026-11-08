@@ -14,6 +14,15 @@ six page-work checks and 79 shared-window checks passed. Light/wide and dark/102
 captures and the intentional golden-page diffs were reviewed. Focused navigation,
 boundary and documentation checks: **371 passed / one skipped**. Full-suite,
 exact-source CI, packaged lifecycle and signed-upgrade gates remain required.
+
+The first candidate passed 4,314 local tests (six skipped), but exact-source CI
+exposed an existing simultaneous-launch race. A deterministic synthetic process
+reproduced the same missing-owner failure: the kernel lock is held before its
+owner state file is published. The duplicate now waits up to ten seconds for
+that state, with a clear timeout instead of misidentifying an older server.
+Two regression tests cover delayed publication and the timeout; all 23 focused
+instance/startup checks passed. The revised source must pass fresh full-suite,
+CI, native startup and stabilization gates before publication.
 No owner app restart or live realm/provider testing.
 
 Provider model defaults were reviewed against official documentation during M10

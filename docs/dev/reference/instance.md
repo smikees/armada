@@ -35,6 +35,10 @@ Ask the owner to show a window; never mistake an old headless server for one.
 
 Kernel-held lifetime lock: simultaneous launches and crashes cannot steal ownership.
 
+### `_wait_for_owner(timeout=10.0)`
+
+A held lock can precede publication of its owner's atomic state file.
+
 ### `_publish(**updates)`
 
 —

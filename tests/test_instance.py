@@ -72,6 +72,51 @@ def test_simultaneous_launches_have_one_owner(tmp_path):
             p.communicate('\n' if p.poll() is None else None, timeout=10)
 
 
+def test_duplicate_waits_for_locked_owner_to_publish(tmp_path, monkeypatch):
+    # Hold the primary between acquiring the lock and writing its owner record.
+    original_code = CODE
+    primary_code = original_code.replace('with instance.claim', """
+def delayed_legacy():
+    print('locked',flush=True)
+    sys.stdin.readline()
+    return {}
+instance._legacy=delayed_legacy
+with instance.claim""")
+    monkeypatch.setattr(sys.modules[__name__], 'CODE', primary_code)
+    owner = launch(tmp_path)
+    other = None
+    try:
+        assert owner.stdout.readline().strip() == 'locked'
+        duplicate_code = primary_code[:primary_code.index('def delayed_legacy')] + """
+original_current=instance.current
+def observed_current():
+    result=original_current()
+    if not result: print('owner-not-published',flush=True)
+    return result
+instance.current=observed_current
+""" + original_code[original_code.index('with instance.claim'):]
+        monkeypatch.setattr(sys.modules[__name__], 'CODE', duplicate_code)
+        other = launch(tmp_path)
+        assert other.stdout.readline().strip() == 'owner-not-published'
+        owner.stdin.write('\n'); owner.stdin.flush()
+        assert owner.stdout.readline().strip() == 'primary'
+        out, err = other.communicate(timeout=15)
+        assert other.returncode == 0, err
+        assert out.splitlines()[-1] == 'existing'
+    finally:
+        if other is not None and other.poll() is None:
+            other.kill(); other.communicate(timeout=10)
+        owner.communicate('\n\n', timeout=10)
+
+
+def test_unpublished_owner_wait_is_bounded(monkeypatch):
+    monkeypatch.setattr(instance, 'current', lambda: {})
+    clock = iter([0.0, 11.0])
+    monkeypatch.setattr(instance.time, 'monotonic', lambda: next(clock))
+    with pytest.raises(instance.ActivationError, match='details are not ready'):
+        instance._wait_for_owner()
+
+
 def test_duplicate_with_different_data_directory_and_port_restores_owner(tmp_path):
     """A separate launch folder/profile cannot select a different account lock."""
     code = '''
