@@ -5,6 +5,15 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.133** is the published M11 release: permission previews, responsive
+owner workflows, keyboard-safe dialogs and visible save outcomes. Publisher:
+**4,267 passed** (six skipped); both exact-source CI jobs: **4,269** (four skipped).
+Native owner/page/shared-window checks, packaged lifecycle and 72 signed-upgrade
+checks passed. Public signatures, source bytes, installer hash and website verified.
+Owner app untouched; maintainer acceptance remains pending. M12 final stress and
+contract consolidation follows. [Owner workflows](dev/OWNER_WORKFLOWS.md) ·
+[Release evidence](dev/RELEASE_0_99_133.md).
+
 Version **0.99.132** is the published M10 release: lazy page resources, preserved
 navigation state and bounded background snapshot refresh. Publisher: **4,245 passed**
 (six skipped); both exact-source Windows CI jobs: **4,247** (four skipped). Native
