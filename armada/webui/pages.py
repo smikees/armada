@@ -1165,14 +1165,18 @@ def render_section(realm, idx: int, dark=False) -> str:
 {_titlebar(realm)}{_nav(realm, name)}<div style="flex:1;min-height:0">{body}</div></div></body></html>"""
     if snapshot:
         # mirrored section: render the local copy (no firewall/iframe issues); refresh from source; link the live URL
-        snap_f = Path(realm.root) / snapshot
-        when = _fmt_ts(datetime.datetime.fromtimestamp(snap_f.stat().st_mtime).isoformat()) if snap_f.exists() else "not yet"
+        from ..routes.dashboard import _section_path
+        try:
+            snap_f = _section_path(realm.root, snapshot)
+            when = _fmt_ts(datetime.datetime.fromtimestamp(snap_f.stat().st_mtime).isoformat()) if snap_f.exists() else "not yet"
+        except (OSError, ValueError, RuntimeError, TypeError):
+            when = 'unavailable — check snapshot path'
         openbtn = (f'<a href="{E(url)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;font-size:12px;'
                    f'color:var(--color-accent);display:inline-flex;align-items:center;gap:4px">Open published ↗</a>') if url else ""
         bar = (f'<div style="display:flex;align-items:center;gap:12px;padding:7px 14px;border-bottom:1px solid var(--color-divider);'
                f'background:var(--color-surface);font-size:12px">'
-               f'<span style="color:var(--text-muted)">Local copy · updated {E(when)}</span>'
-               f'<button onclick="mcSnap({idx},this)" class="btn btn-secondary btn-sm">{_icon("refresh-cw",12)}Refresh</button>'
+               f'<span id="mc-snapshot-status" role="status" style="color:var(--text-muted)">Local copy · updated {E(when)}</span>'
+               f'<button data-snapshot-index="{idx}" onclick="mcSnap({idx},this)" class="btn btn-secondary btn-sm">{_icon("refresh-cw",12)}Refresh</button>'
                f'<span style="margin-left:auto">{openbtn}</span></div>')
         body = (f'<div style="height:100%;display:flex;flex-direction:column;min-height:0">{bar}'
                 f'<div style="flex:1;min-height:0">{iframe}</div></div>'

@@ -34,9 +34,10 @@ vm.runInNewContext(fs.readFileSync(process.argv[2],'utf8'),ctx);
 ctx.mcFDFromSelect(select,new Element('svg'));
 const dropdown=root.children[2],summary=dropdown.children[0],menu=dropdown.children[1];
 assert.equal(select.hidden,true);assert.equal(summary.attrs['aria-label'],'Model');
-assert.equal(menu.attrs.role,'listbox');assert.equal(menu.children[0].attrs['aria-selected'],'true');
+assert.equal(menu.attrs.role,'listbox');assert.equal(menu.children.length,0,'Closed menus must not build unused rows');
 function key(node,key){node.dispatchEvent(new Event('keydown',{key,bubbles:true}));}
 summary.focus();key(summary,'ArrowDown');assert.equal(dropdown.open,true);assert.equal(document.activeElement,menu.children[0]);
+assert.equal(menu.children[0].attrs['aria-selected'],'true');
 assert.equal(dropdown.dataset.menuSide,'up','Menus near the bottom must open above the control');
 key(document.activeElement,'ArrowDown');assert.equal(document.activeElement,menu.children[2],'Disabled options must be skipped');
 key(document.activeElement,'Enter');assert.equal(select.value,'gpt');assert.equal(changes,1);assert.equal(inputs,1);assert.equal(dropdown.open,false);assert.equal(document.activeElement,summary);

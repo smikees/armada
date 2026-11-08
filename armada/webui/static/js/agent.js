@@ -1,4 +1,4 @@
-function mcAvatarModal(show){const m=document.getElementById('mc-avatar-modal');if(m)m.style.display=show?'flex':'none';}
+function mcAvatarModal(show){mcPrepareDialog('mc-avatar-modal',show);}
 async function mcSetPreset(agent,preset){const msg=document.getElementById('mc-presetmsg');msg.textContent='applying…';
   try{const r=await(await fetch('/api/set-avatar-preset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,preset})})).json();
     if(r.ok){location.reload();}else{msg.textContent='error: '+(r.error||'failed');}}catch(e){msg.textContent='error: '+e;}}

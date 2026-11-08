@@ -36,9 +36,8 @@ CSS_LINKS = (f'<link rel="stylesheet" href="/static/industry.css{CSSV}">'
              # the selectable font faces (v0.99.62); a face downloads only once something uses it
              f'<link rel="stylesheet" href="/static/fonts.css{CSSV}">'
              # Local formula assets: no CDN request or conversation data leaves this renderer.
-             '<link rel="stylesheet" href="/static/vendor/katex/katex.min.css?v=0.19.1">'
-             '<script src="/static/vendor/katex/katex.min.js?v=0.19.1" defer></script>'
              f'<script src="/static/js/math.js{CSSV}" defer></script>'
+             f'<script src="/static/js/page_state.js{CSSV}" defer></script>'
              # Synchronous: scale stylesheet rules and parsed inline text before first paint.
              f'<script src="/static/js/font_size.js{CSSV}"></script>'
              # Every first-party surface, including setup, widget frames and Alexander.

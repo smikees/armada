@@ -774,7 +774,7 @@ def _user_avatar_modal() -> str:
             f'<div class="mc-modal-box" style="width:min(560px,92vw);max-height:78vh;overflow:auto">'
             f'<div style="display:flex;align-items:center;margin-bottom:12px"><div class="mc-h-card" style="margin-bottom:0px">Pick an avatar</div>'
             f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcUserAvatarModal(false)">Close</button></div>'
-            f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px;justify-items:center">{tiles}</div>'
+            f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px;justify-items:center"><template data-lazy-dialog>{tiles}</template></div>'
             f'<div id="us-presetmsg" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div></div></div>')
 
 

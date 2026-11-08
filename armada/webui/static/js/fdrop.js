@@ -48,9 +48,9 @@ function mcFDFromSelect(select,chevron){
     const width=menu.getBoundingClientRect().width;
     menu.style.left=Math.max(8-rect.left,Math.min(0,window.innerWidth-8-rect.left-width))+'px';
   }
-  function sync(){
+  function sync(build=d.open){
     const options=[...select.options],key=JSON.stringify(options.map(o=>[o.value,o.textContent,o.disabled,o.parentElement?.disabled]));
-    if(key!==signature){
+    if(build&&key!==signature){
       signature=key;
       const active=menu.contains(document.activeElement)?document.activeElement.dataset.val:null,scroll=menu.scrollTop;
       menu.replaceChildren();rows=options.map(o=>{
@@ -75,12 +75,13 @@ function mcFDFromSelect(select,chevron){
     position();
   }
   function openAndFocus(last=false){
-    if(select.disabled)return;sync();d.open=true;summary.setAttribute('aria-expanded','true');
+    if(select.disabled)return;d.open=true;sync();summary.setAttribute('aria-expanded','true');
     position();
     const choices=enabled();(choices.find(r=>r.dataset.val===select.value)||(last?choices.at(-1):choices[0]))?.focus();
   }
-  summary.addEventListener('click',e=>{if(select.disabled)e.preventDefault();else sync();});
+  summary.addEventListener('click',e=>{if(select.disabled)e.preventDefault();else sync(true);});
   d.addEventListener('toggle',()=>{
+    if(d.open)sync();
     summary.setAttribute('aria-expanded',String(d.open));
     position();
     if(d.open)document.querySelectorAll('.mc-select-dropdown[open]').forEach(other=>{if(other!==d)other.open=false;});
@@ -99,12 +100,12 @@ function mcFDFromSelect(select,chevron){
       e.preventDefault();if(index>=0)choices[index].click();else if(d.open)close();else openAndFocus();
     }else if(e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
       e.preventDefault();const now=Date.now();search=(now-searchAt>700?'':search)+e.key.toLowerCase();searchAt=now;
-      if(!d.open)openAndFocus();choices.find(r=>r.textContent.trim().toLowerCase().startsWith(search))?.focus();
+      if(!d.open)openAndFocus();enabled().find(r=>r.textContent.trim().toLowerCase().startsWith(search))?.focus();
     }
   });
-  select.addEventListener('change',sync);
+  select.addEventListener('change',()=>sync());
   // Model/effort choices are replaced after each provider probe; never leave stale options.
-  new MutationObserver(sync).observe(select,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','label','selected']});
+  new MutationObserver(()=>sync()).observe(select,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','label','selected']});
   document.addEventListener('click',e=>{if(d.open&&!d.contains(e.target))close();});
   window.addEventListener('resize',position);
   document.addEventListener('scroll',position,true);

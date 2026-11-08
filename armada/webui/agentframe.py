@@ -501,5 +501,5 @@ def _avatar_modal(agent_id: str) -> str:
             f'<div style="display:flex;align-items:center;margin-bottom:12px"><div style="font-family:var(--font-heading);'
             f'font-weight:600;font-size:16px">Pick an avatar</div>'
             f'<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="mcAvatarModal(false)">Close</button></div>'
-            f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px;justify-items:center">{tiles}</div>'
+            f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:14px;justify-items:center"><template data-lazy-dialog>{tiles}</template></div>'
             f'<div id="mc-presetmsg" style="font-size:12px;color:var(--text-muted);margin-top:10px"></div></div></div>')

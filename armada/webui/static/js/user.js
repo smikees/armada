@@ -1,4 +1,4 @@
-function mcUserAvatarModal(show){var m=document.getElementById('us-avatar-modal');if(m)m.style.display=show?'flex':'none';}
+function mcUserAvatarModal(show){mcPrepareDialog('us-avatar-modal',show);}
 async function mcSetUserPreset(preset){var msg=document.getElementById('us-presetmsg');msg.textContent='applying…';
   try{const r=await(await fetch('/api/user-avatar-preset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preset})})).json();
     if(r.ok){location.reload();}else{msg.textContent='error: '+(r.error||'failed');}}catch(e){msg.textContent='error: '+e;}}

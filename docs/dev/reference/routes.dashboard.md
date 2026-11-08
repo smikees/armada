@@ -34,7 +34,7 @@ Validate a section-relative file with the shared Windows-safe path guard.
 - `DashboardRoutes._delete_section(self, body: dict)` — —
 - `DashboardRoutes._rename_section(self, body: dict)` — Rename in place — change only the display name, preserving url/path/widget/snapshot.
 - `DashboardRoutes._reorder_sections(self, body: dict)` — Reorder to the given index permutation (list of original indices, new order).
-- `DashboardRoutes._snapshot_refresh(self, section: dict, force: bool=False)` — Keep a section's local snapshot (inside the realm) fresh from its `source`. source = a local file/glob (newest wins) or an http(s) URL. Serving the local copy means external firewalls / cross-origin iframe 'verifying…' challenges never bite.
+- `DashboardRoutes._snapshot_refresh(self, section: dict, force: bool=False)` — Compatibility entry for explicit synchronous callers, never page rendering.
 - `DashboardRoutes._section_snapshot(self, body: dict)` — —
 - `DashboardRoutes._section_asset(self, path: str)` — Serve a file from an 'app section's local asset directory (sandboxed to that dir), so a mini-site (shell + css + js + data) renders same-origin — its own header, edition picker and theme toggle all work, with no external firewall in the way.
 - `DashboardRoutes._section_raw(self, path: str)` — —

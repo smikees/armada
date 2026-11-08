@@ -130,6 +130,7 @@
 | [`schedsvc`](schedsvc.md) | Scheduler lifecycle for the Armada desktop app. |
 | [`scheduler`](scheduler.md) | Local scheduler (SPEC §8/§12) — the missing heart: fire jobs on their cadence. |
 | [`scheduler_state`](scheduler_state.md) | Scheduler leases and durable daily attempts |
+| [`section_snapshots`](section_snapshots.md) | Bounded background refreshes of owner-configured section snapshots. |
 | [`serve`](serve.md) | `armada serve` — the interactive local app (SPEC §13). |
 | [`setup`](setup.md) | `armada new` — scaffold a ARMADA-native realm from a template (SPEC §12). |
 | [`setupflow`](setupflow.md) | The setup wizard's server side (launch plan 6.4; the page is webui/setup_wizard.py). |

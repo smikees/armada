@@ -343,7 +343,7 @@ function mcUpd(b){return window.mcUpdateNow(b,document.getElementById("mc-updmsg
 async function mcRestart(b){const m=document.getElementById("mc-updcheck");if(b)b.disabled=true;m.style.color="var(--text-muted)";m.textContent="restarting…";
   try{await fetch("/restart",{method:"POST"});}catch(e){}
   let n=0;const t=setInterval(async()=>{n++;try{await fetch("/api/realm",{cache:"no-store"});clearInterval(t);location.reload();}catch(e){if(n>50){clearInterval(t);m.textContent="taking longer than expected — reload manually";if(b)b.disabled=false;}}},400);}
-function mcChangelog(show){const m=document.getElementById('mc-changelog');if(m)m.style.display=show?'flex':'none';}
+function mcChangelog(show){mcPrepareDialog('mc-changelog',show);}
 async function mcCheckUpd(b){const m=document.getElementById('mc-updcheck');m.textContent='checking…';m.style.color='var(--text-muted)';b.disabled=true;
   const box=document.getElementById('mc-updbox'),um=document.getElementById('mc-updmsg'),ub=document.getElementById('mc-updbtn');
   try{const j=await(await fetch('/api/check-update')).json();

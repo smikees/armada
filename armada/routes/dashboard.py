@@ -326,79 +326,24 @@ class DashboardRoutes:
             return {"ok": False, "error": str(e)}
 
     def _snapshot_refresh(self, section: dict, force: bool = False):
-        """Keep a section's local snapshot (inside the realm) fresh from its `source`.
-        source = a local file/glob (newest wins) or an http(s) URL. Serving the local copy
-        means external firewalls / cross-origin iframe 'verifying…' challenges never bite."""
-        snap = section.get("snapshot")
-        src = section.get("source")
-        if not snap or not src:
-            return
+        """Compatibility entry for explicit synchronous callers, never page rendering."""
+        from ..section_snapshots import refresh
         try:
-            dest = _section_path(self.realm, snap)
-        except (OSError, ValueError, RuntimeError, TypeError):
-            log.warning('Refused an unsafe section snapshot destination')
-            return
-
-        def _newest(pattern):
-            import glob as _glob
-            cands = _glob.glob(pattern) if any(c in str(pattern) for c in "*?[") else [pattern]
-            files = [Path(c) for c in cands if Path(c).is_file()]
-            return max(files, key=lambda p: p.stat().st_mtime) if files else None
-        try:
-            content = None
-            if isinstance(src, str) and src.lower().startswith(("http://", "https://")):
-                if not force and dest.exists():
-                    return                          # URL sources refresh only on demand (button)
-                import urllib.request
-                req = urllib.request.Request(src, headers={"User-Agent": "ARMADA/1.0"})
-                content = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "replace")
-            else:
-                nf = _newest(src)
-                if not nf:
-                    return
-                if not force and dest.exists() and nf.stat().st_mtime <= dest.stat().st_mtime:
-                    return                          # snapshot already up to date
-                content = nf.read_text(encoding="utf-8-sig", errors="replace")
-            if content is None:
-                return
-            # a bare content fragment (no <html>) is wrapped into a styled standalone doc so it
-            # renders correctly on its own — inline the section's stylesheet if one is configured.
-            if "<html" not in content.lower():
-                css = ""
-                cssref = section.get("css")
-                cf = _newest(cssref) if cssref else None
-                if cf:
-                    css = cf.read_text(encoding="utf-8-sig", errors="replace")
-                content = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-                           '<meta name="viewport" content="width=device-width, initial-scale=1">'
-                           + (f"<style>{css}</style>" if css else "")
-                           + "</head><body>" + content + "</body></html>")
-            with util.file_lock(dest):
-                if _section_path(self.realm, snap) != dest:
-                    raise ValueError('Snapshot destination changed during refresh.')
-                util.write_text_atomic(dest, content)
-        except Exception:  # noqa — a stale/missing snapshot just falls back to the URL
-            log.debug('_snapshot_refresh: failed; ignored', exc_info=True)
+            return refresh(self.realm, section, force=force)
+        except Exception:
+            log.warning('Section snapshot refresh failed; preserving the existing copy', exc_info=True)
+            return None
 
     def _section_snapshot(self, body: dict) -> dict:
-        from .. import reader
+        from ..section_snapshots import request
         try:
-            i = int(body.get("index", body.get("idx", -1)))
-        except (TypeError, ValueError):
-            return {"ok": False, "error": "bad index"}
-        sections = getattr(reader.read(self.realm), "sections", []) or []
-        if i < 0 or i >= len(sections):
-            return {"ok": False, "error": "no such section"}
-        s = sections[i]
-        if not (isinstance(s, dict) and s.get("snapshot")):
-            return {"ok": False, "error": "section has no local snapshot"}
-        try:
-            _section_path(self.realm, s['snapshot'])
-            self._snapshot_refresh(s, force=True)
-            dest = _section_path(self.realm, s['snapshot'])
-            return {"ok": dest.is_file(), "ts": int(dest.stat().st_mtime) if dest.is_file() else 0}
+            index = int(body.get('index', body.get('idx', -1)))
+            ticket = body.get('ticket', '')
+            if not isinstance(ticket, str) or len(ticket) > 64:
+                raise ValueError('Invalid refresh ticket.')
+            return request(self.realm, index, force=body.get('force', True) is True, ticket=ticket)
         except (OSError, ValueError, RuntimeError, TypeError):
-            return {"ok": False, "error": "Snapshot path must stay within the realm without links or traversal."}
+            return {'ok': False, 'error': 'Section is unavailable or its snapshot path is unsafe. Reload and check its configuration.'}
 
     def _section_asset(self, path: str):
         """Serve a file from an 'app section's local asset directory (sandboxed to that dir),
@@ -464,14 +409,16 @@ class DashboardRoutes:
         if isinstance(s, dict) and s.get("snapshot"):
             try:
                 _section_path(self.realm, s['snapshot'])
-                self._snapshot_refresh(s)              # lazy: pull newest from source if stale
                 snap = _section_path(self.realm, s['snapshot'])
             except (OSError, ValueError, RuntimeError, TypeError):
                 self._send(404, 'file not found in realm', 'text/plain'); return
             if snap.is_file():
                 self._send(200, snap.read_bytes(), "text/html; charset=utf-8")
                 return
-            # no snapshot yet → fall through to the live URL if there is one
+            self._send(200, '<!doctype html><html lang="en"><meta charset="utf-8">'
+                       '<p>The local copy is not ready. Use Refresh in the section toolbar to try again.</p></html>',
+                       'text/html; charset=utf-8')
+            return
         if isinstance(s, dict) and s.get("url"):
             self.send_response(302); self.send_header("Location", s["url"]); self.end_headers()
             return
