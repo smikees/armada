@@ -165,6 +165,17 @@ html,body{margin:0;height:100%;background:var(--color-bg);color:var(--color-text
 .mc-tab{font-family:var(--font-heading);font-weight:600;font-size:15px;letter-spacing:.01em;padding:9px 2px;border-bottom:3px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;color:color-mix(in srgb,var(--color-text) 62%,transparent);cursor:pointer;white-space:nowrap;text-decoration:none}
 .mc-tab:hover{color:var(--color-text)}
 .mc-tab[aria-current="page"]{color:var(--color-text);border-bottom-color:var(--color-accent-2)}
+.mc-navigation-loading{position:relative;flex:1;min-height:0;z-index:40;overflow:auto;
+  padding:32px 24px;background:var(--color-bg);color:var(--color-text)}
+.mc-navigation-loading[hidden],.mc-navigation-slow[hidden]{display:none}
+.mc-navigation-title{font-family:var(--font-heading);font-size:24px;line-height:1.2;margin:0 0 18px;overflow-wrap:anywhere}
+.mc-navigation-loading p{display:flex;align-items:center;gap:10px;font-size:14px;line-height:1.5;margin:0 0 16px}
+.mc-navigation-spinner{width:16px;height:16px;flex:none;border:2px solid var(--color-divider);
+  border-top-color:var(--color-text);border-radius:50%;animation:mc-navigation-turn .8s linear infinite}
+.mc-navigation-slow{margin-top:28px}
+.mc-nav-action.mc-navigation-target{outline:2px solid var(--color-accent-2);outline-offset:5px}
+@keyframes mc-navigation-turn{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.mc-navigation-spinner{animation:none}}
 .mc-row:hover{background:color-mix(in srgb,var(--color-text) 4%,transparent)}
 .mc-agent:hover{border-color:color-mix(in srgb,var(--color-text) 45%,transparent);box-shadow:var(--shadow-sm)}
 .mc-tab-user{font-family:var(--font-body);font-weight:500;font-size:13.5px;letter-spacing:0}

@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.134. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.135. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
 on [armada.stamih.com](https://armada.stamih.com).
@@ -63,6 +63,11 @@ resources and lifecycle, compact layout and shared-thread behavior with syntheti
 Its synthetic engine runs through the real coordinator: live and terminal transcript HTML must
 match in both views, Stop must cancel from either view despite a stale run ID, and disconnecting
 or reopening a view must preserve the active conversation.
+
+For page-navigation feedback changes, also run `python tools/navigation_probe.py --output
+build/navigation.json`. Its synthetic delayed-response test must show feedback
+before the response arrives and preserve cancellation, page state, rapid menu
+changes and Back. See [navigation feedback](NAVIGATION_FEEDBACK.md).
 
 For changes to startup, instance activation, error navigation or full quit, also run the native
 startup check before release:
