@@ -888,11 +888,13 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
           f'each one under Realm → Notifications.</div>'
         + f'<span id="st-ch-msg" style="font-size:11.5px;color:var(--text-muted)"></span>')
 
+    from .system_memory import editor as system_memory_editor
     app_tab = (
         sect("Version", version_box)
         # First, because it's the setting everything else sits inside — and the one a fresh
         # install has to answer before a realm can exist at all.
         + sect("Root folder", _approot_box())
+        + sect("ARMADA system memory", system_memory_editor())
         + sect("About", f'<div style="font-size:12.5px;line-height:1.55">{E(_ABOUT)}</div>'
                f'<div style="font-size:12px;line-height:1.55;margin-top:8px;color:var(--text-muted)">'
                f'{E(brand.LICENCE)} <a href="{E(brand.LICENCE_URL)}" target="_blank" rel="noopener" '
@@ -1346,6 +1348,7 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
         return _fmt_ts(ts) if ts else ""
 
     def card(m, archived=False, depth=0):
+        from .. import inbox_timing
         state = m.get("state", "")
         pending = state in (_inbox.PENDING, _inbox.RUNNING)
         running = state == _inbox.RUNNING
@@ -1359,6 +1362,17 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
             tag, col = "Failed", "var(--status-bad)"
         else:
             tag, col = "Done", "var(--status-ok)"
+        timing_state, timing_reason = inbox_timing.status(realm_root, m)
+        if state == _inbox.PENDING and timing_state != 'eligible':
+            tag = {'deferred': 'Scheduled', 'expired': 'Expired', 'invalid': 'Invalid timing'}[timing_state]
+        elif m.get('timing_state') in ('expired', 'invalid'):
+            tag = 'Expired' if m['timing_state'] == 'expired' else 'Invalid timing'
+        try:
+            timing_text = inbox_timing.description(realm_root, m)
+        except (OSError, ValueError):
+            timing_text = timing_reason
+        if m.get('timing_override'):
+            timing_text += '\nTiming overridden by owner with Process now.'
         detail = str(m.get("detail") or "")
         ctx = str(m.get("context") or "")
         ask = str(m.get("ask", ""))
@@ -1378,7 +1392,7 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
         # more to see", so the full text was unreachable: the ellipsis led nowhere.
         has_more = truncated or len(stripped) > len(first) or bool(ctx) or bool(detail)
         acts = ""
-        if pending and not reply:
+        if pending and not running and not reply and timing_state != 'invalid':
             acts += (f'<a class="mc-cap-ico" title="Process now — don\'t wait for the next run" '
                      f'data-act="process" data-agent="{aid}" data-id="{mid}">{_icon("zap",15)}</a>')
         # Re-running a reply makes no sense — it's a note, not a task.
@@ -1432,7 +1446,9 @@ def inbox_view(realm, realm_root, agent_id: str = None) -> str:
             f'<span style="font-weight:600;color:{body_col}">{who(m.get("agent",""))}</span>'
             f'{_pill(tag, _tone(col))}<span>{E(when(m))}</span></div>'
             f'<div style="font-size:12.5px;line-height:1.45;margin-top:3px;color:{body_col}">'
-            f'{E(title)}</div></div>'
+            f'{E(title)}</div>'
+            + (f'<div style="font-size:11.5px;white-space:pre-wrap;color:var(--text-muted);margin-top:4px">{E(timing_text)}</div>' if timing_text else '')
+            + '</div>'
             f'<div style="display:flex;align-items:center;gap:8px;white-space:nowrap">{acts}</div>'
             f'</summary>{body}</details>')
 

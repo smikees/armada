@@ -1074,6 +1074,8 @@ def _inbox_capability(realm_root: Path, agent_dir: Path) -> str:
             "- They act on their own schedule (minutes to a day), not immediately. Tell the owner "
             "you've asked <teammate> to do it — don't wait for it or claim it's done.\n"
             "- Their answer comes back to your own inbox, and the owner sees the exchange.\n"
+            "- Optional process_after / process_before JSON timestamps restrict when the recipient may start. "
+            "Use ISO timestamps with an explicit UTC offset. See ARMADA system memory for timing rules.\n"
             "- Only delegate real work. Don't send acknowledgements, thanks, or 'just checking' "
             "messages: every one of them wakes an agent and spends the owner's subscription.\n")
     except Exception:  # noqa — the preamble must never break a run
@@ -1082,7 +1084,8 @@ def _inbox_capability(realm_root: Path, agent_dir: Path) -> str:
 
 
 def run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str = "main",
-                   engine="auto", allow_tools: bool = True, label: str = "adhoc") -> dict:
+                   engine="auto", allow_tools: bool = True, label: str = "adhoc", inbox_message=None,
+                   inbox_timing_override=False) -> dict:
     """Run a one-off prompt as this agent, through exactly the same path a scheduled job takes.
 
     Deliberately not a shortcut: reusing _run_job_inner means an inbox task gets the same context
@@ -1092,7 +1095,8 @@ def run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str = "main",
     realm_root = Path(realm_root)
     job = {"id": label, "name": "Inbox task", "kind": "agent", "prompt": prompt}
     return _run_job_inner(realm_root, agent_id, label, engine, thread, allow_tools,
-                          None, realm_root / "agents" / agent_id, None, job)
+                          None, realm_root / "agents" / agent_id, None, job,
+                          inbox_message=inbox_message, inbox_timing_override=inbox_timing_override)
 
 
 def run_inbox(realm_root, agent_id: str, engine="auto") -> dict:
@@ -1120,7 +1124,7 @@ def run_inbox(realm_root, agent_id: str, engine="auto") -> dict:
         ok_to_run, why = inbox.screen(realm_root, agent_id, msg)
         if not ok_to_run:
             # Rejected before any engine call — file it with the reason and tell the sender.
-            claimed = inbox.claim(realm_root, agent_id, msg)
+            claimed = inbox.claim(realm_root, agent_id, msg, for_execution=False)
             if claimed:
                 inbox.complete(realm_root, agent_id, claimed, False, f"Not actioned: {why}.")
             continue
@@ -1139,7 +1143,7 @@ def run_inbox(realm_root, agent_id: str, engine="auto") -> dict:
             report = run_job_prompt(realm_root, agent_id, inbox.prompt_for(claimed),
                                     thread=inbox.INBOX_THREAD,
                                     engine=access["provider"] if isinstance(engine, (str, type(None))) else engine,
-                                    allow_tools=True, label=f"inbox:{claimed.get('id')}")
+                                    allow_tools=True, label=f"inbox:{claimed.get('id')}", inbox_message=claimed)
             ok = (report or {}).get("status") == "ok"
             detail = (report or {}).get("summary") or ""
         except Exception as e:  # noqa — one bad task must not stop the rest of the batch
@@ -1155,7 +1159,7 @@ def run_inbox(realm_root, agent_id: str, engine="auto") -> dict:
     return {"ok": failed == 0, "handled": handled, "failed": failed}
 
 
-def process_message_now(realm_root, agent_id: str, msg_id: str, engine="auto") -> dict:
+def process_message_now(realm_root, agent_id: str, msg_id: str, engine="auto", *, timing_confirmation=None) -> dict:
     """Run one waiting message immediately, ignoring the agent's cadence.
 
     Cadence is a "how soon at the latest" promise; asking for it now is the owner overriding that,
@@ -1178,18 +1182,28 @@ def process_message_now(realm_root, agent_id: str, msg_id: str, engine="auto") -
             break
     if not target:
         return {"ok": False, "error": "That message isn't waiting any more."}
-    ok_to_run, why = inbox.screen(realm_root, agent_id, target)
+    from . import inbox_timing
+    try:
+        constraints = inbox_timing.description(realm_root, target)
+    except (OSError, ValueError) as exc:
+        return {'ok': False, 'error': 'Invalid inbox timing: ' + str(exc)}
+    override = bool(constraints and timing_confirmation == inbox_timing.confirmation(target))
+    if constraints and not override:
+        return {'ok': False, 'requires_timing_confirmation': True,
+                'timing_confirmation': inbox_timing.confirmation(target),
+                'warning': constraints + '\n\nProcess this task now, overriding these timing constraints?'}
+    ok_to_run, why = inbox.screen(realm_root, agent_id, target, timing_override=override)
     if not ok_to_run:
-        claimed = inbox.claim(realm_root, agent_id, target)
+        claimed = inbox.claim(realm_root, agent_id, target, for_execution=False)
         if claimed:
             inbox.complete(realm_root, agent_id, claimed, False, f"Not actioned: {why}.")
         return {"ok": False, "error": why}
     access = recipient_access(realm_root, agent_id, engine)
     if not access["ok"]:
         return {**access, "error": access["detail"]}  # existing Process now UI reads error
-    claimed = inbox.claim(realm_root, agent_id, target)
+    claimed = inbox.claim(realm_root, agent_id, target, timing_confirmation=timing_confirmation if override else None)
     if not claimed:
-        return {"ok": False, "error": "That message was just picked up by the scheduler."}
+        return {"ok": False, "error": "That message changed or was picked up. Reload it and try again."}
 
     def _go():
         agent = _load_json(realm_root / "agents" / agent_id / "agent.json") or {}
@@ -1199,7 +1213,8 @@ def process_message_now(realm_root, agent_id: str, msg_id: str, engine="auto") -
                                     thread=inbox.INBOX_THREAD,
                                     engine=access["provider"] if isinstance(engine, (str, type(None))) else engine,
                                     allow_tools=True,
-                                    label=f"inbox:{claimed.get('id')}")
+                                    label=f"inbox:{claimed.get('id')}", inbox_message=claimed,
+                                    inbox_timing_override=override)
             ok = (report or {}).get("status") == "ok"
             detail = (report or {}).get("summary") or ""
         except Exception as e:  # noqa
@@ -1540,7 +1555,7 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
 
 
 def _run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools,
-                   eng, agent_dir, agent, job) -> dict:
+                   eng, agent_dir, agent, job, *, inbox_message=None, inbox_timing_override=False) -> dict:
     """Keep the old job entry point; all model turns go through the shared coordinator."""
     if job.get("kind") == "command" or job.get("run") or job.get("command"):
         return _run_command(Path(realm_root), agent_id, job_id, job, agent_dir)
@@ -1548,4 +1563,5 @@ def _run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools,
     context = RunContext.capture(realm_root, agent_id, thread)
     return TurnCoordinator(TurnRequest(context, job.get("prompt", ""),
                            engine, allow_tools or job.get("allow_tools") is True,
-                           task=job_id, job=job)).run()
+                           task=job_id, job=job, inbox_message=inbox_message,
+                           inbox_timing_override=inbox_timing_override)).run()

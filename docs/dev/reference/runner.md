@@ -191,7 +191,7 @@ Every agent records where a skill it wrote or fetched came from.
 
 How this agent hands a task to a teammate — the delegation contract, addressed to THIS agent. Same shape as the job-proposal contract: write one file, no exploration needed.
 
-### `run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str='main', engine='auto', allow_tools: bool=True, label: str='adhoc')`
+### `run_job_prompt(realm_root, agent_id: str, prompt: str, thread: str='main', engine='auto', allow_tools: bool=True, label: str='adhoc', inbox_message=None, inbox_timing_override=False)`
 
 Run a one-off prompt as this agent, through exactly the same path a scheduled job takes.
 
@@ -199,7 +199,7 @@ Run a one-off prompt as this agent, through exactly the same path a scheduled jo
 
 Act on whatever is waiting in one agent's inbox.
 
-### `process_message_now(realm_root, agent_id: str, msg_id: str, engine='auto')`
+### `process_message_now(realm_root, agent_id: str, msg_id: str, engine='auto', *, timing_confirmation=None)`
 
 Run one waiting message immediately, ignoring the agent's cadence.
 
@@ -243,6 +243,6 @@ Compatibility streaming entry point; the coordinator owns persistence and cleanu
 
 —
 
-### `_run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools, eng, agent_dir, agent, job)`
+### `_run_job_inner(realm_root, agent_id, job_id, engine, thread, allow_tools, eng, agent_dir, agent, job, *, inbox_message=None, inbox_timing_override=False)`
 
 Keep the old job entry point; all model turns go through the shared coordinator.

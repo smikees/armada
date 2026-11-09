@@ -473,6 +473,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         "/api/cap-update": "_update_capability_version", "/api/scan-updates": "_scan_updates",
         "/api/reveal-skill": "_reveal_skill", "/api/notify-test": "_notify_test",
         "/api/save-channels": "_save_channels",
+        "/api/save-system-memory": "_save_system_memory",
         "/api/telegram-token": "_telegram_token", "/api/telegram-env": "_telegram_env",
         "/api/telegram-link": "_telegram_link", "/api/telegram-forget": "_telegram_forget",
         "/api/open-file": "_open_file", "/api/delete-artefact": "_delete_artefact",

@@ -444,7 +444,7 @@ class DashboardRoutes:
         """Run a waiting message now instead of waiting for the agent's cadence."""
         from .. import runner
         return runner.process_message_now(self.realm, str(body.get("agent", "")),
-                                          str(body.get("id", "")))
+                                          str(body.get("id", "")), timing_confirmation=body.get('timing_confirmation'))
 
     def _inbox_delete(self, body: dict) -> dict:
         from .. import inbox

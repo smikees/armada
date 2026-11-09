@@ -68,6 +68,10 @@ def _core_sections(realm_root, agent_dir, agent: dict) -> list[tuple[str, str]]:
     into the prompt and core_breakdown() sizes them, so the UI can't drift from what's injected."""
     realm_root, agent_dir = Path(realm_root), Path(agent_dir)
     S: list[tuple[str, str]] = []
+    from . import system_memory
+    shared = system_memory.prompt()
+    if shared:
+        S.append(('mission', shared))
 
     obj, ten = _read(realm_root / "objectives.md"), _read(realm_root / "tenets.md")
     if obj.strip():

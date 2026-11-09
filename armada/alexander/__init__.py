@@ -25,4 +25,6 @@ def prompt() -> str:
     """The system prompt, without the leading reviewer comment."""
     text = PROMPT_FILE.read_text(encoding="utf-8")
     start = text.find("-->")
-    return text[start + 3:].strip() if text.lstrip().startswith("# Alexander") and start != -1 else text
+    text = text[start + 3:].strip() if text.lstrip().startswith("# Alexander") and start != -1 else text
+    from .. import system_memory
+    return text + '\n\n' + system_memory.prompt()

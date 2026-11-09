@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.135. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.136. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
 on [armada.stamih.com](https://armada.stamih.com).
@@ -68,6 +68,11 @@ For page-navigation feedback changes, also run `python tools/navigation_probe.py
 build/navigation.json`. Its synthetic delayed-response test must show feedback
 before the response arrives and preserve cancellation, page state, rapid menu
 changes and Back. See [navigation feedback](NAVIGATION_FEEDBACK.md).
+
+For inbox timing or app system-memory changes, also run `python tools/inbox_timing_probe.py
+--output build/inbox-timing.json`. Settings Save/Restore and the original-constraint
+warning's Cancel/Process now paths must pass with synthetic messages and a fake
+recipient. See [timed inbox](INBOX_TIMING.md).
 
 For changes to startup, instance activation, error navigation or full quit, also run the native
 startup check before release:

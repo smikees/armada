@@ -38,8 +38,15 @@ document.addEventListener('click',async function(e){
   el.style.pointerEvents='none';
   const ep={unread:'/api/inbox-unread',delete:'/api/inbox-delete',process:'/api/inbox-process'}[act];
   try{
-    const r=await(await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({agent:agent,id:id})})).json();
+    const payload={agent:agent,id:id};
+    const post=async()=>await(await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify(payload)})).json();
+    let r=await post();
+    if(act==='process'&&r.requires_timing_confirmation){
+      const yes=await window.mcConfirm('Override inbox timing?',r.warning,{ok:'Process now',primary:true});
+      if(!yes){el.style.pointerEvents='';return;}
+      payload.timing_confirmation=r.timing_confirmation;r=await post();
+    }
     if(!r.ok){await window.mcConfirm('That didn\'t work',r.error||'Could not do that.',{ok:'OK'});
       el.style.pointerEvents='';return;}
     if(act==='process'){

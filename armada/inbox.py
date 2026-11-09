@@ -203,9 +203,10 @@ def _is_coordinator(realm_root, agent_id: str) -> bool:
 
 # ---- sending ----------------------------------------------------------------------------------
 
-def _fingerprint(frm: str, ask: str) -> str:
+def _fingerprint(frm: str, ask: str, timing=None) -> str:
     norm = re.sub(r"\s+", " ", str(ask or "")).strip().lower()
-    return hashlib.sha1(f"{frm}|{norm}".encode("utf-8")).hexdigest()[:16]
+    suffix = '|' + json.dumps(timing, sort_keys=True) if timing else ''
+    return hashlib.sha1(f"{frm}|{norm}{suffix}".encode("utf-8")).hexdigest()[:16]
 
 
 def _recent_fingerprints(realm_root, agent_id: str) -> set:
@@ -226,6 +227,8 @@ def _ran_last_hour(realm_root, agent_id: str) -> int:
     cutoff = time.time() - 3600
     n = 0
     for m in _list(realm_root, agent_id, DONE):
+        if m.get('timing_state') in ('expired', 'invalid'):
+            continue
         try:
             if _dt.datetime.fromisoformat(m.get("started", "") or m.get("created", "")).timestamp() >= cutoff:
                 n += 1
@@ -236,7 +239,7 @@ def _ran_last_hour(realm_root, agent_id: str) -> int:
 
 
 def send(realm_root, frm: str, to: str, ask: str, context: str = "",
-         origin: str = "", hops: int = 0) -> dict:
+         origin: str = "", hops: int = 0, *, process_after=None, process_before=None) -> dict:
     """Queue a task for another agent. Returns {ok, id} or {ok:False, error, reason}."""
     ask = str(ask or "").strip()
     if not ask:
@@ -266,14 +269,24 @@ def send(realm_root, frm: str, to: str, ask: str, context: str = "",
         return {"ok": False, "error": f"{to} doesn't accept tasks from other agents.", "reason": "refused"}
     if acc == "coordinator" and not _is_coordinator(realm_root, frm):
         return {"ok": False, "error": f"{to} only accepts tasks from the coordinator.", "reason": "refused"}
-    fp = _fingerprint(frm, ask)
+    from . import inbox_timing
+    try:
+        originals = {k: v for k, v in [('process_after', process_after), ('process_before', process_before)] if v is not None}
+        timing = inbox_timing.normalized(realm_root, {'ask': ask, **originals})
+        for edge, value in inbox_timing._DIRECTIVE.findall(ask):
+            originals.setdefault('process_' + edge.lower(), value)
+    except (OSError, ValueError) as exc:
+        return {'ok': False, 'error': str(exc), 'reason': 'invalid-timing'}
+    fp = _fingerprint(frm, ask, timing)
     if fp in _recent_fingerprints(realm_root, to):
         return {"ok": False, "error": "That exact task was already sent recently.", "reason": "duplicate"}
     now = _dt.datetime.now().astimezone()
     mid = f"{now.strftime('%Y%m%d-%H%M%S')}-{fp[:6]}"
     msg = {"id": mid, "from": frm, "to": to, "ask": ask[:4000], "context": str(context or "")[:4000],
            "created": now.isoformat(timespec="seconds"), "state": PENDING,
-           "hops": int(hops), "origin": origin or frm, "fingerprint": fp}
+           "hops": int(hops), "origin": origin or frm, "fingerprint": fp, **timing}
+    if timing:
+        msg['timing_original'] = originals
     d = _box(realm_root, to, PENDING)
     d.mkdir(parents=True, exist_ok=True)
     util.write_json_atomic(d / f"{mid}.json", msg)
@@ -320,7 +333,7 @@ def mark_checked(realm_root, agent_id: str) -> None:
         swallowed(log, 'mark_checked: failed; ignored')
 
 
-def claim(realm_root, agent_id: str, msg: dict) -> dict | None:
+def claim(realm_root, agent_id: str, msg: dict, *, for_execution=True, timing_confirmation=None) -> dict | None:
     """Move a message from pending to running. The rename is the lock: if it fails, someone else
     got there first, so a restart mid-dispatch can't run the same ask twice."""
     src = Path(msg.get("_file", ""))
@@ -330,14 +343,36 @@ def claim(realm_root, agent_id: str, msg: dict) -> dict | None:
     dst_dir.mkdir(parents=True, exist_ok=True)
     dst = dst_dir / src.name
     try:
-        os.replace(src, dst)          # atomic; raises if src vanished
+        from . import inbox_timing
+        with util.file_lock(src):
+            fresh = _read(src)
+            if not fresh:
+                return None
+            state, _ = inbox_timing.status(realm_root, fresh)
+            override = bool(timing_confirmation and timing_confirmation == inbox_timing.confirmation(fresh))
+            if timing_confirmation and not override:
+                return None
+            if not override and (state == 'deferred' or (for_execution and state != 'eligible')):
+                return None
+            if override and state == 'invalid':
+                return None
+            allowed, _ = screen(realm_root, agent_id, fresh, timing_override=override)
+            if for_execution and not allowed:
+                return None
+            if not for_execution and allowed:
+                return None  # The record changed after the caller decided to reject it.
+            os.replace(src, dst)          # atomic; raises if src vanished
     except Exception:  # noqa
         log.debug('claim: failed; returning a fallback', exc_info=True)
         return None
-    m = _read(dst) or dict(msg)
+    m = dict(fresh)
     m["_file"] = str(dst)
     m["state"] = RUNNING
     m["started"] = _dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    m.pop('timing_override', None)  # A stored message cannot assert fresh owner consent.
+    if override:
+        m['timing_override'] = {'by': 'owner', 'at': m['started'],
+                                'constraints': inbox_timing.description(realm_root, m)}
     try:
         util.write_json_atomic(dst, {k: v for k, v in m.items() if not k.startswith("_")})
     except Exception:  # noqa
@@ -354,6 +389,10 @@ def complete(realm_root, agent_id: str, msg: dict, ok: bool, detail: str = "") -
     rec = {k: v for k, v in msg.items() if not k.startswith("_")}
     rec.update({"state": DONE, "ok": bool(ok), "detail": str(detail or "")[:2000],
                 "finished": _dt.datetime.now().astimezone().isoformat(timespec="seconds")})
+    from . import inbox_timing
+    timing_state, _ = inbox_timing.status(realm_root, msg)
+    if not ok and timing_state in ('expired', 'invalid') and not msg.get('timing_override'):
+        rec['timing_state'] = timing_state
     try:
         util.write_json_atomic(dst_dir / (src.name or f"{msg.get('id','x')}.json"), rec)
         if src.is_file():
@@ -379,7 +418,7 @@ def complete(realm_root, agent_id: str, msg: dict, ok: bool, detail: str = "") -
         swallowed(log, 'complete: failed; ignored')
 
 
-def screen(realm_root, agent_id: str, msg: dict) -> tuple:
+def screen(realm_root, agent_id: str, msg: dict, *, timing_override=False) -> tuple:
     """Enforce the rules at PICKUP, not just at send.
 
     Agents write inbox files directly with their Write tool (the same contract they use to propose
@@ -389,6 +428,10 @@ def screen(realm_root, agent_id: str, msg: dict) -> tuple:
 
     Returns (ok, reason). A rejected message is filed, not run: no engine, no tokens.
     """
+    from . import inbox_timing
+    state, detail = inbox_timing.status(realm_root, msg)
+    if state == 'invalid' or (not timing_override and state != 'eligible'):
+        return False, detail
     if msg.get("reply"):
         return False, "replies are notes, not tasks"
     ask = str(msg.get("ask", "")).strip()
@@ -423,7 +466,9 @@ def next_batch(realm_root, agent_id: str) -> list:
     room = max(0, _MAX_PER_HOUR - _ran_last_hour(realm_root, agent_id))
     if room <= 0:
         return []
-    return _list(realm_root, agent_id, PENDING)[:min(_MAX_PER_RUN, room)]
+    from . import inbox_timing
+    return [m for m in _list(realm_root, agent_id, PENDING)
+            if inbox_timing.status(realm_root, m)[0] != 'deferred'][:min(_MAX_PER_RUN, room)]
 
 
 def prompt_for(msg: dict) -> str:
@@ -434,6 +479,9 @@ def prompt_for(msg: dict) -> str:
     ctx = str(msg.get("context", "")).strip()
     if ctx:
         lines += ["Context they gave you:", ctx, ""]
+    if msg.get('timing_override'):
+        lines += ['The owner explicitly selected Process now and acknowledged this task’s timing warning. '
+                  'Its original processing window is overridden for this run only.', '']
     lines += ["Act on it now using your own knowledge and capabilities. If it needs a change that "
               "requires the owner's approval (editing a scheduled job, installing a capability), "
               "propose it the usual way and say so. If you can't do it, say plainly why — your "
@@ -496,7 +544,7 @@ def requeue(realm_root, agent_id: str, msg_id: str) -> dict:
     if m.get("reply"):
         return {"ok": False, "error": "Replies are notes, not tasks — there's nothing to re-run."}
     rec = {k: v for k, v in m.items() if not k.startswith("_")}
-    for gone in ("ok", "detail", "finished", "started"):
+    for gone in ("ok", "detail", "finished", "started", "timing_override", "timing_state"):
         rec.pop(gone, None)
     rec["state"] = PENDING
     rec["requeued"] = _dt.datetime.now().astimezone().isoformat(timespec="seconds")

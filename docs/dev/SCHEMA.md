@@ -1,5 +1,12 @@
 # ARMADA realm — on-disk schema
 
+Inbox timing (0.99.136, additive): pending messages may carry `process_after` and
+`process_before` timestamps. `timing_original` retains display-only source values;
+`timing_state` records expired/invalid refusals. `timing_override` in a result is
+evidence of confirmed owner processing, never a grant on an incoming message.
+App-wide `config.json.system_memory` stores owner instructions separately from realm
+memory; `system_memory_changed_at` records the last save. See [timed inbox](INBOX_TIMING.md).
+
 Provider selection: `realm.json.providers` is an optional list containing any combination
 of `claude`, `codex` and `gemini`, controlling the combined model picker. The job's
 `model` overrides the agent's `model`, which overrides `default_model`; the model determines

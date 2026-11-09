@@ -194,6 +194,8 @@ class TurnRequest:
     files: tuple = ()
     admitted_turn: str | None = None
     spoken_reply: bool = False
+    inbox_message: dict | None = None
+    inbox_timing_override: bool = False
 
 
 class TurnCoordinator:
@@ -311,12 +313,18 @@ class TurnCoordinator:
                         or existing[0].get('content') != message or not existing[0].get('voice_request')):
                     raise ValueError('The admitted spoken request is no longer pending.')
             try:
+                from . import inbox_timing
+                inbox_message = None if req.inbox_timing_override else req.inbox_message
+                if inbox_message is not None:
+                    inbox_timing.require_eligible(root, inbox_message)
                 selected, agent = r._prepare_agent_run(root, aid, req.engine,
                     req.allow_tools or bool(req.images), req.job, scheduled_job)
                 capacity.enter_context(execution_admission.scope(context, selected.name,
                     cancelled=lambda: self.session.active.cancelled,
                     on_cancel=lambda: RunSession.cancel(context.key, self.session.registry, self.session.lock),
                     on_wait=queued))
+                if inbox_message is not None:
+                    inbox_timing.require_eligible(root, inbox_message)
                 # Resolve permissions afresh after waiting; queued work carries no stale grant.
                 eng = selected
                 if waited:
@@ -423,6 +431,8 @@ class TurnCoordinator:
                     _eng = getattr(eng, "name", None)
                     core = r._tool_preamble(root, agent_dir,
                                             _eng if _eng in ("claude", "codex", "gemini") else None) + "\n" + core
+                if inbox_message is not None:
+                    inbox_timing.require_eligible(root, inbox_message)
                 compacted = th.compact_if_needed(compact_engine, threshold_chars=r._compact_threshold(root, agent, req.job))
                 summary, messages = th.snapshot()
                 _, pending = th._turn_groups(messages)
@@ -455,6 +465,8 @@ class TurnCoordinator:
                 if self.session.active.cancelled:
                     result = RunResult(ok=False, cancelled=True, error="Run stopped by the owner.")
                 else:
+                    if inbox_message is not None:
+                        inbox_timing.require_eligible(root, inbox_message)
                     execution_started = time.time()
                     result = execute_request(eng, request, on_event=event, on_proc=process)
                     if not isinstance(result, RunResult):

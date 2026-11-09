@@ -76,7 +76,7 @@ Per-agent, falling back to the realm default — the same pattern as model and e
 
 —
 
-### `_fingerprint(frm: str, ask: str)`
+### `_fingerprint(frm: str, ask: str, timing=None)`
 
 —
 
@@ -88,7 +88,7 @@ Per-agent, falling back to the realm default — the same pattern as model and e
 
 —
 
-### `send(realm_root, frm: str, to: str, ask: str, context: str='', origin: str='', hops: int=0)`
+### `send(realm_root, frm: str, to: str, ask: str, context: str='', origin: str='', hops: int=0, *, process_after=None, process_before=None)`
 
 Queue a task for another agent. Returns {ok, id} or {ok:False, error, reason}.
 
@@ -104,7 +104,7 @@ Has this agent's cadence elapsed since it last looked? Cadence is a latency prom
 
 —
 
-### `claim(realm_root, agent_id: str, msg: dict)`
+### `claim(realm_root, agent_id: str, msg: dict, *, for_execution=True, timing_confirmation=None)`
 
 Move a message from pending to running. The rename is the lock: if it fails, someone else got there first, so a restart mid-dispatch can't run the same ask twice.
 
@@ -112,7 +112,7 @@ Move a message from pending to running. The rename is the lock: if it fails, som
 
 File the message as done and tell the sender how it went — without a reply, a failed delegation is invisible to whoever asked for it.
 
-### `screen(realm_root, agent_id: str, msg: dict)`
+### `screen(realm_root, agent_id: str, msg: dict, *, timing_override=False)`
 
 Enforce the rules at PICKUP, not just at send.
 

@@ -20,6 +20,13 @@ _APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
+    def _save_system_memory(self, body):
+        from .. import system_memory
+        try:
+            return system_memory.save(body.get('text'), body.get('revision'))
+        except (ValueError, OSError) as exc:
+            return {'ok': False, 'error': str(exc)}
+
     def _get_font_size(self):
         from .. import fonts
         self._json(200, {'font_size':fonts.reference_size(), 'font_size_default':fonts.default_size()})
