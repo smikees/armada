@@ -122,13 +122,58 @@ function mcApplyMetrics(m){
     bar.style.background=m.pct>=90?'var(--status-bad)':m.pct>=70?'var(--status-warn)':'var(--color-accent-2)';}
   const wrap=document.getElementById('mc-comp-wrap');if(wrap)wrap.title='History uses ~'+Math.floor(m.chars/4).toLocaleString()+' of the model\'s '+Math.floor(m.context_window/1000)+'K-token context window. At 100% the oldest turns are summarised to keep the thread lean.';
 }
+// Activity stays compact during streaming. Templates hold inert, server-escaped rows;
+// only the requested pages enter the live DOM. No separate renderer/provider path.
+function mcActivityPage(group,limit){
+  const source=group.querySelector('.mc-activity-source')?.content;
+  const list=group.querySelector('.mc-activity-list'),more=group.querySelector('.mc-activity-more');
+  if(!source||!list||!more)return;
+  const count=Math.min(Math.max(limit,list.children.length),source.children.length);
+  while(list.children.length<count)list.appendChild(source.children[list.children.length].cloneNode(true));
+  more.hidden=count>=source.children.length;
+  more.setAttribute('aria-label','Show up to 10 older actions ('+(source.children.length-count)+' remaining)');
+}
+document.addEventListener('toggle',e=>{
+  const group=e.target;if(group.matches?.('.mc-activity')&&group.open)mcActivityPage(group,10);
+},true);
+document.addEventListener('click',e=>{
+  const more=e.target.closest?.('.mc-activity-more');if(!more)return;
+  const group=more.closest('.mc-activity'),list=group.querySelector('.mc-activity-list');
+  const firstNew=list.children.length;
+  mcActivityPage(group,firstNew+10);
+  // Keep keyboard navigation at the newly revealed page when More disappears.
+  if(more.hidden)list.children[firstNew]?.querySelector('button')?.focus({preventScroll:true});
+});
 function mcApplyTurns(box,html){
   const bottom=box.scrollHeight-box.scrollTop-box.clientHeight<90,top=box.scrollTop;
-  const open=[...box.querySelectorAll('.mc-step-d')].map((el,i)=>el.style.display==='block'?i:-1).filter(i=>i>=0);
+  const active=document.activeElement,states=new Map();
+  box.querySelectorAll('.mc-activity').forEach(group=>{
+    const list=group.querySelector('.mc-activity-list');
+    states.set(group.dataset.activityKey,{open:group.open,count:list.children.length,tail:list.lastElementChild?.dataset.stepKey,
+      details:[...list.querySelectorAll('.mc-step-h[aria-expanded=true]')].map(h=>h.closest('.mc-step').dataset.stepKey),
+      focus:group.contains(active)?active.matches('summary')?'summary':active.matches('.mc-activity-more')?'more':active.closest('.mc-step')?.dataset.stepKey:null});
+  });
   box.innerHTML=html;
-  const details=box.querySelectorAll('.mc-step-d');
-  open.forEach(i=>{if(details[i]){details[i].style.display='block';const arrow=details[i].parentNode.querySelector('.mc-step-c');if(arrow)arrow.textContent='▾';}});
-  mcMarkDone();if(bottom)mcScrollBottom();else box.scrollTop=top;
+  box.querySelectorAll('.mc-activity').forEach(group=>{
+    const state=states.get(group.dataset.activityKey);if(!state){mcActivityPage(group,0);return;}
+    group.open=state.open;
+    const rows=[...group.querySelector('.mc-activity-source').content.children];
+    const tail=rows.findIndex(row=>row.dataset.stepKey===state.tail);
+    mcActivityPage(group,Math.max(state.count,tail+1));
+    group.querySelectorAll('.mc-activity-list .mc-step').forEach(step=>{
+      if(state.details.includes(step.dataset.stepKey)){
+        const detail=step.querySelector('.mc-step-d'),header=step.querySelector('.mc-step-h');
+        if(detail){detail.style.display='block';header.setAttribute('aria-expanded','true');}
+      }
+    });
+    if(state.focus){
+      let target=state.focus==='summary'?group.querySelector('summary'):state.focus==='more'?group.querySelector('.mc-activity-more'):
+        [...group.querySelectorAll('.mc-activity-list .mc-step')].find(step=>step.dataset.stepKey===state.focus)?.querySelector('button');
+      if(!target||target.hidden)target=group.querySelector('summary');
+      target.focus({preventScroll:true});
+    }
+  });
+  mcMarkDone();if(bottom&&![...states.values()].some(state=>state.open))mcScrollBottom();else box.scrollTop=top;
 }
 function mcRefreshTurns(agent,thread){
   const context=mcThreadCtx();
@@ -225,7 +270,8 @@ function mcAddChip(steps,icon,label,detail){
 document.addEventListener('click',e=>{const h=e.target.closest&&e.target.closest('.mc-step-h');
   if(!h||!h.closest('#mc-turns'))return;const chip=h.closest('.mc-step'),d=chip&&chip.querySelector('.mc-step-d');
   if(!d)return;const open=d.style.display==='block';d.style.display=open?'none':'block';
-  const arrow=chip.querySelector('.mc-step-c');if(arrow)arrow.textContent=open?'▸':'▾';});
+  h.setAttribute('aria-expanded',String(!open));
+  const arrow=chip.querySelector('.mc-step-c');if(arrow&&!arrow.querySelector('svg'))arrow.textContent=open?'▸':'▾';});
 const MC_ACT={copy:window.mcIcon('copy',14), check:window.mcIcon('check',14),
  restart:window.mcIcon('refresh-cw',14), edit:window.mcIcon('edit',14)};
 // --- attachments + composer + menu ---

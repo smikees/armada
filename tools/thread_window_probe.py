@@ -31,6 +31,7 @@ def run(output):
     windows = []
     release = threading.Event()
     started = threading.Event()
+    advance = threading.Event()
     with tempfile.TemporaryDirectory(prefix="armada-thread-window-", ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         os.environ["ARMADA_DATA_DIR"] = str(root / "data")
@@ -89,10 +90,19 @@ def run(output):
                 on_event({"kind": "thinking", "text": "Checking synthetic data"})
                 on_event({"kind": "tool", "id": "fixture-tool", "name": "Read", "input": {"file": "synthetic.txt"}})
                 on_event({"kind": "tool_result", "id": "fixture-tool", "content": "125.50", "is_error": False})
+                for i in range(25):
+                    on_event({"kind": "tool", "id": f"check-{i}", "name": "Read",
+                              "input": {"path": f"synthetic/report-{i}.txt"}})
+                    on_event({"kind": "tool_result", "id": f"check-{i}", "content": f"Checked row {i}", "is_error": False})
                 on_event({"kind": "text", "text": "Checking the synthetic figures."})
                 started.set()
                 deadline = time.monotonic() + 60
                 while not release.is_set() and not cancelled.is_set() and time.monotonic() < deadline:
+                    if advance.is_set():
+                        advance.clear()
+                        on_event({"kind": "tool", "id": "next-check", "name": "Read",
+                                  "input": {"path": "synthetic/newest.txt"}})
+                        on_event({"kind": "thinking", "text": "A new synthetic progress update"})
                     cancelled.wait(.05)
                 if cancelled.is_set():
                     return RunResult(ok=False, cancelled=True, error="Run stopped by the owner.",
@@ -284,6 +294,39 @@ def run(output):
                          "Stop is available in the observing window")
                 wait_for(lambda: "Checking the synthetic figures." in text(main) and transcript(main) == transcript(companion),
                          "sender and occluded companion have identical live HTML and tool activity")
+                check("activity defaults to one latest row and no live history rows", main.evaluate_js(
+                    "(()=>{const g=document.querySelector('.mc-activity');return !g.open && g.querySelector('summary').textContent.includes('report-24.txt') && g.querySelector('.mc-activity-list').children.length===0})()"))
+                check("activity is between response text and Thinking status", main.evaluate_js(
+                    "(()=>{const g=document.querySelector('.mc-activity');return g.previousElementSibling.classList.contains('mc-answer') && g.nextElementSibling.classList.contains('mc-work')})()"))
+                main.evaluate_js("mcScrollBottom()")
+                screenshot(main, "thread-activity-collapsed")
+                main.evaluate_js("document.querySelector('.mc-activity>summary').click()")
+                wait_for(lambda: main.evaluate_js("document.querySelector('.mc-activity-list').children.length===10"),
+                         "opening activity reveals only ten newest entries")
+                main.evaluate_js("document.querySelector('.mc-activity-more').click()")
+                check("More reveals the next ten entries", main.evaluate_js(
+                    "document.querySelector('.mc-activity-list').children.length===20"))
+                main.evaluate_js("document.querySelector('.mc-activity-list .mc-step-h').click();document.querySelector('.mc-activity-more').focus()")
+                advance.set()
+                wait_for(lambda: main.evaluate_js("document.querySelector('.mc-activity>summary').textContent.includes('29 actions')"),
+                         "latest summary follows new streamed actions")
+                check("expanded pages and details survive streaming", main.evaluate_js(
+                    "(()=>{const g=document.querySelector('.mc-activity');return g.open && g.querySelector('.mc-activity-list').children.length===22 && g.querySelector('.mc-step-h[aria-expanded=true]').textContent.includes('report-24.txt') && document.activeElement.matches('.mc-activity-more')})()"))
+                main.evaluate_js("document.querySelector('.mc-activity-more').click()")
+                check("last page contains every retained entry without duplicates", main.evaluate_js(
+                    "(()=>{const g=document.querySelector('.mc-activity'),rows=[...g.querySelectorAll('.mc-activity-list .mc-step')];return rows.length===29 && new Set(rows.map(r=>r.dataset.stepKey)).size===29 && g.querySelector('.mc-activity-more').hidden})()"))
+                main.evaluate_js("document.querySelector('.mc-activity>summary').click();document.querySelector('.mc-activity>summary').click()")
+                check("collapse and reopen retain loaded pages", main.evaluate_js(
+                    "document.querySelector('.mc-activity-list').children.length===29"))
+                companion.resize(400, 500)
+                companion.evaluate_js("document.documentElement.classList.add('armada-dark');document.querySelector('.mc-activity>summary').click();mcScrollBottom()")
+                wait_for(lambda: companion.evaluate_js("document.querySelector('.mc-activity-list').children.length===10"),
+                         "companion expansion is independent and paginated")
+                check("narrow activity has no horizontal overflow", companion.evaluate_js(
+                    "document.documentElement.scrollWidth<=innerWidth && document.querySelector('.mc-activity').scrollWidth<=document.querySelector('.mc-activity').clientWidth"))
+                screenshot(companion, "thread-activity-expanded-dark")
+                companion.resize(560, 720)
+                companion.evaluate_js("document.documentElement.classList.remove('armada-dark')")
                 release.set()
                 wait_for(lambda: "Synthetic result: 125.50." in text(main) and "Synthetic result: 125.50." in text(companion),
                          "both views receive the saved reply")

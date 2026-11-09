@@ -74,6 +74,25 @@ html,body{margin:0;height:100%;background:var(--color-bg);color:var(--color-text
 .mc-done{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;color:var(--status-ok)}
 .mc-done svg{flex:none}
 /* assistant activity trail (tool runs + thought process), Claude-app style */
+.mc-activity{margin-top:8px;min-width:0;font-size:11.5px;color:var(--text-dim)}
+.mc-activity>summary{display:flex;align-items:center;gap:6px;min-width:0;cursor:pointer;list-style:none;user-select:none;padding:3px 0}
+.mc-activity>summary::-webkit-details-marker{display:none}
+.mc-activity>summary>svg{flex:none}
+.mc-activity>summary>svg:last-child{margin-left:2px}
+.mc-activity[open]>summary>svg:last-child{transform:rotate(90deg)}
+.mc-activity-latest{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mc-activity-count{flex:none;color:var(--text-muted)}
+.mc-activity-list{display:flex;flex-direction:column;gap:4px;margin:6px 0 0 19px}
+.mc-activity .mc-step-h{display:flex;align-items:center;gap:6px;width:100%;border:0;background:none;color:var(--text-dim);font:inherit;text-align:left;padding:3px 0}
+.mc-activity button.mc-step-h{cursor:pointer}
+.mc-activity .mc-step-l{min-width:0;overflow-wrap:anywhere}
+.mc-activity .mc-step-h>span:first-child,.mc-activity .mc-step-c{flex:none}
+.mc-activity .mc-step-c{margin-left:2px;display:flex}
+.mc-activity .mc-step-h[aria-expanded=true] .mc-step-c{transform:rotate(90deg)}
+.mc-activity-more{border:0;background:none;font:inherit;color:var(--color-accent);cursor:pointer;margin:6px 0 0 19px;padding:4px 0;text-decoration:underline;text-underline-offset:3px}
+.mc-activity-more[hidden]{display:none}
+.mc-activity>summary:hover,.mc-activity button.mc-step-h:hover{color:var(--color-text)}
+.mc-activity :is(summary,button):focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:2px}
 .mc-actchip{display:flex;align-items:center;gap:7px;font-size:11.5px;color:color-mix(in srgb,var(--color-text) 46%,transparent);margin:0 0 10px}
 .mc-actchip svg{opacity:.65;flex:none}
 .mc-think{margin:0 0 10px}

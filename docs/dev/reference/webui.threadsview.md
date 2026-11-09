@@ -122,11 +122,11 @@ Reconcile completion once; transcript and metrics consume this same generation.
 
 Render just the transcript turns for a thread (server-canonical Markdown, icons, segments). Shared by _chat_center and the /api/thread-turns refresh endpoint, so the live view after a reply becomes identical to a reloaded page (no client/server rendering drift).
 
-### `_progress_steps(events)`
+### `_progress_steps(events, key='working')`
 
-Render the same compact activity chips shown on the original streaming tab.
+One latest-action disclosure; older activity is materialized ten rows at a time.
 
-### `_working_turn(av: str, disp: str, progress: dict | None=None)`
+### `_working_turn(av: str, disp: str, progress: dict | None=None, *, key='working')`
 
 The agent is working on the message above, right now.
 

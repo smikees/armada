@@ -5,7 +5,7 @@ capabilities rails, and per-thread meta helpers. Imports lower layers (never _co
 re-imports these names.
 """
 from __future__ import annotations
-import html, json, datetime, time, re
+import html, json, datetime, time, re, hashlib
 from .. import datefmt
 from pathlib import Path
 from .. import memory, model, models, brand, status
@@ -657,7 +657,7 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
             if m.get('spoken_reply'):
                 progress = dict(progress, content='')
             if running:
-                turns += _working_turn(av, a.display, progress)
+                turns += _working_turn(av, a.display, progress, key=str(m['turn']))
             else:
                 turns += _unanswered_turn(av, a.display, bool(progress.get('content')))
     # An owner message with nothing after it. Either the agent is working on it right now — in
@@ -667,7 +667,7 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
     if pending is not None and not pending.get('voice_request') and not pending.get('transcription_incomplete'):
         progress = th.progress(pending.get("turn", ""))
         if running:
-            turns += _working_turn(av, a.display, progress)
+            turns += _working_turn(av, a.display, progress, key=str(pending.get('turn', 'working')))
         else:
             if progress.get("content"):
                 turns += _turn("assistant", progress["content"], "", len(msgs), False,
@@ -686,9 +686,11 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
     return turns
 
 
-def _progress_steps(events) -> str:
-    """Render the same compact activity chips shown on the original streaming tab."""
+def _progress_steps(events, key="working") -> str:
+    """One latest-action disclosure; older activity is materialized ten rows at a time."""
     out = []
+    latest = None
+    occurrences = {}
     for ev in events or []:
         if not isinstance(ev, dict):
             continue
@@ -728,18 +730,36 @@ def _progress_steps(events) -> str:
             icon = "terminal"
         else:
             continue
-        arrow = '<span class="mc-step-c" style="margin-left:6px;opacity:.5">▸</span>' if detail else ''
+        identity = json.dumps({k: ev[k] for k in ("kind", "text", "name", "input", "id") if k in ev},
+                              sort_keys=True, ensure_ascii=False)
+        digest = hashlib.sha256(identity.encode()).hexdigest()[:20]
+        occurrences[digest] = occurrences.get(digest, 0) + 1
+        step_key = f'{digest}-{occurrences[digest]}'
+        latest = (label, icon)
+        arrow = f'<span class="mc-step-c">{_icon("chevron-right",12)}</span>' if detail else ''
         detail_html = (f'<pre class="mc-step-d" style="display:none;margin:4px 0 2px 20px;background:var(--color-sand-100);'
                 f'border:1px solid var(--color-sand-300);border-radius:var(--r);padding:6px 8px;font-size:11px;'
                 f'line-height:1.45;white-space:pre-wrap;max-height:220px;overflow:auto">{E(detail)}</pre>') if detail else ""
-        out.append(f'<div class="mc-step"><div class="mc-step-h" style="display:flex;align-items:center;gap:6px;'
-                   f'font-size:11.5px;color:var(--text-dim);{("cursor:pointer" if detail else "")}">'
+        tag = 'button type="button" aria-expanded="false"' if detail else 'div'
+        end = 'button' if detail else 'div'
+        out.append(f'<div class="mc-step" data-step-key="{step_key}"><{tag} class="mc-step-h">'
                    f'<span style="display:flex">{_icon(icon,13)}</span><span class="mc-step-l">{E(label)}</span>'
-                   f'{arrow}</div>{detail_html}</div>')
-    return "".join(out)
+                   f'{arrow}</{end}>{detail_html}</div>')
+    if not latest:
+        return ''
+    label, icon = latest
+    count = len(out)
+    return (f'<details class="mc-activity" data-activity-key="{E(key)}">'
+            f'<summary title="{E(label)}">{_icon(icon,13)}'
+            f'<span class="mc-activity-latest">{E(label)}</span>'
+            f'<span class="mc-activity-count">{count} action{"s" if count != 1 else ""}</span>'
+            f'{_icon("chevron-right",12)}</summary>'
+            '<div class="mc-activity-list"></div>'
+            '<button type="button" class="mc-activity-more" hidden>More…</button>'
+            f'<template class="mc-activity-source">{"".join(reversed(out))}</template></details>')
 
 
-def _working_turn(av: str, disp: str, progress: dict | None = None) -> str:
+def _working_turn(av: str, disp: str, progress: dict | None = None, *, key="working") -> str:
     """The agent is working on the message above, right now.
 
     Rendered server-side, which is the whole point: the live reply streams over an SSE connection
@@ -750,13 +770,13 @@ def _working_turn(av: str, disp: str, progress: dict | None = None) -> str:
     progress = progress or {}
     activity = str(progress.get("activity") or "working on it…")
     content = str(progress.get("content") or "")
-    steps = _progress_steps(progress.get("events"))
+    steps = _progress_steps(progress.get("events"), key)
     return (f'<div class="mc-turn mc-pending" data-role="pending" style="margin-bottom:12px">'
             f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av}</div>'
             f'<div style="flex:1;min-width:0">'
             f'<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
-            f'<div class="mc-steps" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">{steps}</div>'
             f'<div class="mc-answer mc-body mc-md">{_md(content) if content else ""}</div>'
+            f'{steps}'
             f'<div class="mc-work" style="display:flex;flex-direction:column;gap:4px;margin-top:6px">'
             f'<div class="mc-step"><div class="mc-step-h" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim)">'
             f'<span style="display:flex"><img src="/static/working.gif" width="34" height="34" style="display:block" alt=""></span>'

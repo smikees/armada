@@ -68,6 +68,15 @@ In browser mode this opens a separate browser window; allow pop-ups for ARMADA i
 
 ## Conversation history
 
+While an agent works, its latest action appears in one compact row immediately
+above **Thinking…** (or the current working status), below its written update.
+Expand that row to see the ten newest actions, then choose **More…** for the next
+ten. Each action can still open its command, input, result or thinking summary.
+Your expanded pages and open details stay in place as progress arrives. The main
+page, dashboard thread widget and detached window each keep their own expansion.
+This view uses the existing recent-activity buffer (up to 80 entries); it is not
+a complete run audit log.
+
 Formulas render in both thread views, including fractions, subscripts and annotated equations.
 Use `\(...\)` for inline math and `\[...\]` or `$$...$$` for a separate equation. Ordinary
 prices such as $50 and $55 stay text, and formulas inside code examples stay literal. Unsupported

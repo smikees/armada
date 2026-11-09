@@ -72,3 +72,35 @@ def test_full_thinking_summary_survives_provider_and_navigation(tmp_path, provid
     rendered = _working_turn("", "Warren", thread.progress("test-turn"))
     assert summary in rendered
     assert "Final conclusion." in rendered
+
+
+def test_activity_is_one_latest_row_after_answer_before_working_status():
+    events = [{"kind": "tool", "id": str(i), "name": "Bash", "input": {"command": f"check-{i}"},
+               "result": "done"} for i in range(35)]
+    events.append({"kind": "tool", "id": "last", "name": "Read", "input": {"path": "latest.txt"}})
+    rendered = _working_turn("", "Captain", {"content": "Owner-facing update", "activity": "Thinking…",
+                                               "events": events}, key="turn-123")
+    assert rendered.index('mc-answer') < rendered.index('mc-activity') < rendered.index('mc-work')
+    assert 'data-activity-key="turn-123"' in rendered
+    summary = rendered.split('<summary', 1)[1].split('</summary>', 1)[0]
+    assert "Reading latest.txt" in summary and "36 actions" in summary
+    assert "Running a command" not in summary
+    assert '<div class="mc-activity-list"></div>' in rendered
+    assert 'class="mc-activity-more" hidden>More…' in rendered
+    template = rendered.split('<template class="mc-activity-source">')[1].split('</template>')[0]
+    assert template.count('data-step-key=') == 36
+    assert template.index('latest.txt') < template.index('check-34') < template.index('check-0')
+
+
+def test_activity_untrusted_values_stay_text_and_keys_survive_tool_result():
+    event = {"kind": "tool", "id": "x", "name": "Read", "input": {"path": '<img src=x onerror="bad">'}}
+    before = _working_turn("", "Captain", {"events": [event]}, key='turn"<bad>')
+    after = _working_turn("", "Captain", {"events": [dict(event, result='</template><script>bad</script>')]})
+    assert '<img src=x' not in before and '<script>bad' not in after
+    assert 'data-activity-key="turn&quot;&lt;bad&gt;"' in before
+    assert before.split('data-step-key="')[1].split('"')[0] == after.split('data-step-key="')[1].split('"')[0]
+
+
+def test_empty_or_unknown_activity_has_no_disclosure():
+    rendered = _working_turn("", "Captain", {"events": [None, {"kind": "unknown"}]})
+    assert 'mc-activity' not in rendered and 'mc-work' in rendered
