@@ -5,6 +5,16 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.137** is the published compact thread-activity release. Working
+threads show one latest-action row above the status indicator; expansion reveals
+ten entries at a time, with More for older entries. Pages, details and keyboard
+focus survive streaming independently in each view. Publisher: **4,363 passed /
+six skipped**; both exact-source Windows CI jobs: **4,365 / four skipped** after
+one transient preflight startup timeout was investigated and retried. All 89
+native thread checks, packaged lifecycle checks and **72 signed-upgrade checks**
+passed. Public signatures, source bytes, installer hash and website links verified.
+Owner app/live data untouched. [Release evidence](dev/RELEASE_0_99_137.md).
+
 Version **0.99.136** is the published timed-inbox and shared system-memory release.
 Automatic dispatch enforces processing windows; an acknowledged owner Process
 now warning grants a recorded one-time exception. Settings → App manages shared
