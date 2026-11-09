@@ -33,6 +33,16 @@ authoritative result if completion lands during a status read. Deterministic
 concurrent-reader and terminal-result regressions cover the repair. The final
 source must pass all release gates again; the failed CI was not waived.
 
+The repaired candidate then passed **4,396 / six skipped** locally and the
+packaged-Python CI job. The other CI job exposed a test synchronization defect:
+the HTTP stress fixture has one control slot, but receiving a response body does
+not imply its worker has released that slot. The next nominally sequential
+control request could legitimately receive 503 during cleanup. The test now
+waits for that explicit handoff before testing the next sequential request; a
+new delayed-cleanup case verifies 503 during actual overlap and 200 afterwards.
+Production HTTP limits and behavior are unchanged. This test-only correction
+also requires fresh final-source gates; no failure was waived.
+
 Protocol was checked against official app-server documentation and generated
 schemas from the installed Codex CLI. Provider preferences were reviewed against
 official sources on 9 November for 0.99.136 and are unchanged. Python 3.14.10 and

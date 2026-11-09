@@ -75,6 +75,13 @@ def health(server, path="/health"):
         conn.close()
 
 
+def wait_control_idle(server):
+    """A received body is not proof that its worker finished socket cleanup."""
+    slot = server._slots['control']  # This fixture deliberately has just one.
+    assert slot.acquire(timeout=2), 'Control worker did not finish cleanup'
+    slot.release()
+
+
 @pytest.mark.parametrize("extra,body,status", [
     (b"Content-Length: -1\r\n", b"", 400),
     (b"Content-Length: abc\r\n", b"", 400),
@@ -138,6 +145,7 @@ def test_idle_client_burst_is_bounded_and_controls_respond(server):
     sockets = [connect(server) for _ in range(32)]
     try:
         assert health(server) == 200
+        wait_control_idle(server)
         assert health(server, "/api/chat-stop") == 200
         with server._gate_lock:
             assert len(server._pending) <= 8
@@ -206,11 +214,32 @@ def test_saturated_body_and_stream_lanes_leave_control_capacity(server):
             sock.sendall(headers(server))
             assert response(sock)[0] == 503
         assert health(server) == 200
+        wait_control_idle(server)
         assert health(server, "/api/chat-stop") == 200
         assert server.calls == []
     finally:
         for sock in sockets:
             sock.close()
+
+
+def test_control_response_can_arrive_before_worker_releases_capacity(server, monkeypatch):
+    cleaning, release = threading.Event(), threading.Event()
+    original = server.process_request_thread
+    def delayed_cleanup(*args):
+        original(*args)
+        cleaning.set()
+        assert release.wait(2)
+    monkeypatch.setattr(server, 'process_request_thread', delayed_cleanup)
+    try:
+        assert health(server) == 200
+        assert cleaning.wait(1)
+        # This is concurrent work even though the client received the first body.
+        assert health(server, '/api/chat-stop') == 503
+        release.set()
+        wait_control_idle(server)
+        assert health(server, '/api/chat-stop') == 200
+    finally:
+        release.set()
 
 
 def test_second_request_cannot_bypass_admission(server):
