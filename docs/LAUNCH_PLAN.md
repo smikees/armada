@@ -5,11 +5,15 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.138** is the active steering release candidate. Supported Codex
+Version **0.99.138** is the published active-conversation steering release. Supported Codex
 conversations accept extra owner instructions during the same run, from either
-thread view, with exact-run checks and durable delivery status. Focused checks:
-**203 passed**; synthetic native thread probe: **100 checks passed**. Final-source
-stabilization, CI, packaged release and public verification remain pending.
+thread view, with exact-run checks and durable delivery status. CI also exposed
+and drove a Windows dry-run marker-race repair and an HTTP test synchronization
+correction. Final publisher: **4,397 passed / six skipped**; both exact-source
+Windows jobs: **4,399 / four skipped**. Final-source stabilization, three
+100-check native thread cycles, packaged lifecycle and **72 signed-upgrade
+checks** passed. Public signatures, package/source bytes, installer hash and
+website links verified. The owner app and live data were untouched.
 [Steering contract](dev/STEERING.md) · [Release evidence](dev/RELEASE_0_99_138.md).
 
 Version **0.99.137** is the published compact thread-activity release. Working

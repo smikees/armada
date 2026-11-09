@@ -1,7 +1,8 @@
 # 0.99.138 — Steer an active conversation
 
-Candidate prepared on 9 November 2026. Publication and final committed-source
-release evidence are recorded below after the gates complete.
+Released from `7fa65a2876f7da081958ebc255e74572f5c2d697` on 9 November 2026.
+[GitHub release](https://github.com/smikees/armada/releases/tag/v0.99.138) and
+[website](https://armada.stamih.com/) published and verified.
 
 Codex app-server conversations accept text steering while working, through the
 same composer in the main and detached views. Steer appears alongside Stop only
@@ -30,8 +31,8 @@ status. Windows returned PermissionError while cleanup removed the marker.
 Publication stopped. The repair coordinates reads and removal with the shared
 marker lock, skips marker reads for terminal/in-process runs, and rechecks the
 authoritative result if completion lands during a status read. Deterministic
-concurrent-reader and terminal-result regressions cover the repair. The final
-source must pass all release gates again; the failed CI was not waived.
+concurrent-reader and terminal-result regressions cover the repair. All release
+gates were rerun on the repaired source; the failed CI was not waived.
 
 The repaired candidate then passed **4,396 / six skipped** locally and the
 packaged-Python CI job. The other CI job exposed a test synchronization defect:
@@ -41,7 +42,24 @@ control request could legitimately receive 503 during cleanup. The test now
 waits for that explicit handoff before testing the next sequential request; a
 new delayed-cleanup case verifies 503 during actual overlap and 200 afterwards.
 Production HTTP limits and behavior are unchanged. This test-only correction
-also requires fresh final-source gates; no failure was waived.
+also received fresh final-source gates; no failure was waived.
+
+The final publisher full suite passed **4,397 tests / six skipped** in 711.00s.
+Both [exact-source Windows CI jobs](https://github.com/smikees/armada/actions/runs/42685701616)
+passed **4,399 / four skipped** (822.96s and 692.60s). The marker repair's focused
+regressions passed 156 tests; the final HTTP/dry-run/steering group passed 108.
+The clean committed-source stabilization gate passed in 234.71s, retaining
+`build/stabilization-20261109-204107-302037`: fault injection, three concurrent
+realms, large-history budgets, three 100-check native-window cycles, page work
+and owner workflows. This supplements the earlier focused and visual checks.
+
+Packaged launcher recovery/DLL isolation, 16 session checks, 68 tray checks,
+69 checks in each restart mode, 86 presentation checks and **72 signed-upgrade
+checks** passed. Fresh main/companion light/dark recovery captures were reviewed.
+Public update signatures, changed package/source bytes, installer hash and
+matching website version/release/download links verified. Installer SHA-256:
+`3047ade35d06b566cb129c1162f0ab4e67b7449b8c87075467e5247384adbda7`.
+The owner's app and live realms/providers were untouched.
 
 Protocol was checked against official app-server documentation and generated
 schemas from the installed Codex CLI. Provider preferences were reviewed against
