@@ -377,7 +377,8 @@ def thread_metrics(realm_root, aid: str, selected: str, *, thread=None, snapshot
     label = _agent_model_label(realm_root, aid)
     history_chars = len(th._render(summ, msgs))
     threshold = max(1, model.compaction_threshold_chars(label))
-    return {"messages": sum(m.get("role") in ("user", "assistant") and m.get("kind") != "job" for m in msgs),
+    return {"messages": sum((int(m.get("role") in ("user", "assistant")) + len(m.get('steering', [])))
+                            for m in msgs if m.get("kind") != "job"),
             "pct": min(100, round(100 * history_chars / threshold)),
             "compacted": bool(summ), "chars": history_chars,
             "context_window": model.context_window_tokens(label)}
@@ -650,6 +651,15 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
                            if m.get('transcription_incomplete') else
                            'Voice response · no task execution recorded'
                            if m.get('mode') == 'voice' and m.get('role') == 'assistant' else '')))
+        for item in m.get('steering', []):
+            delivery = item.get('status', 'uncertain')
+            label = {'accepted': 'Steering sent to the active run', 'pending': 'Steering · awaiting confirmation',
+                     'rejected': 'Steering not sent', 'uncertain': 'Steering delivery unconfirmed'}.get(delivery, 'Steering delivery unconfirmed')
+            if delivery == 'pending' and not running:
+                label = 'Steering delivery unconfirmed'
+            turns += _turn('user', item.get('text', ''), item.get('ts', ''), i, False,
+                           a.id, selected, a.display, a.is_coordinator, av=av, userav=userav,
+                           actions=False, transcription=label + (': ' + item['error'] if item.get('error') else ''))
         if i in voice_pending:
             if any(r.get('role') == 'assistant' and r.get('turn') == m.get('turn') for r in msgs):
                 continue
@@ -887,7 +897,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             f'border-radius:22px;padding:6px 8px 6px 10px;box-shadow:var(--shadow-sm)">'
             f'<div id="mc-attach" style="display:none;flex-wrap:wrap;gap:6px;padding:2px 2px 0"></div>'
             # single horizontal row: [+]  [textarea grows]  [↵ / Stop] — matches Claude
-            f'<div style="display:flex;align-items:flex-end;gap:6px">'
+            f'<div class="mc-compose-row" style="display:flex;align-items:flex-end;gap:6px">'
             f'<div style="position:relative;flex:none">'
             f'<button id="mc-plus" title="Add" onclick="mcPlusMenu(event)" style="border:0;background:transparent;'
             f'cursor:pointer;width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;'
@@ -902,7 +912,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             f'style="flex:1;border:0;outline:0;background:transparent;resize:none;font:inherit;font-size:15px;line-height:1.5;'
             f'color:var(--color-text);min-height:30px;max-height:260px;overflow-y:hidden;padding:4px 0;transition:height .12s ease"></textarea>'
             f'{voice_button}'
-            f'<button id="mc-send" title="Send" style="flex:none;display:none;border:0;background:transparent;cursor:pointer;'
+            f'<button id="mc-send" title="Send" aria-label="Send" style="flex:none;display:none;border:0;background:transparent;cursor:pointer;'
             f'width:30px;height:30px;border-radius:8px;align-items:center;justify-content:center;'
             f'color:var(--text-muted)" '
             f'onclick="mcChat({_J(a.id)},{_J(selected)})">'

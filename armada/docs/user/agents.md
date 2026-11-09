@@ -34,6 +34,27 @@ Tabs across the top:
 - **Retire someone:** Configure, at the bottom (**Retire…**). Their folder is kept; you can
   reinstate them from **+ Appoint**. The coordinator can't be retired.
 
+## Steer an agent while it works
+
+For a supported active run, the message box stays available and shows **Steer**
+beside **Stop work**. Type a correction or extra instruction and press Enter or
+click Steer. It goes to that same running task, without starting another reply.
+Both the main page and detached thread window support this.
+
+Currently this is available for Codex app-server conversations. The button
+appears once the engine has an active turn; Claude, Gemini, background jobs and
+Codex's fallback mode do not support it. Steering accepts text only and does not
+change the agent's model, permissions or file access. It cannot undo an action
+the agent has already taken; Stop remains available separately.
+
+The conversation records the instruction and its delivery status. **Sent** means
+the engine accepted it, not that every instruction has already been carried out.
+If delivery cannot be confirmed, your draft stays available. **Check** checks the
+same request safely, without duplicating it. Review the agent's response before
+resending an unconfirmed instruction. A message never moves automatically to the
+next run. You can send up to 64 steering messages per run, one pending at a time,
+with a limit of 32,000 characters each.
+
 ## Separate thread windows
 
 Open a thread’s **three-dot menu** in the left-hand list and choose **Detach thread**, directly

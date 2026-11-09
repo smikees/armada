@@ -285,6 +285,16 @@ class AgentRoutes:
                 emit.close()
         time.sleep(0.3)
 
+    def _chat_steer(self, body: dict) -> dict:
+        from .. import steering
+        try:
+            item = steering.submit(self.realm, safe_seg(body.get('agent', ''), 'agent'),
+                safe_seg(body.get('thread', 'main'), 'thread'), body.get('tid'),
+                body.get('request_id'), body.get('message'), registry=self._streams, lock=self._streams_lock)
+            return {'ok': True, 'receipt': item}
+        except (ValueError, util.StateError, OSError) as exc:
+            return {'ok': False, 'error': str(exc), 'not_sent': isinstance(exc, ValueError)}
+
     def _chat_stop(self, q: dict) -> dict:
         from ..execution import RunSession
         from ..request_context import RealmContext

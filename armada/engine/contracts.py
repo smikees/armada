@@ -37,6 +37,7 @@ class ProviderCapabilities:
     sealed_tools: bool = False
     tool_denials: bool = False
     raw_tool_results: bool = False
+    steering: bool = False
 
 
 @dataclass(frozen=True)

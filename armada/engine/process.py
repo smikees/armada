@@ -259,16 +259,17 @@ def supervise_command(args, *, timeout, cwd=None, env=None, on_proc=None, launch
     return result
 
 
-def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_proc=None, max_line=MAX_LINE):
+def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_proc=None, max_line=MAX_LINE, on_tick=None):
     """Own one interactive newline-JSON CLI session until its terminal notification.
 
-    `start(send)` sends initialization; `on_message(message, send)` may send dependent
+    `start(send)` queues initialization; `on_message(message, send)` may send dependent
     requests and returns true only after the turn has completed. The same process ownership,
     byte caps, timeout and cancellation rules as `supervise` apply.
     """
     result = ProcessResult()
     proc = tree = None
     incoming = queue.Queue(maxsize=8)
+    outgoing = queue.Queue(maxsize=64)
     stderr = deque(maxlen=64)
     workers = []
     stopping = threading.Event()
@@ -302,6 +303,20 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
             logging.getLogger(__name__).exception('CLI stderr reader failed')
             put(("error", str(exc)))
 
+    def write_stdin():
+        try:
+            while not stopping.is_set():
+                try:
+                    message = outgoing.get(timeout=.05)
+                except queue.Empty:
+                    continue
+                proc.stdin.write(message)
+                proc.stdin.flush()
+        except Exception as exc:
+            log.debug('CLI RPC writer ended', exc_info=True)
+            if not stopping.is_set():
+                put(('error', str(exc)))
+
     try:
         if os.name == "nt":
             from .windows_job import WindowsJob
@@ -314,7 +329,7 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
             tree.attach_and_resume(proc)
         proc.stderr.reconfigure(errors="replace")
         handle = RunProcess(proc)
-        for fn in (read_stdout, read_stderr):
+        for fn in (read_stdout, read_stderr, write_stdin):
             worker = threading.Thread(target=fn, name="armada-rpc-" + fn.__name__, daemon=True)
             worker.start()
             workers.append(worker)
@@ -322,8 +337,12 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
             on_proc(handle)
 
         def send(message):
-            proc.stdin.write(json.dumps(message, ensure_ascii=False) + "\n")
-            proc.stdin.flush()
+            # The sole writer may block in a full pipe; the supervising thread
+            # must remain free to enforce deadlines and cancellation.
+            try:
+                outgoing.put_nowait(json.dumps(message, ensure_ascii=False) + "\n")
+            except queue.Full as exc:
+                raise ValueError('CLI RPC input queue is full') from exc
 
         start(send)
         received = 0
@@ -339,6 +358,8 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
             if eof and proc.poll() is not None:
                 result.error = "Codex app server ended before completing the turn."
                 break
+            if on_tick:
+                on_tick(send)
             try:
                 kind, value = incoming.get(timeout=.05)
             except queue.Empty:

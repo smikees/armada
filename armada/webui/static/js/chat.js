@@ -277,6 +277,7 @@ const MC_ACT={copy:window.mcIcon('copy',14), check:window.mcIcon('check',14),
 // --- attachments + composer + menu ---
 let mcAttach=[], mcCtrl=null, mcTid=null, mcLocalTid=null, mcGen=false, mcViewGeneration=0;
 let mcStopRequested=false,mcStopBusy=false,mcFocusOnIdle=false,mcServerAdmitted=false;
+let mcSteerable=false,mcSteerBusy=false,mcSteerRequest=null;
 function mcBuildMessage(text){let m='';for(const f of mcAttach){if(f.text)m+='```'+f.name+'\n'+f.text+'\n```\n\n';}return (m+(text||'')).trim();}
 const MC_IMGICON=window.mcIcon('image',13,'opacity:.6');
 const MC_FILEICON=window.mcIcon('file',12,'opacity:.6');
@@ -333,7 +334,7 @@ function mcRenderAttach(){const box=document.getElementById('mc-attach');if(!box
   }).join('');}
 function mcDelAttach(i){mcAttach.splice(i,1);mcRenderAttach();}
 function mcClearAttach(){mcAttach=[];mcRenderAttach();}
-function mcAttachFile(f){if(!f)return;
+function mcAttachFile(f){if(!f||mcGen)return;
   if(/^image\//.test(f.type)){const rd=new FileReader();rd.onload=()=>{mcAttach.push({name:f.name||('image-'+Date.now()+'.png'),image:rd.result});mcRenderAttach();};rd.readAsDataURL(f);return;}
   const rd=new FileReader();rd.onload=()=>{mcAttach.push({name:f.name||'file.txt',text:(rd.result||'').slice(0,20000)});mcRenderAttach();};rd.readAsText(f);}
 function mcAddFiles(input){[...input.files].forEach(mcAttachFile);input.value='';}
@@ -342,14 +343,66 @@ function mcPlusClose(){const m=document.getElementById('mc-plusmenu');if(m)m.sty
 document.addEventListener('click',(e)=>{const m=document.getElementById('mc-plusmenu');if(m&&!e.target.closest('#mc-plus')&&!e.target.closest('#mc-plusmenu'))m.style.display='none';});
 document.addEventListener('keydown',(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='u'){const f=document.getElementById('mc-file');if(f&&document.getElementById('mc-msg')){e.preventDefault();f.click();}}});
 function mcSyncSend(){const ta=document.getElementById('mc-msg'),s=document.getElementById('mc-send');
-  if(s)s.style.display=(!mcGen&&!window.mcAudioBusy?.()&&ta&&ta.value.trim())?'inline-flex':'none';}
+  if(s){
+    s.style.display=((!mcGen||mcSteerable||mcSteerRequest)&&!window.mcAudioBusy?.()&&(mcSteerRequest||ta?.value.trim()))?'inline-flex':'none';
+    s.disabled=mcSteerBusy||mcStopRequested;
+    const label=mcSteerRequest?'Check steering delivery':mcGen?'Steer active run':'Send';
+    s.title=label;s.setAttribute?.('aria-label',label);
+    s.classList?.toggle('mc-steer-send',mcGen||!!mcSteerRequest);
+    s.dataset.label=mcSteerRequest?'Check':mcGen?'Steer':'';
+  }}
 function mcSetGen(on,stopping=false){mcGen=on;const st=document.getElementById('mc-stop'),ta=document.getElementById('mc-msg');
   if(!on)mcStopRequested=false;
   if(st){st.style.display=on?'inline-flex':'none';st.disabled=!!stopping;
     st.title=stopping?'Stopping work…':'Stop work';
     if(st.lastChild?.nodeType===3)st.lastChild.textContent=stopping?'Stopping…':'Stop work';}
-  if(ta)ta.disabled=on;mcSyncSend();
+  if(ta){
+    if(!ta.dataset.idlePlaceholder)ta.dataset.idlePlaceholder=ta.placeholder||'';
+    ta.disabled=on&&!mcSteerable&&!mcSteerRequest;
+    ta.placeholder=on&&mcSteerable?'Steer this run…':ta.dataset.idlePlaceholder;
+  }
+  const plus=document.getElementById('mc-plus');if(plus)plus.disabled=on;
+  mcSyncSend();
   if(!on&&mcFocusOnIdle){mcFocusOnIdle=false;if(!document.hidden)ta?.focus();}}
+function mcSteerObserve(receipts){
+  if(!mcSteerRequest)return;
+  const receipt=receipts.find(r=>r.id===mcSteerRequest.request_id);
+  if(!receipt||receipt.status==='pending')return;
+  const ta=document.getElementById('mc-msg'),note=document.getElementById('mc-chatmsg');
+  if(receipt.status==='accepted'){
+    if(ta?.value.trim()===mcSteerRequest.message){ta.value='';mcSaveDraft();mcAutosize();}
+    if(document.activeElement?.id==='mc-send'&&!document.hidden)ta?.focus();
+    if(note)note.textContent='Steering sent to the active run.';
+  }else if(note)note.textContent=receipt.error||'Steering was not confirmed. Your draft has been kept.';
+  mcSteerRequest=null;mcSteerBusy=false;mcSyncSend();
+}
+async function mcSteer(agent,thread){
+  if(mcSteerBusy||mcStopRequested)return;
+  const ta=document.getElementById('mc-msg'),note=document.getElementById('mc-chatmsg');
+  if(!mcSteerRequest){
+    if(!mcGen||!mcSteerable||!mcTid||!ta?.value.trim())return;
+    if(mcAttach.length){if(note)note.textContent='Steering supports text only. Remove the attachments or wait for this run to finish.';return;}
+    if(ta.value.trim().length>32000){if(note)note.textContent='Keep steering under 32,000 characters.';return;}
+    mcSteerRequest={agent,thread,tid:mcTid,request_id:'s'+Date.now()+Math.random().toString(36).slice(2),message:ta.value.trim()};
+  }
+  const request=mcSteerRequest;
+  const controller=new AbortController(),deadline=setTimeout(()=>controller.abort(),15000);
+  mcSteerBusy=true;mcSyncSend();if(note)note.textContent='Sending steering…';
+  try{
+    const response=await fetch('/api/chat-steer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request),signal:controller.signal});
+    const result=await response.json();
+    if(mcSteerRequest!==request)return; // A polling receipt already settled this request.
+    if(!response.ok||!result.ok){
+      // Only a definite admission rejection permits a new request ID.
+      if(result.not_sent&&mcSteerRequest===request){mcSteerRequest=null;if(note)note.textContent=result.error||'Your message was not sent. Your draft has been kept.';return;}
+      throw new Error(result.error||'Could not send steering. Your draft has been kept.');
+    }
+    mcSteerObserve([result.receipt]);
+    if(mcSteerRequest===request&&note)note.textContent='Steering is awaiting confirmation. Check will query the same request without sending it twice.';
+  }catch(error){
+    if(note&&mcSteerRequest===request)note.textContent=(error.name==='AbortError'?'Steering delivery has not been confirmed.':error.message||'Could not confirm steering delivery.')+' Use Check to query the same request safely.';
+  }finally{clearTimeout(deadline);if(mcSteerRequest===request||!mcSteerRequest)mcSteerBusy=false;mcSyncSend();window.mcThreadChanged?.();}
+}
 async function mcStop(){
   const context=mcThreadCtx();if(!context||mcStopBusy||!mcGen)return;
   const note=document.getElementById('mc-chatmsg');
@@ -403,6 +456,7 @@ function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-
   row.style.cssText='display:flex;align-items:center;gap:3px;margin-top:3px;justify-content:'+(role==='user'?'flex-end':'flex-start');row.innerHTML=h;
   turn.querySelector('.mc-body').parentNode.appendChild(row);}
 function mcChat(agent,thread,forceText){
+  if(forceText===undefined&&(mcGen||mcSteerRequest)){mcSteer(agent,thread);return;}
   if(mcGen||window.mcAudioBusy?.())return;
   const ta=document.getElementById('mc-msg'),box=document.getElementById('mc-turns');
   if(!ta||!box)return;

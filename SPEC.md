@@ -34,6 +34,9 @@ Agents have main and scoped sub-threads. Context includes the realm brief, relev
 memories, the agent's role and recent conversation. The UI shows context composition
 and usage. Journaled compaction preserves concurrent messages. Provider-dependent
 memory controls are documented in [Memory boundaries](docs/dev/MEMORY_BOUNDARIES.md).
+Supported active conversations accept owner steering without starting a new turn.
+Availability comes from the running engine, with exact-run admission and saved
+delivery receipts; see [Steering](docs/dev/STEERING.md).
 
 ## 4. Capabilities and authorization
 

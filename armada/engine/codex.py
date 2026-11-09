@@ -72,7 +72,7 @@ from .contracts import ProviderCapabilities, RunRequest, validate_request
 
 class CodexEngine(EngineAdapter):
     name = "codex"
-    capabilities = ProviderCapabilities(streaming=True, cancellation=True, tool_denials=True, raw_tool_results=True)
+    capabilities = ProviderCapabilities(streaming=True, cancellation=True, tool_denials=True, raw_tool_results=True, steering=True)
 
     def __init__(self, binary="codex"):
         self.binary = binary
@@ -492,6 +492,8 @@ class CodexEngine(EngineAdapter):
         run_cwd = temp.name if temp else cwd
         result = None
         from contextlib import ExitStack
+        from .codex_steering import SteeringControl, SteeringProcess
+        steering = SteeringControl()
         startup = ExitStack()
         try:
             args = _feature_args() + _verbosity_args(model, verbosity)
@@ -553,6 +555,12 @@ class CodexEngine(EngineAdapter):
                         begin_turn(send)
             def accept(message, send):
                 nonlocal native_apps
+                if steering.accept(message):
+                    return False
+                if message.get('method') == 'turn/started':
+                    steering.activate(state.thread_id, message.get('params', {}).get('turn', {}).get('id'))
+                elif message.get('method') == 'turn/completed':
+                    steering.close()
                 if "id" in message and "method" in message:
                     # The thread is configured for no approvals. Fail closed if a server request
                     # still arrives, rather than silently granting a shell/MCP action.
@@ -608,11 +616,15 @@ class CodexEngine(EngineAdapter):
                         if isinstance(resolved, str) and resolved.strip():
                             state.model = resolved.strip()
                         check_next(send)
+                    elif rid == 3:
+                        steering.activate(state.thread_id, message.get('result', {}).get('turn', {}).get('id'))
                     return False
                 return state.accept(message)
             process = supervise_rpc(launcher + ["app-server"] + args, start=start,
                                     on_message=accept, timeout=timeout, cwd=run_cwd, env={**os.environ, **(env or {})},
-                                    on_proc=on_proc)
+                                    on_proc=lambda p: on_proc(SteeringProcess(p, steering)) if on_proc else None,
+                                    on_tick=steering.drain)
+            steering.close()
             error = process.error or state.error
             if not state.completed and not error:
                 error = "Codex ended before completing the turn."
@@ -629,7 +641,10 @@ class CodexEngine(EngineAdapter):
             result = RunResult(ok=False, error=str(exc))
             return result
         finally:
-            startup.close()
+            try:
+                steering.close()
+            finally:
+                startup.close()
             if temp:
                 try:
                     temp.cleanup()

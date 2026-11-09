@@ -466,6 +466,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         "/api/user-avatar-remove": "_user_avatar_remove", "/api/new-thread": "_new_thread",
         "/api/save-dashboard": "_save_dashboard", "/api/section-snapshot": "_section_snapshot",
         "/api/thread-action": "_thread_action", "/api/thread-truncate": "_thread_truncate",
+        "/api/chat-steer": "_chat_steer",
         "/api/reveal": "_reveal", "/api/refresh-system": "_refresh_system_ep",
         "/api/save-appearance": "_save_appearance",
         "/api/save-capability": "_save_capability", "/api/delete-capability": "_delete_capability",

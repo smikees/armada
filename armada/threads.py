@@ -74,7 +74,13 @@ class Thread:
         if state and not content:
             return 'Agent work result (not spoken): ' + str(message.get('work_result', ''))
         suffix = ' [Speech interrupted; this is a partial transcript.]' if state == 'interrupted' else ''
-        return f"{cls._who(message.get('role', ''))}: {content}{suffix}"
+        line = f"{cls._who(message.get('role', ''))}: {content}{suffix}"
+        for item in message.get('steering', []):
+            if item.get('status') == 'accepted':
+                line += '\nOwner (steering during this turn): ' + item['text']
+            elif item.get('status') in ('pending', 'uncertain'):
+                line += '\nOwner steering (delivery unconfirmed): ' + item['text']
+        return line
 
     def _write(self, *records) -> None:
         self._store.append(records)

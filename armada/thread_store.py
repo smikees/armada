@@ -89,7 +89,7 @@ class HistoryStore:
         txn = util.read_json_state(self.journal, max_schema=1)
         payload = {key: txn.get(key) for key in ("operation", "before", "after")}
         try:
-            if txn.get("schema_version") != 1 or payload["operation"] not in ("compact", "truncate", "voice"):
+            if txn.get("schema_version") != 1 or payload["operation"] not in ("compact", "truncate", "voice", "steering"):
                 raise ValueError("unknown journal")
             if self._checksum(payload) != txn.get("checksum"):
                 raise ValueError("checksum mismatch")
@@ -184,4 +184,23 @@ class HistoryStore:
                 return False
             rows[index] = (json.dumps(record, ensure_ascii=False)+'\n', record)
             self._commit(current, ''.join(line for line, _ in rows), current.summary, 'voice')
+            return True
+
+    def update_turn_request(self, turn, transform, *, require_open=False):
+        """Journal a steering receipt on its original owner request, never a new turn."""
+        with util.file_lock(self.msgs):
+            self._recover()
+            current = self._current()
+            rows = entries(current.messages)
+            matches = [i for i, (_, m) in enumerate(rows) if m and m.get('turn') == turn and m.get('role') == 'user']
+            if len(matches) != 1:
+                raise ValueError('The original conversation turn is no longer available. Your message was not sent.')
+            if require_open and any(m and m.get('turn') == turn and m.get('role') == 'assistant' for _, m in rows):
+                raise ValueError('The turn already finished. Your steering message was not sent.')
+            index = matches[0]
+            record = dict(rows[index][1])
+            if not transform(record):
+                return False
+            rows[index] = (json.dumps(record, ensure_ascii=False)+'\n', record)
+            self._commit(current, ''.join(line for line, _ in rows), current.summary, 'steering')
             return True

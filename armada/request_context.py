@@ -87,6 +87,9 @@ class ActiveRun:
     context: RunContext
     process: object = None
     cancelled: bool = False
+    steering_enabled: bool = False
+    steering_turn: str = ''
+    steering_received: bool = False
 
 
 def content_path(path):

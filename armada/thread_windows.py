@@ -20,7 +20,7 @@ COMPANION_GET = frozenset({
 })
 COMPANION_POST = frozenset({
     "/api/voice-start", "/api/voice-state", "/api/voice-stop",
-    "/api/chat-stream", "/api/thread-truncate", "/api/thread-action",
+    "/api/chat-stream", "/api/chat-steer", "/api/thread-truncate", "/api/thread-action",
     "/api/open-file", "/api/reveal", "/api/render-md",
 })
 
@@ -58,12 +58,14 @@ def state(root, agent, thread, revision=""):
     previews = {}
     context, a, title, _ = target(root, agent, thread, _previews=previews)
     with RUNS_LOCK:
+        from . import steering
         runs = [run for run in ACTIVE_RUNS.values()
                 if run.context.realm.realm_id == context.realm_id
                 and run.context.agent == agent and run.context.thread == thread
                 and getattr(run, 'kind', '') != 'voice_audio']
         payload = {"title": title, "run_id": runs[0].context.run_id if runs else "",
-                   "stopping": any(run.cancelled for run in runs)}
+                   "stopping": any(run.cancelled for run in runs),
+                   "steerable": len(runs) == 1 and steering.available(runs[0])}
     from . import voice
     call = voice.current(root, agent, thread)
     payload['voice'] = call.snapshot() if call and not call.finished.is_set() else None
@@ -81,9 +83,12 @@ def state(root, agent, thread, revision=""):
     def build():
         snapshot = _turn_snapshot(root, agent, thread, th)
         return (bind_content_html(_render_turns(root, a, thread, state=snapshot), context),
-                thread_metrics(root, agent, thread, thread=th, snapshot=snapshot[:2]))
-    html, metrics = _renders.read((context.realm_id, agent, thread), stamp, build)
+                thread_metrics(root, agent, thread, thread=th, snapshot=snapshot[:2]),
+                [{key: item[key] for key in ('id', 'status', 'error') if key in item}
+                 for item in steering.receipts(snapshot[1])])
+    html, metrics, delivered = _renders.read((context.realm_id, agent, thread), stamp, build)
     payload['metrics'] = dict(metrics)
+    payload['steering'] = delivered
     digest = hashlib.sha256((html + json.dumps(payload, sort_keys=True)).encode("utf-8")).hexdigest()
     payload["revision"] = digest
     if revision != digest:

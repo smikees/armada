@@ -74,6 +74,15 @@ html,body{margin:0;height:100%;background:var(--color-bg);color:var(--color-text
 .mc-done{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;color:var(--status-ok)}
 .mc-done svg{flex:none}
 /* assistant activity trail (tool runs + thought process), Claude-app style */
+#mc-send.mc-steer-send{width:auto!important;gap:4px;padding:4px 7px}
+#mc-send.mc-steer-send::after{content:attr(data-label);font-size:12px}
+#mc-send:disabled{opacity:.5;cursor:default!important}
+.mc-frame:has(>.mc-compose-row){container-type:inline-size}
+@container (max-width:380px){
+  .mc-compose-row:has(.mc-steer-send){flex-wrap:wrap}
+  .mc-compose-row:has(.mc-steer-send) #mc-msg{flex-basis:100%!important;order:-1}
+  .mc-compose-row:has(.mc-steer-send)>div:first-child{margin-right:auto}
+}
 .mc-activity{margin-top:8px;min-width:0;font-size:11.5px;color:var(--text-dim)}
 .mc-activity>summary{display:flex;align-items:center;gap:6px;min-width:0;cursor:pointer;list-style:none;user-select:none;padding:3px 0}
 .mc-activity>summary::-webkit-details-marker{display:none}

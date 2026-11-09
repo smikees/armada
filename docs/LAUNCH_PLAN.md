@@ -5,6 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.138** is the active steering release candidate. Supported Codex
+conversations accept extra owner instructions during the same run, from either
+thread view, with exact-run checks and durable delivery status. Focused checks:
+**203 passed**; synthetic native thread probe: **100 checks passed**. Final-source
+stabilization, CI, packaged release and public verification remain pending.
+[Steering contract](dev/STEERING.md) · [Release evidence](dev/RELEASE_0_99_138.md).
+
 Version **0.99.137** is the published compact thread-activity release. Working
 threads show one latest-action row above the status indicator; expansion reveals
 ten entries at a time, with More for older entries. Pages, details and keyboard

@@ -68,7 +68,7 @@ see [Shared state and recovery](PERSISTENCE.md) for locks, writer rules and reco
     jobs/<id>.json      # scheduled/on-demand jobs (below)
     runs/<id>.jsonl     # append-only run reports (tokens, status, ts)
     threads/<name>/
-      messages.jsonl    # append-only turns  [{role:user|assistant, ts, content}]
+      messages.jsonl    # journaled turns [{role:user|assistant, ts, content}]; optional user.steering receipts
       summary.md        # compaction summary of older turns (optional)
       .history-revision # opaque generation changed by compaction/truncation (optional until first rewrite)
       .history-transaction.json # pending schema-1 before/after journal; retain for crash recovery
@@ -80,6 +80,10 @@ Thread history rewrites are recoverable transactions; the messages-file lock als
 summary and revision. Readers/writers finish a pending journal before using the files. Preserve
 the hidden journal when backing up or restoring an interrupted thread; see
 [Shared state and recovery](PERSISTENCE.md). Ordinary appends do not change the revision.
+An original user turn may carry a `steering` array of delivery receipts. Each
+contains `id`, `run_id`, `turn`, `text`, `ts`, `status` and `error`; status is
+`pending`, `accepted`, `rejected` or `uncertain`. These journaled updates retain
+the original user/assistant pair. See [Steering](STEERING.md).
 
 ## realm.json
 ```jsonc

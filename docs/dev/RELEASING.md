@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.137. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.138. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
 on [armada.stamih.com](https://armada.stamih.com).
@@ -57,12 +57,14 @@ UI seed catalogue as proof that a specific model is still supported.
    authenticated. Synthetic HTTP data and an isolated data folder keep live realms and providers
    out of this test. Unit tests with supplied Cookie headers cannot replace this browser gate.
 
-For detached thread frame, synchronization or Stop changes, also run `python tools/thread_window_probe.py --output
+For detached thread frame, synchronization, steering or Stop changes, also run `python tools/thread_window_probe.py --output
 <result.json>` in the Windows pywebview environment. It checks the native sizing loop, shadow
 resources and lifecycle, compact layout and shared-thread behavior with synthetic data.
 Its synthetic engine runs through the real coordinator: live and terminal transcript HTML must
 match in both views, Stop must cancel from either view despite a stale run ID, and disconnecting
 or reopening a view must preserve the active conversation.
+Steering checks also verify delivery from both windows, preserved typing focus,
+one original owner turn and a usable narrow composer. See [steering](STEERING.md).
 
 For page-navigation feedback changes, also run `python tools/navigation_probe.py --output
 build/navigation.json`. Its synthetic delayed-response test must show feedback

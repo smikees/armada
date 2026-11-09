@@ -29,6 +29,8 @@
         throw new Error(state.error||'Thread updates are unavailable. Retrying…');
       }
       mcTid=state.run_id||(!mcServerAdmitted?mcLocalTid:null)||null;
+      mcSteerable=!!state.steerable;
+      mcSteerObserve(state.steering||[]);
       mcSetGen(!!mcTid,!!state.stopping||mcStopRequested);
       window.mcVoiceSync?.(state.voice,!!state.run_id);
       const status=document.getElementById('mc-chatmsg');

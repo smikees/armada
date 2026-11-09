@@ -11,7 +11,7 @@ function view(){
     querySelectorAll:()=>rows,
     getElementById:id=>id==='mc-turns'?box:id==='mc-stop'?stop:note,addEventListener:()=>{}},
     URLSearchParams,setTimeout:()=>1,clearTimeout:()=>{},addEventListener:()=>{},getSelection:()=>null,
-    mcSetGen:on=>{ctx.busy=ctx.mcGen=on;},mcSetThreadTitle:(thread,title)=>ctx.title=title,
+    mcSteerObserve:()=>{},mcSetGen:on=>{ctx.busy=ctx.mcGen=on;},mcSetThreadTitle:(thread,title)=>ctx.title=title,
     mcApplyTurns:(box,html)=>ctx.html=html,mcRefreshMetrics:()=>{},mcRefreshRail:()=>{},mcRefreshAgentDot:()=>{},
     fetch:async url=>{
       const current={...shared};

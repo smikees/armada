@@ -468,6 +468,10 @@ class TurnCoordinator:
                     if inbox_message is not None:
                         inbox_timing.require_eligible(root, inbox_message)
                     execution_started = time.time()
+                    with self.session.lock:
+                        self.session.active.steering_turn = turn
+                        self.session.active.steering_enabled = bool(
+                            not req.task and getattr(eng, 'capabilities', ProviderCapabilities()).steering)
                     result = execute_request(eng, request, on_event=event, on_proc=process)
                     if not isinstance(result, RunResult):
                         raise ValueError("Engine returned no valid RunResult.")
@@ -536,6 +540,9 @@ class TurnCoordinator:
                     "Completed without a text reply." if result.ok else "No final answer was produced.")
             if raw_capture is not None and raw_capture.errors and not scheduled_job:
                 status = "error" if raw_capture.required else ("warn" if result.ok else status)
+            from . import steering
+            if self.session.active.steering_received:
+                steering.finish(th, turn)
             th.complete_turn(turn, text, status=status,
                              spoken_reply=req.spoken_reply,
                              outputs=cap.outputs or None if cap else None,

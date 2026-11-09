@@ -36,6 +36,7 @@ stays in serve.py, only the handler bodies moved.
 - `AgentRoutes._agent_reinstate(self, body: dict)` — —
 - `AgentRoutes._agent_delete(self, body: dict)` — —
 - `AgentRoutes._chat_stream(self, q: dict)` — SSE transport for a coordinator-owned turn; routing never writes turn state.
+- `AgentRoutes._chat_steer(self, body: dict)` — —
 - `AgentRoutes._chat_stop(self, q: dict)` — —
 - `AgentRoutes._thread_truncate(self, body: dict)` — Keep only the first `keep` messages of a thread (drops the rest) — powers 'restart from here' and 'edit': the caller then re-sends the (possibly edited) message.
 - `AgentRoutes._threads_list(self, agent: str)` — —

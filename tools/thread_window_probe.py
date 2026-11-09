@@ -32,6 +32,8 @@ def run(output):
     release = threading.Event()
     started = threading.Event()
     advance = threading.Event()
+    steering_enabled = threading.Event()
+    steering_enabled.set()
     with tempfile.TemporaryDirectory(prefix="armada-thread-window-", ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         os.environ["ARMADA_DATA_DIR"] = str(root / "data")
@@ -70,7 +72,7 @@ def run(output):
         class SyntheticEngine(EngineAdapter):
             """Only the provider boundary is simulated; persistence and Stop are real."""
             name = "mock"
-            capabilities = ProviderCapabilities(streaming=True, cancellation=True, tool_denials=True)
+            capabilities = ProviderCapabilities(streaming=True, cancellation=True, tool_denials=True, steering=True)
 
             def doctor(self):
                 return True, "Synthetic engine"
@@ -79,14 +81,18 @@ def run(output):
                 return self.run_stream(*args, **kwargs)
 
             def run_stream(self, *args, on_event, on_proc, **kwargs):
+                from armada.engine.codex_steering import SteeringControl, SteeringProcess
                 cancelled = threading.Event()
+                control = SteeringControl()
+                if steering_enabled.is_set():
+                    control.activate('synthetic-thread', 'synthetic-turn')
                 class Process:
                     pid = 0
                     def kill(self):
                         cancelled.set()
                     def poll(self):
                         return -1 if cancelled.is_set() else None
-                on_proc(Process())
+                on_proc(SteeringProcess(Process(), control))
                 on_event({"kind": "thinking", "text": "Checking synthetic data"})
                 on_event({"kind": "tool", "id": "fixture-tool", "name": "Read", "input": {"file": "synthetic.txt"}})
                 on_event({"kind": "tool_result", "id": "fixture-tool", "content": "125.50", "is_error": False})
@@ -98,12 +104,14 @@ def run(output):
                 started.set()
                 deadline = time.monotonic() + 60
                 while not release.is_set() and not cancelled.is_set() and time.monotonic() < deadline:
+                    control.drain(lambda msg: control.accept({'id': msg['id'], 'result': {'turnId': 'synthetic-turn'}}))
                     if advance.is_set():
                         advance.clear()
                         on_event({"kind": "tool", "id": "next-check", "name": "Read",
                                   "input": {"path": "synthetic/newest.txt"}})
                         on_event({"kind": "thinking", "text": "A new synthetic progress update"})
                     cancelled.wait(.05)
+                control.close()
                 if cancelled.is_set():
                     return RunResult(ok=False, cancelled=True, error="Run stopped by the owner.",
                                      output="Checking the synthetic figures.", usage=Usage(input=10, output=5))
@@ -294,6 +302,29 @@ def run(output):
                          "Stop is available in the observing window")
                 wait_for(lambda: "Checking the synthetic figures." in text(main) and transcript(main) == transcript(companion),
                          "sender and occluded companion have identical live HTML and tool activity")
+                for view, label in ((main, 'main'), (companion, 'companion')):
+                    wait_for(lambda: view.evaluate_js("mcSteerable && !document.getElementById('mc-msg').disabled"),
+                             label + ' permits typing during a supported run')
+                    view.evaluate_js("document.getElementById('mc-msg').value='Focus from " + label + "';mcAutosize();mcSyncSend();document.getElementById('mc-msg').focus()")
+                    check(label + ' shows both Steer and Stop', view.evaluate_js(
+                        "document.getElementById('mc-send').dataset.label==='Steer' && document.getElementById('mc-stop').style.display!=='none'"))
+                    if label == 'companion':
+                        view.resize(400,500)
+                        view.evaluate_js("document.documentElement.classList.add('armada-dark')")
+                    screenshot(view, 'thread-steering-' + label)
+                    check(label + ' steering composer has no horizontal overflow', view.evaluate_js(
+                        "document.documentElement.scrollWidth<=innerWidth && document.getElementById('mc-msg').getBoundingClientRect().right<=innerWidth"))
+                    view.evaluate_js("document.getElementById('mc-send').click()")
+                    wait_for(lambda: view.evaluate_js("!mcSteerRequest && document.getElementById('mc-msg').value===''") and
+                             'Focus from ' + label in text(main) and 'Focus from ' + label in text(companion),
+                             label + ' steering is acknowledged and shared without a second turn')
+                    check(label + ' keeps typing focus after confirmation', view.evaluate_js("document.activeElement.id==='mc-msg'"))
+                    if label == 'companion':
+                        view.resize(560,720)
+                        view.evaluate_js("document.documentElement.classList.remove('armada-dark')")
+                check('two steering receipts preserve one open owner turn',
+                      len(Thread(Path(realm)/'agents/captain')._messages()) == 3)
+                steering_enabled.clear()
                 check("activity defaults to one latest row and no live history rows", main.evaluate_js(
                     "(()=>{const g=document.querySelector('.mc-activity');return !g.open && g.querySelector('summary').textContent.includes('report-24.txt') && g.querySelector('.mc-activity-list').children.length===0})()"))
                 check("activity is between response text and Thinking status", main.evaluate_js(

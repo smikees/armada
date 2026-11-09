@@ -59,6 +59,7 @@
 | [`engine.base`](engine.base.md) | Engine adapter contract (SPEC §9) |
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
 | [`engine.codex`](engine.codex.md) | Codex CLI turns, using the owner's login and Armada's existing context and history. |
+| [`engine.codex_steering`](engine.codex_steering.md) | Bounded mid-turn input for Codex app-server; the RPC owner alone writes stdin. |
 | [`engine.codex_voice`](engine.codex_voice.md) | Experimental Codex WebRTC signaling |
 | [`engine.contracts`](engine.contracts.md) | Provider-independent requests, events and enforceable execution capabilities. |
 | [`engine.defaults`](engine.defaults.md) | Release-owned defaults for new teams, independent of Alexander's personal settings. |
@@ -145,6 +146,7 @@
 | [`startup_sound`](startup_sound.md) | Quiet desktop-ready cue |
 | [`startup_splash`](startup_splash.md) | Loading artwork inside the main window, including while WebView2 starts. |
 | [`status`](status.md) | Canonical run-status vocabulary — one place that knows the statuses a job/run can be in, how to normalise the many raw spellings into them, and their colours |
+| [`steering`](steering.md) | Owner steering admission and durable receipts, scoped to one exact running chat. |
 | [`stream_observer`](stream_observer.md) | A slow UI observer cannot hold the engine's event/cancellation loop. |
 | [`support`](support.md) | Send exactly the approved, redacted report through ARMADA's public relay. |
 | [`sysjobs`](sysjobs.md) | System jobs — the recurring work ARMADA does to keep itself current. |
