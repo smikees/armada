@@ -37,6 +37,7 @@ def test_strict_processing_window(realm, now, expected):
 
 @pytest.mark.parametrize('fields', [
     {'process_after': 'bad'}, {'process_after': None}, {'process_before': 42},
+    {'process_after': '9999-12-31T23:59:59-01:00'}, {'process_after': '0001-01-01T00:00:00+01:00'},
     {'ask': 'process after'}, {'ask': 'process before tomorrow'},
     {'process_after': '11/09/2026 11:00:00', 'process_before': '11/09/2026 10:00:00'},
     {'process_after': '2026-11-09T10:00:00Z', 'ask': 'process after 11/09/2026 14:00:00'},
@@ -97,6 +98,8 @@ def test_saved_original_timing_is_display_only(realm):
     msg['timing_original']['process_after'] = '2020-01-01T00:00:00Z'
     assert '2020' not in timing.description(realm, msg)
     assert timing.status(realm, msg)[0] == 'deferred'
+    msg['timing_original']['process_after'] = '9999-12-31T23:59:59-01:00'
+    assert '9999' not in timing.description(realm, msg)
 
 
 @pytest.mark.parametrize('field,value', [('process_after', '2099-01-01T00:00:00Z'),

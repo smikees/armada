@@ -12,6 +12,13 @@ _DIRECTIVE = re.compile(r'^\s*process\s+(after|before)\s*:?[ \t]+(.+?)\s*$', re.
 
 
 def timestamp(value, root):
+    try:
+        return _timestamp(value, root)
+    except OverflowError as exc:
+        raise ValueError('That timestamp is outside the supported date range after timezone conversion.') from exc
+
+
+def _timestamp(value, root):
     if not isinstance(value, str) or not value.strip():
         raise ValueError('Timing must be a timestamp, not an empty value.')
     value = value.strip()

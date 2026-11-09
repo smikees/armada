@@ -6,6 +6,10 @@ Processing windows for delegated tasks; evaluated before any recipient model cal
 
 —
 
+### `_timestamp(value, root)`
+
+—
+
 ### `window(root, message)`
 
 Structured fields and standalone instruction lines must agree; never guess.
