@@ -5,6 +5,16 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.136** is the published timed-inbox and shared system-memory release.
+Automatic dispatch enforces processing windows; an acknowledged owner Process
+now warning grants a recorded one-time exception. Settings → App manages shared
+instructions across realms and providers. Publisher: **4,358 passed / six skipped**;
+both exact-source Windows CI jobs: **4,360 / four skipped**. Ten native timing/UI
+checks, full stabilization, packaged lifecycle and **72 signed-upgrade checks**
+passed. Public signatures, source bytes, installer hash and website links verified.
+Owner app/live data untouched. [Timing contract](dev/INBOX_TIMING.md) ·
+[Release evidence](dev/RELEASE_0_99_136.md).
+
 Version **0.99.135** is the published navigation follow-up: menu selections
 immediately show the destination and a loading view, with safe slow-load
 cancellation. Native delayed-response feedback measured 2.6ms (DOM state).
