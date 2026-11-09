@@ -24,6 +24,15 @@ Light main and dark narrow companion captures were reviewed in two bounded
 passes; the first pass exposed a cramped input, corrected before confirmation.
 All fixtures were synthetic; no owner app restart, live realm or provider call.
 
+The first candidate's local full suite passed **4,393 / six skipped**, but one
+Windows CI job exposed an existing activity-marker read/delete race in dry-run
+status. Windows returned PermissionError while cleanup removed the marker.
+Publication stopped. The repair coordinates reads and removal with the shared
+marker lock, skips marker reads for terminal/in-process runs, and rechecks the
+authoritative result if completion lands during a status read. Deterministic
+concurrent-reader and terminal-result regressions cover the repair. The final
+source must pass all release gates again; the failed CI was not waived.
+
 Protocol was checked against official app-server documentation and generated
 schemas from the installed Codex CLI. Provider preferences were reviewed against
 official sources on 9 November for 0.99.136 and are unchanged. Python 3.14.10 and

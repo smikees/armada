@@ -326,6 +326,67 @@ def test_cross_process_liveness_and_stop_request_are_durable(realm, monkeypatch)
     assert dry_runs.prune(realm, now=dt.datetime.now(dt.timezone.utc)+dt.timedelta(days=5))["removed"] == 1
 
 
+def test_marker_cleanup_waits_for_a_concurrent_dry_run_reader(realm, monkeypatch):
+    import os
+    from armada.execution import RunSession
+    from armada.request_context import RunContext
+    run_id = 'marker-cleanup-race'
+    folder = dry_runs.directory(realm, 'writer', 'digest', run_id)
+    folder.mkdir(parents=True)
+    info = {'schema_version': 1, 'run_id': run_id, 'agent': 'writer', 'job': 'digest',
+            'status': 'running', 'owner_pid': os.getpid(), 'started': dt.datetime.now(dt.timezone.utc).isoformat(), 'keep_days': 1}
+    util.write_json_atomic(folder / 'run.json', info)
+    context = RunContext.capture(realm, 'writer', 'dryrun-' + run_id, run_id=run_id)
+    reading, release, closing, closed = (threading.Event() for _ in range(4))
+    original = util.read_json_state
+    errors, observations = [], []
+    def read_state(path, **kwargs):
+        if path == context.marker:
+            reading.set()
+            assert release.wait(3)
+            assert not closed.is_set(), 'marker deleted while the reader still owns it'
+        return original(path, **kwargs)
+    def observe():
+        try: observations.append(dry_runs.read(realm, 'writer', 'digest', run_id))
+        except BaseException as exc: errors.append(exc)
+    with RunSession(context) as session:
+        monkeypatch.setattr(util, 'read_json_state', read_state)
+        reader = threading.Thread(target=observe)
+        def close():
+            closing.set(); session.close(); closed.set()
+        cleanup = threading.Thread(target=close)
+        try:
+            reader.start(); assert reading.wait(3)
+            cleanup.start(); assert closing.wait(3)
+            assert not closed.wait(.15)
+        finally:
+            release.set(); reader.join(3); cleanup.join(3)
+        assert not errors and observations[0]['status'] == 'running'
+        assert closed.is_set() and not context.marker.exists()
+    monkeypatch.setattr(util, 'read_json_state', original)
+    assert dry_runs.read(realm, 'writer', 'digest', run_id)['status'] == 'interrupted'
+
+
+def test_terminal_dry_run_does_not_reopen_a_removing_marker(realm, monkeypatch):
+    run = dry_runs.start(realm, 'writer', 'digest', 'gpt-6-sol', engine=DraftEngine())
+    info = finished(realm, run)
+    original = util.read_json_state
+    def guarded(path, **kwargs):
+        if Path(path).parent.name == '.running':
+            raise PermissionError('Synthetic Windows delete-pending marker')
+        return original(path, **kwargs)
+    monkeypatch.setattr(util, 'read_json_state', guarded)
+    assert dry_runs.read(realm, 'writer', 'digest', run['run_id']) == info
+
+
+def test_completion_between_metadata_read_and_marker_check_keeps_real_result(realm, monkeypatch):
+    run = dry_runs.start(realm, 'writer', 'digest', 'gpt-6-sol', engine=DraftEngine())
+    info = finished(realm, run)
+    snapshots = iter([dict(info, status='running'), info])
+    monkeypatch.setattr(dry_runs, '_read_info', lambda *_: next(snapshots))
+    assert dry_runs.read(realm, 'writer', 'digest', run['run_id']) == info
+
+
 def test_inspector_job_uses_the_managed_broker_and_records_its_review_files(realm, monkeypatch):
     from armada import runner
     from armada.execution import TurnCoordinator, TurnRequest

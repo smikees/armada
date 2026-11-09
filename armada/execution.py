@@ -145,7 +145,8 @@ class RunSession:
                 return
             mark = self.context.marker
             try:
-                mark.unlink(missing_ok=True)
+                with util.file_lock(mark):
+                    mark.unlink(missing_ok=True)
             except OSError:
                 log.exception("Could not remove run activity marker")
                 try:

@@ -420,11 +420,21 @@ def read(root, agent, job, run_id):
         raise ValueError("Dry-run identity does not match this job.")
     with _LOCK:
         active = _ACTIVE.get((str(Path(root).resolve()), run_id))
+    if info['status'] not in ('queued', 'running') or active:
+        return info
     from .request_context import RunContext
     marker = RunContext.capture(root, agent, "dryrun-" + run_id, run_id=run_id).marker
-    owned = util.read_json_state(marker, default=dict) if marker.exists() else {}
+    # Coordinate with session publication/removal. On Windows an open/delete
+    # race can be PermissionError, not just a harmless missing marker.
+    with util.file_lock(marker):
+        owned = util.read_json_state(marker, default=dict)
     live = owned.get("run_id") == run_id and owned.get("owner_pid") == info.get("owner_pid") and util.pid_alive(info.get("owner_pid", 0))
     if info["status"] in ("queued", "running") and not active and not live:
+        # Completion may have landed after our first metadata snapshot and
+        # before the marker disappeared. Prefer its authoritative outcome.
+        latest = _read_info(root, folder / 'run.json')
+        if latest.get('status') not in ('queued', 'running'):
+            return latest
         info.update(status="interrupted", error="ARMADA closed before this dry run finished.")
     return info
 
