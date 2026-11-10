@@ -5,6 +5,14 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.140** is published. The Windows 11 title bar follows the app's
+light or dark background and shows only the native window controls. The line
+under it spans the window, and the divider below the main menu aligns with the
+content margins. The publisher passed **4,402 tests**, both Windows CI jobs
+passed **4,404 tests**, and **72 packaged upgrade checks** passed. The public
+website, installer hash, and signed update were verified.
+[Release evidence](dev/RELEASE_0_99_140.md).
+
 Version **0.99.139** is published. Conversations can run past 20 minutes, the
 thread rail sections collapse, and App Settings has engine switches and read-only
 system memories. Memory defaults to Realm and provides the same reader under App.
