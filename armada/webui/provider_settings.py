@@ -27,9 +27,18 @@ def connections(*, setup=False):
                       f'<div class="mc-su-provider-subscription" id="provider-{provider}-subscription" hidden>'
                       f'<span>Subscription type:</span>{plan}</div></div>')
         else:
-            header = (f'<strong class="mc-provider-head">{_provider_logo(provider,20,provider in connected)}{title}{installed}</strong>'
+            enabled = ' checked' if providers.allowed(provider) else ''
+            header = (f'<div class="mc-provider-top"><strong class="mc-provider-head">'
+                      f'{_provider_logo(provider,20,provider in connected)}{title}</strong>'
+                      f'<label class="mc-toggle mc-provider-toggle" title="Use {title} in ARMADA">'
+                      f'<input type="checkbox" role="switch" id="provider-{provider}-enabled" '
+                      f'aria-label="Use {title} in ARMADA" onchange="mcSetProviderEnabled(\'{provider}\',this)"{enabled}>'
+                      f'<span class="mc-toggle-sl"></span></label></div>'
+                      f'<div class="mc-provider-cli">{installed}</div>'
                       f'<div class="mc-provider-plan-slot">{plan}</div>'
                       f'<p id="provider-{provider}-status" role="status" class="mc-provider-statusline">Checking connection…</p>')
+        disconnect = (f'<button class="btn btn-secondary" id="provider-{provider}-disconnect" hidden '
+                      f'onclick="mcConnection(\'{provider}\',\'disconnect\',this)">Disconnect</button>') if setup else ''
         cards.append(f'<div class="mc-frame mc-provider-card{" mc-su-provider-card" if setup else ""}" data-connection="{provider}">'
             + header + ('<div class="mc-su-provider-details">' + feedback if setup else '<div class="mc-provider-login-slot">') +
             f'<div class="mc-provider-login-url" id="provider-{provider}-url-wrap" hidden><a id="provider-{provider}-url" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"></a></div>'
@@ -38,7 +47,7 @@ def connections(*, setup=False):
             f'<button class="btn btn-secondary" id="provider-{provider}-connect" hidden onclick="mcConnection(\'{provider}\',\'connect\',this)" title="Opens the provider’s website in your browser">'
             f'<span data-signin-label data-default-label="Sign in">Sign in</span>{_icon("external-link",13)}</button>'
             f'<button class="btn btn-secondary mc-provider-recheck" id="provider-{provider}-recheck" onclick="mcRecheckProvider(\'{provider}\',this)">{_icon("refresh-cw",13)}<span>Recheck</span></button>'
-            f'<button class="btn btn-secondary" id="provider-{provider}-disconnect" hidden onclick="mcConnection(\'{provider}\',\'disconnect\',this)">Disconnect</button>'
+            f'{disconnect}'
             f'<button class="btn btn-secondary" id="provider-{provider}-install" hidden onclick="mcConnection(\'{provider}\',\'install\',this)">Install {"Antigravity CLI" if provider == "gemini" else title + " CLI"}</button>'
             f'<button class="btn btn-secondary" id="provider-{provider}-open" hidden onclick="mcConnection(\'{provider}\',\'open-login\',this)">Open sign-in page</button>'
             f'<button class="btn btn-secondary" id="provider-{provider}-cancel" hidden onclick="mcConnection(\'{provider}\',\'cancel-login\',this)">Cancel sign-in</button>'
@@ -52,7 +61,7 @@ def connections(*, setup=False):
                 'can be used with a free-tier account.</p>') if setup else ''
     return (('<p>Connect at least one engine via its CLI (Anthropic - Claude CLI, OpenAI - Codex CLI, Google - Antigravity CLI): install it and sign in.</p>' if setup else '')
             + '<div class="mc-provider-grid' + (' mc-su-provider-grid' if setup else '') + '">' + ''.join(cards) + '</div>'
-            + '<p style="font-size:12px;color:var(--text-muted)">Disconnecting stops Armada from using models from that provider.</p>'
+            + ('<p style="font-size:12px;color:var(--text-muted)">Disconnecting stops Armada from using models from that provider.</p>' if setup else '')
             + guidance + js("providers"))
 
 

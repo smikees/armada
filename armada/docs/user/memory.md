@@ -5,6 +5,8 @@ What your agents know before you say anything. Memory is plain text; short, spec
 
 ## Kinds of memory
 
+**Realm** is the default view. It shows the governing document and the memories for the current realm.
+
 - **The governing document** — the principles every agent is bound by, at the top of Memory and in Realm settings. It is called The Constitution (State), The Memorandum (Company), The Code (Ship), or The Covenant (Blank).
   **Read** shows them; **Edit** changes them for the whole realm.
 - **Realm memory** — loads for every agent.
@@ -12,6 +14,10 @@ What your agents know before you say anything. Memory is plain text; short, spec
   your computer, the realm and its team. You don't edit it; change the settings it comes from.
 - **An agent's memory** — loads only for that agent. On the right of the Memory page, or on the
   agent's Memories tab.
+
+Choose **App** to read **ARMADA system memories**, the instructions shared by agents in every
+realm and by Alexander. Select a title to read it or choose **Go to file** to find its source on
+disk. The same read-only view is available in **Settings → App**.
 
 ## Things you'll do
 

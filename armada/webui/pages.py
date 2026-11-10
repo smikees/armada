@@ -888,21 +888,20 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
           f'each one under Realm → Notifications.</div>'
         + f'<span id="st-ch-msg" style="font-size:11.5px;color:var(--text-muted)"></span>')
 
-    from .system_memory import editor as system_memory_editor
+    from .system_memory import reader as system_memory_reader
     app_tab = (
         sect("Version", version_box)
         # First, because it's the setting everything else sits inside — and the one a fresh
         # install has to answer before a realm can exist at all.
         + sect("Root folder", _approot_box())
-        + sect("ARMADA system memory", system_memory_editor())
+        + sect("ARMADA system memories", system_memory_reader())
         + sect("About", f'<div style="font-size:12.5px;line-height:1.55">{E(_ABOUT)}</div>'
                f'<div style="font-size:12px;line-height:1.55;margin-top:8px;color:var(--text-muted)">'
                f'{E(brand.LICENCE)} <a href="{E(brand.LICENCE_URL)}" target="_blank" rel="noopener" '
                f'style="color:var(--color-accent)">Licence terms ↗</a> · Third-party notices are in '
                f'<code>THIRD_PARTY_NOTICES.md</code> in the install folder.</div>')
         + sect("Engine", '<div style="font-size:12.5px;line-height:1.55;margin-bottom:10px">'
-               'Per-provider engine status. ARMADA can run on one or more of your subscriptions.'
-               '<p style="margin:6px 0 0">To enable using a provider, their CLI needs to be installed and logged-into.</p>'
+               'Choose which engines ARMADA can use. Each engine needs its CLI installed and signed in.'
                f'</div>{engine_box}')
         # Telegram sits with Engine: both are "what ARMADA is connected to", and it reads better
         # above Notifications, which refers to it.
@@ -969,7 +968,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
             f'{_settings_actions("user", "Saved to this realm and your agents’ core memory.")}</div></div>'
             f'<div id="st-app-pane"><div class="mc-settings-pane">'
             f'<div class="mc-settings-main">{app_tab}</div>'
-            f'{_settings_actions("app", "Save app preferences here. Provider and Telegram connections apply when you use their buttons.")}'
+            f'{_settings_actions("app", "Save app preferences here. Engine switches and connection controls apply immediately.")}'
             f'</div></div></div>'
             + _changelog_modal(ver) + _SETTINGS_JS + _USER_JS + _REALM_ICON_JS
             + f'<template id="mc-settings-chevron">{CHEVR}</template>' + _FDROP_JS
@@ -1539,7 +1538,7 @@ def _sec_head(title, note="") -> str:
 _INBOX_JS = _INBOX_JS_ASSET
 
 
-def render_realm_page(realm, realm_root, page: str, dark: bool = False) -> str:
+def render_realm_page(realm, realm_root, page: str, dark: bool = False, *, query=None) -> str:
     realm_root = Path(realm_root)
     today = clock.today()
     if page == "ministers":
@@ -1549,7 +1548,7 @@ def render_realm_page(realm, realm_root, page: str, dark: bool = False) -> str:
     if page == "goals":
         return _page_shell(realm, "Goals", "Goals", _realm_goals(realm, realm_root), dark)
     if page == "memory":
-        return _page_shell(realm, "Memory", "Memory", _realm_memory(realm, realm_root), dark)
+        return _page_shell(realm, "Memory", "Memory", _realm_memory(realm, realm_root, (query or {}).get('tab')), dark)
     if page == "skills":
         return _page_shell(realm, "Capabilities", "Capabilities", _realm_skills(realm, realm_root), dark)
     if page == "artefacts":

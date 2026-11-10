@@ -35,19 +35,18 @@ this gate controls ARMADA's inbox dispatch, not arbitrary independent reads of r
 inbox files by an already-authorized process. The bundled instructions tell agents
 not to execute deferred inbox items through another task.
 
-Installation-wide owner text lives in `~/.armada/config.json` as `system_memory`.
-Missing means bundled guidance; an explicitly saved empty string means no additional
-text. Reads never seed/write files. Writes use the shared lock and atomic writer,
-validate the 16,000-character limit, record a change timestamp and reject stale
-editor revisions. Corrupt configuration stops context assembly rather than silently
-dropping owner instructions. Settings shows the load error without replacing data.
-The existing authenticated Settings API owns editing. The common memory assembly
+Installation-wide guidance ships in `armada/system-memory.txt`. Legacy owner text in
+`~/.armada/config.json` under `system_memory` still takes precedence; an explicitly saved
+empty string means no additional text. Reads never write files. Corrupt configuration
+stops context assembly rather than silently dropping owner instructions. Settings and
+Memory → App display the text and reveal its source file without offering editing.
+The common memory assembly
 adds the text to all provider turns and context accounting; Alexander also receives
 it. Realm export does not move machine-level instructions or owner settings.
 
 Synthetic tests cover boundaries, timezones/DST, malformed direct files, stale
 claims/confirmations, expiry during capacity waits, one-time manual overrides,
-all three provider contexts, stale editor saves and corrupt state preservation.
+all three provider contexts, legacy instructions and corrupt state preservation.
 `tools/inbox_timing_probe.py` exercises native Settings Save/Restore and inbox
 warning Cancel/Process now. It uses temporary homes and a fake recipient turn,
 never the owner's app, real realms, providers or actual queued messages.

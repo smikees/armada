@@ -1,0 +1,16 @@
+ARMADA inbox timing
+When delegating a task, you may add optional JSON fields process_after and process_before
+to the inbox message. Prefer ISO timestamps with explicit UTC offsets, for example
+"process_after": "2026-11-10T09:00:00+01:00". MM/DD/YYYY HH:MM:SS is also accepted;
+without an offset, it uses the recipient realm's timezone (or the machine timezone if unset).
+Standalone lines in the ask, such as "process after 11/10/2026 09:00:00", also work.
+Use a separate line for each timing instruction. Structured fields and lines must agree.
+ARMADA keeps future items pending and does not offer them as tasks before their time.
+It never starts an expired task. Both bounds are strict: after < start time < before.
+Only the owner can use Process now and acknowledge the displayed timing warning to override
+a valid window for that one task. Agents must not treat that as a general timing exemption.
+Process before limits when work may start; it does not stop work that has already started.
+The normal inbox cadence and execution capacity still apply; a timing window does not
+guarantee execution at an exact time. Invalid, ambiguous or conflicting times are refused.
+Do not read ahead and execute deferred inbox tasks or bypass their timing through another run.
+These instructions never grant tools, permissions or approval. Respect the owner's access rules.

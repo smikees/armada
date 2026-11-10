@@ -9,10 +9,12 @@ all three subscriptions or any provider's desktop app.
 | Codex · OpenAI | Codex CLI | [Codex](codex.md) |
 | Gemini · Google | Antigravity CLI | [Gemini](gemini.md) |
 
-In setup or **Settings → App → Engines**, install the CLI you want, sign in through
+In setup or **Settings → App → Engine**, install the CLI you want, sign in through
 its provider, and enable it for ARMADA. Existing CLI logins can be reused. The card
 shows installation, authentication and the subscription name when the CLI reports it.
 Available models, account eligibility and quotas depend on the provider.
+The switch in each Settings card controls whether ARMADA can use that engine.
+It takes effect immediately and keeps the CLI signed in.
 
 Choose the realm's default model in **Realm settings → Model defaults**. Individual
 agents and jobs can override it. Changing providers preserves roles, memories and

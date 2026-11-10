@@ -1,10 +1,11 @@
 # `armada/system_memory.py`
 
-Owner-managed installation-wide instructions, loaded afresh for every agent turn.
+Read-only installation-wide instructions, loaded afresh for every agent turn.
 
-### `_revision(text)`
+### class `SystemMemory`
 
 —
+
 
 ### `_validate(text)`
 
@@ -15,9 +16,5 @@ Owner-managed installation-wide instructions, loaded afresh for every agent turn
 —
 
 ### `prompt()`
-
-—
-
-### `save(text, revision)`
 
 —

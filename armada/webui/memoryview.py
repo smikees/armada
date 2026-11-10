@@ -355,7 +355,23 @@ def _covenant_modal(realm_root=None) -> str:
         + _COVENANT_JS)
 
 
-def _realm_memory(realm, realm_root) -> str:
+def _realm_memory(realm, realm_root, tab=None) -> str:
+    app = tab == 'app'
+    realm_active = '' if app else ' aria-current="page"'
+    app_active = ' aria-current="page"' if app else ''
+    tabs = ('<nav class="mc-memory-tabs" aria-label="Memory scope">'
+            f'<a href="/memory" class="mc-captab"{realm_active}>Realm</a>'
+            f'<a href="/memory?tab=app" class="mc-captab"{app_active}>App</a></nav>')
+    subtitle = ('' if app else
+                '<span style="font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;'
+                'text-transform:uppercase;color:var(--text-soft);margin-left:6px">· realm-level · loads for every agent</span>')
+    header = ('<div class="mc-memory-heading">'
+              f'<h2>Memory{subtitle}</h2>{"" if app else _mem_add_button()}</div>{tabs}')
+    if app:
+        from .system_memory import reader
+        return (f'<div class="mc-memory-page">{header}<section class="mc-frame mc-memory-app">'
+                f'<h3 class="mc-h-sect">ARMADA system memories</h3>{reader()}</section></div>')
+
     cards = _mem_cards(_list_mem(Path(realm_root) / "memory"), "realm", realm=realm)
     links = "".join(f'<a href="/agent/{E(a.id)}/memories" class="mc-frame" style="text-decoration:none;color:inherit;display:flex;'
                     f'align-items:center;justify-content:space-between;padding:8px 12px;border-radius:var(--r);margin-bottom:6px">'
@@ -363,14 +379,9 @@ def _realm_memory(realm, realm_root) -> str:
                     f'<span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-muted)">'
                     f'<span style="display:flex">{_icon("brain",13)}</span>{len(_agent_memory(realm_root, a.id))} ›</span></a>'
                     for a in realm.agents)
-    header = (f'<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px">'
-              f'<h2 style="font-family:var(--font-heading);font-size:26px;margin:0">Memory'
-              f'<span style="font-family:var(--font-body);font-weight:400;font-size:11px;letter-spacing:.08em;text-transform:uppercase;'
-              f'color:var(--text-soft);margin-left:6px">· realm-level · loads for every agent</span></h2>'
-              f'{_mem_add_button()}</div>')
-    return (f'<div style="padding:18px 24px 24px">{header}'
+    return (f'<div class="mc-memory-page">{header}'
             f'{_covenant_block(realm, realm_root)}'
-            f'<div style="display:grid;grid-template-columns:1fr 320px;gap:22px">'
+            f'<div class="mc-memory-columns">'
             f'<div>{_mem_search()}{cards}</div>'
             f'<div><div class="mc-h-sect" style="margin-bottom:2px">Per-agent memories</div>'
             f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-soft);margin-bottom:8px">loads only in the agent\'s threads</div>{links}</div></div>'

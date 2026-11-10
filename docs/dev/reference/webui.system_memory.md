@@ -1,7 +1,7 @@
 # `armada/webui/system_memory.py`
 
-The app-wide owner instruction editor, separate from generated realm memories.
+Shared read-only reader for app-wide instructions in Settings and Memory.
 
-### `editor()`
+### `reader()`
 
 —

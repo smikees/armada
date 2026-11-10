@@ -151,7 +151,7 @@
 | [`support`](support.md) | Send exactly the approved, redacted report through ARMADA's public relay. |
 | [`sysjobs`](sysjobs.md) | System jobs — the recurring work ARMADA does to keep itself current. |
 | [`sysskills`](sysskills.md) | System skills — the skills ARMADA itself needs to work. |
-| [`system_memory`](system_memory.md) | Owner-managed installation-wide instructions, loaded afresh for every agent turn. |
+| [`system_memory`](system_memory.md) | Read-only installation-wide instructions, loaded afresh for every agent turn. |
 | [`sysusage`](sysusage.md) | System usage: tokens ARMADA itself spends, as opposed to the owner's agents. |
 | [`telegram`](telegram.md) | Talking to your agents from Telegram. |
 | [`templates`](templates.md) | Realm templates (SPEC §3/§11): {theme} + starter agents over the neutral schema. |
@@ -201,7 +201,7 @@
 | [`webui.schedfmt`](webui.schedfmt.md) | Schedule / status / date-format helpers (carved from _core.py in Phase 3). |
 | [`webui.setup_wizard`](webui.setup_wizard.md) | The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide. |
 | [`webui.smartsearch`](webui.smartsearch.md) | Add a capability: smart search (Alexander), Bring a link, add by address, and where to browse. |
-| [`webui.system_memory`](webui.system_memory.md) | The app-wide owner instruction editor, separate from generated realm memories. |
+| [`webui.system_memory`](webui.system_memory.md) | Shared read-only reader for app-wide instructions in Settings and Memory. |
 | [`webui.thread_window`](webui.thread_window.md) | The ordinary conversation pane in Alexander's independent window frame. |
 | [`webui.threadsview`](webui.threadsview.md) | Threads / chat rendering (Layer 2, carved from _core.py in Phase 3). |
 | [`webui.welcome`](webui.welcome.md) | The first-run page (launch plan 5.3): what the app shows when there is no realm to open. |

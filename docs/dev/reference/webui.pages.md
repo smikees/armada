@@ -110,7 +110,7 @@ Tasks agents have handed each other. Waiting and recently-handled are what you c
 
 —
 
-### `render_realm_page(realm, realm_root, page: str, dark: bool=False)`
+### `render_realm_page(realm, realm_root, page: str, dark: bool=False, *, query=None)`
 
 —
 

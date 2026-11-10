@@ -845,10 +845,8 @@ def _match_capabilities(tool_name: str, tool_input, index: list) -> list:
     return hits
 
 
-# How long an agent run gets when nothing else says. This mirrors EngineAdapter.run()'s own default,
-# which run_stream() does NOT share (it defaults to half). Jobs may take either path, and a job's
-# time limit must not depend on which one we happened to call, so the job path passes this
-# explicitly. test_turn_capture asserts the two stay equal.
+# Default time limit for agent jobs and one-off tasks. Pass it explicitly so the limit
+# stays the same regardless of the provider or whether its adapter streams the reply.
 _DEFAULT_RUN_TIMEOUT = 1200
 
 

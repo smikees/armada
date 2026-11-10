@@ -55,6 +55,21 @@ def test_disconnect_blocks_calls_preserves_cli_login_and_agent_model(connections
     assert providers.status(provider)["connected"]
 
 
+def test_engine_switch_persists_without_starting_sign_in(connections, monkeypatch):
+    from armada.serve import Handler
+    handler = object.__new__(Handler)
+    toggle = {'provider': 'codex', 'action': 'set-enabled'}
+    connections['codex'] = True
+    providers.status('codex')
+    monkeypatch.setattr(providers, 'connect', lambda _: pytest.fail('Engine switch started sign-in'))
+    assert handler._provider_action({**toggle, 'enabled': False})['ok']
+    assert not providers.allowed('codex') and not providers.connected()
+    assert not handler._provider_action({**toggle, 'enabled': 'false'})['ok']
+    assert not providers.allowed('codex')
+    assert handler._provider_action({**toggle, 'enabled': True})['ok']
+    assert providers.connected() == ['codex']
+
+
 @pytest.mark.parametrize("provider", ["claude", "codex"])
 def test_connect_uses_owned_login_and_callback_cannot_undo_disconnect(connections, provider, monkeypatch):
     calls = []

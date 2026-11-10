@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "condensed\",arial,sans-serif",
+        "createdAt": "2026-11-10T14:40:59.266Z",
+        "reason": "Codex: parser truncates the existing Barlow Condensed shorthand. Website DESIGN.md declares Barlow Condensed with Arial and sans-serif fallbacks."
+      }
+    ]
+  }
+}

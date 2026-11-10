@@ -99,11 +99,25 @@ function mcSetThreadTitle(thread,title){
 if(document.getElementById('mc-turns')){requestAnimationFrame(mcScrollBottom);setTimeout(mcScrollBottom,120);}
 // Refetch the right rail (loaded context + capabilities + artifacts) after a reply, so newly created
 // output artifacts appear without a manual page reload. No-op if the rail isn't on the page.
+let mcRailRefresh=0;
 async function mcRefreshRail(agent,thread){
-  const rail=document.getElementById('mc-rail'); if(!rail)return;
+  const rail=document.getElementById('mc-rail'); if(!rail||rail.dataset.agent!==agent||rail.dataset.thread!==thread)return;
+  const refresh=++mcRailRefresh;
   try{
-    const html=await (await fetch('/api/thread-rail?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread),{cache:'no-store'})).text();
-    if(html&&html.trim()){const st=rail.scrollTop;rail.outerHTML=html;const r2=document.getElementById('mc-rail');if(r2)r2.scrollTop=st;}
+    const response=await fetch('/api/thread-rail?agent='+encodeURIComponent(agent)+'&thread='+encodeURIComponent(thread),{cache:'no-store'});
+    if(!response.ok)return;
+    const html=await response.text();
+    if(refresh!==mcRailRefresh||!rail.isConnected||!html.trim())return;
+    const collapsed=new Set([...rail.querySelectorAll('.mc-rail-section:not([open])')].map(section=>section.dataset.section));
+    const focused=rail.contains(document.activeElement)&&document.activeElement.closest('.mc-rail-section')?.dataset.section;
+    const scroll=rail.scrollTop;
+    rail.outerHTML=html;
+    const next=document.getElementById('mc-rail');if(!next)return;
+    next.querySelectorAll('.mc-rail-section').forEach(section=>{
+      if(collapsed.has(section.dataset.section))section.open=false;
+      if(section.dataset.section===focused)section.querySelector('summary').focus({preventScroll:true});
+    });
+    next.scrollTop=scroll;
   }catch(e){}
 }
 async function mcRefreshMetrics(agent,thread){

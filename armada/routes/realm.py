@@ -37,7 +37,7 @@ class RealmRoutes:
                 self._send(200, loading_page(reader.read(self.realm), dark=self._dark()))
                 return
             self._send(200, webui.render_realm_page(reader.read(self.realm), self.realm, page,
-                                                    dark=self._dark()))
+                                                    dark=self._dark(), query=self._query()))
         except SystemExit as e:
             self._err_page(e)
 

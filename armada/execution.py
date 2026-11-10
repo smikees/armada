@@ -353,10 +353,13 @@ class TurnCoordinator:
                 use_tools = (job.get("allow_tools") is True) if scheduled_job else (
                     req.allow_tools or bool(agent.get("allow_tools")) or bool(req.images))
                 model = r._cli_model(job["model"], root) if job.get("model") else r._resolve_model(root, agent)
+                # Conversations run until the engine finishes or the owner stops them.
+                # Jobs and one-off tasks still use the configured job timeout.
+                timeout = (r._resolve_timeout(root, job) or r._DEFAULT_RUN_TIMEOUT) if req.task else None
                 request = RunRequest("", "", model=r._engine_model(eng, model) or None,
                     cwd=str(agent_dir), allow_tools=use_tools, effort=r._resolve_effort(root, run_agent),
                     verbosity=output_level if eng.name in ("codex", "gemini") else None,
-                    timeout=(r._resolve_timeout(root, job) or r._DEFAULT_RUN_TIMEOUT),
+                    timeout=timeout,
                     fallback_model=r._resolve_fallback_model(root, agent) or None,
                     max_budget_usd=r._resolve_max_budget(root, agent),
                     disallowed_tools=() if inspector_turn else tuple(r._tool_grants(root, aid, eng, use_tools)))

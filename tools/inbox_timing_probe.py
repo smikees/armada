@@ -29,7 +29,7 @@ def run(output):
         item = inbox.send(root, sender, recipient, 'Synthetic future task',
                           process_after='2099-11-09T09:00:00+01:00', process_before='2099-11-10T09:00:00+01:00')
         assert item['ok'], item
-        calls = []
+        calls, revealed = [], []
         runner.recipient_access = lambda *a: {'ok': True, 'provider': 'mock'}
         def fake_turn(*args, **kw):
             calls.append(kw)
@@ -38,6 +38,11 @@ def run(output):
 
         class Fixture(serve.Handler):
             capture_html = ''
+
+            def _reveal(self, body):
+                revealed.append(Path(body['path']))
+                return {'ok': True}
+
             def _route_get(self):
                 path = self.path.split('?')[0]
                 if path == '/probe-screenshot':
@@ -97,20 +102,27 @@ def run(output):
 
         def exercise():
             try:
-                wait(lambda: js("document.readyState==='complete'&&typeof mcSaveAppSettings==='function'&&!!document.getElementById('st-system-memory')"), 'System memory editor ready')
-                assert js("document.getElementById('st-system-memory').value.includes('process_after')")
+                wait(lambda: js("document.readyState==='complete'&&!!document.getElementById('mc-system-memory-open')"), 'System memories available in App settings')
                 js("document.documentElement.classList.remove('armada-dark');document.body.classList.remove('armada-dark')")
-                capture('timed-inbox-settings-light', '#st-system-memory')
-                js("document.getElementById('st-system-memory').value='Synthetic shared instruction';mcSaveAppSettings();true")
-                wait(lambda: system_memory.load()['text'] == 'Synthetic shared instruction', 'App Save persists shared instructions')
-                time.sleep(.8)
-                navigate('/settings?tab=app')
-                assert js("document.getElementById('st-system-memory').value==='Synthetic shared instruction'")
-                js("mcRestoreSystemMemory();true")
-                assert system_memory.load()['text'] == 'Synthetic shared instruction', 'Restore requires Save'
-                js("mcSaveAppSettings();true")
-                wait(lambda: system_memory.load()['text'] == system_memory.DEFAULT, 'Default restored only after Save')
-                time.sleep(.8)
+                capture('timed-inbox-settings-light', '.mc-system-memory-row')
+                js("document.getElementById('mc-system-memory-open').click();true")
+                assert js("!!document.querySelector('#mc-system-memory-dialog:modal')")
+                settings_text = js("document.querySelector('.mc-system-memory-text').textContent")
+                assert 'process_after' in settings_text
+                assert not js("!!document.querySelector('#mc-system-memory-dialog textarea, #mc-system-memory-dialog [contenteditable]')")
+                js("document.querySelector('#mc-system-memory-dialog button').click();true")
+                assert not js("document.getElementById('mc-system-memory-dialog').open")
+                js("document.getElementById('mc-system-memory-file').click();true")
+                wait(lambda: revealed == [system_memory.load().path], 'File action reveals the source of the displayed guidance')
+                navigate('/memory')
+                assert js("document.querySelector('.mc-memory-tabs [aria-current]').textContent==='Realm'")
+                js("document.querySelector('.mc-memory-tabs a[href*=\"tab=app\"]').click();true")
+                wait(lambda: js("document.querySelector('.mc-memory-tabs [aria-current]')?.textContent==='App'"), 'Memory defaults to Realm and opens App from its submenu')
+                js("document.getElementById('mc-system-memory-open').click();true")
+                assert js("!!document.querySelector('#mc-system-memory-dialog:modal')")
+                assert js("document.querySelector('.mc-system-memory-text').textContent") == settings_text
+                assert not js("!!document.querySelector('#mc-system-memory-dialog textarea, #mc-system-memory-dialog [contenteditable]')")
+                result['checks'].append('Settings and Memory show the same read-only instructions')
                 navigate('/inbox')
                 selector = '[data-id='+json.dumps(item['id'])+'] [data-act=process]'
                 click = 'document.querySelector('+json.dumps(selector)+').click();true'

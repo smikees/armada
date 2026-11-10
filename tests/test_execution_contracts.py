@@ -48,7 +48,10 @@ def test_every_path_has_one_durable_terminal_outcome(realm, monkeypatch, path, p
         kw["on_event"]({"kind": "text", "text": "partial"})
         assert th.progress(th.open_turn()["turn"])["content"] == "partial"
         assert "partial" not in th.render(), "progress is not extra conversation history"
-        assert kw["timeout"] == runner._DEFAULT_RUN_TIMEOUT
+        if path in ("chat", "stream"):
+            assert kw["timeout"] is None
+        else:
+            assert kw["timeout"] == runner._DEFAULT_RUN_TIMEOUT
         (ad / "answer.txt").write_text("artifact", encoding="utf-8")
         kw["on_event"]({"kind": "tool", "name": "Write", "id": "w",
                           "input": {"file_path": str(ad / "answer.txt")}})
@@ -74,6 +77,22 @@ def test_every_path_has_one_durable_terminal_outcome(realm, monkeypatch, path, p
     assert reports[0]["realm_id"] == RunContext.capture(realm, "a").realm.realm_id
     assert reports[0]["run_id"] and reports[0]["tokens"]["api_equiv_usd"] is None
     assert not list((ad / "runs" / ".running").glob("*.json")) and not execution.ACTIVE_RUNS
+
+
+def test_configured_job_timeout_does_not_limit_chat(realm, monkeypatch):
+    util.write_json_atomic(realm / 'realm.json', {'name': 'Test', 'default_job_timeout': 60})
+    util.write_json_atomic(realm / 'agents/a/jobs/work.json', {'id': 'work', 'prompt': 'hello', 'timeout': 90})
+    engine = MockEngine()
+    timeouts = []
+
+    def run(**kwargs):
+        timeouts.append(kwargs['timeout'])
+        return RunResult(ok=True, output='Fixture reply')
+
+    monkeypatch.setattr(engine, 'run', run)
+    for path in ('chat', 'job', 'inbox'):
+        assert invoke(path, realm, engine)['status'] == 'ok'
+    assert timeouts == [None, 90, 60]
 
 
 @pytest.mark.parametrize("provider", [ClaudeEngine, CodexEngine])

@@ -3,17 +3,19 @@
 Three tabs, from left to right: **App**, **Realm**, **User**. App opens first unless
 a link or your remembered tab selects another.
 Use the Save and Cancel buttons beside each tab's settings. Cancel discards changes you have not
-saved. Provider sign-in, Telegram connection, avatar uploads, and other command buttons apply when
+saved. Engine switches, provider sign-in, Telegram connection, avatar uploads, and other commands apply when
 you use them.
 
 ## App
 
 - **Version** — the version you're running; **Restart**, **Check for updates**, **Changelog**.
 - **Root folder** — the one folder ARMADA works in. Every realm lives inside it.
-- **Providers** — connect Claude, Codex, Gemini, or any combination. Sign-in opens on the provider's website;
+- **ARMADA system memories** — read the instructions shared across realms. Select a title to open
+  it, or use **Go to file** to find its source on disk. These instructions are read-only in ARMADA.
+- **Engine** — connect Claude, Codex, Gemini, or any combination. Sign-in opens on the provider's website;
   an existing CLI login can be reused. Agent model lists show connected providers.
-  Disconnect stops new Armada calls without signing the CLI out or changing saved agent models.
-  Reconnect restores access. See [OpenAI models](codex.md).
+  Turning an engine off stops new ARMADA calls without signing the CLI out or changing saved agent models.
+  Turn it back on to use the existing login. See [OpenAI models](codex.md).
   Gemini uses Google's supported Antigravity CLI and reuses its saved Google login.
   Available Flash and Pro models come from your account's live catalogue; Gemini Auto selects
   the latest available Flash. You can select Gemini for an agent or override it for a job.

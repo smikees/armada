@@ -142,7 +142,8 @@ def test_owned_descendant_cleanup(tmp_path, monkeypatch, provider, ending):
     def event(event):
         if ending == "cancel" and event.get("kind") == "text": handles[0].kill()
     started = time.monotonic()
-    result = engine.run_stream("", "", allow_tools=True, timeout=0.7 if ending == "timeout" else 6,
+    timeout = None if ending == "cancel" else 0.7 if ending == "timeout" else 6
+    result = engine.run_stream("", "", allow_tools=True, timeout=timeout,
                                on_event=event, on_proc=register)
     assert time.monotonic() - started < 6
     assert result.ok is (ending == "parent-exit"), result

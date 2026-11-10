@@ -48,6 +48,6 @@ The Covenant — realm tenets.md, pinned above the memories.
 
 App-native reader/editor for the Covenant (no browser dialogs — house rule).
 
-### `_realm_memory(realm, realm_root)`
+### `_realm_memory(realm, realm_root, tab=None)`
 
 —

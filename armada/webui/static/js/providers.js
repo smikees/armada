@@ -64,6 +64,8 @@
           state.style.color=s.connected?'var(--status-ok)':'var(--text-muted)';
         });
         const status=el('provider-'+p+'-status');if(!status)return;
+        const toggle=el('provider-'+p+'-enabled');
+        if(toggle&&!toggle.disabled)toggle.checked=!!s.enabled;
         const needsInstall=!s.installed||s.version_ok===false;
         el('provider-'+p+'-installed').textContent=s.installing?'Installing…':s.installed?'CLI installed'+(s.version?' · '+s.version:''):'CLI not installed';
         const plan=el('provider-'+p+'-plan');
@@ -75,7 +77,7 @@
           plan.hidden=!plan.textContent;
           if(subscription)subscription.hidden=!signed;
         }
-        const message=s.installing?'Installing '+cliLabels[p]+'. This may take a few minutes.':s.install_error?s.install_error:
+        const message=toggle&&!s.enabled?'Turned off in ARMADA.':s.installing?'Installing '+cliLabels[p]+'. This may take a few minutes.':s.install_error?s.install_error:
           !s.installed?'Install '+cliLabels[p]+' to use '+labels[p]+'.':s.version_ok===false?'Update Claude Code to '+s.min_version+' or newer before signing in.':
           s.connected?'Signed-in':s.pending?(p==='gemini'?'Complete Google sign-in in the CLI window that opened.':s.login_url?'Waiting for sign-in. Open the link below, or copy it into your browser.':'Preparing the sign-in link…'):
           s.login_error?s.login_error:!s.enabled?'Disconnected from Armada.':s.ok===false?'Could not check sign-in. Check the CLI configuration and retry.':'Not signed in';
@@ -94,11 +96,12 @@
           status.classList.toggle('mc-provider-signed-in',!!s.connected);
           status.title=message;
         }
-        el('provider-'+p+'-connect').hidden=needsInstall||s.connected||s.pending||s.installing;
+        el('provider-'+p+'-connect').hidden=(!!toggle&&!s.enabled)||needsInstall||s.connected||s.pending||s.installing;
         el('provider-'+p+'-connect').disabled=false;
         const signLabel=el('provider-'+p+'-connect').querySelector('[data-signin-label]');
         signLabel.textContent=!s.enabled&&s.logged_in?'Reconnect':signLabel.dataset.defaultLabel;
-        el('provider-'+p+'-disconnect').hidden=!s.connected;
+        const disconnect=el('provider-'+p+'-disconnect');
+        if(disconnect)disconnect.hidden=!s.connected;
         el('provider-'+p+'-install').hidden=!needsInstall&&!s.install_error;
         el('provider-'+p+'-install').disabled=!!s.installing;
         el('provider-'+p+'-install').textContent=(s.installed?'Update ':'Install ')+cliLabels[p];
@@ -131,6 +134,9 @@
     finally{button.disabled=false;button.removeAttribute('aria-busy');label.textContent='Recheck';}
   };
   window.mcConnection=async function(provider,action,button){
+    const toggle=action==='connect'?el('provider-'+provider+'-enabled'):null;
+    if(toggle?.disabled)return;
+    if(toggle)toggle.disabled=true;
     button.disabled=true;
     try{
       const response=await fetch('/api/provider-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,action})});
@@ -138,7 +144,22 @@
       if(r.ok){await refresh();}
       else el('provider-'+provider+'-status').textContent=r.error||'Could not update connection.';
     }catch(e){el('provider-'+provider+'-status').textContent='Could not update connection. Try again.';}
-    finally{button.disabled=false;}
+    finally{button.disabled=false;if(toggle)toggle.disabled=false;}
+  };
+  window.mcSetProviderEnabled=async function(provider,toggle){
+    const enabled=toggle.checked, feedback=el('provider-'+provider+'-feedback');
+    toggle.disabled=true;feedback.textContent='Saving…';
+    try{
+      const response=await fetch('/api/provider-action',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({provider,action:'set-enabled',enabled})});
+      const result=await response.json();
+      if(!result.ok)throw Error(result.error||'Could not change engine state.');
+      feedback.textContent=enabled?'Engine turned on.':'Engine turned off.';
+      if(loading)await loading;
+      if(await refresh())feedback.textContent='';
+    }catch(error){
+      toggle.checked=!enabled;feedback.textContent=error.message;
+    }finally{toggle.disabled=false;}
   };
   window.mcSaveAlexander=async function(button){
     button.disabled=true;

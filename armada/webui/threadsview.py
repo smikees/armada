@@ -420,6 +420,12 @@ def _thread_caps_used(msgs: list, realm_root=None, agent_id: str = "", thread: s
     return out
 
 
+def _rail_section(key: str, title: str, body: str) -> str:
+    return (f'<details class="mc-rail-section" data-section="{key}" open>'
+            f'<summary>{E(title)}<span class="mc-rail-chevron" aria-hidden="true">'
+            f'{_icon("chevron-right", 14)}</span></summary><div class="mc-rail-content">{body}</div></details>')
+
+
 def _thread_caps_rail(caps: dict) -> str:
     """The 'Capabilities in this thread' block for the right rail, grouped by type under its icon.
     Always rendered — shows a placeholder until the agent actually invokes a connector/skill/plugin."""
@@ -452,10 +458,7 @@ def _thread_caps_rail(caps: dict) -> str:
     if not rows:
         rows = ('<div style="font-size:11.5px;color:var(--text-faint);line-height:1.5">'
                 'Connectors, skills and plugins the agent uses in this thread will appear here.</div>')
-    return (f'<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--color-divider)">'
-            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;'
-            f'color:var(--text-muted);margin-bottom:10px">Capabilities used in this thread</div>'
-            f'{rows}</div>')
+    return _rail_section('capabilities', 'Capabilities used in this thread', rows)
 
 
 def _thread_artifacts(agent_dir, aid: str, thread: str, msgs: list) -> tuple[list, list]:
@@ -544,10 +547,7 @@ def _thread_arts_rail(inputs: list, outputs: list, agent_id: str = "") -> str:
     if not body:
         body = ('<div style="font-size:11.5px;color:var(--text-faint);line-height:1.5">'
                 'Files you attach or the agent creates in this thread will appear here.</div>')
-    return (f'<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--color-divider)">'
-            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;'
-            f'color:var(--text-muted);margin-bottom:10px">Artifacts</div>'
-            f'{body}</div>')
+    return _rail_section('artifacts', 'Artifacts', body)
 
 
 def _thread_rail(realm_root, a, selected: str) -> str:
@@ -580,14 +580,13 @@ def _thread_rail(realm_root, a, selected: str) -> str:
     caps_block = _thread_caps_rail(_thread_caps_used(_allmsgs, realm_root, a.id, selected))
     _ins, _outs = _thread_artifacts(agent_dir, a.id, selected, _allmsgs)
     arts_block = _thread_arts_rail(_ins, _outs, a.id)
+    context_body = (f'<div style="display:flex;border-radius:3px;overflow:hidden;margin-bottom:12px">{bar}</div>{cards}'
+                    f'<div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5">'
+                    f'≈ <b>{_est_tokens(total)}</b> tokens this reply. Core context is always present; the thread compacts as it grows.</div>')
+    context = _rail_section('context', f'Loaded context · {_est_tokens(total)} tokens', context_body)
     return (f'<div id="mc-rail" data-agent="{E(a.id)}" data-thread="{E(selected)}" '
             f'style="background:var(--color-surface);padding:16px 18px;overflow:auto">'
-            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:8px">'
-            f'Loaded context · {_est_tokens(total)} tokens</div>'
-            f'<div style="display:flex;border-radius:3px;overflow:hidden;margin-bottom:12px">{bar}</div>{cards}'
-            f'<div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5">'
-            f'≈ <b>{_est_tokens(total)}</b> tokens this reply. Core context is always present; the thread compacts as it grows.</div>'
-            f'{caps_block}{arts_block}</div>')
+            f'{context}{caps_block}{arts_block}</div>')
 
 
 def _turn_snapshot(realm_root, aid, selected, th):

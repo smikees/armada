@@ -20,10 +20,10 @@ _APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
-    def _save_system_memory(self, body):
+    def _reveal_system_memory(self, _body):
         from .. import system_memory
         try:
-            return system_memory.save(body.get('text'), body.get('revision'))
+            return self._reveal({'path': str(system_memory.load().path)})
         except (ValueError, OSError) as exc:
             return {'ok': False, 'error': str(exc)}
 
@@ -74,9 +74,11 @@ class SettingsRoutes:
                 return (provider_login.cancel(provider) if action == "cancel-login"
                         else provider_login.open_page(provider))
             if action == "disconnect":
-                return providers.disconnect(body.get("provider"))
+                return providers.disconnect(provider)
+            if action == "set-enabled":
+                return providers.set_enabled(provider, body.get("enabled"))
             if action in ("connect", "reconnect"):
-                return providers.connect(body.get("provider"))
+                return providers.connect(provider)
             return {"ok": False, "error": "Unknown connection action"}
         except (ValueError, OSError) as exc:
             return {"ok": False, "error": str(exc)}

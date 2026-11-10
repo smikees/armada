@@ -130,6 +130,19 @@ def disconnect(provider):
     return {"ok": True, "provider": provider, "connected": False}
 
 
+def set_enabled(provider, enabled):
+    """Control whether ARMADA can use the provider, independently of CLI sign-in."""
+    _check(provider)
+    if not isinstance(enabled, bool):
+        raise ValueError("Engine state must be on or off.")
+    if enabled:
+        with _lock:
+            _save(provider, enabled=True)
+    else:
+        disconnect(provider)
+    return {"ok": True, "enabled": enabled}
+
+
 def connect(provider):
     """Use an existing CLI login, or launch the CLI's browser OAuth flow without a console."""
     _check(provider)

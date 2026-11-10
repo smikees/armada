@@ -53,6 +53,10 @@ Observe the CLI once; callers apply current connection/login state afterwards.
 
 —
 
+### `set_enabled(provider, enabled)`
+
+Control whether ARMADA can use the provider, independently of CLI sign-in.
+
 ### `connect(provider)`
 
 Use an existing CLI login, or launch the CLI's browser OAuth flow without a console.

@@ -94,6 +94,10 @@ The same persisted message count and compaction estimate for page load and live 
 
 Capabilities the agent ACTUALLY exercised in this thread, grouped by type. Read from the `caps_used` recorded on each assistant turn (a real tool call to that connector/skill), NOT guessed from keywords — so a thread that used no capability shows nothing.
 
+### `_rail_section(key: str, title: str, body: str)`
+
+—
+
 ### `_thread_caps_rail(caps: dict)`
 
 The 'Capabilities in this thread' block for the right rail, grouped by type under its icon. Always rendered — shows a placeholder until the agent actually invokes a connector/skill/plugin.

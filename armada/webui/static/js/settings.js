@@ -16,13 +16,7 @@ function mcAppValues(){
     mode:document.querySelector('input[name="mc-mode"]:checked')?.value||'system',
     theme:document.querySelector('.mc-themecard[data-selected="true"]')?.dataset.themeId||'',
     fonts:fonts,fontSize:Number(byId('mc-font-size')?.value||13),startupSound:checked('st-startup-sound'),tray:checked('st-keep-tray'),auto:checked('st-update-auto'),
-    systemMemory:byId('st-system-memory')?.value,
     alexander:{model:byId('alexander-model')?.value||'',effort:byId('alexander-effort')?.value||'',verbosity:byId('alexander-verbosity')?.value||'standard'}};
-}
-function mcRestoreSystemMemory(){
-  const el=document.getElementById('st-system-memory');if(!el)return;
-  el.value=el.dataset.default;
-  document.getElementById('st-system-memory-hint').textContent='Default text restored. Save to apply.';
 }
 const mcAppInitial=mcAppValues();
 window.addEventListener('armada-font-size',event=>{
@@ -82,11 +76,6 @@ async function mcSaveAppSettings(){
   if(button)button.disabled=true;
   if(msg){msg.style.color='var(--text-muted)';msg.textContent='Saving…';}
   try{
-    if(next.systemMemory!==undefined&&next.systemMemory!==old.systemMemory){
-      const el=document.getElementById('st-system-memory');
-      const result=await mcAppPost('/api/save-system-memory',{text:next.systemMemory,revision:el.dataset.revision});
-      el.dataset.revision=result.revision;old.systemMemory=next.systemMemory;
-    }
     if(JSON.stringify(next.channels)!==JSON.stringify(old.channels)){
       const body={};Object.keys(next.channels).forEach(k=>body['notify_'+k]=next.channels[k]);
       await mcAppPost('/api/save-channels',body);
