@@ -5,6 +5,14 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.139** is published. Conversations can run past 20 minutes, the
+thread rail sections collapse, and App Settings has engine switches and read-only
+system memories. Memory defaults to Realm and provides the same reader under App.
+The publisher suite passed **4,400 tests** and both Windows CI jobs passed
+**4,402 tests**. Native stability, memory and Inbox, and **72 packaged upgrade
+checks** passed. The public site, installer hash, and signed update were verified.
+[Release evidence](dev/RELEASE_0_99_139.md).
+
 Version **0.99.138** is the published active-conversation steering release. Supported Codex
 conversations accept extra owner instructions during the same run, from either
 thread view, with exact-run checks and durable delivery status. CI also exposed
