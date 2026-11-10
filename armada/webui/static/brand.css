@@ -1358,7 +1358,10 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 @media(max-width:900px){.mc-agent-cap-layout{flex-direction:column}.mc-agent-cap-layout>div{width:100%!important;max-width:100%!important}}
 
 /* Owner workflows: preserve saved desktop layout while adapting its presentation. */
-.mc-mainnav{min-width:0}
+.mc-mainnav{position:relative;display:flex;align-items:center;gap:22px;flex:none;min-width:0;padding:0 24px;
+  border-top:1px solid var(--text-8);border-bottom:1px solid transparent}
+.mc-mainnav::after{content:"";position:absolute;inset-inline:24px;bottom:-1px;height:1px;
+  background:var(--color-divider);pointer-events:none}
 .mc-navtabs{min-width:0}
 .mc-nav-actions{flex-shrink:0}
 .mc-mainnav>details>summary>span{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

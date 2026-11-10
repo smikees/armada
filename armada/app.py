@@ -718,6 +718,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                                  min_size=(1400, 700), text_select=True)
     from .startup_splash import LoadingPanel
     loader = LoadingPanel(main)
+    from .desktop_caption import MainCaption
+    caption = MainCaption(main, loader)
     painted = threading.Event()
     navigating = threading.Event()
     browser_ready = threading.Event()
@@ -737,6 +739,8 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                     "complete:document.readyState === 'complete',"
                     "shell:!!document.querySelector('link[href*=\"/static/brand.css\"]'),"
                     "refused:!!document.querySelector('[data-armada-recovery=\"401\"]'),"
+                    "background:getComputedStyle(document.body||document.documentElement).backgroundColor,"
+                    "foreground:getComputedStyle(document.body||document.documentElement).color,"
                     "shared:typeof window.mcFontSize?.get === 'function'})")
                 if not isinstance(document, dict) or document.get('auth') or not document.get('complete'):
                     return
@@ -766,6 +770,7 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                 instance.desktop_ready()
                 browser_ready.set()
                 milestone('authenticated-controller-ready')
+                caption.update(document.get('background'), document.get('foreground'))
                 loader.ready()
                 from . import startup_sound
                 startup_sound.play()

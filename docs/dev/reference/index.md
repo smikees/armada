@@ -42,6 +42,7 @@
 | [`control_files`](control_files.md) | Shared classification of application state versus model-authored output. |
 | [`covenant`](covenant.md) | One shared governing document, named for the realm's chosen vocabulary. |
 | [`datefmt`](datefmt.md) | Dates and times, one way everywhere (DESIGN_SYSTEM §9a, UI audit C2). |
+| [`desktop_caption`](desktop_caption.md) | Theme the main Windows caption while keeping the system window controls. |
 | [`desktop_launch`](desktop_launch.md) | Start the desktop app with Explorer's lifetime and unvirtualized user context. |
 | [`desktop_navigation`](desktop_navigation.md) | Keep private desktop navigation inside its authenticated WebView2 profile. |
 | [`desktop_operations`](desktop_operations.md) | Bounded asynchronous native script calls; no worker thread per browser call. |

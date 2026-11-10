@@ -21,8 +21,10 @@ DISPLAY_PATHS = {"/", "/index.html", "/settings", "/alexander", "/approvals", "/
 DISPLAY_PREFIXES = ("/agent/", "/job/", "/section/", "/edit-section/", "/docs/")
 FAILURES = {"BrowserProcessExited", "RenderProcessExited", "RenderProcessUnresponsive"}
 HEARTBEAT = """(()=>{if(!window.__armadaNativeDrafts){window.__armadaNativeDrafts=true;
-window.dispatchEvent(new Event('armada-native-drafts-ready'));}return {route:location.pathname+location.search,
+window.dispatchEvent(new Event('armada-native-drafts-ready'));}
+const style=getComputedStyle(document.body||document.documentElement);return {route:location.pathname+location.search,
 realm:document.querySelector('meta[name="armada-realm"]')?.content||'',
+background:style.backgroundColor,foreground:style.color,
 ready:document.readyState==='complete'&&!!document.querySelector('link[href*="/static/brand.css"]')
 &&typeof window.mcFontSize?.get==='function'};})()"""
 
@@ -351,6 +353,9 @@ for(const [kind,draft] of Object.entries(drafts)) {
                         route = recovery_route(self.base_url().rstrip('/') + str(value.get('route', '')), self.base_url())
                         if route and value.get('ready'):
                             self.route = bound_route(route, value.get('realm'))
+                            caption = getattr(self.form, '_armada_caption', None)
+                            if caption is not None:
+                                caption.update(value.get('background'), value.get('foreground'))
                     if isinstance(value, dict) and self.state == 'recovering' and value.get('ready'):
                         self.auth = self.start_script("fetch('/api/instance',{credentials:'same-origin'}).then(r=>r.ok?r.json():{})")
                 elif now - self.heartbeat_started > self.heartbeat_timeout:
