@@ -501,6 +501,8 @@ class TurnCoordinator:
                     from . import billing
                     result = billing.execute(eng, request, root=root, agent=aid, job=req.job,
                         run_id=context.run_id, on_event=event, on_proc=process, invoke=execute_request)
+                    if watchdog is not None:
+                        watchdog.__exit__()  # A completed engine cannot stall during transcript flushing.
                     if not isinstance(result, RunResult):
                         raise ValueError("Engine returned no valid RunResult.")
                     if result.ok and (result.error or result.cancelled):

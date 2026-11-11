@@ -15,7 +15,7 @@ class Watchdog:
         self.started = self.last = clock()
         self.last_at = dt.datetime.now(dt.timezone.utc).isoformat()
         self.stalled = self.notified = False
-        self.suspended = False
+        self.suspended = True  # Context preparation is not a silent running engine.
         self.done = threading.Event()
         self.worker = None
 

@@ -83,6 +83,16 @@ def test_watchdog_resumes_after_waiting_for_subscription(realm):
     assert monitor.stalled and killed
 
 
+def test_watchdog_does_not_count_context_preparation_as_engine_silence(realm):
+    clock=[0.0];killed=[]
+    monitor=Watchdog(realm,'a','job',{},lambda:killed.append(True),clock=lambda:clock[0])
+    clock[0]=7200;monitor.check()
+    assert not killed
+    monitor.event({'kind':'start'})
+    clock[0]+=1801;monitor.check()
+    assert monitor.stalled and killed
+
+
 @pytest.mark.parametrize('field,value',[('timeout',600),('critical',True),('plan_limit_action','api'),('connector_limit_action','wait'),('api_run_ceiling_usd',3),('api_model','claude-sonnet-5')])
 def test_file_edits_revoke_every_approved_run_control(realm,field,value):
     job={'id':'job','kind':'agent','prompt':'work','allow_tools':False}
@@ -318,6 +328,9 @@ def test_stalled_job_cleans_up_and_can_start_again(realm,monkeypatch):
     with util.file_lock(realm/'agents/a/runs/.invocations/work.json',timeout=0):
         pass
     engine.healthy=True
+    # The short threshold above deliberately stalls the first engine. This run
+    # tests released ownership, with the normal quiet window rather than CI I/O latency.
+    run_policy.save(realm,{'agent_inactivity_minutes':30})
     assert runner.run_job(realm,'a','work',engine=engine)['status']=='ok'
 
 
