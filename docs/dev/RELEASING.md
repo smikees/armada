@@ -174,7 +174,7 @@ Then run the enforced publish path:
 .venv\Scripts\python tools\publish_release.py
 ```
 
-It runs the isolated default suite, requires successful push CI for the exact HEAD, builds both
+It runs the isolated default suite, requires successful Windows CI for the exact HEAD, builds both
 artifacts, and rehearses that exact installer in Windows Sandbox before publishing. A source
 change during validation aborts publishing. Sandbox evidence includes the installer SHA-256,
 report and first-window screenshot under build/sandbox-runs. To rehearse privately:
@@ -183,6 +183,14 @@ report and first-window screenshot under build/sandbox-runs. To rehearse private
 .venv\Scripts\python tools\build_installer.py
 .venv\Scripts\python tools\sandbox_test.py --installer dist\ARMADA-Setup-<version>.exe
 ```
+
+Push-triggered CI is the default. If GitHub fails to create its jobs, dispatch
+`windows-ci.yml` on `main` and pass `--ci-run <run-id>` to the same publisher.
+It verifies the repository, exact commit, main branch, workflow path, successful
+run and both Python jobs plus relay. Pull-request, stale, failed and skipped
+evidence is rejected. This changes only workflow selection; the local suite,
+installer, signing and packaged-upgrade gates still run. Release evidence records
+the run ID and actual trigger. Never relabel a manual run as a push run.
 
 The builder exercises interrupted-update recovery through the compiled native launcher and checks
 named timezones in its bundled runtime. The default suite isolates user homes, refuses external
@@ -285,7 +293,7 @@ installer transition on a clean PC. See [the reliability contract](UPDATE_RELIAB
 The saved release evidence binds installer/package hashes, source commit and the
 specific native upgrade run. Both publication paths abort on changed source.
 If CI is still running after the local gate, publication waits up to fifteen minutes
-for that exact push commit. A completed failure or missing successful result aborts
+for that exact commit's push run, or the explicitly selected run above. A completed failure or missing successful result aborts
 publication; an earlier commit cannot satisfy this requirement.
 
 

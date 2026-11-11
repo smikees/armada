@@ -59,16 +59,40 @@ def installer_command(python, *, maintenance_unsigned=False):
     return [python, 'tools/build_installer.py', *(['--allow-unsigned'] if maintenance_unsigned else [])]
 
 
-def wait_for_ci(sha, timeout=900):
+def wait_for_ci(sha, timeout=900, *, run_id=None):
     """Allow CI to finish after the local gate; never substitute another source run."""
     deadline = time.monotonic() + timeout
     while True:
+        if run_id is not None:
+            run = json.loads(_run(GH, 'api', '-X', 'GET', f'repos/{REPO}/actions/runs/{run_id}'))
+            if (run.get('head_sha') != sha or run.get('head_branch') != 'main'
+                    or run.get('path') != '.github/workflows/windows-ci.yml'
+                    or run.get('repository', {}).get('full_name') != REPO
+                    or run.get('event') not in ('push', 'workflow_dispatch')):
+                sys.exit('Windows CI run must validate this exact main commit with windows-ci.yml')
+            if run.get('status') == 'completed':
+                if run.get('conclusion') != 'success':
+                    sys.exit('Windows CI failed for this exact release commit')
+                from armada import runtime_spec
+                jobs = json.loads(_run(GH, 'api', '-X', 'GET',
+                    f'repos/{REPO}/actions/runs/{run_id}/jobs?per_page=100')).get('jobs', [])
+                required = {f'tests ({runtime_spec.PYTHON_VERSION})', 'tests (3.14)', 'relay'}
+                passed = {j.get('name') for j in jobs
+                          if j.get('status') == 'completed' and j.get('conclusion') == 'success'}
+                if not required <= passed or any(j.get('conclusion') != 'success' for j in jobs):
+                    sys.exit('Windows CI must pass both Python jobs and relay without skipped jobs')
+                return {'run_id': run_id, 'event': run['event'], 'url': run.get('html_url')}
+            if time.monotonic() >= deadline:
+                sys.exit('Windows CI has not passed for this exact release commit within 15 minutes')
+            time.sleep(min(10, max(0, deadline-time.monotonic())))
+            continue
         result = json.loads(_run(GH, 'api', '-X', 'GET',
             f'repos/{REPO}/actions/workflows/windows-ci.yml/runs', '-f', f'head_sha={sha}', '-f', 'per_page=20'))
         runs = [r for r in result.get('workflow_runs', [])
                 if r.get('head_sha') == sha and r.get('event') == 'push']
-        if any(r.get('status') == 'completed' and r.get('conclusion') == 'success' for r in runs):
-            return
+        for run in runs:
+            if run.get('status') == 'completed' and run.get('conclusion') == 'success':
+                return {'run_id': run.get('id'), 'event': run['event'], 'url': run.get('html_url')}
         if runs and all(r.get('status') == 'completed' for r in runs):
             sys.exit('Windows CI failed for this exact release commit')
         if time.monotonic() >= deadline:
@@ -80,7 +104,11 @@ def main(argv=()) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--maintenance-unsigned', action='store_true',
                         help='Recorded maintainer-authorized unsigned beta distribution; all app/upgrade gates remain mandatory')
+    parser.add_argument('--ci-run', type=int,
+                        help='Exact-main Windows workflow run to verify, including a manual dispatch when push delivery is stuck')
     args = parser.parse_args(argv)
+    if args.ci_run is not None and args.ci_run <= 0:
+        parser.error('--ci-run must be a positive workflow run ID')
     from armada import __version__ as ver
     if _run("git", "status", "--porcelain"):
         sys.exit("uncommitted changes — a release is a commit")
@@ -92,7 +120,7 @@ def main(argv=()) -> None:
     _run("git", "fetch", "--quiet", "origin")
     if sha != _run("git", "rev-parse", "origin/main"):
         sys.exit("HEAD isn't origin/main — push first")
-    wait_for_ci(sha)
+    ci = wait_for_ci(sha, run_id=args.ci_run) if args.ci_run is not None else wait_for_ci(sha)
     if subprocess.run([GH, "release", "view", f"v{ver}", "--repo", REPO], cwd=ROOT,
                       capture_output=True).returncode == 0:
         sys.exit(f"v{ver} is already released")
@@ -124,7 +152,7 @@ def main(argv=()) -> None:
     installer = dist/f'ARMADA-Setup-{ver}.exe'
     (ROOT/'build'/f'release-evidence-{ver}.json').write_text(json.dumps({
         'commit':sha, 'version':ver, 'installer_sha256':hashlib.sha256(installer.read_bytes()).hexdigest(),
-        'upgrade':evidence, 'unsigned_maintenance':args.maintenance_unsigned,
+        'upgrade':evidence, 'ci':ci, 'unsigned_maintenance':args.maintenance_unsigned,
         'sandbox': 'not_verified_unsigned_maintenance' if args.maintenance_unsigned else 'passed'},indent=2),encoding='utf-8')
     out = _run(GH, "release", "create", f"v{ver}", "--repo", REPO, "--target", sha,
                "--title", f"ARMADA v{ver} (beta)", "--notes-file", str(nf), *map(str, assets))

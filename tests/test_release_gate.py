@@ -91,6 +91,43 @@ def test_publish_waits_for_pending_exact_source_ci(monkeypatch):
     assert len(sleeps)==1
 
 
+def _selected_ci(monkeypatch, *, change=None, job_change=None):
+    from armada import runtime_spec
+    run = {'head_sha':'current', 'head_branch':'main', 'repository':{'full_name':'smikees/armada'},
+           'path':'.github/workflows/windows-ci.yml', 'event':'workflow_dispatch',
+           'status':'completed', 'conclusion':'success', 'html_url':'https://github.com/ci/123'}
+    run.update(change or {})
+    jobs = [{'name':name, 'status':'completed', 'conclusion':'success'} for name in
+            (f'tests ({runtime_spec.PYTHON_VERSION})', 'tests (3.14)', 'relay')]
+    if job_change:
+        jobs[0].update(job_change)
+    monkeypatch.setattr(publish_release, '_run', lambda *args:
+                        json.dumps({'jobs':jobs} if '/jobs?' in args[-1] else run))
+
+
+def test_publish_accepts_verified_manual_exact_main_workflow(monkeypatch):
+    _selected_ci(monkeypatch)
+    evidence = publish_release.wait_for_ci('current', timeout=0, run_id=123)
+    assert evidence == {'run_id':123, 'event':'workflow_dispatch', 'url':'https://github.com/ci/123'}
+
+
+@pytest.mark.parametrize('change', [{'head_sha':'old'}, {'head_branch':'other'},
+    {'path':'.github/workflows/other.yml'}, {'repository':{'full_name':'other/repo'}},
+    {'event':'pull_request'}, {'conclusion':'failure'}, {'status':'queued'}])
+def test_selected_ci_cannot_substitute_other_source_or_incomplete_evidence(monkeypatch, change):
+    _selected_ci(monkeypatch, change=change)
+    with pytest.raises(SystemExit, match='Windows CI'):
+        publish_release.wait_for_ci('current', timeout=0, run_id=123)
+
+
+@pytest.mark.parametrize('change', [{'conclusion':'skipped'}, {'conclusion':'failure'},
+                                   {'name':'unrelated job'}, {'status':'in_progress'}])
+def test_selected_ci_requires_every_expected_job_to_pass(monkeypatch, change):
+    _selected_ci(monkeypatch, job_change=change)
+    with pytest.raises(SystemExit, match='Windows CI'):
+        publish_release.wait_for_ci('current', timeout=0, run_id=123)
+
+
 def test_publish_rejects_a_commit_changed_during_the_local_gate(monkeypatch):
     changed=[]
     monkeypatch.setattr(release_gate,'run',lambda:changed.append(True))

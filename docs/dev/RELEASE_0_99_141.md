@@ -41,8 +41,12 @@ stopped at 600.031 seconds of active execution. Queue time was recorded separate
 The complete native Windows local gate passed **4,455 tests with six skips**.
 The final source stabilization gate passed in **246.83 seconds** and the detached
 thread probe passed **102 checks**. Native draft/inspector UI checks also passed.
-The queued GitHub push run created no checks and could not be cancelled or rerun;
-this validation record triggers a fresh push without application-code changes.
+GitHub push runs created no checks and could not be cancelled or rerun. The same
+workflow, manually dispatched on exact commit `e5e711de7fec8f6e9110b2c83f2f7a5f36eb74ee`,
+passed both Windows jobs and relay (run 43100045026). A transient section-capture
+path check passed on retry and twelve isolated local repeats. The publisher now
+supports an explicit, verified manual workflow run while retaining every gate;
+that release-tool change is being validated again before publication.
 Publication details and public hashes will be recorded after the enforced gate.
 
 The beta continues unsigned Windows installer distribution; app updates remain
