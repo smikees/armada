@@ -58,6 +58,10 @@ Allowlist the worker environment. Only explicit invocation credentials cross it.
 
 —
 
+### `_popen(args, **kwargs)`
+
+—
+
 ### `run(args, *, input=None, capture_output=False, timeout=None, check=False, **kwargs)`
 
 —

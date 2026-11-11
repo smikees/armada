@@ -22,6 +22,9 @@ desktops open. It offers no listener, launch endpoint or credential access. Exis
 stations, the active desktop and shared ancestor ACLs are not changed. Browser sign-in
 uses validated authorization URLs and a worker-side pseudoconsole. Setup currently
 requires elevation as the signed-in owner; alternate-administrator setup is unsupported.
+Setup refuses active turns and owner-identity provider children. The pending manifest
+is written while admission is locked, so older owner runs must finish or stop before
+newly stored keys become available; new launches wait for worker verification.
 
 Owner credential/control folders deny the worker. Application/runtime code and fixed
 task helpers explicitly deny worker writes. Runtime inputs are created with an atomic

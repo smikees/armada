@@ -20,6 +20,15 @@ def test_broken_worker_never_reverts_to_owner(monkeypatch):
     assert not launched
 
 
+def test_worker_setup_refuses_live_owner_identity_children(tmp_path,monkeypatch):
+    class Running:
+        def poll(self):return None
+    monkeypatch.setattr(worker,'_owner_children',[Running()])
+    with pytest.raises(ValueError,match='Finish or Stop existing agent runs'):
+        worker.setup([str(tmp_path)])
+    assert not worker.state()
+
+
 def test_worker_environment_drops_owner_secrets_and_configuration(tmp_path,monkeypatch):
     profile=tmp_path/'profile'; profile.mkdir()
     value={'home':str(profile),'username':'synthetic-worker','path':['C:/Windows/System32'],

@@ -23,6 +23,8 @@ from . import util
 _lock = threading.RLock()
 _desktops = {}
 _temporary = {}
+_owner_children = []
+_owner_calls = 0
 _pending = False
 _checking=contextvars.ContextVar('armada_worker_checking',default=False)
 log=logging.getLogger(__name__)
@@ -187,9 +189,17 @@ def environment(value, supplied=None):
 
 
 def popen(args, **kwargs):
+    with _lock:
+        return _popen(args,**kwargs)
+
+
+def _popen(args, **kwargs):
     terminal = kwargs.pop('worker_terminal', False)
     if not enabled():
-        return subprocess.Popen(args, **kwargs)
+        process=subprocess.Popen(args, **kwargs)
+        _owner_children[:]=[child for child in _owner_children if child.poll() is None]
+        if hasattr(process,'poll'):_owner_children.append(process)
+        return process
     value = require()
     if not isinstance(args, (list, tuple)) or kwargs.get('shell'):
         raise OSError('An isolated worker launch requires an argument array without a shell.')
@@ -224,8 +234,15 @@ def popen(args, **kwargs):
 
 
 def run(args, *, input=None, capture_output=False, timeout=None, check=False, **kwargs):
-    if not enabled():
-        return subprocess.run(args, input=input, capture_output=capture_output, timeout=timeout, check=check, **kwargs)
+    global _owner_calls
+    with _lock:
+        owner=not enabled()
+        if owner:_owner_calls+=1
+    if owner:
+        try:
+            return subprocess.run(args, input=input, capture_output=capture_output, timeout=timeout, check=check, **kwargs)
+        finally:
+            with _lock:_owner_calls-=1
     if input is not None:
         kwargs['stdin'] = subprocess.PIPE
     if capture_output:
@@ -357,6 +374,9 @@ def setup(roots):
     with _lock:
         if _pending:
             return status()
+        _owner_children[:]=[child for child in _owner_children if child.poll() is None]
+        if _owner_calls or _owner_children:
+            raise ValueError('Finish or Stop existing agent runs, provider sign-ins and connector checks before setting up the isolated worker.')
         existing = state()
         from .provider_keys import _crypt
         import getpass
@@ -405,7 +425,13 @@ def setup(roots):
         value['path'] = list(dict.fromkeys([str(Path(p)) for p in runtimes] +
                             [str(Path(os.environ['SystemRoot'])/'System32'), os.environ['SystemRoot'],
                              str(Path(os.environ.get('ProgramFiles', 'C:/Program Files'))/'Git/bin')]))
-        util.write_json_atomic(_path(), value)
+        from . import execution_admission
+        # Admission cannot promote a queued owner-identity turn between this check
+        # and the pending manifest. New launches then fail closed until verification.
+        with execution_admission._transaction() as execution:
+            if any(row.get('state')=='running' for row in execution['tickets'].values()):
+                raise ValueError('Finish or Stop existing agent runs before setting up the isolated worker. This protects newly stored keys from older owner-identity processes.')
+            util.write_json_atomic(_path(), value)
         script = Path(__file__).with_name('worker_setup.ps1')
         _pending = True
         def provision():
