@@ -196,7 +196,7 @@ class ToolAdmission:
         if self.allowed and name in ('Agent', 'Task'):
             self.audit.refuse(tool=name, reason='Child agents are unavailable under connector tool restrictions.')
             return
-        if self.policy.scoped and name in ('Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Agent', 'Task',
+        if self.policy.scoped and name in ('Bash', 'PowerShell', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Agent', 'Task',
                                            'shell', 'exec_command', 'apply_patch', 'run_command', 'write_to_file',
                                            'replace_file_content', 'multi_replace_file_content'):
             params = event.get('input') or {}
@@ -225,6 +225,9 @@ def claude_args(engine):
     builtins = ['Read', 'Glob', 'Grep', 'WebSearch', 'WebFetch']
     if not files:
         builtins += ['Bash', 'Write', 'Edit', 'NotebookEdit']
+        from . import worker
+        if worker.enabled():
+            builtins += ['PowerShell']
     offered = list(builtins)
     for sid in sorted(engine.allowed_mcp_ids):
         sid = server_id(sid)
@@ -242,7 +245,7 @@ def claude_args(engine):
             '--disable-slash-commands']
     denied = [f'mcp__{sid}__{n}' for sid, names in admission.denied.items() for n in names]
     if files:
-        denied += ['Bash', 'Write', 'Edit', 'NotebookEdit', 'Agent', 'Task']
+        denied += ['Bash', 'PowerShell', 'Write', 'Edit', 'NotebookEdit', 'Agent', 'Task']
         from .policy_tools import claude_args as file_args
         args += file_args(files)
     if denied:

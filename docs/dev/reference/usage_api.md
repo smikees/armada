@@ -3,7 +3,7 @@
 Read the real Claude subscription usage (session + weekly) that powers the Claude app's Usage view.
 
 ARMADA runs agents through Claude Code on the owner's Max/Pro subscription, so the OAuth token Claude
-Code stores locally is enough to query Anthropic's (undocumented) usage endpoint — the same one the
+Code stores locally is enough to query Anthropic's (undocumented) usage endpoint â€” the same one the
 `/usage` view uses. We show the current 5-hour session and 7-day weekly utilisation as % of limit,
 with reset times. Anthropic publishes no token-denominated limits, so these percentages ARE the limit
 comparison; the widget's per-agent/per-model token tally (from local run telemetry) is separate.
@@ -12,7 +12,7 @@ Deliberately READ-ONLY and best-effort: we read the credentials file but never w
 the token, and never raise. Undocumented endpoint; may change without notice.
 
 **Why we never refresh the token ourselves.** The credentials file holds a refresh token, so minting
-a fresh access token would be easy — and is a trap. If Anthropic rotates refresh tokens on use (the
+a fresh access token would be easy â€” and is a trap. If Anthropic rotates refresh tokens on use (the
 usual practice), consuming one without writing the replacement back would invalidate Claude Code's
 stored credential and break the owner's sign-in; writing it back means this app mutating another
 application's credential store. Instead the `usage-keepalive` system job makes a trivial Claude Code
@@ -20,7 +20,7 @@ call every few hours, and Claude Code refreshes its own token as a side effect. 
 call extended expiry by ~18 hours.
 
 **Why the last reading is kept on disk.** An access token lives ~12-18 hours. Before, an expired one
-meant the bars vanished entirely — not stale, *gone* — which is a worse answer than a slightly old
+meant the bars vanished entirely â€” not stale, *gone* â€” which is a worse answer than a slightly old
 number, because a blank header tells the owner nothing at all. We now persist each successful reading
 and serve it with its age when the live call fails, so the figures are always on screen. `age_sec`
 and `stale` are on every served payload; the UI decides how loudly to caveat.
@@ -43,7 +43,7 @@ and `stale` are on every served payload; the UI decides how loudly to caveat.
 
 ### `message_for(reason: str)`
 
-The owner-facing line for an unavailable reason. Never empty, even for a reason we've not seen before — silence is the one outcome that leaves someone staring at a blank header.
+The owner-facing line for an unavailable reason. Never empty, even for a reason we've not seen before â€” silence is the one outcome that leaves someone staring at a blank header.
 
 ### `_normalise(d: dict)`
 
@@ -63,7 +63,7 @@ Persist a good reading so an expired token doesn't blank the header.
 
 ### `_as_of(data: dict, age: float, reason: str)`
 
-A remembered reading, labelled honestly. The percentages are real but old, and the reset countdowns are NOT recomputed — a countdown from a stale reading would be actively wrong.
+A remembered reading, labelled honestly. The percentages are real but old, and the reset countdowns are NOT recomputed â€” a countdown from a stale reading would be actively wrong.
 
 ### `_AGE_NOTE(age: float)`
 

@@ -63,7 +63,14 @@ class DashboardRoutes:
         if provider not in ('claude', 'codex', 'gemini'):
             self._json(400, {"available": False, "message": "Unknown provider"})
             return
-        self._json(200, provider_limits.read(provider, self.realm, query.get('force') == '1'))
+        data = provider_limits.read(provider, self.realm, query.get('force') == '1')
+        if provider == 'claude':
+            from .. import run_policy
+            try:
+                data['api_credit'] = run_policy.credit()
+            except (OSError, ValueError):
+                data['api_credit'] = {'open':False, 'reason':'API accounting is unreadable. The API lane is closed.'}
+        self._json(200, data)
 
     def _delete_memory(self, body: dict) -> dict:
         base = (Path(self.realm) / "agents" / safe_seg(body.get("agent"), "agent") / "memory") if body.get("scope") == "agent" \

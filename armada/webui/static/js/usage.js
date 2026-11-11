@@ -93,7 +93,9 @@ function headerLimitsHTML(claude,codex,bucket,gemini){
       '<div class="mc-limit-group'+(d&&d.loading?' is-loading':!d||!(d.connected??d.available)?' is-inactive':'')+(d&&d.placeholder?' is-placeholder':'')+'" role="group" aria-label="'+provider+' subscription limits"'+(d&&d.loading?' aria-busy="true"':'')+(d&&d.placeholder?' title="Gemini support is planned; not available yet."':'')+'>'
       +'<div class="mc-limit-group-head"><span class="mc-limit-provider" role="img" aria-label="'+provider+'" title="'+provider+'">'
       +(window.mcProviderLogo?window.mcProviderLogo(provider.toLowerCase(),16,!!(d&&(d.connected??d.available))):window.mcIcon(provider.toLowerCase(),16))+'</span></div>'
-      +limitRowHTML(provider,'Week',week,d)+limitRowHTML(provider,'Session',session,d)+(provider==='Codex'?select:'')+'</div>').join('')+'</div>';
+      +limitRowHTML(provider,'Week',week,d)+limitRowHTML(provider,'Session',session,d)+(provider==='Codex'?select:'')
+      +(provider==='Claude'&&d?.api_credit?'<span class="mc-hint" title="'+esc(d.api_credit.reason||'Real API spend; active runs reserve their ceiling')+'">API '
+        +(typeof d.api_credit.spent_usd==='number'?'$'+d.api_credit.spent_usd.toFixed(2)+' / $'+d.api_credit.cap_usd.toFixed(2):'closed')+'</span>':'')+'</div>').join('')+'</div>';
 }
 let limitsData={},limitsGeneration=0;
 async function renderHeaderLimits(force){

@@ -14,6 +14,7 @@ ARMADA only asks "are you signed in?" afterwards.
 because it also covers API-key and enterprise auth paths that never touch that file.
 """
 from __future__ import annotations
+from . import worker
 from .background import process_options
 import json
 import os
@@ -57,7 +58,7 @@ def _status_live() -> dict:
     if not lp:
         return {"ok": False, "logged_in": False, "method": "", "reason": "cli-missing"}
     try:
-        r = subprocess.run(lp + ["auth", "status", "--json"], capture_output=True, text=True,
+        r = worker.run(lp + ["auth", "status", "--json"], capture_output=True, text=True,
                            timeout=25, encoding="utf-8", errors="replace", **process_options())
     except Exception as e:  # noqa
         swallowed(log, '_status_live: failed; error returned to the caller')
@@ -83,7 +84,7 @@ def _version(lp) -> str:
     """Claude Code's version ("2.1.263"), or "" if it won't say. `claude --version` prints
     "2.1.263 (Claude Code)"."""
     try:
-        r = subprocess.run(lp + ["--version"], capture_output=True, text=True, timeout=20,
+        r = worker.run(lp + ["--version"], capture_output=True, text=True, timeout=20,
                            encoding="utf-8", errors="replace", **process_options())
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -108,7 +109,7 @@ def start_login(console: bool = True) -> dict:
         # A visible console on purpose: the flow prints a URL and waits. Hiding it would strand the
         # owner with a browser page and no way to see what the CLI is asking for.
         flags = (_NEW_CONSOLE if console else _NO_WINDOW) if os.name == "nt" else 0
-        subprocess.Popen(lp + ["auth", "login", "--claudeai"], creationflags=flags)
+        worker.popen(lp + ["auth", "login", "--claudeai"], creationflags=flags)
         _CACHE["data"] = None          # force a fresh read on the next poll
         return {"ok": True}
     except Exception as e:  # noqa

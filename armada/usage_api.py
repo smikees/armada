@@ -1,7 +1,7 @@
 """Read the real Claude subscription usage (session + weekly) that powers the Claude app's Usage view.
 
 ARMADA runs agents through Claude Code on the owner's Max/Pro subscription, so the OAuth token Claude
-Code stores locally is enough to query Anthropic's (undocumented) usage endpoint — the same one the
+Code stores locally is enough to query Anthropic's (undocumented) usage endpoint â€” the same one the
 `/usage` view uses. We show the current 5-hour session and 7-day weekly utilisation as % of limit,
 with reset times. Anthropic publishes no token-denominated limits, so these percentages ARE the limit
 comparison; the widget's per-agent/per-model token tally (from local run telemetry) is separate.
@@ -10,7 +10,7 @@ Deliberately READ-ONLY and best-effort: we read the credentials file but never w
 the token, and never raise. Undocumented endpoint; may change without notice.
 
 **Why we never refresh the token ourselves.** The credentials file holds a refresh token, so minting
-a fresh access token would be easy — and is a trap. If Anthropic rotates refresh tokens on use (the
+a fresh access token would be easy â€” and is a trap. If Anthropic rotates refresh tokens on use (the
 usual practice), consuming one without writing the replacement back would invalidate Claude Code's
 stored credential and break the owner's sign-in; writing it back means this app mutating another
 application's credential store. Instead the `usage-keepalive` system job makes a trivial Claude Code
@@ -18,7 +18,7 @@ call every few hours, and Claude Code refreshes its own token as a side effect. 
 call extended expiry by ~18 hours.
 
 **Why the last reading is kept on disk.** An access token lives ~12-18 hours. Before, an expired one
-meant the bars vanished entirely — not stale, *gone* — which is a worse answer than a slightly old
+meant the bars vanished entirely â€” not stale, *gone* â€” which is a worse answer than a slightly old
 number, because a blank header tells the owner nothing at all. We now persist each successful reading
 and serve it with its age when the live call fails, so the figures are always on screen. `age_sec`
 and `stale` are on every served payload; the UI decides how loudly to caveat.
@@ -38,7 +38,7 @@ _BETA = "oauth-2025-04-20"
 _CREDS = Path.home() / ".claude" / ".credentials.json"
 
 _CACHE: dict = {"at": 0.0, "data": None}
-_TTL = 60.0   # seconds — one live subscription; don't hammer the endpoint on every widget load
+_TTL = 60.0   # seconds â€” one live subscription; don't hammer the endpoint on every widget load
 
 _DISK = "usage-last.json"      # in the realm, beside the other system-job state
 _KEEP_FOR = 7 * 24 * 3600.0    # older than a week is history, not a reading
@@ -47,13 +47,15 @@ _KEEP_FOR = 7 * 24 * 3600.0    # older than a week is history, not a reading
 def _read_token() -> tuple[str, int] | None:
     """(access_token, expires_at_ms) from Claude Code's credentials, or None if unreadable."""
     try:
-        raw = json.loads(_CREDS.read_text("utf-8"))
+        from . import worker
+        path = worker.home()/".claude/.credentials.json" if worker.enabled() else _CREDS
+        raw = json.loads(worker.read_text(path,encoding="utf-8"))
         o = raw.get("claudeAiOauth") or {}
         tok = o.get("accessToken")
         exp = int(o.get("expiresAt") or 0)
         if tok:
             return tok, exp
-    except Exception:  # noqa — missing/locked/malformed all mean "no usable token"
+    except Exception:  # noqa â€” missing/locked/malformed all mean "no usable token"
         log.debug('_read_token: failed; ignored', exc_info=True)
     return None
 
@@ -102,7 +104,7 @@ def _fetch_live() -> dict:
     try:
         with urllib.request.urlopen(req, timeout=4.0) as r:
             body = json.loads(r.read().decode("utf-8"))
-    except Exception as e:  # noqa — network/auth/parse: report unavailable, never crash the page
+    except Exception as e:  # noqa â€” network/auth/parse: report unavailable, never crash the page
         log.debug('_fetch_live: failed; error returned to the caller', exc_info=True)
         return {"available": False, "reason": "fetch-failed", "detail": str(e)[:120]}
     if isinstance(body, dict) and body.get("error"):
@@ -110,21 +112,30 @@ def _fetch_live() -> dict:
     session, weekly = _window(body.get("five_hour")), _window(body.get("seven_day"))
     if not session and not weekly:
         return {"available": False, "reason": "unexpected-shape"}
-    return {"available": True, "session": session, "weekly": weekly}
+    model_weekly = {key.removeprefix('seven_day_'): _window(value) for key, value in body.items()
+                    if key.startswith('seven_day_') and isinstance(value, dict)}
+    try:
+        plan = str((json.loads(_CREDS.read_text('utf-8')).get('claudeAiOauth') or {}).get('subscriptionType') or '')
+    except (OSError, ValueError, TypeError):
+        plan = ''
+    if not plan:
+        from . import auth
+        plan = str((auth._CACHE.get('data') or {}).get('plan') or '')
+    return {"available": True, "plan": plan, "session": session, "weekly": weekly, "model_weekly": model_weekly}
 
 
 # Why the bars aren't showing, in the owner's words. The UI renders whatever `message` we send, so
-# every unavailable reason MUST appear here — a reason with no message is how the header silently
+# every unavailable reason MUST appear here â€” a reason with no message is how the header silently
 # went blank (no bars, no explanation) when the stored OAuth token was emptied.
 _REASONS = {
-    "no-credentials": "Claude Code is signed out, so usage can’t be read — use the Sign in "
-                      "button in Settings → App.",
-    "token-expired": "Claude Code's sign-in needs renewing — the keepalive job does that every few "
+    "no-credentials": "Claude Code is signed out, so usage canâ€™t be read â€” use the Sign in "
+                      "button in Settings â†’ App.",
+    "token-expired": "Claude Code's sign-in needs renewing â€” the keepalive job does that every few "
                      "hours, or any agent run will.",
-    "fetch-failed": "Couldn’t reach Anthropic for usage just now — it’ll retry shortly.",
+    "fetch-failed": "Couldnâ€™t reach Anthropic for usage just now â€” itâ€™ll retry shortly.",
     "api-error": "Anthropic declined the usage request. If agent runs are failing too, sign in "
-                 "again from Settings → App.",
-    "unexpected-shape": "Anthropic returned usage in a shape ARMADA doesn’t recognise — this "
+                 "again from Settings â†’ App.",
+    "unexpected-shape": "Anthropic returned usage in a shape ARMADA doesnâ€™t recognise â€” this "
                         "endpoint is undocumented and may have changed.",
     "error": "Usage is temporarily unavailable.",
 }
@@ -133,7 +144,7 @@ _FALLBACK_MESSAGE = "Claude usage is unavailable right now."
 
 def message_for(reason: str) -> str:
     """The owner-facing line for an unavailable reason. Never empty, even for a reason we've not
-    seen before — silence is the one outcome that leaves someone staring at a blank header."""
+    seen before â€” silence is the one outcome that leaves someone staring at a blank header."""
     return _REASONS.get(str(reason or ""), _FALLBACK_MESSAGE)
 
 
@@ -142,7 +153,7 @@ def _normalise(d: dict) -> dict:
     if not isinstance(d, dict):
         return {"available": False, "reason": "error", "message": message_for("error")}
     if not d.get("available"):
-        d["available"] = False               # state it outright; absent ≠ False for a caller
+        d["available"] = False               # state it outright; absent â‰  False for a caller
         d.setdefault("reason", "error")
         d["message"] = message_for(d.get("reason"))
     return d
@@ -150,7 +161,8 @@ def _normalise(d: dict) -> dict:
 
 def _disk_path(realm_root) -> Path | None:
     try:
-        return Path(realm_root) / _DISK if realm_root else None
+        from .usage_snapshot import root_path
+        return root_path(realm_root) / _DISK if realm_root else None
     except Exception:  # noqa
         log.debug('_disk_path: failed; returning a fallback', exc_info=True)
         return None
@@ -162,9 +174,9 @@ def _remember(realm_root, data: dict) -> None:
     if p is None or not data.get("available"):
         return
     try:
-        from . import util
-        util.write_json_atomic(p, {"at": time.time(), "data": data})
-    except Exception:  # noqa — a cache that can't be written is not an error worth surfacing
+        from .usage_snapshot import remember
+        remember(realm_root, 'claude', data)
+    except Exception:  # noqa â€” a cache that can't be written is not an error worth surfacing
         swallowed(log, '_remember: failed; ignored')
 
 
@@ -186,7 +198,7 @@ def _recall(realm_root) -> tuple[dict, float] | None:
 
 def _as_of(data: dict, age: float, reason: str) -> dict:
     """A remembered reading, labelled honestly. The percentages are real but old, and the reset
-    countdowns are NOT recomputed — a countdown from a stale reading would be actively wrong."""
+    countdowns are NOT recomputed â€” a countdown from a stale reading would be actively wrong."""
     out = dict(data)
     out["age_sec"] = int(age)
     out["stale"] = True
@@ -197,12 +209,12 @@ def _as_of(data: dict, age: float, reason: str) -> dict:
             w = dict(w)
             w.pop("resets_in", None)     # recomputing this from an old reading would mislead
             out[k] = w
-    out["message"] = ("Showing the last reading — " + _AGE_NOTE(age) + ". " +
+    out["message"] = ("Showing the last reading â€” " + _AGE_NOTE(age) + ". " +
                       message_for(reason))
     return out
 
 
-def _AGE_NOTE(age: float) -> str:  # noqa: N802 — small formatter, kept beside its only caller
+def _AGE_NOTE(age: float) -> str:  # noqa: N802 â€” small formatter, kept beside its only caller
     m = int(age // 60)
     if m < 60:
         return f"{max(m, 1)} min old"
@@ -214,11 +226,15 @@ def fetch(realm_root=None, force=False) -> dict:
     """Cached (60s) real usage: {available, session:{pct,...}, weekly:{...}, age_sec, stale} or
     {available:False, reason, message}.
 
-    A live reading always wins. When the live call fails — almost always an expired token between
-    agent runs — the last good reading is served with its age rather than nothing at all.
+    A live reading always wins. When the live call fails â€” almost always an expired token between
+    agent runs â€” the last good reading is served with its age rather than nothing at all.
     """
     now = time.time()
     if not force and _CACHE["data"] is not None and (now - _CACHE["at"]) < _TTL:
+        # Account cache hits must still reach a newly selected realm, preserving age.
+        if _CACHE['data'].get('available') and not _CACHE['data'].get('stale'):
+            from .usage_snapshot import remember
+            remember(realm_root, 'claude', _CACHE['data'], at=_CACHE['at'])
         return _CACHE["data"]
     data = _normalise(_fetch_live())
     if data.get("available"):

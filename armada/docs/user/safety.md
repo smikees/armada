@@ -2,13 +2,20 @@
 
 ## The one thing to know
 
-**An agent with tools acts as you.** When an agent works with its tools, it runs on your computer
-with your permissions: it can read and write your files, run commands, and use the services you've
-connected. ARMADA limits *which tools* each agent gets. File restrictions and memory auditing
-depend on the selected engine and its supported tools; see [Memory](memory.md) and
-[Gemini](gemini.md). These boundaries do not contain arbitrary shell or MCP writes.
-Treat giving an agent a tool the way you'd treat running
-that tool yourself.
+By default, an agent with tools runs with your Windows permissions. Treat each grant
+as permission to use that tool on your computer.
+
+API fallback requires the **isolated Windows worker**, configured in App Settings.
+Normal agent, shell and connector processes then use a separate non-admin account.
+The owner API key and run-control files stay outside realms, inaccessible to that
+account. Approved draft scripts retain their AppContainer restrictions and use a
+private desktop. Set up the worker from the normal installation, then sign in to
+providers and reconnect services for that account.
+
+This protects owner credentials; files accessible to the worker and services you grant
+remain available to agents. Agents sharing that account are not isolated from each
+other. File restrictions and memory auditing still depend on the selected engine and
+its supported tools; see [Memory](memory.md) and [Gemini](gemini.md).
 
 ## Five habits
 

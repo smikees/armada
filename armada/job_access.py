@@ -37,9 +37,23 @@ def identity(realm_root, agent_id: str, job_id: str) -> str:
 
 def fingerprint(job: dict) -> str:
     """Changing a prompt or tool mode revokes its access until the owner re-approves it."""
-    sealed = {k: job.get(k) for k in ("id", "kind", "prompt", "allow_tools")}
+    from .run_policy import JOB_FIELDS
+    sealed = {k: job.get(k) for k in ("id", "kind", "prompt", "allow_tools", *JOB_FIELDS)}
     data = json.dumps(sealed, sort_keys=True, ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(data).hexdigest()
+
+
+def reseal_controls(root, agent, before, after):
+    """An owner changing controls may retain an unchanged prompt's approved folders."""
+    if any(before.get(key) != after.get(key) for key in ('id','kind','prompt','allow_tools')):
+        return
+    target = identity(root, agent, after['id'])
+    def change(config):
+        entry = config.get(_KEY, {}).get(target)
+        if entry and entry.get('fingerprint') == fingerprint(before):
+            entry['fingerprint'] = fingerprint(after)
+    from . import util
+    util.mutate_json(appconfig._path(), change, default=dict)
 
 
 def grant_for(realm_root, agent_id: str, job: dict | None, *, reject_reparse=False) -> Grant:
@@ -56,6 +70,7 @@ def grant_for(realm_root, agent_id: str, job: dict | None, *, reject_reparse=Fal
     job_path = Path(realm_root) / "agents" / agent_id / "jobs" / f"{job_id}.json"
     try:
         disk_job = json.loads(job_path.read_text(encoding="utf-8-sig"))
+        disk_job.setdefault('id',job_id)
     except (OSError, ValueError) as exc:
         raise ValueError(f"Cannot verify the approved job {job_id} on disk.") from exc
     if fingerprint(disk_job) != entry["fingerprint"]:

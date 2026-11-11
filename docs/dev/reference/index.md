@@ -16,12 +16,14 @@
 | [`alexander.remedies`](alexander.remedies.md) | Remedies: the fixed list of app actions Alexander may propose (ADR-012, docs/dev/ALEXANDER.md). |
 | [`alexander.support`](alexander.support.md) | Alexander in the app: support conversations (launch plan 6.2, 6.3, 6.6; docs/dev/ALEXANDER.md). |
 | [`alexander.wizard_script`](alexander.wizard_script.md) | Everything Alexander says in the setup wizard, written in advance (ADR-012; docs/dev/ALEXANDER.md). |
+| [`api_gateway`](api_gateway.md) | Invocation-local Anthropic gateway: real keys stay in the host, requests are bounded. |
 | [`app`](app.md) | Native desktop window for ARMADA (SPEC §13 — the app wrapper). |
 | [`appconfig`](appconfig.md) | App-level (per-machine) configuration — distinct from a realm's own files. |
 | [`approot`](approot.md) | The app root — the one folder on this machine that ARMADA is allowed to work in. |
 | [`assets`](assets.md) | Static-asset plumbing — how server-rendered pages reference the CSS/JS served from webui/static. |
 | [`auth`](auth.md) | Claude Code sign-in state, and a way to fix it without leaving ARMADA. |
 | [`background`](background.md) | Windows launch options for unattended probes (never interactive sign-in windows). |
+| [`billing`](billing.md) | Provider lane selection for one invocation; retries never bypass replay evidence. |
 | [`brand`](brand.md) | ARMADA brand surface — the single place that defines the app's visible identity. |
 | [`capabilities`](capabilities.md) | Who may use which capability. |
 | [`capability_reviews`](capability_reviews.md) | Durable, realm-scoped reviews |
@@ -59,6 +61,7 @@
 | [`engine.authentication`](engine.authentication.md) | Admission for background model work; cost alone never identifies a provider. |
 | [`engine.base`](engine.base.md) | Engine adapter contract (SPEC §9) |
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
+| [`engine.claude_isolation`](engine.claude_isolation.md) | Exercise installed Claude child-environment isolation without a real key or paid call. |
 | [`engine.codex`](engine.codex.md) | Codex CLI turns, using the owner's login and Armada's existing context and history. |
 | [`engine.codex_steering`](engine.codex_steering.md) | Bounded mid-turn input for Codex app-server; the RPC owner alone writes stdin. |
 | [`engine.codex_voice`](engine.codex_voice.md) | Experimental Codex WebRTC signaling |
@@ -103,6 +106,7 @@
 | [`policy_tools`](policy_tools.md) | Invocation-local filesystem tools and durable policy refusal evidence. |
 | [`preflight`](preflight.md) | Is this realm actually able to run *here*? |
 | [`provider_install`](provider_install.md) | Opt-in CLI installation through the vendors' official Windows installers. |
+| [`provider_keys`](provider_keys.md) | Owner-entered provider secrets outside realms, with no read/echo HTTP endpoint. |
 | [`provider_limits`](provider_limits.md) | Independent, bounded subscription checks; HTTP requests never wait on a CLI. |
 | [`provider_login`](provider_login.md) | Owned browser-login processes |
 | [`providers`](providers.md) | App-wide provider connections |
@@ -127,7 +131,9 @@
 | [`routes.realm`](routes.realm.md) | Realm lifecycle: switch/new/archive/export/delete, preflight, workspace/approot, icon, settings, covenant. |
 | [`routes.settings`](routes.settings.md) | Settings, the signed-in user, notification channels (incl |
 | [`routes.voice`](routes.voice.md) | Authenticated local signaling only; microphone audio never crosses these routes. |
+| [`run_policy`](run_policy.md) | Machine-local owner choices, approval seals and fail-closed API reservations. |
 | [`run_summary`](run_summary.md) | Disposable presentation summaries and date indexes; never execution or policy evidence. |
+| [`run_watchdog`](run_watchdog.md) | Inactivity supervision for unattended agent turns; time spent queued is excluded. |
 | [`runner`](runner.md) | Runner (SPEC §8) — runs ONE job through an engine and writes a tokenized run-report. |
 | [`runtime_spec`](runtime_spec.md) | Pinned Windows runtime shared by packaging and update compatibility checks. |
 | [`schedsvc`](schedsvc.md) | Scheduler lifecycle for the Armada desktop app. |
@@ -168,6 +174,7 @@
 | [`tray`](tray.md) | Windows notification-area icon for a hidden Armada window. |
 | [`updater`](updater.md) | Automatic updates for an installed ARMADA (launch plan 5.4, ADR-011). |
 | [`usage_api`](usage_api.md) | Read the real Claude subscription usage (session + weekly) that powers the Claude app's Usage view. |
+| [`usage_snapshot`](usage_snapshot.md) | Credential-free usage readings shared by header, scheduler and agent preambles. |
 | [`util`](util.md) | Small shared utilities: filesystem-path safety and atomic writes. |
 | [`validate`](validate.md) | `armada validate` — is this folder a runnable ARMADA realm, and what's in it? |
 | [`verbosity`](verbosity.md) | How much an agent writes back. |
@@ -199,6 +206,7 @@
 | [`webui.realmpages`](webui.realmpages.md) | Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts. |
 | [`webui.recordrepair`](webui.recordrepair.md) | Owner repair UI, kept separate from ordinary configuration forms. |
 | [`webui.recovery`](webui.recovery.md) | A self-contained error screen: no realm/config reads, scripts or authenticated assets. |
+| [`webui.run_controls`](webui.run_controls.md) | Shared owner controls for provider, realm, agent and approved jobs. |
 | [`webui.schedfmt`](webui.schedfmt.md) | Schedule / status / date-format helpers (carved from _core.py in Phase 3). |
 | [`webui.setup_wizard`](webui.setup_wizard.md) | The setup wizard (launch plan 6.4): ARMADA's first run, with Alexander as the guide. |
 | [`webui.smartsearch`](webui.smartsearch.md) | Add a capability: smart search (Alexander), Bring a link, add by address, and where to browse. |
@@ -207,4 +215,9 @@
 | [`webui.threadsview`](webui.threadsview.md) | Threads / chat rendering (Layer 2, carved from _core.py in Phase 3). |
 | [`webui.welcome`](webui.welcome.md) | The first-run page (launch plan 5.3): what the app shows when there is no realm to open. |
 | [`webui.widgets`](webui.widgets.md) | Dashboard widget renderers (Layer 2, carved from _core.py in Phase 3). |
+| [`worker`](worker.md) | Owner-controlled Windows worker boundary for every provider and local tool child. |
+| [`worker_bootstrap`](worker_bootstrap.md) | Standalone, unprivileged process trampoline |
+| [`worker_console`](worker_console.md) | Bind all CLI standard handles to the worker pseudoconsole, not inherited pipes. |
+| [`worker_process`](worker_process.md) | Windows alternate-account launch, retaining Python's pipe and communicate ownership. |
+| [`worker_terminal`](worker_terminal.md) | Worker-side Windows pseudoconsole for provider/connector sign-in only. |
 | [`workspace`](workspace.md) | The realm's workspace root, and the ``{workspace}`` token that makes a realm portable. |

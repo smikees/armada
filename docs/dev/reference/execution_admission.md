@@ -76,6 +76,10 @@ owner frees capacity; the caller's durable attempt record retains any uncertain 
 
 —
 
+### `defer_current(until)`
+
+Release capacity while a logical invocation waits for its subscription reset.
+
 ### `view(root, agent=None, thread=None)`
 
 Read-only presentation hint. Kernel ownership, never this hint, admits execution.

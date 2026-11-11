@@ -316,6 +316,9 @@ def ensure(realm_root) -> dict | None:
     if _checked.get(key) == mt:
         return None
     res = migrate(realm_root)
+    if res.get('ok') and not res.get('newer'):
+        from .run_policy import import_legacy
+        import_legacy(realm_root)
     # Remembered on failure too: retrying an unchanged file every scheduler pass would only log the
     # same traceback once a minute. Editing realm.json (or restarting) is what earns another try.
     try:

@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 VERSION = 1
-EXECUTIONS = {"completed", "failed", "stopped", "timed_out"}
+EXECUTIONS = {"completed", "failed", "stopped", "timed_out", "stalled"}
 AUDITS = {"clear", "findings", "incomplete", "not_applicable"}
 DELIVERIES = {"sent", "failed", "unknown", "not_required"}
 BLOCK = re.compile(r"<armada_job_result>\s*(.*?)\s*</armada_job_result>", re.S)
@@ -281,7 +281,7 @@ def evaluate(output: str, *, run_id: str, job: dict, root: Path, started: float,
 
 
 def status(result: dict) -> str:
-    if result["execution"] == "failed":
+    if result["execution"] in ("failed", "stalled"):
         return "error"
     if result["execution"] in ("stopped", "timed_out"):
         return "stopped" if result["execution"] == "stopped" else "error"

@@ -4,6 +4,7 @@ One fresh exec per turn avoids keeping a second, divergent conversation in Codex
 are translated to Armada's existing stream contract. No credential file is read or copied.
 """
 from __future__ import annotations
+from .. import worker
 from ..background import process_options
 
 import json
@@ -29,7 +30,7 @@ def _feature_args():
 
 
 def codex_home() -> Path:
-    return Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+    return worker.home()/".codex" if worker.enabled() else Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
 
 
 def cached_models() -> list[dict]:
@@ -249,7 +250,7 @@ class CodexEngine(EngineAdapter):
         launcher = self._launcher()
         if not launcher:
             raise FileNotFoundError("Codex CLI not found. Install Codex CLI and run `codex login`.")
-        return subprocess.run(launcher + args, capture_output=True, text=True, timeout=25,
+        return worker.run(launcher + args, capture_output=True, text=True, timeout=25,
                               encoding="utf-8", errors="replace", **process_options(), cwd=cwd)
 
     def auth_status(self):
@@ -280,7 +281,7 @@ class CodexEngine(EngineAdapter):
         if not launcher:
             return {"ok": False, "error": "Install Codex CLI first, then run `codex login`."}
         try:
-            subprocess.Popen(launcher + ["login"], creationflags=0x10 if os.name == "nt" else 0)
+            worker.popen(launcher + ["login"], creationflags=0x10 if os.name == "nt" else 0)
             return {"ok": True}
         except OSError as exc:
             return {"ok": False, "error": str(exc)[:250]}
@@ -392,7 +393,7 @@ class CodexEngine(EngineAdapter):
             args += self._mcp_args(allow_tools, denied, cwd=cwd)
         return args + ["-"]
 
-    def run(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300,
+    def run(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=None,
             effort=None, fallback_model=None, max_budget_usd=None, disallowed_tools=None, only_tools=None,
             verbosity=None, env=None):
         return self.run_stream(system, prompt, model=model, cwd=cwd, allow_tools=allow_tools,
@@ -400,7 +401,7 @@ class CodexEngine(EngineAdapter):
                                max_budget_usd=max_budget_usd, disallowed_tools=disallowed_tools,
                                only_tools=only_tools, verbosity=verbosity, env=env)
 
-    def run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=300,
+    def run_stream(self, system, prompt, model=None, cwd=None, allow_tools=False, timeout=None,
                    on_event=None, on_proc=None, effort=None, fallback_model=None,
                    max_budget_usd=None, disallowed_tools=None, only_tools=None, verbosity=None, env=None):
         if getattr(self, "managed_tools", None):
@@ -439,7 +440,7 @@ class CodexEngine(EngineAdapter):
                                         timeout, on_event, on_proc, effort, disallowed_tools, verbosity, env)
         # No-tool helper turns run outside the realm so project instructions cannot introduce
         # local hooks or capabilities. Model/context selection remains Armada's responsibility.
-        temp = tempfile.TemporaryDirectory(prefix="armada-codex-") if not allow_tools else None
+        temp = worker.temporary_folder(prefix="armada-codex-") if not allow_tools else None
         run_cwd = temp.name if temp else cwd
         state = _Stream(emit, model_id(model) or "codex:default", cwd)
         result = None
@@ -454,6 +455,7 @@ class CodexEngine(EngineAdapter):
                 event = loads_event(line)
                 if not isinstance(event, dict) or not isinstance(event.get("type"), str):
                     raise ValueError("Malformed Codex stream event")
+                safe_emit(getattr(on_event, 'engine_activity', None), {})
                 state.accept(event)
             if env and env.get("ARMADA_RAW_DIR"):
                 args = ["-c", "shell_environment_policy.set.ARMADA_RAW_DIR=" + json.dumps(env["ARMADA_RAW_DIR"])] + args
@@ -477,6 +479,7 @@ class CodexEngine(EngineAdapter):
         finally:
             if temp:
                 try:
+                    if worker.enabled(): worker.clean_temporary(temp.name)
                     temp.cleanup()
                 except OSError as exc:
                     log.exception("Codex temporary directory cleanup failed")
@@ -488,7 +491,7 @@ class CodexEngine(EngineAdapter):
                         timeout, on_event, on_proc, effort, disallowed_tools, verbosity=None, env=None):
         """Stream actual Codex text deltas while keeping each Armada turn isolated and ephemeral."""
         emit = lambda event: safe_emit(on_event, event)
-        temp = tempfile.TemporaryDirectory(prefix="armada-codex-") if not allow_tools else None
+        temp = worker.temporary_folder(prefix="armada-codex-") if not allow_tools else None
         run_cwd = temp.name if temp else cwd
         result = None
         from contextlib import ExitStack
@@ -555,6 +558,7 @@ class CodexEngine(EngineAdapter):
                         begin_turn(send)
             def accept(message, send):
                 nonlocal native_apps
+                safe_emit(getattr(on_event, 'engine_activity', None), {})
                 if steering.accept(message):
                     return False
                 if message.get('method') == 'turn/started':
@@ -647,6 +651,7 @@ class CodexEngine(EngineAdapter):
                 startup.close()
             if temp:
                 try:
+                    if worker.enabled(): worker.clean_temporary(temp.name)
                     temp.cleanup()
                 except OSError as exc:
                     log.exception("Codex temporary directory cleanup failed")

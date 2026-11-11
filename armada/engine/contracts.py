@@ -55,7 +55,7 @@ class RunRequest:
     model: str | None = None
     cwd: str | None = None
     allow_tools: bool = False
-    timeout: int | float | None = 1200
+    timeout: int | float | None = None
     effort: str | None = None
     fallback_model: str | None = None
     max_budget_usd: float | None = None

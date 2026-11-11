@@ -2,6 +2,7 @@
 
 The official CLI owns OAuth and credentials. Output is drained, never logged or persisted.
 """
+from . import worker
 import atexit
 import os
 import re
@@ -80,7 +81,7 @@ def open_page(provider):
 
 
 def begin(provider, launcher):
-    if provider == 'gemini':
+    if provider == 'gemini' and not worker.enabled():
         return _begin_gemini(launcher)
     with _lock:
         if state(provider)['pending']:
@@ -91,9 +92,10 @@ def begin(provider, launcher):
             if os.name == 'nt':
                 from .engine.windows_job import WindowsJob
                 tree = WindowsJob()
-            args = ['auth', 'login', '--claudeai'] if provider == 'claude' else ['login']
-            proc = subprocess.Popen(launcher + args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            args = ['auth', 'login', '--claudeai'] if provider == 'claude' else ['login'] if provider == 'codex' else []
+            proc = worker.popen(launcher + args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                worker_terminal=provider=='gemini' and worker.enabled(),
                 creationflags=0x08000004 if os.name == 'nt' else 0, start_new_session=os.name != 'nt')
             if tree:
                 tree.attach_and_resume(proc)
@@ -127,6 +129,14 @@ def begin(provider, launcher):
 
     reader = threading.Thread(target=read, daemon=True, name=f'{provider}-login-output')
     reader.start()
+    if provider == 'gemini':
+        def choose_google():
+            time.sleep(1)
+            try:
+                proc.stdin.write(b'\r'); proc.stdin.flush()
+            except (OSError, ValueError):
+                pass
+        threading.Thread(target=choose_google,daemon=True).start()
     def watch():
         try:
             code = proc.wait(timeout=600)
@@ -173,7 +183,7 @@ def _begin_gemini(launcher):
             if os.name == 'nt':
                 from .engine.windows_job import WindowsJob
                 tree = WindowsJob()
-            proc = subprocess.Popen(launcher, cwd=folder.name,
+            proc = worker.popen(launcher, cwd=folder.name,
                 creationflags=0x00000014 if os.name == 'nt' else 0,
                 start_new_session=os.name != 'nt')
             if tree:

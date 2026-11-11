@@ -1,5 +1,6 @@
 """Google Gemini through the supported Antigravity CLI; cached login, fresh scoped turns."""
 from __future__ import annotations
+from .. import worker
 from ..background import process_options
 import json, os, re, shutil, subprocess, tempfile, threading, time, uuid
 from contextlib import contextmanager
@@ -41,7 +42,7 @@ def model_id(value):
 def scoped_project(roots, servers, network):
     """A fresh project owns each run's grants; never edit the user's global policy."""
     pid = 'armada-' + uuid.uuid4().hex
-    path = Path.home()/'.gemini/config/projects'/f'{pid}.json'
+    path = worker.home()/'.gemini/config/projects'/f'{pid}.json'
     allow = [f'write_file({root.as_posix()})' for root in roots]
     allow += [f'mcp({server}/*)' for server in servers]
     if network: allow.append('read_url(*)')
@@ -100,7 +101,7 @@ class GeminiEngine(EngineAdapter):
     def _probe(self,args):
         launcher = self._launcher()
         if not launcher: raise FileNotFoundError("Install Gemini's Antigravity CLI in Settings → App.")
-        return subprocess.run(launcher+args,stdin=subprocess.DEVNULL,capture_output=True,text=True,
+        return worker.run(launcher+args,stdin=subprocess.DEVNULL,capture_output=True,text=True,
             encoding='utf-8',errors='replace',timeout=25,**process_options())
     def auth_status(self,force=False):
         global _auth_cache
@@ -140,7 +141,7 @@ class GeminiEngine(EngineAdapter):
         if getattr(self, 'managed_tools', None):
             return [{**self.managed_tools.server_config, 'name':'armada_managed'}]
         # Only provider-local configurations. Never transfer Claude/Codex credentials.
-        try: inventory = json.loads((Path.home()/'.gemini/config/mcp_config.json').read_text(encoding='utf-8-sig')).get('mcpServers',{})
+        try: inventory = json.loads((worker.home()/'.gemini/config/mcp_config.json').read_text(encoding='utf-8-sig')).get('mcpServers',{})
         except (OSError,ValueError): inventory = {}
         withheld = set()
         if getattr(self, 'connector_requirements', None):
@@ -237,7 +238,7 @@ class GeminiEngine(EngineAdapter):
                        'No separate filesystem connector login is needed.\n')
         return '---\n'+json.dumps(config,ensure_ascii=False)+'\n---\n# System Prompt\n'+system+'\n'
     def run(self,system,prompt,**kwargs): return self.run_stream(system,prompt,**kwargs)
-    def run_stream(self,system,prompt,model=None,cwd=None,allow_tools=False,timeout=300,effort=None,
+    def run_stream(self,system,prompt,model=None,cwd=None,allow_tools=False,timeout=None,effort=None,
             fallback_model=None,max_budget_usd=None,disallowed_tools=None,only_tools=None,
             verbosity=None,on_event=None,on_proc=None,env=None):
         validate_request(self.name,self.capabilities,RunRequest(system,prompt,model=model,fallback_model=fallback_model,
@@ -260,6 +261,7 @@ class GeminiEngine(EngineAdapter):
             from .raw_results import loads_event, result_source
             item = loads_event(raw)
             if not isinstance(item,dict): raise ValueError('Malformed Gemini stream event')
+            safe_emit(getattr(on_event, 'engine_activity', None), {})
             kind = item.get('event')
             if kind=='init':
                 # Antigravity advertises its entire builtin registry here, including
@@ -316,7 +318,7 @@ class GeminiEngine(EngineAdapter):
         agent = self._agent(system,allow_tools,disallowed_tools or [])
         selected_tools = json.loads(agent.split('---',2)[1])['tools']
         file_access = bool(set(selected_tools) & set(_FILE_TOOLS))
-        with tempfile.TemporaryDirectory(prefix='armada-gemini-') as folder:
+        with worker.temporary_directory(prefix='armada-gemini-') as folder:
             path = Path(folder)/'.agents/agents/armada-turn.md'; path.parent.mkdir(parents=True)
             path.write_text(agent,encoding='utf-8')
             args = self._launcher()+['--agent','armada-turn'] + (['--model',actual] if actual else []) + ['--disable-slash-commands',

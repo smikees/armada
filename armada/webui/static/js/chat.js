@@ -9,7 +9,7 @@ if(_mi){try{_mi.value=localStorage.getItem(mcDraftKey)??localStorage.getItem(mcL
 function mcAutosize(){if(!_mi)return;_mi.style.height='auto';const h=Math.min(260,Math.max(26,_mi.scrollHeight));_mi.style.height=h+'px';_mi.style.overflowY=_mi.scrollHeight>260?'auto':'hidden';}
 if(_mi){ mcAutosize();
   _mi.addEventListener('input',()=>{mcAutosize();mcSyncSend();});
-  _mi.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();const b=document.getElementById('mc-send');b&&b.click();}});
+  _mi.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&!e.defaultPrevented){e.preventDefault();const b=document.getElementById('mc-send');b&&b.click();}});
   _mi.addEventListener('paste',e=>{const items=(e.clipboardData&&e.clipboardData.items)||[];let took=false;
     for(const it of items){if(it.kind!=='file')continue;const f=it.getAsFile();if(!f)continue;took=true;mcAttachFile(f);}
     if(took)e.preventDefault();}); }

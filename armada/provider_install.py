@@ -36,7 +36,9 @@ def install(provider):
     if os.name != "nt":
         return {"ok": False, "error": "Automatic CLI installation is available on Windows."}
     try:
-        result = supervise(args, prompt="", on_line=lambda _: None, timeout=600)
+        # Owner-requested vendor installation is trusted application maintenance,
+        # separate from agent/connector execution under the worker account.
+        result = supervise(args, prompt="", on_line=lambda _: None, timeout=600, launch=subprocess.Popen)
         if result.error or result.returncode != 0:
             import logging
             logging.getLogger(__name__).warning("%s installer failed: %s", provider, (result.error or result.stderr)[-2000:])

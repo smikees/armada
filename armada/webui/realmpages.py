@@ -680,6 +680,9 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
         + (f'<span style="display:block;margin-left:18px;font-size:11.5px;line-height:1.4;'
            f'color:var(--text-muted)">{E(j.summary)}</span>'
            if j.summary else "")
+        + (f'<span class="mc-hint" style="display:block;margin-left:18px">'
+           f'Time limit: {E(str(jc.get("timeout") or rc.get("default_job_timeout"))+"s" if jc.get("timeout") or rc.get("default_job_timeout") else "No limit")}'
+           f'{" · Critical" if jc.get("critical") else ""}</span>' if j.kind != 'command' else '')
         + f'</span>{owner_cells}<span>{badge}</span>'
         f'<span class="mono" style="font-size:11.5px;color:var(--text-dim)">'
         f'{_humanize(j.cadence)}</span>'

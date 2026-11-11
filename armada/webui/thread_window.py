@@ -38,7 +38,7 @@ def render(root, agent, thread):
         '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">'
         '<path d="M5 13L13 5M9 13L13 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
         '</button></section></div>'
-        f'{_ICONS_JS}{CONFIRM_JS}{THREADLIST_JS}{CHAT_JS}{js("thread_window")}</body></html>'
+        f'{_ICONS_JS}{CONFIRM_JS}{THREADLIST_JS}{js("form")}{CHAT_JS}{js("thread_window")}</body></html>'
     )
 
 

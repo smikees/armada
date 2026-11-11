@@ -1,6 +1,12 @@
 /* ARMADA brand overrides on top of Industry (industry.css). Navy accent, teal accent-2.
    Extracted from the approved design handoff (ARMADA.dc.html style block). */
 
+.mc-run-controls{margin-block:18px;padding-block:12px;border-block-start:1px solid var(--color-divider);font-size:13px;}
+.mc-run-controls>summary{cursor:pointer;font-weight:600;line-height:1.5;}
+.mc-run-controls .mc-field{width:100%;max-width:520px;box-sizing:border-box;}
+.mc-run-controls .mc-hint{line-height:1.5;}
+.mc-run-controls input:focus-visible,.mc-run-controls select:focus-visible,.mc-run-controls summary:focus-visible{outline:2px solid var(--color-accent-2);outline-offset:3px;}
+
 
 :root{--color-accent:#0b3f86;--color-accent-2:#12a3b8;
 --color-accent-100:#e8eff9;--color-accent-200:#cddcf2;--color-accent-300:#a6bfe4;--color-accent-400:#7599d0;--color-accent-500:#3f6bb0;--color-accent-600:#0b3f86;--color-accent-700:#08306a;--color-accent-800:#06234d;--color-accent-900:#041733;

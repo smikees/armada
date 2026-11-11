@@ -5,6 +5,7 @@ Windows children start suspended, enter a kill-on-close Job Object, then resume;
 start a new session. Cancellation is a request to this owner, never a bare Popen.kill().
 """
 from __future__ import annotations
+from .. import worker as worker_account
 
 from collections import deque
 from dataclasses import dataclass
@@ -140,7 +141,7 @@ of 8 MiB and 64 stderr chunks. Cleanup has its own bounded grace period after th
         if os.name == "nt":
             from .windows_job import WindowsJob
             tree = WindowsJob()
-        proc = (launch or subprocess.Popen)(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        proc = (launch or worker_account.popen)(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace" if raw_output else "strict",
                                 cwd=cwd, env=env, **process_options(suspended=True),
                                 start_new_session=os.name != "nt")
@@ -321,7 +322,7 @@ def supervise_rpc(args, *, start, on_message, timeout, cwd=None, env=None, on_pr
         if os.name == "nt":
             from .windows_job import WindowsJob
             tree = WindowsJob()
-        proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        proc = worker_account.popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="strict",
                                 cwd=cwd, env=env, **process_options(suspended=True),
                                 start_new_session=os.name != "nt")

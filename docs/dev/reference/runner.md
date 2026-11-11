@@ -60,7 +60,7 @@ Model to fall back to if the primary is overloaded/unavailable (--fallback-model
 
 ### `_resolve_timeout(realm_root: Path, job: dict)`
 
-How long to let one agent run take: the job's own `timeout`, else the realm's `default_job_timeout`, else nothing (the engine's default applies).
+How long to let one agent run take: the job's own `timeout`, else the realm's `default_job_timeout`, else no wall-clock deadline.
 
 ### `_resolve_max_budget(realm_root: Path, agent: dict)`
 

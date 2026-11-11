@@ -38,5 +38,5 @@ Sub-threads inherit the core but NOT each other's history — that's the scoping
 - `Thread._turn_groups(cls, messages)` — Pair explicit IDs or adjacent legacy exchanges; ambiguous/orphan records stay live.
 - `Thread.append_event(self, type: str, title: str='', subtitle: str='', icon: str='', status: str='', href: str='', pct=None, meta: dict | None=None)` — Append a non-message 'event' entry (rendered as an inline card in the UI, e.g. 'Created scheduled task …' or a compaction progress bar). Events are UI chrome — they are skipped when assembling the model context and preserved across compaction.
 - `Thread.truncate(self, keep: int)` — Keep the first requested records; invalidate any summary currently being generated.
-- `Thread.compact_if_needed(self, engine, threshold_chars: int=600000, keep_recent_pairs: int=3)` — Summarize a validated prefix outside the lock, preserving new appends and pending turns.
+- `Thread.compact_if_needed(self, engine, threshold_chars: int=600000, keep_recent_pairs: int=3, *, on_event=None, on_proc=None)` — Summarize a validated prefix outside the lock, preserving new appends and pending turns.
 - `Thread.list_threads(agent_dir)` — —

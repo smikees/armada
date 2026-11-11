@@ -33,13 +33,11 @@ def test_default_timeout_matches_the_engines_own():
         f"run() defaults to {got}s but the streaming paths would pass {runner._DEFAULT_RUN_TIMEOUT}s")
 
 
-def test_run_stream_default_really_does_differ():
-    """Guard the reason the constant exists: if the two defaults ever converge, the explicit pass
-    is harmless, but this test documents why it was needed."""
+def test_run_and_stream_have_no_default_deadline():
+    """All public adapter paths honour the same unbounded default."""
     r = inspect.signature(ClaudeEngine.run).parameters["timeout"].default
     s = inspect.signature(ClaudeEngine.run_stream).parameters["timeout"].default
-    assert r != s, "run/run_stream timeouts converged — the explicit pass is now belt-and-braces"
-    assert (r, s) == (1200, 600), f"engine defaults moved: run={r} run_stream={s}"
+    assert r is None and s is None
 
 
 # --------------------------------------------------------------------------- artefact capture

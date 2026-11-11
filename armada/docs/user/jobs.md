@@ -1,5 +1,32 @@
 # Jobs
 
+Agent jobs and Inbox tasks have **no default time limit**. Set an optional positive
+`timeout` in seconds for a ceiling, or choose it under **Edit job → Time limit,
+fallback & priority**. An empty field shows **No limit** and inherits a realm ceiling
+if one is configured. Existing explicit ceilings are kept. Command jobs and dry runs
+keep their own defaults.
+
+Silent unattended runs stop after 30 minutes without an engine event and record
+**Stalled**, including the last event time. A scheduled run still active after 60
+minutes sends one notification linking to its thread, where Stop remains available.
+Both intervals are owner settings under Realm run controls. A next start that overlaps
+an earlier invocation is recorded as skipped and notifies you.
+
+Configure **API credit & fallback** on the Claude App Settings card. Realm and agent
+run controls can override the subscription-limit policy; jobs can override it after
+approval. The default credit cap is $100 per monthly cycle, with 30% kept for critical
+jobs. The header shows API spend beside plan usage. A granted claude.ai connector
+prevents API fallback: choose whether that job waits for reset or fails. Register the
+connector directly for Claude to make it available to both lanes.
+
+Mark a job **Critical** to give it queue priority, protect a provider slot and allow
+it to draw on the API reserve. Run-control changes are owner-only and sealed to the
+approved job. Editing a saved job file invalidates its approval.
+
+Every run's preamble includes cached Claude and Codex usage, reset times, reading age
+and API credit. The scheduler refreshes the credential-free `usage-last.json` while
+the window is closed. Old or unavailable readings are marked explicitly.
+
 ### When work is queued
 
 ARMADA shares execution capacity across the desktop, scheduler and command line: up to

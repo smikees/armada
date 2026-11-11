@@ -1,5 +1,12 @@
 # ARMADA threat model
 
+**11 November 2026 (0.99.141):** configured API fallback requires the Windows worker
+boundary. Normal agent processes use a separate non-admin SID; approved draft scripts
+retain LPAC and use a private desktop. Owner DPAPI keys, control files and clipboard
+access are denied by the verified boundaries. Default operation without that setup
+still uses the owner identity described historically below. See
+[worker isolation](WORKER_ISOLATION.md) and [run controls](RUN_CONTROLS.md).
+
 **8 November 2026:** see the current [guarantee matrix](STABILIZATION_CONTRACTS.md)
 for M1–M12 containment, ownership and verified limits. In particular, per-agent
 tool/file policy is not an OS sandbox; cache reads do not authorize execution;

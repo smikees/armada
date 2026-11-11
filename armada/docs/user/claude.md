@@ -19,3 +19,28 @@ not authorize Codex or Gemini. See [Capabilities](capabilities.md) and
 The Overview header displays reported account limits. Readings are cached for five
 minutes; unavailable values are marked as unknown. Usage and API-equivalent figures
 use reported accounting and do not represent a subscription charge.
+
+
+## API credit at the subscription limit
+
+In **Settings → App → Claude → API credit & fallback**, set up the Windows worker,
+sign in to Claude for that account, and enter your Anthropic Console API key. The key
+stays outside realms and agent processes. Worker setup needs administrator consent
+from the signed-in owner; using a different administrator account is not supported.
+
+Choose use the key, wait for reset, or fail. Realm, agent and job controls can override
+the default. The monthly cap defaults to $100, with a $5 per-run ceiling and a 30%
+reserve for critical jobs. The API lane closes at the cap. Missing cost data charges
+the full reserved ceiling. The header shows spent credit and warnings arrive through
+your enabled notification channels. Anthropic decides whether the key draws on a
+promotional credit or another Console balance.
+
+A claude.ai connector cannot follow a run onto the key. ARMADA waits or fails with its
+name and reason; register a direct MCP connection when the service supports it. Inline
+images and documents are refused by the API lane because their cost cannot be bounded
+safely here. Use the subscription for those inputs. Text and compatible directly
+registered tools can use the key.
+
+Jobs and Inbox tasks have no default wall-clock deadline. Optional job and realm
+ceilings still apply, and inactive jobs stop with a notification. Usage readings in
+`usage-last.json` and each run's context show the last known limits and their age.

@@ -75,6 +75,8 @@ class JobRoutes:
                 if jf.exists():
                     return {"ok": False, "error": f"job '{jid}' already exists"}
                 util.write_json_atomic(jf, job)
+                from ..run_policy import seal_job
+                seal_job(self.realm, agent, job)
             return {"ok": True, "id": jid}
         except Exception as e:  # noqa
             swallowed(log, '_new_job: failed; error returned to the caller')
@@ -143,6 +145,7 @@ class JobRoutes:
         p = Path(self.realm) / "agents" / safe_seg(agent, "agent") / "jobs" / f"{safe_seg(job, 'job')}.json"
         if not p.exists():
             return {"ok": False, "error": f"no job {job}"}
+        before = util.read_json_state(p)
         def change(jc):
             if 'model' in body and not jc.get('inspector') and jc.get('kind') != 'command':
                 from ..engine.selection import engine_for
@@ -155,6 +158,14 @@ class JobRoutes:
                 from ..job_retries import validate
                 jc["retries"] = validate(body["retries"])
                 jc.pop("on_failure", None)
+            from ..run_policy import JOB_FIELDS, validate_job
+            for key in JOB_FIELDS:
+                if key in body:
+                    if body[key] in (None, ''):
+                        jc.pop(key, None)
+                    else:
+                        jc[key] = body[key]
+            validate_job(jc)
             for k in ("prompt", "summary", "kind", "thread", "budget"):
                 if k in body:
                     jc[k] = body[k]
@@ -201,6 +212,10 @@ class JobRoutes:
                     raise ValueError("Enable and save Is inspector for this agent before marking an inspector job.")
         try:
             saved = util.mutate_json(p, change)
+            from ..run_policy import seal_job
+            seal_job(self.realm, agent, {**saved, 'id':job})
+            from ..job_access import reseal_controls
+            reseal_controls(self.realm, agent, {**before, 'id':job}, {**saved, 'id':job})
             if "dry_run_command" in body:
                 from .. import inspection
                 saved.setdefault("id", job)

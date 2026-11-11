@@ -349,7 +349,8 @@ class ManagedTools:
         self.server.daemon_threads = True
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
-        self.temporary = tempfile.TemporaryDirectory(prefix="armada-managed-")
+        from . import worker
+        self.temporary = worker.temporary_folder(prefix="armada-managed-")
         # Python's package import does not depend on the job's working directory.
         self.server_config = {"command": sys.executable, "args": [str(Path(__file__).with_name("managed_mcp.py"))],
             "env": {"ARMADA_TOOL_ENDPOINT": f"http://127.0.0.1:{self.server.server_port}/tools",

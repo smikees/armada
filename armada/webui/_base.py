@@ -104,6 +104,33 @@ def _list_items(lines: list[str], i: int, n: int, pat: str, *, preserve_breaks=F
     return items, i
 
 
+def _bullet_tree(lines, i, n, inline, *, preserve_breaks=False, depth=0):
+    """Preserve list indentation after a composer draft becomes a saved message."""
+    def indent(line):
+        return len(line[:len(line)-len(line.lstrip(' \t'))].expandtabs(4))
+    base = indent(lines[i])
+    items = []
+    while i < n:
+        line = lines[i]
+        if re.match(_BULLET,line):
+            level = indent(line)
+            if level < base:
+                break
+            if level > base and items and depth < 32:
+                child,i = _bullet_tree(lines,i,n,inline,preserve_breaks=preserve_breaks,depth=depth+1)
+                items[-1][1] += child
+            else:
+                items.append([re.sub(_BULLET,'',line).strip(),''])
+                i += 1
+            continue
+        text = line.strip()
+        if (not items or not text or text.startswith(('```','|')) or re.match(r'^#{1,6}\s',text) or re.match(_NUMBER,line)):
+            break
+        items[-1][0] += ('\n' if preserve_breaks else ' ')+text
+        i += 1
+    return '<ul>'+''.join('<li>'+inline(text)+children+'</li>' for text,children in items)+'</ul>',i
+
+
 def _md(text: str, *, preserve_breaks=False) -> str:
     """Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-escaped
     first — only the whitelisted tags emitted below can appear. Supports headings, bullet/number
@@ -142,8 +169,8 @@ def _md(text: str, *, preserve_breaks=False) -> str:
             out.append(f"<h{lvl}>{_md_inline(m.group(2).strip())}</h{lvl}>")
             i += 1; continue
         if re.match(_BULLET, ln):                                         # unordered list
-            items, i = _list_items(lines, i, n, _BULLET, preserve_breaks=preserve_breaks)
-            out.append("<ul>" + "".join(f"<li>{inline(x)}</li>" for x in items) + "</ul>"); continue
+            rendered,i = _bullet_tree(lines,i,n,inline,preserve_breaks=preserve_breaks)
+            out.append(rendered); continue
         if re.match(_NUMBER, ln):                                         # ordered list
             first = int(re.match(_NUMBER, ln).group(1))
             items, i = _list_items(lines, i, n, _NUMBER, preserve_breaks=preserve_breaks)

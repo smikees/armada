@@ -233,6 +233,7 @@ class TurnCoordinator:
         waited = False
         message = req.message
         result = RunResult(ok=False, error="Turn did not finish.")
+        watchdog = None
         job_result = None
         connector_tools = None
         policy_files = admission = None
@@ -248,6 +249,8 @@ class TurnCoordinator:
 
         def _event(ev):
             nonlocal last_checkpoint, current_activity
+            if watchdog is not None:
+                watchdog.event(ev)
             if admission is not None:
                 admission.observe(ev)
             if raw_capture is not None:
@@ -289,8 +292,14 @@ class TurnCoordinator:
             # Keep timed paints and persisted activity snapshots in the same event order.
             with live_text.lock:
                 _event(ev)
+        # Raw protocol activity includes thinking/token deltas not rendered as UI events.
+        # Adapters can report it without adding noisy synthetic transcript entries.
+        event.engine_activity = lambda _: watchdog.event({'kind':'engine_event'}) if watchdog else None
 
         def process(handle):
+            if watchdog is not None:
+                watchdog.suspended = False
+                watchdog.event({'kind':'start'})
             self.session.bind(handle)
             if self.on_proc and self.on_proc != self.session.bind:
                 self.on_proc(handle)
@@ -324,6 +333,13 @@ class TurnCoordinator:
                     cancelled=lambda: self.session.active.cancelled,
                     on_cancel=lambda: RunSession.cancel(context.key, self.session.registry, self.session.lock),
                     on_wait=queued))
+                if req.task:
+                    from .run_watchdog import Watchdog
+                    from .run_policy import settings as run_settings
+                    watchdog = Watchdog(root, aid, thread, run_settings(root, aid, req.job),
+                        lambda: execution_admission.cancel(context.realm.realm_id, agent=aid, thread=thread),
+                        scheduled=scheduled_job)
+                    capacity.enter_context(watchdog)
                 if inbox_message is not None:
                     inbox_timing.require_eligible(root, inbox_message)
                 # Resolve permissions afresh after waiting; queued work carries no stale grant.
@@ -353,9 +369,8 @@ class TurnCoordinator:
                 use_tools = (job.get("allow_tools") is True) if scheduled_job else (
                     req.allow_tools or bool(agent.get("allow_tools")) or bool(req.images))
                 model = r._cli_model(job["model"], root) if job.get("model") else r._resolve_model(root, agent)
-                # Conversations run until the engine finishes or the owner stops them.
-                # Jobs and one-off tasks still use the configured job timeout.
-                timeout = (r._resolve_timeout(root, job) or r._DEFAULT_RUN_TIMEOUT) if req.task else None
+                # Jobs and inbox tasks have no deadline unless the owner chose one.
+                timeout = r._resolve_timeout(root, job) if req.task else None
                 request = RunRequest("", "", model=r._engine_model(eng, model) or None,
                     cwd=str(agent_dir), allow_tools=use_tools, effort=r._resolve_effort(root, run_agent),
                     verbosity=output_level if eng.name in ("codex", "gemini") else None,
@@ -380,6 +395,8 @@ class TurnCoordinator:
                 attachments = [{"kind": "image", "name": s["name"], "file": s["file"]} for s in saved]
                 attachments += [{"kind": "file", "name": str(fn)} for fn in req.files if str(fn).strip()]
                 core = memory.assemble_core(root, agent_dir, run_agent)
+                from .usage_snapshot import preamble as usage_preamble
+                core += usage_preamble(root)
                 compact_engine = eng  # Context summarization must never receive inspector action tools.
                 from . import inspection
                 if inspector_turn:
@@ -437,7 +454,12 @@ class TurnCoordinator:
                                             _eng if _eng in ("claude", "codex", "gemini") else None) + "\n" + core
                 if inbox_message is not None:
                     inbox_timing.require_eligible(root, inbox_message)
-                compacted = th.compact_if_needed(compact_engine, threshold_chars=r._compact_threshold(root, agent, req.job))
+                def compaction_event(ev):
+                    if watchdog is not None:
+                        watchdog.event(ev)
+                compaction_event.engine_activity = event.engine_activity
+                compacted = th.compact_if_needed(compact_engine, threshold_chars=r._compact_threshold(root, agent, req.job),
+                    on_event=compaction_event, on_proc=process)
                 summary, messages = th.snapshot()
                 _, pending = th._turn_groups(messages)
                 # Pending queue entries are durable owner input, not earlier conversation.
@@ -476,7 +498,9 @@ class TurnCoordinator:
                         self.session.active.steering_turn = turn
                         self.session.active.steering_enabled = bool(
                             not req.task and getattr(eng, 'capabilities', ProviderCapabilities()).steering)
-                    result = execute_request(eng, request, on_event=event, on_proc=process)
+                    from . import billing
+                    result = billing.execute(eng, request, root=root, agent=aid, job=req.job,
+                        run_id=context.run_id, on_event=event, on_proc=process, invoke=execute_request)
                     if not isinstance(result, RunResult):
                         raise ValueError("Engine returned no valid RunResult.")
                     if result.ok and (result.error or result.cancelled):
@@ -496,6 +520,14 @@ class TurnCoordinator:
                     result = RunResult(ok=False, error=str(exc), output="".join(partial))
                 safe_emit(self.on_event, {"kind": "error", "error": str(exc)})
             finally:
+                if watchdog is not None:
+                    watchdog.__exit__()
+                    if watchdog.stalled:
+                        result.ok, result.cancelled = False, False
+                        result.error = f'Run stalled: no engine event for {watchdog.quiet/60:g} minutes. Last event: {watchdog.last_at}.'
+                        result.raw['stalled'] = {'last_event_at': watchdog.last_at, 'inactivity_seconds': watchdog.quiet}
+                        from . import notify
+                        notify.emit(root, 'job_stalled', 'An agent run stalled', f'{aid}: {result.error}', watchdog.href)
                 if policy_files is not None:
                     policy_files.seal()
                 managed_audit = managed.seal() if managed is not None else None
@@ -525,7 +557,7 @@ class TurnCoordinator:
             text = (result.output or "Completed without a text reply.") if result.ok else r._failed_output(result, "".join(partial))
             if scheduled_job:
                 from . import job_results
-                runtime_execution = ("timed_out" if result.timed_out else "stopped" if result.cancelled
+                runtime_execution = ("stalled" if result.raw.get('stalled') else "timed_out" if result.timed_out else "stopped" if result.cancelled
                                      else "completed" if result.ok else "failed")
                 raw_answer = result.output or "".join(partial)
                 job_result = job_results.evaluate(raw_answer, run_id=context.run_id, job=result_job,
@@ -567,6 +599,9 @@ class TurnCoordinator:
             if raw_capture is not None:
                 report["capture"] = raw_capture.report()
             report['access_audit'] = access_audit
+            report['billing'] = result.raw.get('billing', {'lane':'plan'})
+            if result.raw.get('stalled'):
+                report['stalled'] = result.raw['stalled']
             report['operational_warnings'] = access_audit['warnings']
             if managed_audit is not None:
                 report['inspector'] = managed_audit

@@ -19,6 +19,10 @@ Stable key for a job on this machine, independent of path casing on Windows.
 
 Changing a prompt or tool mode revokes its access until the owner re-approves it.
 
+### `reseal_controls(root, agent, before, after)`
+
+An owner changing controls may retain an unchanged prompt's approved folders.
+
 ### `grant_for(realm_root, agent_id: str, job: dict | None, *, reject_reparse=False)`
 
 —

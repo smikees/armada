@@ -10,6 +10,8 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `SettingsRoutes._worker_action(self, body)` — —
+- `SettingsRoutes._save_run_controls(self, body)` — —
 - `SettingsRoutes._reveal_system_memory(self, _body)` — —
 - `SettingsRoutes._get_font_size(self)` — —
 - `SettingsRoutes._get_providers(self)` — —

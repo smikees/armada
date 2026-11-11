@@ -49,6 +49,18 @@ CHANNELS = {
 # otherwise. The defaults encode one judgement: interrupt only for things that need a person.
 AGENTS, SYSTEM = "agents", "system"
 EVENTS = {
+    "job_stalled": {
+        "label": "An unattended run stalls", "group": AGENTS,
+        "default": {"inapp": True, "desktop": True, "telegram": True}},
+    "job_long_running": {
+        "label": "A scheduled run passes its soft time mark", "group": AGENTS,
+        "default": {"inapp": True, "desktop": True, "telegram": True}},
+    "job_overlap": {
+        "label": "A scheduled start is skipped because the job is running", "group": AGENTS,
+        "default": {"inapp": True, "desktop": True, "telegram": True}},
+    "api_credit": {
+        "label": "API fallback starts or credit reaches a threshold", "group": SYSTEM,
+        "default": {"inapp": True, "desktop": True, "telegram": True}},
     "policy_denied": {
         "label": "An agent attempts denied access (first per day)", "group": AGENTS,
         "default": {"inapp": True, "desktop": True, "telegram": False}},

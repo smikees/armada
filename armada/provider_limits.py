@@ -29,6 +29,8 @@ class _Entry:
 
 
 def _probe(provider, realm):
+    from .usage_snapshot import root_path
+    realm = root_path(realm) if realm else None
     if provider == 'claude':
         from . import usage_api
         data = usage_api.fetch(realm, force=True)
@@ -79,6 +81,9 @@ def _run(key, entry, provider, realm):
         if now-entry.started >= DEADLINE:
             _failure(entry, 'timeout', 'Usage check timed out. The next check will retry.', now)
         elif data['available'] and not data.get('stale'):
+            if realm:
+                from .usage_snapshot import remember
+                remember(realm, provider, data)
             entry.data = copy.deepcopy(data)
             entry.good, entry.good_at, entry.finished = copy.deepcopy(data), now, now
         else:
@@ -94,7 +99,9 @@ def read(provider: str, realm=None, force: bool = False) -> dict:
     connected = provider in providers.connected()
     if not providers.allowed(provider):
         return {'available': False, 'connected': False, 'reason': 'disconnected', 'message': 'Disconnected from Armada.'}
-    key = (provider, str(getattr(realm, 'root', realm)) if provider == 'claude' else '')
+    from .usage_snapshot import root_path
+    realm_key = str(root_path(realm)) if realm else (str(realm) if provider == 'claude' else '')
+    key = (provider, realm_key)
     with _lock:
         now = time.monotonic()
         entry = _entries.get(key)

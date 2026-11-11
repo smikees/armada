@@ -2,6 +2,7 @@
 from ..assets import js
 from ..icons import _icon, _provider_logo
 from ._base import E
+from .run_controls import panel
 
 
 def connections(*, setup=False):
@@ -52,7 +53,7 @@ def connections(*, setup=False):
             f'<button class="btn btn-secondary" id="provider-{provider}-open" hidden onclick="mcConnection(\'{provider}\',\'open-login\',this)">Open sign-in page</button>'
             f'<button class="btn btn-secondary" id="provider-{provider}-cancel" hidden onclick="mcConnection(\'{provider}\',\'cancel-login\',this)">Cancel sign-in</button>'
             f'<a id="provider-{provider}-guide" href="{E(url)}" target="_blank" rel="noopener" hidden>Installation guide</a>'
-            f'</div></div>')
+            f'</div>' + (panel(global_provider=True) if provider == 'claude' and not setup else '') + '</div>')
     guidance = ('<p class="mc-hint">For Codex or Claude, a paid '
                 '<a href="https://learn.chatgpt.com/docs/pricing" target="_blank" rel="noopener noreferrer">ChatGPT Plus or Pro</a> '
                 'or a <a href="https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan" '

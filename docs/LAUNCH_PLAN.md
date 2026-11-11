@@ -5,6 +5,12 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.141** is in release validation: shared nested bullets, unlimited agent-job
+and Inbox defaults, stalled-run handling, owner-sealed run controls, Claude API fallback
+with a Windows worker boundary, saved provider usage and critical-job reservations.
+Publication requires the exact-source suite/CI, native worker and desktop checks,
+45-minute synthetic execution checks and the packaged upgrade gate.
+
 Version **0.99.140** is published. The Windows 11 title bar follows the app's
 light or dark background and shows only the native window controls. The line
 under it spans the window, and the divider below the main menu aligns with the

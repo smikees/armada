@@ -175,6 +175,9 @@ class SkillSandbox:
                 self._ok(self.kernel.UpdateProcThreadAttribute(attributes, 0, key, C.byref(value), C.sizeof(value), None, None))
             startup = StartupEx()
             startup.startup.cb = C.sizeof(startup)
+            from .. import worker
+            if worker.enabled():
+                startup.startup.desktop = worker.draft_desktop()
             startup.startup.flags = 0x100  # STARTF_USESTDHANDLES
             startup.startup.stdin, startup.startup.stdout, startup.startup.stderr = handles
             startup.attributes = C.cast(attributes, C.c_void_p)

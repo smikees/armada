@@ -61,6 +61,10 @@ Re-read what could be added: the plugin marketplaces on this machine and Anthrop
 
 Keep ARMADA itself up to date (5.4). Machine-wide, though it's listed in every realm: the updater keeps its own clock, so a second realm's pass inside the same 12 hours just reports the last answer instead of asking GitHub again.
 
+### `_job_usage_readings(root)`
+
+—
+
 ### `_state_path(realm_root)`
 
 —

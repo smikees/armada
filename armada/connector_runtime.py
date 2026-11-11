@@ -4,6 +4,7 @@ A realm grant is permission, not a provider login. Claude's MCP inventory and Co
 MCP inventory are separate; never infer one provider's authentication from the other.
 """
 from __future__ import annotations
+from . import worker
 from .background import process_options
 import logging
 
@@ -38,7 +39,7 @@ def _codex_drive_client(cap):
     if codex_endpoint(cap) not in _GOOGLE_URLS:
         return True
     try:
-        root = Path(os.environ.get('CODEX_HOME') or Path.home()/'.codex')
+        root = worker.home()/'.codex' if worker.enabled() else Path(os.environ.get('CODEX_HOME') or Path.home()/'.codex')
         data = tomllib.loads((root/'config.toml').read_text(encoding='utf-8-sig'))
         row = data.get('mcp_servers', {}).get(registration_id(cap.get('id')), {})
         client = row.get('oauth', {}).get('client_id')
@@ -218,7 +219,7 @@ def _claude_rows(realm_root=None) -> list[dict] | None:
     if not launcher:
         return None
     try:
-        result = subprocess.run(launcher + ["mcp", "list"], capture_output=True, text=True,
+        result = worker.run(launcher + ["mcp", "list"], capture_output=True, text=True,
                                 timeout=45, encoding="utf-8", errors="replace",
                                 env=engine._env(), cwd=realm_root, **process_options())
     except (OSError, subprocess.SubprocessError):
@@ -271,7 +272,7 @@ def claude_connection(cap: dict, inventory: dict[str, bool | None] | None) -> st
 def gemini_inventory() -> dict | None:
     """The same global inventory admitted by GeminiEngine; no credential transfer."""
     try:
-        value = json.loads((Path.home()/'.gemini/config/mcp_config.json').read_text(encoding='utf-8-sig'))
+        value = json.loads((worker.home()/'.gemini/config/mcp_config.json').read_text(encoding='utf-8-sig'))
         servers = value.get('mcpServers', {})
         return servers if isinstance(servers, dict) else None
     except FileNotFoundError:
@@ -563,7 +564,7 @@ def connect_claude(cap: dict, realm_root=None) -> dict:
     if not matches and endpoint:
         sid = registration_id(cap.get('id'))
         try:
-            result = subprocess.run(launcher + ['mcp', 'add', '--scope', 'user', '--transport', 'http', sid, endpoint],
+            result = worker.run(launcher + ['mcp', 'add', '--scope', 'user', '--transport', 'http', sid, endpoint],
                                     capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=25,
                                     cwd=realm_root, env=engine._env(), **process_options())
         except (OSError, subprocess.SubprocessError):
@@ -626,7 +627,7 @@ def connect_gemini(cap, realm_root=None, *, authenticate=False):
             if running is None or running.poll() is not None:
                 # This console is intentionally visible: the user's action opens the CLI's
                 # MCP menu, where they select Authenticate and paste the browser callback.
-                _gemini_signins[key] = subprocess.Popen(launcher + ['--prompt-interactive', '/mcp'],
+                _gemini_signins[key] = worker.popen(launcher + ['--prompt-interactive', '/mcp'],
                     cwd=realm_root, creationflags=0x00000010 if os.name == 'nt' else 0)
     return {'ok': True, 'state': 'configured', 'action': 'authenticate',
             'reason': 'Registered in Gemini. Open sign-in controls, select this server in /mcp and choose Authenticate. Registration alone does not verify live tools.'}

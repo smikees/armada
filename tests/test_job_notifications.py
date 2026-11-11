@@ -56,7 +56,7 @@ def test_the_engine_default_is_no_longer_five_minutes():
     """A scheduled brief that searches the web, reads files and writes a report is routinely past
     five minutes. Timing out there loses work the agent had already done."""
     from armada.engine.claude import ClaudeEngine
-    assert ClaudeEngine.DEFAULT_TIMEOUT >= 900
+    assert ClaudeEngine.DEFAULT_TIMEOUT is None
     import inspect
     sig = inspect.signature(ClaudeEngine.run)
     assert sig.parameters["timeout"].default == ClaudeEngine.DEFAULT_TIMEOUT, \

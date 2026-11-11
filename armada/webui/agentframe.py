@@ -353,6 +353,7 @@ _MD_FIELD_JS = _MDFIELD_JS_ASSET
 
 
 def _tab_configure(realm, realm_root, a) -> str:
+    from .run_controls import panel as run_panel
     from ..assets import js
     agent_dir = realm_root / "agents" / a.id
     ac = json.loads((agent_dir / "agent.json").read_text(encoding="utf-8-sig")) if (agent_dir / "agent.json").exists() else {}
@@ -448,7 +449,8 @@ def _tab_configure(realm, realm_root, a) -> str:
             f'here; it already applies. These are the rules that are {E(a.display)}\'s alone.</span></div>'
             f'{_a2a_box(a2a_on, freq_opts, accepts_opts, field, lbl)}'
             f'{_agent_advanced_box(fallback_opts, maxbudget, field, lbl, _agent_manage_box(realm, a), ac.get("is_inspector") is True)}'
-            f'</div>'
+            + run_panel(realm_root, a.id)
+            + f'</div>'
             + _configure_actions(a)
             + f'</div>'
             + _AUTONOMY_JS + _AGENT_COLOR_JS + _MD_FIELD_JS

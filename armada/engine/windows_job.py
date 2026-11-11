@@ -69,6 +69,15 @@ class WindowsJob:
     def attach_and_resume(self, process):
         if not self.api.AssignProcessToJobObject(self.handle, int(process._handle)):
             raise C.WinError(C.get_last_error())
+        thread = getattr(process, '_worker_thread', None)
+        if thread is not None:
+            try:
+                if self.api.ResumeThread(int(thread)) == 0xFFFFFFFF:
+                    raise C.WinError(C.get_last_error())
+                return
+            finally:
+                thread.Close()
+                process._worker_thread = None
         snapshot = self.api.CreateToolhelp32Snapshot(4, 0)  # TH32CS_SNAPTHREAD
         if snapshot == C.c_void_p(-1).value:
             raise C.WinError(C.get_last_error())
@@ -110,7 +119,10 @@ class WindowsJob:
         for pid in (C.c_size_t * returned).from_buffer(data, 8):
             handle = self.api.OpenProcess(0x101000, False, pid)  # SYNCHRONIZE | QUERY_LIMITED_INFORMATION
             if not handle:  # exited before opening; no live handle remains
-                if C.get_last_error() == 87:
+                if C.get_last_error() in (5, 87):
+                    # A separate-account child may intentionally deny query access.
+                    # Its immutable Job membership still owns termination; verify zero
+                    # active Job processes below instead of abandoning cleanup.
                     continue
                 for owned in handles: self.api.CloseHandle(owned)
                 raise C.WinError(C.get_last_error())
@@ -125,7 +137,14 @@ class WindowsJob:
         if self.handle:
             # KILL_ON_JOB_CLOSE alone requests asynchronous termination. Keep the handle long
             # enough to observe zero active processes before publishing a terminal run result.
-            processes = self._process_handles()
+            processes=[]
+            enumeration_error=None
+            try:
+                processes=self._process_handles()
+            except OSError as exc:
+                # A query failure must not skip termination or leak a kill-on-close
+                # handle. Preserve the diagnostic after owned cleanup has run.
+                enumeration_error=exc
             deadline = time.monotonic() + 3
             try:
                 if not self.api.TerminateJobObject(self.handle, 1):
@@ -149,3 +168,5 @@ class WindowsJob:
                 if not self.api.CloseHandle(self.handle):
                     raise C.WinError(C.get_last_error())
                 self.handle = None
+            if enumeration_error:
+                raise enumeration_error

@@ -91,7 +91,7 @@ class EngineAdapter(ABC):
 
     @abstractmethod
     def run(self, system: str, prompt: str, model: Optional[str] = None,
-            cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = 300,
+            cwd: Optional[str] = None, allow_tools: bool = False, timeout: int | None = None,
             effort: Optional[str] = None, fallback_model: Optional[str] = None,
             max_budget_usd: Optional[float] = None, disallowed_tools: Optional[list] = None,
             only_tools: Optional[list] = None, verbosity: Optional[str] = None) -> RunResult:

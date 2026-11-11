@@ -96,15 +96,23 @@ def _promote(state):
     while pending:
         eligible = []
         for row in pending:
+            if row.get('not_before', 0) > time.time() or row.get('usage_deferred'):
+                continue
             # Maintenance wrappers have their own single slot: a wrapper may await a model
             # child, so occupying every model slot here would cause a nested-admission deadlock.
             maintenance = row['provider'] == 'maintenance'
             group = [r for r in active if (r['provider'] == 'maintenance') == maintenance]
-            if len(group) >= (1 if maintenance else TOTAL):
+            reserved = any(r.get('reserve_slot') for r in rows)
+            total_limit = TOTAL if row.get('critical') or not reserved else max(0, TOTAL-1)
+            if len(group) >= (1 if maintenance else total_limit):
                 continue
-            if sum(r['provider'] == row['provider'] for r in group) >= PER_PROVIDER:
+            reserve = any(r.get('reserve_slot') and r['provider'] == row['provider'] for r in rows)
+            limit = PER_PROVIDER if row.get('critical') or not reserve else max(0, PER_PROVIDER-1)
+            if sum(r['provider'] == row['provider'] for r in group) >= limit:
                 continue
-            if sum(r['realm'] == row['realm'] for r in group) >= PER_REALM:
+            realm_reserved = any(r.get('reserve_slot') and r['realm'] == row['realm'] for r in rows)
+            realm_limit = PER_REALM if row.get('critical') or not realm_reserved else max(0, PER_REALM-1)
+            if sum(r['realm'] == row['realm'] for r in group) >= realm_limit:
                 continue
             identity = (row['realm'], row['agent'], row['thread'])
             if any((r['realm'], r['agent'], r['thread']) == identity for r in active):
@@ -115,6 +123,9 @@ def _promote(state):
             eligible.append(row)
         if not eligible:
             break
+        priority = [r for r in eligible if r.get('critical')]
+        if priority:
+            eligible = priority
         realms = list(dict.fromkeys(r['realm'] for r in eligible))
         last = state['last_realm']
         selected_realm = realms[(realms.index(last) + 1) % len(realms)] if last in realms else realms[0]
@@ -160,6 +171,8 @@ class Ticket:
 
     def _publish(self, context, provider, realm_required):
         from . import updater, realmops
+        from .run_policy import admission
+        hints = admission(context.realm.root, context.agent, context.thread, provider) if realm_required else {}
         with updater.admission_lock(), realmops.lifecycle_lock(context.realm.root):
             if updater.installed() and updater.admission_paused():
                 raise util.StateError('ARMADA is updating. New work can start after it reopens.')
@@ -179,7 +192,7 @@ class Ticket:
                 rows[self.slot] = dict(token=self.token, realm=context.realm.realm_id,
                     root=context.realm.root, agent=context.agent, thread=context.thread,
                     run_id=context.run_id, provider=provider, pid=os.getpid(),
-                    state='queued', seq=state['next'], cancelled=False)
+                    state='queued', seq=state['next'], cancelled=False, **hints)
                 state['next'] += 1
             # The ticket is published only while its kernel ownership is held.
 
@@ -190,8 +203,13 @@ class Ticket:
         return row
 
     def ready(self):
+        # Refresh owner priority and current usage while waiting; a fresh reading can
+        # release work without recreating tickets or retaining a provider slot.
+        from .run_policy import admission
+        hints = admission(self.context.realm.root, self.context.agent, self.context.thread, self.provider)
         with _transaction() as state:
             row = self._row(state)
+            row.update(hints)
             if row['cancelled']:
                 self.cancelled = True
                 raise Cancelled('Run stopped by the owner before execution.')
@@ -315,6 +333,17 @@ def snapshot():
 def cancelled():
     ticket = _current.get()
     return bool(ticket and ticket.cancelled)
+
+
+def defer_current(until):
+    """Release capacity while a logical invocation waits for its subscription reset."""
+    ticket = _current.get()
+    if ticket is None:
+        raise util.StateError('Cannot wait for a plan reset without execution ownership.')
+    with _transaction() as state:
+        ticket._row(state).update(state='queued', not_before=until)
+        _promote(state)
+    ticket.wait()
 
 
 def view(root, agent=None, thread=None):

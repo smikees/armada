@@ -15,6 +15,7 @@ the `cmd /c` shim eats them. Falls back to the cmd shim + a non-empty deny-list 
 native/js entry can't be resolved.
 """
 from __future__ import annotations
+from .. import worker
 from ..background import process_options
 import json, os, re, shutil, subprocess, tempfile, time
 from typing import Optional, Callable
@@ -25,8 +26,40 @@ from .process import supervise, safe_emit
 import logging
 from ..util import swallowed
 log = logging.getLogger(__name__)
+_scrub_proofs = {}
 
-_DENY = "Bash Read Edit Write Glob Grep WebFetch WebSearch Task NotebookEdit BashOutput KillShell"
+
+def credential_scrub_supported(engine):
+    """Prove the installed CLI scrubs child credentials using only a synthetic key.
+
+    Cache by launcher files, never by a guessed minimum version. A CLI update earns
+    another check before the real key can enter its environment.
+    """
+    from pathlib import Path
+    launcher = engine._launcher() or []
+    identity = tuple((str(Path(item).resolve()), Path(item).stat().st_mtime_ns, Path(item).stat().st_size)
+                     for item in launcher if Path(item).is_file())
+    if identity in _scrub_proofs:
+        return _scrub_proofs[identity]
+    supported = False
+    for item in launcher:
+        path = Path(item)
+        if path.is_file() and path.suffix.lower() in ('.exe', '.js', '.cjs', '.mjs'):
+            try:
+                if b'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB' in path.read_bytes():
+                    supported = True
+            except OSError:
+                pass
+    if supported:
+        try:
+            from .claude_isolation import probe
+            supported = bool(probe(engine)['passed'])
+        except (OSError, ValueError, subprocess.SubprocessError):
+            supported = False
+    _scrub_proofs[identity] = supported
+    return supported
+
+_DENY = "Bash PowerShell Read Edit Write Glob Grep WebFetch WebSearch Task NotebookEdit BashOutput KillShell"
 
 
 def _verbosity_system(system, level):
@@ -49,7 +82,7 @@ def _recover_auth_cache(verified_names, probe_started):
     # Do not guess a vendor cache location when the owner uses a custom config.
     if not verified_names or os.environ.get('CLAUDE_CONFIG_DIR'):
         return frozenset()
-    path = Path.home() / '.claude/mcp-needs-auth-cache.json'
+    path = worker.home() / '.claude/mcp-needs-auth-cache.json'
     temporary = ''
     try:
         if path.stat().st_size > 1024 * 1024:
@@ -161,7 +194,7 @@ def _system_args(system: str):
         return ["--system-prompt", system], ""
     path = ""
     try:
-        fd, path = tempfile.mkstemp(prefix="armada-sys-", suffix=".md")
+        fd, path = tempfile.mkstemp(prefix="armada-sys-", suffix=".md", dir=worker.temp_root())
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(system)
     except Exception:  # noqa - fall back to argv rather than lose the turn outright
@@ -269,7 +302,7 @@ class ClaudeEngine(EngineAdapter):
             raise ValueError("Capability gating requires Claude's native or Node launcher; reinstall Claude Code to repair its launcher.")
         kwargs = dict(capture_output=True, text=True, timeout=25, cwd=cwd, env=self._env(),
                       encoding="utf-8", errors="replace", **process_options())
-        version = subprocess.run(self._launcher() + ["--version"], **kwargs)
+        version = worker.run(self._launcher() + ["--version"], **kwargs)
         match = re.match(r"(\d+)\.(\d+)\.(\d+)", version.stdout.strip())
         if version.returncode or not match or tuple(map(int, match.groups())) < (2, 1, 263):
             raise ValueError("Capability gating requires Claude Code 2.1.263 or newer.")
@@ -278,7 +311,7 @@ class ClaudeEngine(EngineAdapter):
         # with 50 connectors take about 39 seconds even when admitted servers work.
         kwargs["timeout"] = 90
         try:
-            result = subprocess.run(self._launcher() + ["mcp", "list"], **kwargs)
+            result = worker.run(self._launcher() + ["mcp", "list"], **kwargs)
         except subprocess.TimeoutExpired as exc:
             raise ValueError("Claude connector discovery exceeded 90 seconds. Check connector health before running the job again.") from exc
         if result.returncode or result.stderr.strip():
@@ -321,6 +354,8 @@ class ClaudeEngine(EngineAdapter):
             policy_flags = policy_flags[:index]
         args += policy_flags
         if patterns:
+            if any(p == 'Bash' or p.startswith('Bash(') for p in patterns):
+                patterns.add('PowerShell')
             args += ["--disallowedTools", *sorted(patterns)]
         if getattr(self, 'connector_tools', None):
             from ..connector_tools import claude_args
@@ -420,7 +455,7 @@ class ClaudeEngine(EngineAdapter):
             return False, ("Claude Code not found on PATH. Install it (needs Node.js) and run "
                            "`claude login` on your Pro/Max plan.")
         try:
-            v = subprocess.run(lp + ["--version"], capture_output=True, text=True, timeout=25,
+            v = worker.run(lp + ["--version"], capture_output=True, text=True, timeout=25,
                                env=self._env(), encoding="utf-8", errors="replace",
                                **process_options())
             if v.returncode != 0:
@@ -432,12 +467,8 @@ class ClaudeEngine(EngineAdapter):
             swallowed(log, 'doctor: failed; returning a fallback')
             return False, f"Claude Code present but not runnable: {e}"
 
-    # 300s was too short for the work these jobs actually do. A scheduled brief that searches the
-    # web, reads a few files and writes a report is routinely past five minutes, and the failure
-    # was indistinguishable from a broken job — the agent had done most of the work and lost it.
-    # 20 minutes is generous enough that hitting it means something is genuinely stuck; a job can
-    # set its own `timeout` when it knows better.
-    DEFAULT_TIMEOUT = 1200
+    # The coordinator supervises unattended inactivity; only owner-chosen deadlines apply.
+    DEFAULT_TIMEOUT = None
 
     def run(self, system: str, prompt: str, model: Optional[str] = None,
             cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = DEFAULT_TIMEOUT,
@@ -525,7 +556,7 @@ class ClaudeEngine(EngineAdapter):
                          cancelled=process.cancelled, timed_out=getattr(process, "timed_out", False))
 
     def run_stream(self, system: str, prompt: str, model: Optional[str] = None,
-                   cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = 600,
+                   cwd: Optional[str] = None, allow_tools: bool = False, timeout: int | None = None,
                    on_event: Optional[Callable[[dict], None]] = None,
                    on_proc: Optional[Callable] = None, effort: Optional[str] = None,
                    fallback_model: Optional[str] = None,
@@ -587,6 +618,7 @@ class ClaudeEngine(EngineAdapter):
             event = loads_event(line)
             if not isinstance(event, dict) or not isinstance(event.get("type"), str):
                 raise ValueError("Malformed Claude stream event")
+            safe_emit(getattr(on_event, 'engine_activity', None), {})
             admission = getattr(self, 'tool_admission', None)
             if admission and event.get('type') == 'system' and event.get('subtype') == 'init':
                 admission.observed_tools(event.get('tools', []))
@@ -603,7 +635,7 @@ class ClaudeEngine(EngineAdapter):
             emit({"kind": "error", "error": error})
         return RunResult(ok=state.completed and not error, output=state.output or "".join(state.texts).strip(),
                          error=error, model=state.model, usage=state.usage, cancelled=process.cancelled,
-                         timed_out=getattr(process, "timed_out", False))
+                         timed_out=getattr(process, "timed_out", False), raw=state.terminal)
 
 
 def _failure_reason(process, terminal_error):
@@ -635,6 +667,7 @@ class _ClaudeStream:
         self.emit, self.model = emit, model
         self.texts, self.output, self.error = [], "", ""
         self.usage, self.completed = Usage(), False
+        self.terminal = {}
         self._partial_text = False
 
     def accept(self, event):
@@ -693,6 +726,7 @@ class _ClaudeStream:
             if kind == "assistant":
                 self._partial_text = False
         elif kind == "result":
+            self.terminal = event
             self.usage = _usage_from_event(event)
             self.error = self.error or _result_error(event)
             self.model = _concrete_model(event.get("model"), event.get("modelUsage"), self.model)

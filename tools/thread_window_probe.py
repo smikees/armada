@@ -226,6 +226,21 @@ def run(output):
                 ready(companion)
                 check("both views show the original transcript", "All hands accounted for." in text(main) and
                       "All hands accounted for." in text(companion))
+                bullet_probe = """(()=>{
+                    const t=document.getElementById('mc-msg');
+                    const input=()=>t.dispatchEvent(new Event('input',{bubbles:true}));
+                    const key=(name,shift=false)=>t.dispatchEvent(new KeyboardEvent('keydown',{key:name,shiftKey:shift,bubbles:true,cancelable:true}));
+                    t.value='- ';t.setSelectionRange(2,2);input();
+                    if(t.value!=='• ')return false;
+                    t.value+='First';t.setSelectionRange(t.value.length,t.value.length);input();
+                    key('Enter',true);key('Tab');
+                    const nested=t.value==='• First\\n  • ';
+                    key('Tab',true);const outdent=t.value==='• First\\n• ';
+                    t.value='';t.setSelectionRange(0,0);input();
+                    return nested&&outdent;
+                })()"""
+                check("main composer continues and nests bullets", main.evaluate_js(bullet_probe))
+                check("detached composer continues and nests bullets", companion.evaluate_js(bullet_probe))
                 check("color crescent is visible", companion.evaluate_js("!!document.querySelector('.mc-ax-portrait .mc-avdisc')"))
                 check("native frame shaped", companion.native.Region is not None)
                 from System import Action

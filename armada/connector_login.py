@@ -1,4 +1,5 @@
 """Bounded connector OAuth attempts; CLI output and authorization URLs stay in memory."""
+from . import worker
 import atexit
 import logging
 import os
@@ -74,10 +75,10 @@ def begin(key, argv, cwd=None, env=None, on_finish=None, *, interactive=False):
                     item.update(state='sign_in', reason='The CLI provided a sign-in page. Open it if your browser did not appear, then recheck.', login_url=url)
                     item['changed'].set()
         try:
-            if interactive and os.name == 'nt':
+            if interactive and os.name == 'nt' and not worker.enabled():
                 # Claude's current MCP OAuth command refuses piped stdin. Its own terminal
                 # opens the browser and handles any redirect prompt; ARMADA never reads it.
-                process = subprocess.Popen(argv, cwd=cwd, env=env, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                process = worker.popen(argv, cwd=cwd, env=env, creationflags=subprocess.CREATE_NEW_CONSOLE)
                 own(process)
                 with _lock:
                     item.update(state='sign_in', reason='Complete connector sign-in in your browser. The provider’s sign-in window handles any additional prompt.')
@@ -91,7 +92,8 @@ def begin(key, argv, cwd=None, env=None, on_finish=None, *, interactive=False):
                     result = SimpleNamespace(returncode=1, error='Connector sign-in timed out. Retry when ready.', stderr='', timed_out=True, cancelled=False)
             else:
                 result = supervise(argv, prompt='', on_line=output, timeout=300, cwd=cwd,
-                                   env=env, on_proc=own)
+                                   env=env, on_proc=own,
+                                   launch=(lambda args,**kwargs: worker.popen(args,worker_terminal=True,**kwargs)) if interactive and worker.enabled() else None)
             error = _error((result.error if result.timed_out or result.cancelled else result.stderr or result.error) or '')
             with _lock:
                 if result.error or result.returncode != 0:

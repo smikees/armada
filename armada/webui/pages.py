@@ -135,6 +135,7 @@ def render_agent(realm, realm_root, agent_id: str, subtab: str = "threads", dark
 
 
 def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False) -> str:
+    from .run_controls import job_fields
     realm_root = Path(realm_root)
     a = next((x for x in realm.agents if x.id == agent_id), None)
     body_cls = "armada-dark" if dark else ""
@@ -248,6 +249,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<div><label style="{lbl}">On failure</label><select id="j-onfail" style="{field}">{retry_options}</select>'
         f'<small>Retry failed execution after 30s, 1m and 2m. Completed, stopped or uncertain-delivery runs are not repeated.</small></div>'
         f'<div><label style="{lbl}">Budget / run</label><input id="j-budget" value="{E(budget)}" placeholder="E.g. 10K token" style="{field}"></div></div>'
+        + job_fields(jc)
         )
 
     from ..tool_capture import DEFAULT_DIR
@@ -710,7 +712,8 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'{_SETICON_ON if ic == _cur_icon else ""}'
         f'color:var(--text-strong)">{_icon(ic,20)}</span>' for ic in _REALM_ICON_NAMES)
     # Realm name and icon share a row; realm selection belongs to the header.
-    realm_tab = (
+    from .run_controls import panel as run_panel
+    realm_tab = (run_panel(realm_root) +
         sect("Realm",
              f'<div style="display:grid;grid-template-columns:minmax(240px,1fr) minmax(400px,1.3fr);'
              f'gap:22px;align-items:start">'

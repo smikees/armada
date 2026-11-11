@@ -472,6 +472,10 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 continue
             if _dispatch is not None:
                 try:
+                    overlap = _skip_overlapping(lease, realm_root, agent_id, job_id, day_iso)
+                    if overlap:
+                        fired.append({**rec, **overlap})
+                        continue
                     queued = _enqueue_job(_dispatch, lease, realm_root, agent_id, job_id,
                                           job, engine, day_iso, waiting)
                     if queued:
@@ -521,6 +525,29 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
             lease._gate.release()
         if locked_here:
             _lock_release(lease)
+
+
+def _skip_overlapping(lease, root, agent, jid, day):
+    from . import execution_admission, util, notify, runner
+    from .job_history import thread_name
+    active = [r for r in execution_admission.view(root, agent, thread_name(jid))]
+    if not active:
+        return None
+    import hashlib
+    current_id = 'scheduled-' + hashlib.sha256(f'{agent}/{jid}/{day}'.encode()).hexdigest()[:32]
+    if any(row['run_id'] == current_id for row in active):
+        return None
+    attempt, fresh = _state.claim(lease, agent, jid, day)
+    if not fresh:
+        return {'status':'skipped', 'detail':'This scheduled start has already been recorded.'}
+    reason = f'Scheduled start skipped: the previous invocation of {agent}/{jid} is still running or queued.'
+    _state.finish(lease, attempt, 'skipped')
+    report = {'ts':datetime.datetime.now().astimezone().isoformat(), 'status':'skipped',
+              'task':jid, 'thread':thread_name(jid), 'run_id':current_id, 'engine':'scheduler',
+              'summary':reason, 'skip_reason':'previous_invocation_active', 'previous_run_id':active[0]['run_id']}
+    runner._write_report(root/'agents'/agent, agent, report)
+    notify.emit(root, 'job_overlap', 'A scheduled start was skipped', reason, f'/agent/{agent}/jobs?job={jid}')
+    return {'status':'skipped', 'detail':reason}
 
 
 def _enqueue_job(dispatcher, lease, root, agent, jid, job, engine, day, waiting):
@@ -767,6 +794,11 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 # One realm's problem is its own. A folder that has been moved or deleted since
                 # startup must not take the other realms' jobs down with it.
                 try:
+                    from .usage_snapshot import refresh_due
+                    try:
+                        refresh_due(p)
+                    except Exception:
+                        swallowed(log,'Provider usage upkeep failed; continuing scheduled work')
                     fired = tick(p, engine=engine, grace_min=grace_min, _lease=owned[p], _dispatch=dispatcher)
                 except Exception as e:  # noqa
                     swallowed(log, 'run_daemon: failed; reported to the caller')

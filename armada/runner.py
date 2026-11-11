@@ -259,16 +259,22 @@ def _resolve_fallback_model(realm_root: Path, agent: dict) -> str:
     return _cli_model(m, realm_root) if m else ""
 
 
-def _resolve_timeout(realm_root: Path, job: dict) -> Optional[int]:
+def _resolve_timeout(realm_root: Path, job: dict) -> Optional[float]:
     """How long to let one agent run take: the job's own `timeout`, else the realm's
-    `default_job_timeout`, else nothing (the engine's default applies)."""
-    for v in (job.get("timeout"), _load_json(Path(realm_root) / "realm.json").get("default_job_timeout")):
+    `default_job_timeout`, else no wall-clock deadline."""
+    from . import run_policy
+    policy = run_policy._read()
+    identity = run_policy.scope_id(realm_root)
+    default = (policy.get('scopes', {}).get(identity, {}).get('default_job_timeout')
+               if identity in policy.get('legacy_imported', []) else
+               _load_json(Path(realm_root) / "realm.json").get("default_job_timeout"))
+    for v in (job.get("timeout"), default):
         try:
-            n = int(v)
+            n = float(v)
         except (TypeError, ValueError):
             continue
-        if n > 0:
-            return n
+        if 0 < n < float('inf'):
+            return int(n) if n.is_integer() else n
     return None
 
 
@@ -444,6 +450,10 @@ def _jobs_capability(agent_dir: Path) -> str:
         "- Schedule grammar: \"daily HH:MM\", \"mon-fri HH:MM\", \"mon,wed,fri HH:MM\", \"sat HH:MM\", a "
         "standard 5-field cron, or \"manual\". Prefer kind:agent unless a deterministic command is "
         "genuinely needed.\n"
+        "- Agent jobs and inbox tasks have no default wall-clock time limit. timeout is an OPTIONAL "
+        "positive number of seconds. Omit it unless the owner wants a ceiling; a realm default_job_timeout "
+        "still applies when configured. Inactivity supervision can stop a silent engine. "
+        "Fallback, API spending and critical priority are owner-approved controls, not agent permissions.\n"
         "- Every agent job MUST set allow_tools to the JSON boolean true or false. Missing values "
         "are rejected. Draft true when reading/writing files or using shell, web, connectors, "
         "Telegram or inbox; use false only for text-only work. Tools remain limited to the "
@@ -847,7 +857,7 @@ def _match_capabilities(tool_name: str, tool_input, index: list) -> list:
 
 # Default time limit for agent jobs and one-off tasks. Pass it explicitly so the limit
 # stays the same regardless of the provider or whether its adapter streams the reply.
-_DEFAULT_RUN_TIMEOUT = 1200
+_DEFAULT_RUN_TIMEOUT = None
 
 
 class _TurnCapture:
@@ -1286,6 +1296,11 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     from . import records
     records.admit_agent(realm_root, agent_id)
     records.validate(job, "job", job_id)
+    from . import run_policy
+    from .job_access import identity, fingerprint
+    seal=run_policy._read().get('jobs',{}).get(identity(realm_root,agent_id,job_id))
+    if seal and seal != fingerprint(job):
+        raise CapabilityPolicyError('Job instructions or run controls changed after approval. Review the job before running commands.')
     cmd = job.get("run") or job.get("command", "")
     if not cmd:
         raise SystemExit(f"ARMADA: command job '{job_id}' has no 'run' field")
@@ -1506,6 +1521,7 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
         job = records.read(job_path, "job") if job_path.exists() else {}
         if not job:
             raise SystemExit(f"ARMADA: no job '{job_id}' for agent '{agent_id}'")
+        job.setdefault('id',job_id)  # Legacy files may use the filename as their identity.
         util.write_json_atomic(agent_dir / "runs" / ".running" / f"{job_id}.json",
                                {"owner_pid": os.getpid(), "ts": datetime.datetime.now().astimezone().isoformat()})
     # Metadata here only labels notifications. Execution admission is owned by the coordinator.

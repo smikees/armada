@@ -19,6 +19,10 @@ Inline Markdown on already-HTML-escaped text: code, bold, italic, links.
 
 Collect one list's items, folding hard-wrapped continuation lines back into their item.
 
+### `_bullet_tree(lines, i, n, inline, *, preserve_breaks=False, depth=0)`
+
+Preserve list indentation after a composer draft becomes a saved message.
+
 ### `_md(text: str, *, preserve_breaks=False)`
 
 Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-escaped first — only the whitelisted tags emitted below can appear. Supports headings, bullet/number lists, tables, code fences, inline code/bold/italic/links, and paragraphs. Composer messages preserve intentional newlines; prose documents fold soft wraps.

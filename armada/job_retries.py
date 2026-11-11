@@ -28,6 +28,8 @@ def validate(value):
 
 
 def retryable(report):
+    if report.get('billing', {}).get('final_failure'):
+        return False
     result = report.get('result') or {}
     execution = result.get('execution')
     if result.get("startup_failure") or report.get('engine') == 'unknown' or result.get('detail_level') == 'unstructured':

@@ -299,7 +299,16 @@ def _job_app_update(realm_root) -> dict:
 
 
 # Definitions live here, in the package — not in the realm — so they can't be edited away.
+def _job_usage_readings(root):
+    from .usage_snapshot import refresh
+    refresh(root)
+    return {'ok':True, 'detail':'Refreshing connected-provider readings for usage-last.json.'}
+
+
 JOBS = [
+    {"id":"usage-readings", "name":"Refresh provider usage readings", "every_minutes":25,
+     "description":"Save current Claude, Codex and Gemini usage for agents, even while the window is closed.",
+     "cost":FREE, "run":_job_usage_readings},
     {"id": "model-catalog", "name": "Refresh the model catalogue",
      "description": "Ask Anthropic which models exist, so new ones show up and retired ones are "
                     "marked instead of silently disappearing.",

@@ -20,6 +20,46 @@ _APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
+    def _worker_action(self, body):
+        from .. import worker, realm_registry, execution_admission
+        try:
+            action = body.get('action', 'status')
+            if action == 'setup':
+                if any(row.get('state') == 'running' for row in execution_admission.snapshot()):
+                    raise ValueError('Let active agent runs finish before setting up the worker.')
+                folders = body.get('folders')
+                if folders is None:
+                    folders = [record['path'] for record in realm_registry.load()]
+                if not isinstance(folders, list) or any(not isinstance(p, str) for p in folders):
+                    raise ValueError('Worker folders must be a list of absolute folder paths.')
+                return {'ok':True, **worker.setup(folders)}
+            if action == 'verify':
+                return {'ok':True, 'proof':worker.verify(), **worker.status()}
+            if action != 'status':
+                raise ValueError('Unknown worker action.')
+            return {'ok':True, **worker.status()}
+        except (ValueError, OSError) as exc:
+            return {'ok':False, 'error':str(exc)}
+
+    def _save_run_controls(self, body):
+        from .. import run_policy, provider_keys
+        try:
+            global_provider = body.get('global_provider') is True
+            agent = str(body.get('agent') or '')
+            if agent:
+                safe_seg(agent, 'agent')
+            values = body.get('values', {})
+            if not isinstance(values, dict):
+                raise ValueError('Run controls must be an object.')
+            run_policy.save(self.realm, values, agent=agent, global_provider=global_provider)
+            if 'api_key' in body:
+                if not global_provider:
+                    raise ValueError('API keys belong in App Settings.')
+                provider_keys.save('claude', body['api_key'])
+            return {'ok':True}
+        except (ValueError, OSError) as exc:
+            return {'ok':False, 'error':str(exc)}
+
     def _reveal_system_memory(self, _body):
         from .. import system_memory
         try:

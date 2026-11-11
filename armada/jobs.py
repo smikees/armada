@@ -83,6 +83,11 @@ def validate(job: dict) -> tuple[bool, list[str], dict]:
             errs.append("'schedule' not understood (try 'daily 09:00', 'mon-fri 14:30', "
                         "a 5-field cron, or 'manual')")
     norm = dict(job)
+    from .run_policy import validate_job
+    try:
+        validate_job(norm)
+    except ValueError as exc:
+        errs.append(str(exc))
     norm["id"], norm["name"], norm["kind"] = slug, (name or slug), kind
     return (not errs), errs, norm
 
@@ -162,6 +167,8 @@ def approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET,
             norm["approved_at"] = _now()
             norm.setdefault("created", datetime.date.today().isoformat())
             util.write_json_atomic(dst, norm)
+            from .run_policy import seal_job
+            seal_job(realm_root, agent_id, norm)
             try:
                 src.unlink()
             except OSError:

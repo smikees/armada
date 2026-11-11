@@ -257,7 +257,8 @@ class Thread:
         """Keep the first requested records; invalidate any summary currently being generated."""
         return self._store.truncate(keep)
 
-    def compact_if_needed(self, engine, threshold_chars: int = 600000, keep_recent_pairs: int = 3) -> bool:
+    def compact_if_needed(self, engine, threshold_chars: int = 600000, keep_recent_pairs: int = 3,
+                          *, on_event=None, on_proc=None) -> bool:
         """Summarize a validated prefix outside the lock, preserving new appends and pending turns.
 
         Returns True if committed, False if unnecessary or the provider failed. A concurrent
@@ -294,7 +295,7 @@ class Thread:
         from .engine.contracts import RunRequest, execute_request
         res = execute_request(engine, RunRequest(
             system="You are a precise note-taker. Output only the bullet summary.",
-            prompt=prompt, allow_tools=False))
+            prompt=prompt, allow_tools=False), on_event=on_event, on_proc=on_proc)
         if not res.ok or not res.output.strip():
             return False  # A provider/auth failure must never discard the unsummarized history.
         # The model already folded in the old summary. Appending it again duplicates old context.
