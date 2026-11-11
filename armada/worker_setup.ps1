@@ -49,6 +49,10 @@ function Set-PrivateFolder([string]$Path,[bool]$WorkerWrite){
  }
  $rights=if($WorkerWrite){'FullControl'}else{'ReadAndExecute'}
  $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($account.SID,$rights,'ContainerInherit,ObjectInherit','None','Allow'))
+ if(-not $WorkerWrite){
+  $denyWrites=[Security.AccessControl.FileSystemRights]::Write -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
+  $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($account.SID,$denyWrites,'ContainerInherit,ObjectInherit','None','Deny'))
+ }
  Set-Acl -LiteralPath $Path -AclObject $acl
 }
 Set-PrivateFolder $cfg.root $false
@@ -79,6 +83,8 @@ foreach($path in $cfg.protected_roots){
 foreach($path in $cfg.runtime_roots){
  & "$env:SystemRoot\System32\icacls.exe" $path /grant:r "*${sid}:(OI)(CI)RX" | Out-Null
  if($LASTEXITCODE){throw 'Could not share a runtime read-only.'}
+ & "$env:SystemRoot\System32\icacls.exe" $path /deny "*${sid}:(OI)(CI)(WD,AD,WEA,WA,DE,DC,WDAC,WO)" | Out-Null
+ if($LASTEXITCODE){throw 'Could not protect a shared runtime.'}
 }
 # No ancestor ACLs are changed. Owner-side verification rejects activation when
 # trusted application/control locations could be replaced by the worker.

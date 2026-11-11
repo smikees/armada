@@ -43,6 +43,39 @@ def main():
             return 1
     proof = worker.verify()
     value = worker.require()
+    # A redirected temporary-folder grant must be rejected before it reaches a
+    # fixed task/helper. No trusted file content or permission is changed.
+    try:
+        worker._acl(value['root'],value['sid'],'M')
+        proof['redirected_grant_denied']=False
+    except OSError:
+        proof['redirected_grant_denied']=True
+    proof['passed']=proof['passed'] and proof['redirected_grant_denied']
+    with worker.temporary_directory(prefix='armada-staging-proof-') as directory:
+        staged=Path(directory)/'input.txt'
+        staged.write_text('synthetic staging input',encoding='utf-8')
+        script='''import os,pathlib,json,sys
+p=pathlib.Path(sys.argv[1]);read=False;renamed=False;parent_renamed=False
+try:p.read_text();read=True
+except OSError:pass
+for source,label in ((p.parent,'root'),(p.parent.parent,'parent')):
+ try:
+  target=str(source)+'-rename-proof';os.rename(source,target);os.rename(target,source)
+  if label=='root':renamed=True
+  else:parent_renamed=True
+ except OSError:pass
+print(json.dumps(dict(read=read,renamed=renamed,parent_renamed=parent_renamed)))'''
+        before=worker.run([value['python'],'-I','-c',script,str(staged)],cwd=str(workspace),capture_output=True,text=True,timeout=20,check=True)
+        before=json.loads(before.stdout)
+        worker._access(staged,value,temporary=True)
+        after=worker.run([value['python'],'-I','-c',script,str(staged)],cwd=str(workspace),capture_output=True,text=True,timeout=20,check=True)
+        after=json.loads(after.stdout)
+        proof['staging_before']=before
+        proof['staging_after']=after
+        proof['staging_private_before_launch']=not before['read']
+        proof['staging_readable_after_launch']=after['read']
+        proof['staging_replacement_denied']=not any(row[k] for row in (before,after) for k in ('renamed','parent_renamed'))
+        proof['passed']=proof['passed'] and all(proof[k] for k in ('staging_private_before_launch','staging_readable_after_launch','staging_replacement_denied'))
     from armada.engine.process import supervise_command
     marker = 'synthetic-owner-environment-secret'
     os.environ['ARMADA_TEST_OWNER_SECRET'] = marker

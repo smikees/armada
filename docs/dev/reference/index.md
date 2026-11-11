@@ -218,6 +218,7 @@
 | [`worker`](worker.md) | Owner-controlled Windows worker boundary for every provider and local tool child. |
 | [`worker_bootstrap`](worker_bootstrap.md) | Standalone, unprivileged process trampoline |
 | [`worker_console`](worker_console.md) | Bind all CLI standard handles to the worker pseudoconsole, not inherited pipes. |
+| [`worker_files`](worker_files.md) | Private runtime staging with held Windows handles, never path-based ACL grants. |
 | [`worker_process`](worker_process.md) | Windows alternate-account launch, retaining Python's pipe and communicate ownership. |
 | [`worker_terminal`](worker_terminal.md) | Worker-side Windows pseudoconsole for provider/connector sign-in only. |
 | [`workspace`](workspace.md) | The realm's workspace root, and the ``{workspace}`` token that makes a realm portable. |

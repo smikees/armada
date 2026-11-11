@@ -36,7 +36,7 @@ profile, environment and desktop. Missing/broken setup never downgrades to the o
 
 ### `_acl(path, sid, rights)`
 
-Grant only a host-selected file/folder; no shell interpolation of paths or SIDs.
+Grant a registered runtime through its held handle, never an untrusted path.
 
 ### `deletion_guard_paths(value)`
 
@@ -76,7 +76,7 @@ CLI-private ACLs must be cleaned by the worker which created those files.
 
 ### `temporary_folder(**kwargs)`
 
-An owner-created runtime folder explicitly shared with its worker identity.
+Owner-private inputs become shared only when the worker invocation starts.
 
 ### `temp_root()`
 

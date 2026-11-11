@@ -135,3 +135,8 @@ def test_runtime_temporary_paths_use_worker_profile_without_sharing_owner_parent
     assert worker._safe_temporary(base/'armada-probe'/'input.json')==base/'armada-probe'
     assert worker._safe_temporary(base/'unrelated') is None
     assert worker._safe_temporary(profile/'credentials') is None
+
+
+def test_path_based_grants_cannot_change_trusted_or_unregistered_folders(tmp_path):
+    with pytest.raises(OSError,match='outside a held worker runtime'):
+        worker._acl(tmp_path,'synthetic-worker','M')

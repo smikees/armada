@@ -22,6 +22,7 @@ from . import util
 
 _lock = threading.RLock()
 _desktops = {}
+_temporary = {}
 _pending = False
 _checking=contextvars.ContextVar('armada_worker_checking',default=False)
 log=logging.getLogger(__name__)
@@ -75,12 +76,12 @@ def _within(path, root):
 
 
 def _acl(path, sid, rights):
-    """Grant only a host-selected file/folder; no shell interpolation of paths or SIDs."""
-    result = subprocess.run([str(Path(os.environ['SystemRoot'])/'System32/icacls.exe'), str(path),
-                             '/grant:r', f'*{sid}:(OI)(CI){rights}' if Path(path).is_dir() else f'*{sid}:{rights}'],
-                            capture_output=True, creationflags=0x08000000, timeout=30)
-    if result.returncode:
-        raise OSError('Could not set worker folder permissions.')
+    """Grant a registered runtime through its held handle, never an untrusted path."""
+    with _lock:
+        folder=_temporary.get(os.path.normcase(str(Path(path).absolute())))
+        if folder is None or rights != 'M':
+            raise OSError('Refusing a grant outside a held worker runtime folder.')
+        folder.grant(sid)
 
 
 def deletion_guard_paths(value):
@@ -126,14 +127,14 @@ def deletion_guard_paths(value):
 
 def _safe_temporary(path):
     path = Path(path).absolute()
-    bases = [Path(tempfile.gettempdir()).resolve()]
     value = state()
-    if value.get('home'):
-        bases.append((Path(value['home'])/'AppData/Local/Temp').resolve())
-    base = next((base for base in sorted(bases,key=lambda item:len(str(item)),reverse=True) if _within(path, base)), None)
-    if base is None:
+    if not value.get('home'):
         return None
-    relative = path.relative_to(base)
+    base=Path(value['home'])/'AppData/Local/Temp'
+    try:
+        relative=path.relative_to(base)
+    except ValueError:
+        return None
     if not relative.parts or not relative.parts[0].startswith('armada-'):
         return None
     root = base/relative.parts[0]
@@ -145,11 +146,10 @@ def _safe_temporary(path):
 def _access(path, value, *, temporary=False):
     if any(_within(path, p) for p in value['protected_roots']):
         raise OSError('The isolated worker cannot access an owner credential or application-control folder.')
+    candidate=_safe_temporary(path)
+    if candidate and os.path.normcase(str(candidate)) in _temporary:
+        _acl(candidate,value['sid'],'M')
     if any(_within(path, p) for p in value['allowed_roots']) or _within(path, value['home']):
-        return str(path)
-    candidate = _safe_temporary(path) if temporary else None
-    if candidate:
-        _acl(candidate, value['sid'], 'M')
         return str(path)
     raise OSError('This folder is not shared with the isolated worker. Add it in App Settings > Worker folders.')
 
@@ -267,6 +267,13 @@ def clean_temporary(path):
         raise OSError('Refusing to remove a path outside an Armada runtime temporary folder.')
     if not root.exists():
         return
+    with _lock:
+        folder=_temporary.pop(os.path.normcase(str(root)),None)
+        if folder:
+            # Finish staging before releasing the no-delete handles. Removal itself
+            # runs as the worker, so a redirected path cannot touch owner controls.
+            if not folder.ready:folder.grant(folder.sid)
+            folder.release()
     value = require()
     run([value['python'],'-I','-c','import shutil,sys; shutil.rmtree(sys.argv[1])',str(root)],
         capture_output=True,timeout=30,check=True)
@@ -284,11 +291,12 @@ def temporary_directory(**kwargs):
 
 
 def temporary_folder(**kwargs):
-    """An owner-created runtime folder explicitly shared with its worker identity."""
-    kwargs.setdefault('dir', temp_root())
-    folder = tempfile.TemporaryDirectory(**kwargs)
-    if enabled():
-        _acl(folder.name, require()['sid'], 'M')
+    """Owner-private inputs become shared only when the worker invocation starts."""
+    if not enabled():return tempfile.TemporaryDirectory(**kwargs)
+    from .worker_files import RuntimeFolder
+    folder=RuntimeFolder(require(),**kwargs)
+    with _lock:
+        _temporary[os.path.normcase(folder.name)]=folder
     return folder
 
 
@@ -452,6 +460,7 @@ def _verify():
     from .provider_keys import _crypt
     value = require()
     cipher = base64.b64encode(_crypt(b'armada-worker-boundary-proof')).decode()
+    trusted = [value['bootstrap'], str(Path(value['root'])/'worker_station.ps1'), value['python'], __file__]
     # Supplying the encrypted bytes proves separation even if a blob were copied out
     # of the credential folder. Do not pass any real provider credential to this probe.
     script = ("import json,ctypes,base64,os,pathlib,subprocess; from ctypes import wintypes as W; "
@@ -463,14 +472,17 @@ def _verify():
                             'read=False; write=False\n'
                             'try:\n pathlib.Path('+repr(str(_path()))+').read_bytes(); read=True\nexcept OSError: pass\n'
                             'try:\n f=open('+repr(str(util.data_dir()/'worker-denial-probe'))+',"w"); f.close(); write=True\nexcept OSError: pass\n'
+                            'trusted_write=False\n'
+                            'for path in '+repr(trusted)+':\n'
+                            ' try:\n  f=open(path,"r+b"); f.close(); trusted_write=True\n except OSError: pass\n'
                             'identity=subprocess.check_output(["whoami","/user","/fo","csv","/nh"],text=True).strip()\n'
-                            'print(json.dumps(dict(identity=identity,decrypt=decrypt,read=read,write=write)))')+")")
+                            'print(json.dumps(dict(identity=identity,decrypt=decrypt,read=read,write=write,trusted_write=trusted_write)))')+")")
     result = run([value['python'], '-I', '-c', script], capture_output=True, text=True, timeout=30,
                  creationflags=0x08000000)
     if result.returncode:
         raise OSError('The isolated Windows worker could not complete its boundary probe.')
     proof = json.loads(result.stdout.strip())
-    proof['passed'] = value['sid'] in proof['identity'] and not any(proof[k] for k in ('decrypt','read','write'))
+    proof['passed'] = value['sid'] in proof['identity'] and not any(proof[k] for k in ('decrypt','read','write','trusted_write'))
     util.write_json_atomic(util.data_dir()/'worker-proof.json', proof)
     if not proof['passed']:
         raise OSError('Windows worker credential isolation failed; agent execution is blocked.')

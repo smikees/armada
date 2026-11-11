@@ -23,8 +23,11 @@ stations, the active desktop and shared ancestor ACLs are not changed. Browser s
 uses validated authorization URLs and a worker-side pseudoconsole. Setup currently
 requires elevation as the signed-in owner; alternate-administrator setup is unsupported.
 
-Owner credential/control folders deny the worker. Application and runtime code is
-shared read-only; selected realm/workspace folders receive explicit access. Activation
+Owner credential/control folders deny the worker. Application/runtime code and fixed
+task helpers explicitly deny worker writes. Runtime inputs are created with an atomic
+owner-private descriptor, verified through held no-delete handles and shared only
+when execution starts. Parent handles block redirection; ACL grants use the held
+object and refuse arbitrary paths. Selected realm/workspace folders receive explicit access. Activation
 checks directory replacement rights and rejects writable ancestors of trusted app,
 interpreter, worker-helper or control locations. The normal per-user installation is
 supported; a replaceable development checkout cannot activate the boundary. Losing
