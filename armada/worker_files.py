@@ -166,4 +166,3 @@ class RuntimeFolder:
     def cleanup(self):
         from . import worker
         worker.clean_temporary(self.name)
-
