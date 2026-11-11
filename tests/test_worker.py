@@ -127,6 +127,7 @@ def test_runtime_temporary_paths_use_worker_profile_without_sharing_owner_parent
     profile=tmp_path/'worker'
     base=profile/'AppData/Local/Temp'
     base.mkdir(parents=True)
+    monkeypatch.setattr(worker.tempfile,'gettempdir',lambda:str(tmp_path/'owner-temp'))
     monkeypatch.setattr(worker,'state',lambda:{'home':str(profile)})
     monkeypatch.setattr(worker,'enabled',lambda:True)
     monkeypatch.setattr(worker,'require',lambda:{'home':str(profile)})
