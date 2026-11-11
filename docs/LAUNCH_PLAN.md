@@ -5,11 +5,15 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.141** is in release validation: shared nested bullets, unlimited agent-job
+Version **0.99.141** is published: shared nested bullets, unlimited agent-job
 and Inbox defaults, stalled-run handling, owner-sealed run controls, Claude API fallback
 with a Windows worker boundary, saved provider usage and critical-job reservations.
-Publication requires the exact-source suite/CI, native worker and desktop checks,
-45-minute synthetic execution checks and the packaged upgrade gate.
+The publisher passed **4,469 tests**, both exact-source Windows CI jobs passed
+**4,471 tests**, and **72 packaged upgrade checks** passed. Native worker/DPAPI,
+desktop and 45-minute synthetic execution checks passed. Public signatures,
+all 487 package files, installer hash and website links verified. Worker/provider
+sign-ins and a key are required to activate fallback; live API billing and broker
+operations were not exercised. [Release evidence](dev/RELEASE_0_99_141.md).
 
 Version **0.99.140** is published. The Windows 11 title bar follows the app's
 light or dark background and shows only the native window controls. The line
