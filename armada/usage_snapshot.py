@@ -3,11 +3,24 @@ import datetime as dt
 import time
 from pathlib import Path
 import os
+import hashlib
 from . import util
 
 
 def root_path(root):
     return Path(root if isinstance(root, (str, os.PathLike)) else root.root)
+
+
+def _trusted_path(root):
+    identity=str(root_path(root).resolve()).casefold().encode('utf-8')
+    return util.data_dir()/'usage-readings'/(hashlib.sha256(identity).hexdigest()+'.json')
+
+
+def trusted_read(root):
+    """Lane selection and admission never trust the agent-writable realm mirror."""
+    path=_trusted_path(root)
+    with util.file_lock(path):
+        return util.read_json_state(path,default=dict).get('engines',{})
 
 
 def remember(root, provider, data, *, at=None):
@@ -21,11 +34,19 @@ def remember(root, provider, data, *, at=None):
         clean['session'] = next((w for w in group.get('windows', []) if 0 < (w.get('window_minutes') or 0) < 1440), None)
         clean['weekly'] = next((w for w in group.get('windows', []) if w.get('window_minutes') == 10080), None)
     stamp = time.time() if at is None else at
+    reading={'at': stamp, 'read_at': dt.datetime.fromtimestamp(stamp, dt.timezone.utc).isoformat(), **clean}
+    owner_path=_trusted_path(root)
+    with util.file_lock(owner_path):
+        owner=util.read_json_state(owner_path,default=dict)
+        entries=owner.setdefault('engines',{})
+        if stamp >= entries.get(provider,{}).get('at',0):
+            entries[provider]=reading
+        util.write_json_atomic(owner_path,owner)
     with util.file_lock(path):
         state = util.read_json_state(path, default=dict)
         entries = state.setdefault('engines', {})
         if stamp >= entries.get(provider, {}).get('at', 0):
-            entries[provider] = {'at': stamp, 'read_at': dt.datetime.fromtimestamp(stamp, dt.timezone.utc).isoformat(), **clean}
+            entries[provider] = reading
         if provider == 'claude':
             state.update(at=stamp, data=clean)  # Preserve the existing Claude cache contract.
         util.write_json_atomic(path, state)
@@ -43,7 +64,7 @@ def read(root):
 
 def preamble(root):
     try:
-        entries = read(root)
+        entries = trusted_read(root)
     except OSError:
         entries = {}
     lines = ['Usage readings in usage-last.json (percent used; times include timezone):']
@@ -88,7 +109,7 @@ def refresh_due(root):
     from .sysjobs import is_enabled
     if not is_enabled(root,'usage-readings'):
         return
-    entries = read(root)
+    entries = trusted_read(root)
     for provider in providers.connected():
         if time.time()-entries.get(provider,{}).get('at',0) >= 1500:
             provider_limits.read(provider,root)

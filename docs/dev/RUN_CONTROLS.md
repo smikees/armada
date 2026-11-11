@@ -1,5 +1,9 @@
 # Agent runtime controls — 0.99.141
 
+Lane selection and critical-job admission use owner-protected usage readings.
+`usage-last.json` is the credential-free realm mirror for agents; editing that file
+cannot force API spending or change the authoritative reading.
+
 Jobs and Inbox tasks run until their engine finishes or the owner presses Stop unless
 `timeout` or the realm's `default_job_timeout` supplies a ceiling. Existing job files
 and their limits are preserved. Command-job defaults and dry-run deadlines are unchanged.

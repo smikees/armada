@@ -106,11 +106,11 @@ def _promote(state):
             total_limit = TOTAL if row.get('critical') or not reserved else max(0, TOTAL-1)
             if len(group) >= (1 if maintenance else total_limit):
                 continue
-            reserve = any(r.get('reserve_slot') and r['provider'] == row['provider'] for r in rows)
+            reserve = any(r.get('reserve_provider',r.get('reserve_slot')) and r['provider'] == row['provider'] for r in rows)
             limit = PER_PROVIDER if row.get('critical') or not reserve else max(0, PER_PROVIDER-1)
             if sum(r['provider'] == row['provider'] for r in group) >= limit:
                 continue
-            realm_reserved = any(r.get('reserve_slot') and r['realm'] == row['realm'] for r in rows)
+            realm_reserved = any(r.get('reserve_realm',r.get('reserve_slot')) and r['realm'] == row['realm'] for r in rows)
             realm_limit = PER_REALM if row.get('critical') or not realm_reserved else max(0, PER_REALM-1)
             if sum(r['realm'] == row['realm'] for r in group) >= realm_limit:
                 continue
@@ -172,7 +172,7 @@ class Ticket:
     def _publish(self, context, provider, realm_required):
         from . import updater, realmops
         from .run_policy import admission
-        hints = admission(context.realm.root, context.agent, context.thread, provider) if realm_required else {}
+        hints = admission(context.realm.root, context.agent, context.thread, provider)
         with updater.admission_lock(), realmops.lifecycle_lock(context.realm.root):
             if updater.installed() and updater.admission_paused():
                 raise util.StateError('ARMADA is updating. New work can start after it reopens.')

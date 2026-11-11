@@ -140,3 +140,28 @@ def test_runtime_temporary_paths_use_worker_profile_without_sharing_owner_parent
 def test_path_based_grants_cannot_change_trusted_or_unregistered_folders(tmp_path):
     with pytest.raises(OSError,match='outside a held worker runtime'):
         worker._acl(tmp_path,'synthetic-worker','M')
+
+
+def test_realm_usage_edits_cannot_spend_credit_or_override_owner_reading(tmp_path):
+    from armada import usage_snapshot,billing
+    import time
+    root=tmp_path/'realm';root.mkdir()
+    usage_snapshot.remember(root,'claude',{'available':True,'session':{'pct':10}})
+    util.write_json_atomic(root/'usage-last.json',{'engines':{'claude':{'available':True,'at':time.time(),'session':{'pct':100}}}})
+    assert billing.exhausted(root)==('',None)
+    assert usage_snapshot.trusted_read(root)['claude']['session']['pct']==10
+
+
+def test_critical_capacity_is_reserved_before_other_realm_work_starts(tmp_path):
+    from armada import run_policy
+    first,second=tmp_path/'first',tmp_path/'second'
+    for root in (first,second):
+        util.write_json_atomic(root/'realm.json',{'default_engine':'claude'})
+        util.write_json_atomic(root/'agents/a/agent.json',{'id':'a'})
+    job={'id':'desk','kind':'agent','prompt':'work','critical':True,'engine':'claude'}
+    util.write_json_atomic(second/'agents/a/jobs/desk.json',job)
+    run_policy.seal_job(second,'a',job)
+    hints=run_policy.admission(first,'a','main','claude')
+    assert hints['reserve_slot'] and hints['reserve_provider'] and not hints['reserve_realm'] and not hints['critical']
+    other=run_policy.admission(first,'a','main','codex')
+    assert other['reserve_slot'] and not other['reserve_provider']

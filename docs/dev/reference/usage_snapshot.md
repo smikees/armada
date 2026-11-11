@@ -6,6 +6,14 @@ Credential-free usage readings shared by header, scheduler and agent preambles.
 
 —
 
+### `_trusted_path(root)`
+
+—
+
+### `trusted_read(root)`
+
+Lane selection and admission never trust the agent-writable realm mirror.
+
 ### `remember(root, provider, data, *, at=None)`
 
 —

@@ -40,7 +40,7 @@ def _reset(text):
 
 def exhausted(root, provider='claude', model=''):
     now = time.time()
-    rows = usage_snapshot.read(root)
+    rows = usage_snapshot.trusted_read(root)
     row = rows.get(provider, {})
     windows = [row.get('session'), row.get('weekly')]
     windows += [value for name, value in row.get('model_weekly', {}).items() if name.casefold() in (model or '').casefold()]

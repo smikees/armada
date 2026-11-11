@@ -307,31 +307,31 @@ def admission(root, agent, thread, provider):
     from .job_access import identity, fingerprint
     state = _read()
     seals = state.get('jobs', {})
-    prefix = scope_id(root)+'|'
-    reserve_slot = False
+    current_root = scope_id(root)
+    reserve_slot = reserve_provider = reserve_realm = False
     critical = False
     for key, seal in seals.items():
-        if not key.startswith(prefix):
-            continue
-        _, aid, jid = key.rsplit('|', 2)
-        value = util.read_json_state(Path(root)/'agents'/aid/'jobs'/f'{jid}.json', default=dict)
+        job_root, aid, jid = key.rsplit('|', 2)
+        value = util.read_json_state(Path(job_root)/'agents'/aid/'jobs'/f'{jid}.json', default=dict)
         value.setdefault('id',jid)
         if value.get('enabled') is False or not value.get('critical') or seal != fingerprint(value):
             continue
         from .engine.selection import engine_for
-        if engine_for(root, aid, value) != provider:
-            continue
         reserve_slot = True
-        critical |= agent == aid and thread == JOB_PREFIX+jid
+        reserve_realm |= job_root == current_root
+        same_provider=engine_for(job_root, aid, value) == provider
+        reserve_provider |= same_provider
+        critical |= same_provider and job_root == current_root and agent == aid and thread == JOB_PREFIX+jid
     deferred = False
     if not critical:
-        from .usage_snapshot import read
+        from .usage_snapshot import trusted_read as read
         usage = read(root).get(provider, {})
         config = settings(root, agent, provider=provider)
         session = usage.get('session') or {}
-        deferred = (reserve_slot and time_now()-usage.get('at', 0) <= 1800
+        deferred = (reserve_provider and time_now()-usage.get('at', 0) <= 1800
                     and session.get('pct', 0) >= config['critical_usage_percent'])
-    return {'critical':bool(critical), 'reserve_slot':reserve_slot, 'usage_deferred':bool(deferred)}
+    return {'critical':bool(critical), 'reserve_slot':reserve_slot, 'reserve_provider':reserve_provider,
+            'reserve_realm':reserve_realm, 'usage_deferred':bool(deferred)}
 
 
 def time_now():
