@@ -64,6 +64,11 @@ the monthly charge. Missing costs retain the full reservation.
 
 ## Repeatable checks
 
+Host-side managed and policy file tools impersonate the worker for model-selected
+reads, writes, directory listings and lock-file creation. Authorization still reads
+owner controls as the host. An agent cannot use a file tool as a proxy for owner
+credentials or redirect a permitted write into protected host files.
+
 Use an owner-protected controller and control folder, with a separate synthetic
 workspace. Never point these probes at live business jobs or provide a real API key.
 

@@ -69,6 +69,7 @@ class PolicyTools(ManagedTools):
                       {'path': _string('Absolute or realm-relative directory path')}, ('path',))]
 
     def call(self, name, arguments):
+        from . import worker
         with self.lock:
             self._authorize()
             try:
@@ -82,14 +83,17 @@ class PolicyTools(ManagedTools):
                     if len(arguments['content'].encode('utf-8')) > MAX_BYTES:
                         raise ValueError('Files must be at most 1 MiB per write.')
                     content = self._validated_content(path, arguments['content'])
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    with util.file_lock(path):
+                    with worker.filesystem_identity():
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                    with worker.filesystem_lock(path):
                         # Re-read authorization while holding the target lock.
                         policy = access_policy.load(self.root, self.agent)
                         if access_policy.writable_path(self.root, policy, arguments['path'], agent_records=True) != path:
                             raise PermissionError('Write target changed during authorization.')
-                        util.write_text_atomic(path, content, newline='\n')
-                    result = {'path': str(path), 'bytes': path.stat().st_size}
+                        with worker.filesystem_identity():
+                            util.write_text_atomic(path, content, newline='\n')
+                    with worker.filesystem_identity():
+                        result = {'path': str(path), 'bytes': path.stat().st_size}
                     self.writes[str(path)] = {'kind': 'output', 'name': path.name, **result}
                     return result
                 # Read permissions are unchanged; the write scope is never a read scope.
@@ -98,8 +102,9 @@ class PolicyTools(ManagedTools):
                     path = self.root / path
                 if name == 'read_file':
                     return self._read(path)
-                return [{'name': p.name, 'kind': 'folder' if p.is_dir() else 'file'}
-                        for p in sorted(path.iterdir())][:500]
+                with worker.filesystem_identity():
+                    return [{'name': p.name, 'kind': 'folder' if p.is_dir() else 'file'}
+                            for p in sorted(path.iterdir())][:500]
             except (PermissionError, ValueError) as exc:
                 self.audit.refuse(tool=name, path=arguments.get('path', '') if isinstance(arguments, dict) else '', reason=str(exc))
                 raise

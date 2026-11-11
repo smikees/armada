@@ -26,6 +26,14 @@ profile, environment and desktop. Missing/broken setup never downgrades to the o
 
 —
 
+### `filesystem_identity()`
+
+Model-selected file I/O cannot borrow the host's access to owner controls.
+
+### `filesystem_lock(path)`
+
+Open/close model-selected lock files as the worker; authorize as the host.
+
 ### `home()`
 
 —

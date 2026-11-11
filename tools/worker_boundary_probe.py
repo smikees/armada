@@ -51,6 +51,35 @@ def main():
     except OSError:
         proof['redirected_grant_denied']=True
     proof['passed']=proof['passed'] and proof['redirected_grant_denied']
+    # Host-side file brokers must not lend owner access, even if a path check is
+    # bypassed or raced. Only a synthetic protected file is used here.
+    from armada import managed_tools,inspection,realmformat
+    from unittest.mock import patch
+    secret=data/'broker-denial-proof.txt'
+    secret.write_text('synthetic owner data',encoding='utf-8')
+    try:
+        managed_tools.ManagedTools._read(secret)
+        proof['broker_owner_read_denied']=False
+    except PermissionError:
+        proof['broker_owner_read_denied']=True
+    broker_root=workspace/'broker-proof'
+    util.write_json_atomic(broker_root/'realm.json',{'schema_version':realmformat.CURRENT})
+    util.write_json_atomic(broker_root/'agents/probe/agent.json',{'id':'probe'})
+    broker=managed_tools.ManagedTools(broker_root,'probe',output=broker_root/'output')
+    with patch.object(inspection,'checked_path',return_value=secret):
+        try:
+            broker.call('write_draft',{'path':'proof.txt','content':'unauthorised mutation'})
+            proof['broker_owner_write_denied']=False
+        except PermissionError:
+            proof['broker_owner_write_denied']=True
+    try:
+        with worker.filesystem_lock(data/'broker-lock-denial.txt'):
+            proof['broker_owner_lock_denied']=False
+    except PermissionError:
+        proof['broker_owner_lock_denied']=True
+    proof['broker_host_identity_restored']=secret.read_text(encoding='utf-8')=='synthetic owner data'
+    secret.unlink()
+    proof['passed']=proof['passed'] and all(proof[k] for k in ('broker_owner_read_denied','broker_owner_write_denied','broker_owner_lock_denied','broker_host_identity_restored'))
     with worker.temporary_directory(prefix='armada-staging-proof-') as directory:
         staged=Path(directory)/'input.txt'
         staged.write_text('synthetic staging input',encoding='utf-8')

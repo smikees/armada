@@ -149,6 +149,7 @@ class ManagedTools:
                 self._authorize()
                 return execute(self, arguments['script'], arguments.get('arguments', []))
         if name in ("write_draft", "write_file"):
+            from . import worker
             with self.lock:
                 self._authorize()
                 def checked():
@@ -163,14 +164,17 @@ class ManagedTools:
                     raise ValueError("final-answer.md is reserved for the final response. Choose another draft name.")
                 if len(arguments["content"].encode("utf-8")) > MAX_BYTES:
                     raise ValueError("A review or draft file must be at most 1 MiB.")
-                path.parent.mkdir(parents=True, exist_ok=True)
-                with util.file_lock(path) if self.inspector else nullcontext():
+                with worker.filesystem_identity():
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                with worker.filesystem_lock(path) if self.inspector else nullcontext():
                     self._authorize()
                     if checked() != path:
                         raise ValueError('Approved output path changed during the write.')
                     self._check_write_scope(name, path)
-                    util.write_text_atomic(path, arguments["content"], newline="\n")
-                result = {"path": str(path), "bytes": path.stat().st_size}
+                    with worker.filesystem_identity():
+                        util.write_text_atomic(path, arguments["content"], newline="\n")
+                with worker.filesystem_identity():
+                    result = {"path": str(path), "bytes": path.stat().st_size}
                 self.writes[str(path)] = {"kind": "output", "name": path.name, **result}
                 return result
         if name == 'notify_owner':
@@ -195,12 +199,14 @@ class ManagedTools:
                 raise ValueError('Host control and credential files are not draft inputs.')
             return self._read(path)
         if name == "list_input_files":
+            from . import worker
             from . import draft_inputs
             path = draft_inputs.map_path(self.snapshot, arguments['path']) if self.snapshot else inspection.checked_path(arguments["path"], self.read_roots, must_exist=True)
             if not self.snapshot and not draft_inputs.permitted(path):
                 raise ValueError('Host control and credential folders are not draft inputs.')
-            return [{"name": p.name, "kind": "folder" if p.is_dir() else "file"}
-                    for p in sorted(path.iterdir()) if not p.is_symlink() and not getattr(p, "is_junction", lambda: False)()][:500]
+            with worker.filesystem_identity():
+                return [{"name": p.name, "kind": "folder" if p.is_dir() else "file"}
+                        for p in sorted(path.iterdir()) if not p.is_symlink() and not getattr(p, "is_junction", lambda: False)()][:500]
         if name == "list_jobs":
             from . import runner
             from .engine.selection import engine_for
@@ -304,7 +310,8 @@ class ManagedTools:
 
     @staticmethod
     def _read(path):
-        with path.open("rb") as handle:
+        from . import worker
+        with worker.filesystem_identity(), path.open("rb") as handle:
             data = handle.read(MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
             raise ValueError("File exceeds 1 MiB. Review a smaller exported artifact.")

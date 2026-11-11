@@ -27,6 +27,7 @@ _owner_children = []
 _owner_calls = 0
 _pending = False
 _checking=contextvars.ContextVar('armada_worker_checking',default=False)
+_filesystem_identity=contextvars.ContextVar('armada_worker_filesystem',default=False)
 log=logging.getLogger(__name__)
 
 
@@ -62,6 +63,51 @@ def require():
 def password(value):
     from .provider_keys import _crypt
     return _crypt(base64.b64decode(value['password']), decrypt=True).decode('utf-8')
+
+
+@contextmanager
+def filesystem_identity():
+    """Model-selected file I/O cannot borrow the host's access to owner controls."""
+    if _filesystem_identity.get() or not enabled():
+        yield
+        return
+    import ctypes as C
+    from ctypes import wintypes as W
+    value=require()
+    adv=C.WinDLL('advapi32',use_last_error=True)
+    kernel=C.WinDLL('kernel32',use_last_error=True)
+    adv.LogonUserW.argtypes=[W.LPCWSTR,W.LPCWSTR,W.LPCWSTR,W.DWORD,W.DWORD,C.POINTER(W.HANDLE)]
+    adv.ImpersonateLoggedOnUser.argtypes=[W.HANDLE]
+    kernel.CloseHandle.argtypes=[W.HANDLE]
+    token=W.HANDLE()
+    if not adv.LogonUserW(value['username'],'.',password(value),2,0,C.byref(token)):
+        raise OSError('Could not apply the isolated worker file identity.')
+    marker=None
+    try:
+        if not adv.ImpersonateLoggedOnUser(token):
+            raise OSError('Could not isolate the requested file operation.')
+        marker=_filesystem_identity.set(True)
+        try:
+            yield
+        finally:
+            if not adv.RevertToSelf():
+                raise OSError('Could not restore the host file identity.')
+    finally:
+        if marker is not None:_filesystem_identity.reset(marker)
+        kernel.CloseHandle(token)
+
+
+@contextmanager
+def filesystem_lock(path):
+    """Open/close model-selected lock files as the worker; authorize as the host."""
+    with filesystem_identity():
+        guard=util.file_lock(path)
+        guard.__enter__()
+    try:
+        yield
+    finally:
+        with filesystem_identity():
+            guard.__exit__(None,None,None)
 
 
 def home():
