@@ -5,9 +5,12 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.145** is in release validation: owner chats bypass the voluntary
-unattended quota reserve, queued threads show their actual blocker, and API-credit
-annotations no longer clip missing subscription session rows.
+Version **0.99.145** is published: owner chats bypass the voluntary unattended
+quota reserve, queued threads explain their blocker, and API credit no longer clips
+missing session rows. **4,510 tests**, exact-source Windows CI, three
+**163-check** native cycles and **72 upgrade checks** passed.
+Public assets, signatures and website links verified.
+[Release evidence](dev/RELEASE_0_99_145.md) · [Incident](dev/INCIDENT_2026_11_12_QUEUE_AND_LIMITS.md).
 
 Version **0.99.144** is published: restored dashed missing subscription readings,
 Activity monitor avatar rows and refresh controls, synchronized detached model badges,
