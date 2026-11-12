@@ -116,6 +116,7 @@ class Edge:
         except Exception as exc:
             self.error = str(exc)
             stream.Dispose()
+            log.debug('Frame preview could not start', exc_info=True)
             return
         self.busy = True
         self.stream, self.task = stream, task
