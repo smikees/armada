@@ -101,6 +101,7 @@
 | [`model`](model.md) | ARMADA domain model (neutral ontology). |
 | [`modeldefaults`](modeldefaults.md) | Apply a confirmed realm model combination to the current team. |
 | [`models`](models.md) | Model catalog — the Claude models ARMADA offers in its dropdowns, synced from the live API list. |
+| [`monitor_recovery`](monitor_recovery.md) | Keep native windows reachable after display topology changes, in physical pixels. |
 | [`notify`](notify.md) | Desktop notifications — native Windows toasts, best-effort. |
 | [`origins`](origins.md) | Where untrusted content is served from (launch plan 5.8a, THREAT_MODEL T3). |
 | [`policy_tools`](policy_tools.md) | Invocation-local filesystem tools and durable policy refusal evidence. |
@@ -188,6 +189,7 @@
 | [`webui._core`](webui._core.md) | ARMADA web UI — server-rendered screens matching the approved design handoff. |
 | [`webui._math`](webui._math.md) | Protect explicit TeX spans before the shared safe Markdown parser touches them. |
 | [`webui.accesspolicy`](webui.accesspolicy.md) | Owner-facing tool permissions and write scope; render from local state only. |
+| [`webui.activity_monitor`](webui.activity_monitor.md) | Dashboard activity drawn from local state; no provider calls or mark-as-read effects. |
 | [`webui.agentbits`](webui.agentbits.md) | Agent-rendering primitives (Layer 1, carved from _core.py in Phase 3). |
 | [`webui.agentcommon`](webui.agentcommon.md) | Shared agent/realm page helpers (Phase 3 split of agentpages): job cards, artefact gathering, autonomy/colour controls, filter dropdowns and the status-filter p |
 | [`webui.agentframe`](webui.agentframe.md) | Agent frame (Phase 3 split of agentpages): agent header/body + the Jobs/Inbox/Configure sub-tabs, avatar + appoint modals. |

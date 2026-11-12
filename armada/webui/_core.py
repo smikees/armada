@@ -819,6 +819,9 @@ def _render_widget_section(realm, realm_root, name, wid, dark=False) -> str:
         content = _usage(realm, realm_root, today, section=True)
     elif wid == "jobcal":
         content = _jobcal(realm, realm_root, today, widget=False)
+    elif wid == 'activity':
+        from .activity_monitor import widget
+        content=widget(realm,realm_root,section=True)
     elif wid.startswith("thread:"):
         p = wid.split(":", 2)
         a = next((x for x in realm.agents if x.id == p[1]), None) if len(p) == 3 else None

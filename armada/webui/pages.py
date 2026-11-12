@@ -1630,6 +1630,8 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
     widgets = [("register", 10, _register(realm, realm_root, today)),
                ("usage", 10, _usage(realm, realm_root, today)),
                ("jobcal", 10, _jobcal(realm, realm_root, today))]
+    from .activity_monitor import widget as activity_widget
+    widgets.insert(0,('activity',10,activity_widget(realm,realm_root)))
     # Add-on widgets (the add-on surface's first consumer, ADR-012): data an add-on declared, drawn
     # here by the app's own code. Hidden and shown like the built-in ones.
     addon_w = []
@@ -1716,7 +1718,6 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
   <div style="margin-left:auto;display:flex;gap:8px;flex-shrink:0">
    <button id="mc-addwidget" class="btn btn-secondary" onclick="mcAddWidget()">{addicon}&nbsp;Manage widgets</button></div>
  </div>
- {_attention_summary(realm, realm_root)}
  <p id="mc-layout-status" role="status" aria-live="polite" hidden></p>
  {grid}
  <div style="position:absolute;left:0;right:0;bottom:0;height:22px;pointer-events:none;z-index:1;

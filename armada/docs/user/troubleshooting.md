@@ -1,5 +1,19 @@
 # When something goes wrong
 
+## A window is on a disconnected monitor
+
+ARMADA checks display changes and moves unreachable windows onto an available monitor.
+You can also right-click the ARMADA tray icon and choose **Bring all windows here** to
+gather the cockpit and companions on the monitor containing your pointer.
+
+Some monitor switches keep reporting the switched display as connected. Windows cannot
+tell ARMADA that you are viewing the other PC in this case; use the tray command.
+
+Detached threads are remembered when you quit or restart ARMADA. They reopen together,
+offset by 20 pixels. Closing an individual detached window removes it from that session.
+Threads from different realms keep their original realm. Background windows do not
+mark new replies read until you focus them.
+
 ## The window freezes or loses its page
 
 ARMADA tries to restore a crashed or frozen browser view while existing work keeps

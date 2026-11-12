@@ -49,7 +49,7 @@
       const reading=selection&&!selection.isCollapsed&&box.contains(selection.anchorNode);
       if(state.html!==undefined&&!box.querySelector('textarea')&&!reading){
         mcApplyTurns(box,state.html);revision=state.revision;
-        mcRefreshRail(agent,thread);mcRefreshAgentDot();
+        mcRefreshRail(agent,thread);mcRefreshAgentDot();window.mcMarkThreadSeen?.();
       }
     }catch(error){
       const status=document.getElementById('mc-chatmsg');

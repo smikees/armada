@@ -1108,7 +1108,20 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-thread-window-content{flex:1;min-height:0;min-width:0}
 .mc-thread-window .mc-chat-center>div:last-child{overflow:hidden;border-radius:0 0 14px 14px}
 .mc-thread-window .mc-chat-heading{position:relative;display:grid!important;grid-template-columns:minmax(0,1fr) 28px;gap:3px 8px!important;padding:8px 8px 10px 68px!important;min-height:68px;flex:none;cursor:move;user-select:none;border-bottom:0!important;border-radius:14px 14px 0 0;background:var(--color-bg);box-shadow:0 8px 10px -8px rgba(0,0,0,.22);z-index:2}
-.mc-thread-window .mc-thread-identity{display:flex;align-items:baseline;gap:8px;min-width:0}
+.mc-thread-window .mc-thread-identity{display:flex;align-items:center;flex-wrap:wrap;gap:5px 8px;min-width:0}
+.mc-thread-identity .mc-agent-model-badge{max-width:100%;min-width:0}
+.mc-thread-identity .mc-agent-model-badge>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc-activity-monitor{container-type:inline-size;container-name:activity-monitor}
+.mc-activity-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@container activity-monitor (min-width:720px){.mc-activity-groups{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.mc-activity-groups h3{font-size:13px;line-height:1.4;margin:0 0 6px}
+.mc-activity-groups h3 span{font-weight:400;color:var(--text-muted);margin-left:4px}
+.mc-activity-groups ul{padding:0;margin:0;list-style:none}
+.mc-activity-groups li{margin:0 0 6px;overflow-wrap:anywhere}
+.mc-activity-groups a{font-size:12px;color:var(--color-text);text-decoration:underline;text-underline-offset:3px}
+.mc-activity-empty{font-size:12px;color:var(--text-muted);margin:0}
+.mc-activity-monitor .mc-attention-summary{margin:16px 0 0}
+[data-activity-monitor][data-stale]::before{content:'Live refresh unavailable';display:block;font-size:12px;color:var(--status-warn);margin-bottom:10px}
 .mc-thread-window.is-window .mc-ax-name{font-size:16px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-thread-window .mc-ax-subtitle{font-size:11px;line-height:1.25;margin:0;padding-left:8px;border-left:1px solid var(--color-divider);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-thread-window .mc-chat-heading #mc-cttitle{grid-column:1;grid-row:2;font-size:16px!important;line-height:1.3;user-select:text}

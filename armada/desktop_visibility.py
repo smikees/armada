@@ -132,6 +132,8 @@ class DesktopVisibility:
             native.Show()
             if native.WindowState == FormWindowState.Minimized:
                 native.WindowState = FormWindowState.Normal
+            from .monitor_recovery import recover_native
+            recover_native(native)
             native.Activate()
             native.Invalidate(True)
         else:

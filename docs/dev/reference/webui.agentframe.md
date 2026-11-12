@@ -10,6 +10,10 @@ The palette colour an agent falls back to (stable by its position in the realm).
 
 —
 
+### `_agent_model_badge(realm, realm_root, a, *, link=True)`
+
+—
+
 ### `_agent_header(realm, realm_root, a)`
 
 —

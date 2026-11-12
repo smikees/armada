@@ -10,6 +10,13 @@
   // Renaming/selecting the title must not start dragging the native frame.
   document.getElementById('mc-cttitle')?.addEventListener('mousedown',event=>event.stopPropagation());
   const resize=document.querySelector('[data-thread-resize]');
+  window.mcMarkThreadSeen=()=>{
+    const box=document.getElementById('mc-turns');
+    if(!box||document.hidden||!document.hasFocus?.())return;
+    fetch('/api/thread-read',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agent:box.dataset.agent,thread:box.dataset.thread})}).catch(()=>{});
+  };
+  window.addEventListener('focus',()=>setTimeout(window.mcMarkThreadSeen,800));
   function ready(){
     let frameTimer;
     const refreshFrame=()=>{
@@ -26,6 +33,7 @@
       if(event.target.matches?.('.mc-ax-portrait img'))refreshFrame();
     },true);
     refreshFrame();
+    setTimeout(window.mcMarkThreadSeen,800);
     if(!resize||!window.pywebview?.api?.resize_window)return;
     resize.hidden=false;
     resize.addEventListener('pointerdown',event=>{

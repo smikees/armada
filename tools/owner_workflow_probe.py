@@ -54,7 +54,7 @@ def run(output):
                     self._send(200, type(self).capture_html)
                 elif path == '/api/providers':
                     self._json(200, {'providers': {p: {} for p in ('claude', 'codex', 'gemini')}, 'models': []})
-                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state'):
+                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor'):
                     self._json(200, {})
                 else:
                     super()._route_get()
@@ -121,6 +121,21 @@ def run(output):
             try:
                 wait(lambda: js("document.readyState==='complete'&&typeof mcConfirm==='function'&&!!document.getElementById('mc-grid')"), 'Overview ready')
                 wait(lambda: js("document.querySelector('.mc-attention-summary').textContent.includes('job proposals')"), 'Attention links pending review')
+                wait(lambda: js("!!document.querySelector('.mc-w[data-id=activity] [data-activity-monitor]')&&!document.querySelector('#mc-ovh .mc-attention-summary')"),'Activity monitor owns attention outside the header')
+                from armada import thread_metadata
+                # The probe stays invisible to the owner. Simulate a visible
+                # document for a widget that deliberately pauses hidden polling.
+                js("Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});true")
+                thread_metadata.set_unread(root/'agents/captain','main',True)
+                marker=root/'agents/captain/runs/.running/widget-probe.json'
+                util.write_json_atomic(marker,{})
+                js('window.mcRefreshActivityMonitor();true')
+                wait(lambda: js("[...document.querySelectorAll('[data-activity-monitor] section')].some(s=>s.textContent.includes('Working')&&s.querySelector('li'))"),'Activity monitor refreshes working agents')
+                wait(lambda: js("[...document.querySelectorAll('[data-activity-monitor] section')].some(s=>s.textContent.includes('Unread replies')&&s.querySelector('li'))"),'Activity monitor refreshes unread replies')
+                assert util.read_json_state(root/'agents/captain/threads/meta.json')['unread']['main']
+                marker.unlink()
+                js("window.mcRefreshActivityMonitor();true")
+                wait(lambda: js("[...document.querySelectorAll('[data-activity-monitor] section')].find(s=>s.textContent.includes('Working')).querySelector('p').textContent==='None'"),'Completed activity disappears from the monitor')
                 js("document.getElementById('mc-addwidget').focus();window.answer='pending';mcConfirm('Remove synthetic item?','Nothing real is changed.',{ok:'Remove',danger:true}).then(value=>window.answer=value);true")
                 wait(lambda: js("document.activeElement.matches('[data-no]')&&!!document.querySelector('[role=dialog][aria-modal=true]')"), 'Destructive dialog starts on Cancel and is named')
                 js("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}))")
@@ -172,6 +187,7 @@ def run(output):
                 result['ok'] = True
             except Exception:
                 result['error'] = traceback.format_exc()
+                result['activity_state']=js("document.querySelector('[data-activity-monitor]')?.outerHTML")
                 result['state'] = js("JSON.stringify({path:location.pathname,focus:document.activeElement?.outerHTML?.slice(0,300),width:innerWidth,scrollWidth:document.documentElement.scrollWidth,status:document.querySelector('[data-policy-status]')?.textContent})")
             finally:
                 release.set()

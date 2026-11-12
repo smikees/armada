@@ -18,6 +18,7 @@ stays in serve.py, only the handler bodies moved.
 - `AgentRoutes._get_new_agent(self)` — —
 - `AgentRoutes._get_agent(self, path)` — —
 - `AgentRoutes._get_embed_thread(self)` — —
+- `AgentRoutes._thread_read(self, body)` — —
 - `AgentRoutes._get_thread_window(self)` — —
 - `AgentRoutes._open_thread_window(self, body)` — —
 - `AgentRoutes._get_thread_state(self)` — —

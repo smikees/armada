@@ -55,6 +55,18 @@ def _read_md(realm_root: Path, agent_id: str, fname: str) -> str:
     return f.read_text(encoding="utf-8-sig") if f.exists() else ""
 
 
+def _agent_model_badge(realm, realm_root, a, *, link=True):
+    from .. import verbosity
+    model,effort=_agent_model_effort(realm,realm_root,a.id)
+    _,display=_model_chip_label(model)
+    tag='a' if link else 'span'
+    destination=f' href="/agent/{E(a.id)}/configure"' if link else ''
+    return (f'<{tag}{destination} class="mc-agent-model-badge" title="Model &amp; effort" '
+            'style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r);'
+            'background:var(--text-7);font-size:11.5px;text-decoration:none;color:inherit">'
+            f'{_model_mark(model,12,effort,verbosity.agent_level(realm_root,a.id))}<span>{E(display)} · {E(effort)}</span></{tag}>')
+
+
 def _agent_header(realm, realm_root, a) -> str:
     coord = a.is_coordinator
     ring = ('border:1px solid var(--color-accent-2);background:var(--color-accent-2-100)') if coord else \
@@ -67,17 +79,7 @@ def _agent_header(realm, realm_root, a) -> str:
             ac = json.loads(aj.read_text(encoding="utf-8-sig"))
         except json.JSONDecodeError:
             pass
-    dmodel = getattr(realm, "default_model", "") or "Claude Opus 4.8"
-    deffort = getattr(realm, "default_effort", "") or "high"
-    model = ac.get("model") or dmodel
-    effort = ac.get("effort") or deffort
-    _, disp = _model_chip_label(model)
-    label = f"{disp} · {effort}"
-    pill = ("display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r);"
-            "background:var(--text-7);font-size:11.5px")
-    from .. import verbosity as _verbosity
-    model_pill = (f'<a href="/agent/{E(a.id)}/configure" title="Model &amp; effort — configure" style="{pill};text-decoration:none;color:inherit">'
-                  f'{_model_mark(model, 12, effort, _verbosity.agent_level(realm_root, a.id))}<span>{E(label)}</span></a>')
+    model_pill = _agent_model_badge(realm,realm_root,a)
     gear = (f'<a href="/agent/{E(a.id)}/configure" title="Configure {E(a.display)}" style="display:inline-flex;'
             f'align-items:center;padding:5px;border-radius:var(--r);text-decoration:none;'
             f'color:var(--text-dim);background:var(--text-7)">{_icon("settings",16)}</a>')

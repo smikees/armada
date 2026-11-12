@@ -17,6 +17,7 @@ Validate a section-relative file with the shared Windows-safe path guard.
 
 —
 
+- `DashboardRoutes._get_activity_monitor(self)` — —
 - `DashboardRoutes._get_add_section(self)` — —
 - `DashboardRoutes._get_edit_section(self, path)` — —
 - `DashboardRoutes._get_section(self, path)` — —

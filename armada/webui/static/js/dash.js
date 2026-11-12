@@ -1,6 +1,7 @@
 const MC_LBL='font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:0 0 4px;display:block';
 const MC_FIELD='display:block;width:100%;padding:6px 8px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:13px';
 const MC_SINGLE=[{id:'register',label:'Register',desc:'Your agents with autonomy, status and latest activity.'},
+                 {id:'activity',label:'Activity monitor',desc:'Working agents, unread and failed replies, input and attention.'},
                  {id:'usage',label:'Usage',desc:'Token usage — overall, per agent and per model.'},
                  {id:'jobcal',label:'Job calendar',desc:'Scheduled jobs by month / week / day, colour-coded by run status.'}];
 (window.MC_ADDON_W||[]).forEach(w=>MC_SINGLE.push(w));   // add-on widgets (ADR-012) hide and show the same way

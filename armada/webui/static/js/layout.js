@@ -1,7 +1,7 @@
 const MC_RU=10, MC_GAP=14, MC_DEFH=440;                 // grid row unit / gap / default widget height
 function mcH2Rows(h){return Math.max(8,Math.round((h+MC_GAP)/(MC_RU+MC_GAP)));}
 function mcApplyHeight(cell){const id=cell.dataset.id;
-  const h=(window.MC_DASH&&MC_DASH.heights&&MC_DASH.heights[id])||MC_DEFH;
+  const h=(window.MC_DASH&&MC_DASH.heights&&MC_DASH.heights[id])||(id==='activity'?260:MC_DEFH);
   cell.style.gridRow='span '+mcH2Rows(h);}
 function mcSaveLayout(){mcDashSave();}   // order/spans/heights collected + persisted to dashboard.json
 function mcApplyLayout(){const g=document.getElementById('mc-grid');if(!g)return;

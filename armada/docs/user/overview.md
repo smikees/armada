@@ -1,8 +1,8 @@
 # Overview
 
 The realm's dashboard. Across the top: how many agents, active jobs, runs in the last 30 days,
-tokens used, and what those tokens would have cost on the API (you pay your subscription, not
-this — it's there to compare). The agent count includes the realm's coordinator.
+tokens used, and their API-equivalent cost for comparison. These estimates are not bills or
+remaining API credit. The agent count includes the realm's coordinator.
 The token total includes all reported usage across Claude, Codex and Gemini. A **+** and tooltip
 identify partial totals when some runs did not report tokens or could not be priced.
 
@@ -15,6 +15,10 @@ Rates: [OpenAI](https://developers.openai.com/api/docs/pricing),
 
 ## The widgets
 
+- **Activity monitor** — working agents, unread replies, agents needing input, failed replies,
+  and items needing attention. Each item links to its thread or review page. The widget refreshes
+  while the dashboard is visible; watching it does not mark replies read. Failed replies remain
+  until that thread completes a later successful run. Use Manage widgets to hide or restore it.
 - **Register** — the team. Each row: the agent, their model and effort, how many goals and jobs
   they own, their next run, their tokens, and a seven-square **week strip** (the last three days,
   today, the next three) coloured by how their jobs did. Click a row to open the agent.

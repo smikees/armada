@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.143** is in release validation: monitor recovery, saved detached
+thread sessions, shared header badges and an Activity monitor dashboard widget.
+[Desktop/session contract](dev/WINDOW_SESSIONS.md).
+
 Version **0.99.142** is published. Detached thread and portrait outlines
 retain their antialiased boundary pixels using a native transparent perimeter.
 The publisher passed **4,471 tests**, both exact-source Windows CI jobs passed

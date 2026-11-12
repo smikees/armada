@@ -254,6 +254,8 @@ def run(output):
                 check("detached composer continues and nests bullets", companion.evaluate_js(bullet_probe))
                 check("color crescent is visible", companion.evaluate_js("!!document.querySelector('.mc-ax-portrait .mc-avdisc')"))
                 check("native frame shaped", companion.native.Region is not None)
+                check('detached header includes model before realm',companion.evaluate_js("(()=>{const h=document.querySelector('.mc-thread-identity');return !!h.querySelector('.mc-agent-model-badge')&&h.innerHTML.indexOf('mc-agent-model-badge')<h.innerHTML.indexOf('mc-ax-subtitle');})()"))
+                check('detached header omits redundant main-thread label',companion.evaluate_js("!document.querySelector('.mc-chat-heading').textContent.includes('main thread')"))
                 edge = wait_for(lambda: getattr(companion, '_thread_edge', None), 'native edge attached')
                 try:
                     wait_for(lambda: edge.current(), 'native antialiased edge captured')
@@ -503,6 +505,43 @@ def run(output):
                 reopened.evaluate_js("document.getElementById('mc-stop').click()")
                 wait_for(lambda: idle(main) and idle(reopened) and transcript(main) == transcript(reopened),
                          "reopened observer can Stop and reconcile the active turn")
+                # Exercise real WinForms bounds without changing the owner's
+                # display configuration or making an automated window visible.
+                from armada.monitor_recovery import recover_native,reachable
+                def recover_offscreen():
+                    from System.Drawing import Rectangle
+                    from System.Windows.Forms import Screen
+                    native=reopened.native
+                    previous=native.Bounds
+                    class VisibleProxy:
+                        Visible=True
+                        def __getattr__(self,name):return getattr(native,name)
+                        def __setattr__(self,name,value):setattr(native,name,value)
+                    try:
+                        native.Bounds=Rectangle(100000,100000,previous.Width,previous.Height)
+                        recover_native(VisibleProxy())
+                        rect=native.Bounds
+                        areas=[(s.WorkingArea.X,s.WorkingArea.Y,s.WorkingArea.Width,s.WorkingArea.Height) for s in Screen.AllScreens]
+                        check('offscreen native thread recovers to an available display',reachable((rect.X,rect.Y,rect.Width,rect.Height),areas))
+                    finally:
+                        native.Bounds=previous
+                reopened.native.Invoke(Action(recover_offscreen))
+                # Reconstruct the companion registry from its persisted session,
+                # retaining each original realm rather than switching the cockpit.
+                check('another realm thread opens independently',app.open_thread(other,'captain','main'))
+                for view in list(app._thread_windows.values()):ready(view)
+                app._save_thread_windows()
+                saved=json.loads((root/'data/desktop-threads.json').read_text())['threads']
+                check('session records two realm-bound detached threads',len(saved)==2 and len({r['root'] for r in saved})==2)
+                app._quitting=True
+                for view in list(app._thread_windows.values()):view.destroy()
+                wait_for(lambda:not app._thread_windows,'quit closes detached windows without erasing session')
+                app._quitting=False
+                app._restore_thread_windows()
+                wait_for(lambda:len(app._thread_windows)==2,'saved detached threads reopen across realms')
+                restored=list(app._thread_windows.values())
+                for view in restored:ready(view)
+                check('restored windows form a twenty-pixel cascade',restored[1].x-restored[0].x==20 and restored[1].y-restored[0].y==20)
                 result["ok"] = True
             except Exception:
                 result["error"] = traceback.format_exc()

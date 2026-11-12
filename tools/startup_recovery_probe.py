@@ -179,6 +179,14 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None, presen
             native.Invoke(Action(prepare))
             tray = trays[0]
             assert tray._context is not None and tray._icon is not None
+            from System.Drawing import Rectangle
+            from System.Windows.Forms import Screen,Cursor
+            native.Invoke(Action(lambda:setattr(native,'Bounds',Rectangle(100000,100000,native.Width,native.Height))))
+            tray._dispatcher.BeginInvoke(Action(lambda:next(item for item in tray._icon.ContextMenuStrip.Items if item.Text=='Bring all windows here').PerformClick()))
+            def recovered_here():
+                area=Screen.FromPoint(Cursor.Position).WorkingArea
+                return area.Contains(native.Location) and native.Visible
+            wait_for(recovered_here,'tray brings an offscreen desktop to the cursor display',timeout=5)
             user = c.WinDLL('user32', use_last_error=True)
             user.PostMessageW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
             user.SendMessageTimeoutW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM,
@@ -346,7 +354,7 @@ def run(output, *, tray_lifecycle=False, staged=False, restart_mode=None, presen
                 elif tray_lifecycle and trays and result['ok']:
                     from System import Action
                     tray = trays[0]
-                    tray._dispatcher.BeginInvoke(Action(lambda: tray._icon.ContextMenuStrip.Items[1].PerformClick()))
+                    tray._dispatcher.BeginInvoke(Action(lambda: next(item for item in tray._icon.ContextMenuStrip.Items if item.Text=='Quit Armada').PerformClick()))
                 else:
                     for window in windows:
                         try: app._quit_windows(window)

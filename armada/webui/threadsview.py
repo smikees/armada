@@ -877,7 +877,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
         f'style="display:inline-block;max-width:100%;min-width:0;font-family:var(--font-heading);font-weight:600;font-size:17px;'
         f'cursor:text;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{_title}</span>'
         f'<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">'
-        f'{"main thread" if selected=="main" else "sub-thread"} · <span id="mc-message-count">{_message_count}</span> messages'
+        f'{"" if detached else ("main thread" if selected=="main" else "sub-thread")+" · "}<span id="mc-message-count">{_message_count}</span> messages'
         f'<span id="mc-compacted-note">{" · compacted" if summ else ""}</span>{_comp}</span>'
         + f'</div>')
     return (f'<div class="mc-chat-center" style="position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;height:100%">'

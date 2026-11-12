@@ -64,6 +64,13 @@ class AgentRoutes:
         except SystemExit as e:
             self._err_page(e, bare=True)
 
+    def _thread_read(self,body):
+        from ..thread_windows import target
+        context,a,_,_=target(self.realm,body.get('agent',''),body.get('thread',''))
+        from ..webui.threadsview import _clear_thread_unread
+        _clear_thread_unread(Path(context.root)/'agents'/a.id,body['thread'])
+        return {'ok':True}
+
     def _get_thread_window(self):
         from ..webui.thread_window import render
         q = self._query()

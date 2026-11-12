@@ -19,6 +19,7 @@ COMPANION_GET = frozenset({
     "/api/thread-rail", "/api/agent-activity", "/api/chat-stop",
 })
 COMPANION_POST = frozenset({
+    "/api/thread-read",
     "/api/voice-start", "/api/voice-state", "/api/voice-stop",
     "/api/chat-stream", "/api/chat-steer", "/api/thread-truncate", "/api/thread-action",
     "/api/open-file", "/api/reveal", "/api/render-md",

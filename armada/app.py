@@ -31,6 +31,44 @@ _app_url = ""
 _desktop_visibility = None
 _restart_after_close = None
 _browser_calls = threading.BoundedSemaphore(4)
+_monitor_recovery = None
+
+
+def _desktop_windows():
+    with _window_lock:
+        return [w for w in [_main_window,_alex_window,*_thread_windows.values()] if w is not None]
+
+
+def _save_thread_windows():
+    from . import util
+    with _window_lock:
+        rows=[getattr(w,'_armada_thread_target',None) for w in _thread_windows.values()]
+        rows=[r for r in rows if isinstance(r,dict)]
+        path=util.data_dir()/'desktop-threads.json'
+        with util.file_lock(path):
+            util.write_json_atomic(path,{'threads':rows})
+
+
+def _restore_thread_windows():
+    from . import util
+    try:
+        rows=util.read_json_state(util.data_dir()/'desktop-threads.json',default=dict).get('threads',[])
+        if not isinstance(rows,list):
+            return
+        # Snapshot before open_thread persists its newly reconstructed registry.
+        for row in rows[:100]:
+            if _quitting:
+                break
+            try:
+                if not isinstance(row,dict):
+                    continue
+                if not all(isinstance(row.get(key),str) and row[key] for key in ('root','agent','thread')):
+                    continue
+                open_thread(row['root'],row['agent'],row['thread'])
+            except (OSError,ValueError,KeyError):
+                log.debug('Saved detached thread is no longer available',exc_info=True)
+    except (OSError,ValueError):
+        log.debug('Could not restore detached threads',exc_info=True)
 
 
 def window_state():
@@ -348,21 +386,29 @@ def open_thread(realm_root, agent: str, thread: str) -> bool:
             try:
                 current.show()
                 current.restore()
+                from .monitor_recovery import ensure
+                ensure(current)
                 return True
             except Exception:
                 log.exception("Reopening thread window failed")
                 _thread_windows.pop(key, None)
         try:
             api = _ThreadCompanionAPI()
+            position=_alexander_position()
+            for axis in ('x','y'):
+                if axis in position:
+                    position[axis] += 20*len(_thread_windows)
             window = webview.create_window(
                 f"{a.display} · {title} — ARMADA", browser_url(_app_url, route),
-                **_alexander_position(), min_size=(400, 500), text_select=True,
+                **position, min_size=(400, 500), text_select=True,
                 frameless=True, transparent=True, easy_drag=False, js_api=api)
             api._window = window
             _thread_windows[key] = window
+            window._armada_thread_target={'root':str(context.root),'agent':a.id,'thread':thread}
             window.events.loaded += lambda: _shape_thread(window)
             window.events.resized += lambda *args: _shape_thread(window)
             window.events.closed += lambda: _clear_thread_window(key, window)
+            _save_thread_windows()
             threading.Thread(target=_apply_window_icon, daemon=True).start()
             return True
         except Exception:
@@ -374,6 +420,8 @@ def _clear_thread_window(key, window):
     with _window_lock:
         if _thread_windows.get(key) is window:
             del _thread_windows[key]
+            if not _quitting:
+                _save_thread_windows()
 
 
 def show_main(*, href: str = "", report: str = "") -> bool:
@@ -780,7 +828,10 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
                     log.warning('Desktop startup could not verify the authenticated server identity')
                     return
                 instance.desktop_ready()
+                first_ready=not browser_ready.is_set()
                 browser_ready.set()
+                if first_ready:
+                    threading.Thread(target=_restore_thread_windows,daemon=True).start()
                 milestone('authenticated-controller-ready')
                 caption.update(document.get('background'), document.get('foreground'))
                 loader.ready()
@@ -801,7 +852,14 @@ def _run_owned(realm: str, port: int = 8756, title: str = "") -> int:
     activation_stop = instance.watch_activation(visibility.show)
     from . import appconfig
     from .tray import Tray
-    tray = Tray(visibility.show, lambda: _quit_windows(main))
+    global _monitor_recovery
+    from .monitor_recovery import MonitorRecovery
+    _monitor_recovery=MonitorRecovery(_desktop_windows)
+    main.events.shown += lambda:_monitor_recovery.start(main) if _monitor_recovery.timer is None else None
+    def bring_here():
+        visibility.show()
+        _monitor_recovery.bring_here()
+    tray = Tray(visibility.show, lambda: _quit_windows(main),bring_here=bring_here)
     tray_ready = tray.start()
 
     closing_pending, closing_allowed = threading.Event(), threading.Event()
@@ -929,6 +987,8 @@ def _quit_windows(main, *, close_main=True):
     """Exit the GUI. An owner-bound scheduler stops when this process exits."""
     global _quitting
     _quitting = True
+    if _monitor_recovery is not None:
+        _monitor_recovery.stop()
     if _desktop_visibility is not None:
         _desktop_visibility.stop()
     with _window_lock:

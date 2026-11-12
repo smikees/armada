@@ -32,6 +32,10 @@ def _section_path(base, relative):
 
 
 class DashboardRoutes:
+    def _get_activity_monitor(self):
+        from ..webui.activity_monitor import content
+        self._json(200,{'html':content(reader.read(self.realm),self.realm)})
+
     def _get_add_section(self):
         from .. import webui
         self._send(200, webui.render_add_section(reader.read(self.realm), dark=self._dark()))

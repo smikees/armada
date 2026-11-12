@@ -10,6 +10,18 @@ the dashboard — is unchanged, because it's the same server underneath.
 `webview` is imported lazily inside run(), so the stdlib `armada serve` path stays
 dependency-free; only `armada app` needs pywebview installed.
 
+### `_desktop_windows()`
+
+—
+
+### `_save_thread_windows()`
+
+—
+
+### `_restore_thread_windows()`
+
+—
+
 ### `window_state()`
 
 —

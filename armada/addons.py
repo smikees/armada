@@ -66,7 +66,7 @@ FILTER_TARGETS = {
     "capabilities": {"kind": CAP_KINDS, "text": None},
 }
 
-BUILTIN_WIDGETS = ("register", "usage", "jobcal")
+BUILTIN_WIDGETS = ("register", "usage", "jobcal", "activity")
 SPAN_MIN, SPAN_MAX = 4, 20        # the 20-column dashboard grid; same clamps as _save_dashboard
 HEIGHT_MIN, HEIGHT_MAX = 120, 3000
 
@@ -225,7 +225,7 @@ def _layout(d: dict):
     if not isinstance(order, list) or not order or len(order) > 50:
         return None, "layout needs an order of 1–50 widget ids"
     if not all(_widget_ref_ok(w) for w in order):
-        return None, ("layout widgets must be built-in (register, usage, jobcal) or "
+        return None, ("layout widgets must be built-in (register, usage, jobcal, activity) or "
                       "addon:<addon-id>/<widget-id> — thread widgets are realm-specific")
     if len(set(order)) != len(order):
         return None, "layout lists a widget twice"

@@ -9,7 +9,7 @@ background helper process is needed. The WinForms message loop lives on its own 
 
 —
 
-- `Tray.__init__(self, show, quit_app)` — —
+- `Tray.__init__(self, show, quit_app, bring_here=None)` — —
 - `Tray.start(self)` — —
 - `Tray._dispatch(callback)` — —
 - `Tray.stop(self)` — —

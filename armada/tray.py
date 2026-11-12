@@ -15,9 +15,10 @@ log = logging.getLogger(__name__)
 
 
 class Tray:
-    def __init__(self, show, quit_app):
+    def __init__(self, show, quit_app, bring_here=None):
         self.show = show
         self.quit_app = quit_app
+        self.bring_here = bring_here
         self._context = None
         self._icon = None
         self._thread = None
@@ -41,6 +42,9 @@ class Tray:
                 self._dispatcher.CreateControl()
                 menu = ContextMenuStrip()
                 open_item = menu.Items.Add("Open Armada")
+                if self.bring_here is not None:
+                    here_item=menu.Items.Add("Bring all windows here")
+                    here_item.Click += lambda sender,args:self._dispatch(self.bring_here)
                 exit_item = menu.Items.Add("Quit Armada")
                 open_item.Click += lambda sender, args: self._dispatch(self.show)
                 exit_item.Click += lambda sender, args: self._dispatch(self.quit_app)
