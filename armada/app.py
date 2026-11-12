@@ -35,8 +35,11 @@ _monitor_recovery = None
 
 
 def _desktop_windows():
-    with _window_lock:
-        return [w for w in [_main_window,_alex_window,*_thread_windows.values()] if w is not None]
+    # Native UI callbacks cannot wait for _window_lock: create_window can hold
+    # it while posting work to that same UI thread. Snapshot the plain registry
+    # under Python's container/GIL protection instead of holding it across UI work.
+    companions=tuple(_thread_windows.values())
+    return [w for w in [_main_window,_alex_window,*companions] if w is not None]
 
 
 def _save_thread_windows():

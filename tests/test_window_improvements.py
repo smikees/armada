@@ -7,6 +7,23 @@ from armada.webui.activity_monitor import content
 from golden_support import build_fixture
 
 
+def test_monitor_snapshot_cannot_wait_for_native_window_creation(monkeypatch):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    lock=threading.RLock()
+    main,companion=object(),object()
+    monkeypatch.setattr(app,'_window_lock',lock)
+    monkeypatch.setattr(app,'_main_window',main)
+    monkeypatch.setattr(app,'_alex_window',None)
+    monkeypatch.setattr(app,'_thread_windows',{'saved':companion})
+    lock.acquire()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        try:
+            assert pool.submit(app._desktop_windows).result(timeout=1)==[main,companion]
+        finally:
+            lock.release()
+
+
 def test_display_removal_and_negative_monitor_coordinates():
     areas=[(-1920,0,1920,1080),(1920,0,1920,1080)]
     assert not reachable((100,100,1440,800),areas)
