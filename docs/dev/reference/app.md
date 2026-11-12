@@ -53,6 +53,7 @@ The companion's close control can destroy only its own native window.
 
 Only this detached thread can close or resize its own frame.
 
+- `_ThreadCompanionAPI.refresh_frame(self)` — —
 - `_ThreadCompanionAPI.resize_window(self)` — —
 - `_ThreadCompanionAPI.resize_step(self, dx=0, dy=0)` — —
 

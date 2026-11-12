@@ -211,6 +211,18 @@ class _AlexanderCompanionAPI:
 class _ThreadCompanionAPI(_AlexanderCompanionAPI):
     """Only this detached thread can close or resize its own frame."""
 
+    def refresh_frame(self):
+        if self._window is None or sys.platform != 'win32':
+            return
+        from System import Action
+        native = self._window.native
+        def refresh():
+            edge = getattr(self._window, '_thread_edge', None)
+            if edge is not None:
+                edge.request()
+        if not native.IsDisposed:
+            native.BeginInvoke(Action(refresh))
+
     def resize_window(self):
         from .thread_frame import begin_resize
         return begin_resize(self._window) if self._window is not None else False

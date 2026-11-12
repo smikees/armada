@@ -162,6 +162,7 @@
 | [`sysusage`](sysusage.md) | System usage: tokens ARMADA itself spends, as opposed to the owner's agents. |
 | [`telegram`](telegram.md) | Talking to your agents from Telegram. |
 | [`templates`](templates.md) | Realm templates (SPEC §3/§11): {theme} + starter agents over the neutral schema. |
+| [`thread_edge`](thread_edge.md) | Antialiased WebView perimeter on a click-through, per-pixel-alpha window. |
 | [`thread_frame`](thread_frame.md) | Windows resize and soft shadow for the shaped, detached conversation window. |
 | [`thread_metadata`](thread_metadata.md) | Thread navigation state belongs to persistence, not to HTML renderers. |
 | [`thread_store`](thread_store.md) | Recoverable thread history mutations, serialized on the existing messages-file lock. |

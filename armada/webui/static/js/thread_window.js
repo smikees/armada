@@ -11,6 +11,21 @@
   document.getElementById('mc-cttitle')?.addEventListener('mousedown',event=>event.stopPropagation());
   const resize=document.querySelector('[data-thread-resize]');
   function ready(){
+    let frameTimer;
+    const refreshFrame=()=>{
+      if(frameTimer)return;
+      frameTimer=setTimeout(()=>{
+        frameTimer=null;
+        window.pywebview?.api?.refresh_frame?.();
+      },150);
+    };
+    new MutationObserver(refreshFrame).observe(document.documentElement,{attributes:true,attributeFilter:['class','style','data-theme']});
+    const heading=document.querySelector('.mc-chat-heading');
+    if(heading)new MutationObserver(refreshFrame).observe(heading,{attributes:true,childList:true,subtree:true});
+    document.addEventListener('load',event=>{
+      if(event.target.matches?.('.mc-ax-portrait img'))refreshFrame();
+    },true);
+    refreshFrame();
     if(!resize||!window.pywebview?.api?.resize_window)return;
     resize.hidden=false;
     resize.addEventListener('pointerdown',event=>{

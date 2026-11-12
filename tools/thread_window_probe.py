@@ -178,15 +178,24 @@ def run(output):
                 raise AssertionError("screenshot: " + repr(errors))
             result.setdefault("screenshots", []).append(path)
 
-        def composite(window, name):
+        def composite(window, name, source='thread-window'):
             from System import Action
             from System.Drawing import Bitmap, Color, Graphics, SolidBrush
             from System.Drawing.Imaging import ImageFormat
             from System.Drawing.Drawing2D import CombineMode
             shadow = window._thread_shadow
+            edge = getattr(window, '_thread_edge', None)
+            if edge is not None:
+                window.native.Invoke(Action(edge.request))
+                wait_for(lambda: edge.current() and not edge.dirty and not edge.busy, 'perimeter follows the current theme')
             path = output.with_name(name+".png")
             def draw():
-                foreground = Bitmap(str(output.with_name("thread-window.png")))
+                foreground = Bitmap(str(output.with_name(source+'.png')))
+                if edge is not None:
+                    x, y = foreground.Width//2, round(25*float(window.native._scale))
+                    actual, expected = edge.bitmap.GetPixel(x,y), foreground.GetPixel(x,y)
+                    check('native perimeter matches the current browser palette',
+                          actual.A == expected.A and max(abs(actual.R-expected.R),abs(actual.G-expected.G),abs(actual.B-expected.B)) <= 3)
                 canvas = Bitmap(shadow.bitmap.Width,shadow.bitmap.Height)
                 graphics = Graphics.FromImage(canvas)
                 region = window.native.Region.Clone()
@@ -200,6 +209,8 @@ def run(output):
                     graphics.DrawImageUnscaled(foreground,pad,pad)
                     graphics.ResetClip()
                     graphics.DrawImageUnscaled(shadow.bitmap,0,0)
+                    if edge is not None and edge.current():
+                        graphics.DrawImageUnscaled(edge.bitmap,pad,pad)
                     canvas.Save(str(path),ImageFormat.Png)
                 finally:
                     brush.Dispose();region.Dispose();graphics.Dispose();canvas.Dispose();foreground.Dispose()
@@ -243,6 +254,22 @@ def run(output):
                 check("detached composer continues and nests bullets", companion.evaluate_js(bullet_probe))
                 check("color crescent is visible", companion.evaluate_js("!!document.querySelector('.mc-ax-portrait .mc-avdisc')"))
                 check("native frame shaped", companion.native.Region is not None)
+                edge = wait_for(lambda: getattr(companion, '_thread_edge', None), 'native edge attached')
+                try:
+                    wait_for(lambda: edge.current(), 'native antialiased edge captured')
+                finally:
+                    result['edge_diagnostics'] = {'error':edge.error,'size':edge.size,'dimensions':edge.dimensions(),'busy':edge.busy,'dirty':edge.dirty}
+                check('native perimeter leaves live conversation transparent', edge.bitmap.GetPixel(
+                    edge.bitmap.Width//2,edge.bitmap.Height//2).A == 0)
+                scale = float(companion.native._scale)
+                partial = []
+                for y in range(round(8*scale), round(104*scale)):
+                    for x in range(round(8*scale), round(104*scale)):
+                        pixel = edge.bitmap.GetPixel(x,y)
+                        if 0 < pixel.A < 255 and max(pixel.R,pixel.G,pixel.B) > 40:
+                            partial.append((x,y,pixel.A))
+                check('portrait perimeter retains fractional coloured alpha', len(partial)>20)
+                result['antialiased_edge_samples'] = partial[:30]
                 from System import Action
                 from System.Drawing.Imaging import ImageFormat
                 shadow = wait_for(lambda: getattr(companion, "_thread_shadow", None), "native shadow attached")
@@ -431,7 +458,20 @@ def run(output):
                 companion.evaluate_js("mcScrollBottom()")
                 screenshot(companion, "thread-window-narrow")
                 companion.evaluate_js("document.documentElement.classList.add('armada-dark')")
+                palette = companion.evaluate_js("getComputedStyle(document.querySelector('.mc-chat-heading')).backgroundColor.match(/\\d+/g).map(Number)")
+                def palette_matches():
+                    if not edge.current():
+                        return False
+                    pixel = edge.bitmap.GetPixel(edge.bitmap.Width//2,round(25*float(companion.native._scale)))
+                    # CapturePreview/GDI+ colour conversion can round channels.
+                    return max(abs(a-b) for a,b in zip((pixel.R,pixel.G,pixel.B),palette[:3])) <= 3
+                try:
+                    wait_for(palette_matches, 'native edge automatically follows the dark palette')
+                finally:
+                    pixel = edge.bitmap.GetPixel(edge.bitmap.Width//2,round(25*float(companion.native._scale)))
+                    result['palette_diagnostics'] = {'expected':palette,'actual':[pixel.R,pixel.G,pixel.B,pixel.A], 'error':edge.error,'busy':edge.busy,'dirty':edge.dirty}
                 screenshot(companion, "thread-window-dark")
+                composite(companion, 'thread-window-orange-dark', 'thread-window-dark')
                 # Long labels must ellipsize without covering Close or creating overflow.
                 companion.evaluate_js("document.querySelector('.mc-ax-name').textContent='A very long synthetic agent name';document.querySelector('.mc-ax-subtitle').textContent='A very long realm name';document.getElementById('mc-cttitle').textContent='A very long thread name for responsive verification'")
                 check("long header labels stay inside the panel", companion.evaluate_js(
@@ -442,6 +482,7 @@ def run(output):
                 companion.evaluate_js("document.querySelector('[data-thread-close]').click()")
                 wait_for(lambda: not app._thread_windows, "close clears only the companion registry")
                 check("native shadow closes with its thread", shadow.handle is None and shadow.bitmap is None)
+                check('native perimeter closes with its thread', edge.closed and edge.handle is None and edge.bitmap is None)
                 check("main remains authenticated after close", main.evaluate_js("!!document.getElementById('mc-turns')"))
                 check("closed window reopens", app.open_thread(realm, "captain", "main"))
                 reopened = next(iter(app._thread_windows.values()))

@@ -67,6 +67,8 @@ def attach(window):
             return
         try:
             window._thread_shadow = _Shadow(native)
+            from .thread_edge import Edge
+            window._thread_edge = Edge(native)
         except Exception:
             log.warning("Could not create detached thread shadow", exc_info=True)
     if native.InvokeRequired:
@@ -113,7 +115,9 @@ def shape(window):
         scale = float(native._scale) or 1
         # Stay inside WebView's antialiased CSS edge so the underlying white
         # WinForms surface cannot show as a hairline around the transparent frame.
-        path = _frame_path(native.ClientSize.Width/scale, native.ClientSize.Height/scale, scale, spread=-.5)
+        edge = getattr(window, '_thread_edge', None)
+        spread = -2 if edge is not None and edge.current() else -.5
+        path = _frame_path(native.ClientSize.Width/scale, native.ClientSize.Height/scale, scale, spread=spread)
         try:
             old = native.Region
             native.Region = Region(path)
