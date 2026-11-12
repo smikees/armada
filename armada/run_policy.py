@@ -301,7 +301,7 @@ def notify_once(root, key, message):
     notify.emit(root, 'api_credit', 'Claude API credit', message, '/settings?tab=app')
 
 
-def admission(root, agent, thread, provider):
+def admission(root, agent, thread, provider, *, background=False):
     """Scheduling hints derived only from approved jobs and owner choices."""
     from .job_history import JOB_PREFIX
     from .job_access import identity, fingerprint
@@ -323,15 +323,31 @@ def admission(root, agent, thread, provider):
         reserve_provider |= same_provider
         critical |= same_provider and job_root == current_root and agent == aid and thread == JOB_PREFIX+jid
     deferred = False
-    if not critical:
+    reason = ''
+    if background and not critical:
         from .usage_snapshot import trusted_read as read
         usage = read(root).get(provider, {})
         config = settings(root, agent, provider=provider)
         session = usage.get('session') or {}
-        deferred = (reserve_provider and time_now()-usage.get('at', 0) <= 1800
-                    and session.get('pct', 0) >= config['critical_usage_percent'])
+        now = time_now()
+        at, pct = usage.get('at'), session.get('pct')
+        try:
+            reset = dt.datetime.fromisoformat(session.get('resets_at', '').replace('Z', '+00:00'))
+            reset_at = reset.timestamp() if reset.tzinfo is not None else 0
+        except (ValueError, TypeError, AttributeError):
+            reset_at = 0
+        # This is an owner-selected reserve for unattended work, not proof of a
+        # provider refusal. Never hold an owner's chat on a quota estimate.
+        deferred = (reserve_provider and usage.get('available') is True and not usage.get('stale')
+                    and type(at) in (int, float) and math.isfinite(at) and 0 <= now-at <= 1800
+                    and type(pct) in (int, float) and math.isfinite(pct) and 0 <= pct <= 100
+                    and reset_at > now and pct >= config['critical_usage_percent'])
+        if deferred:
+            reason = (f'Queued — protecting critical jobs: {provider.title()} session reading is {pct:g}% '
+                      f'(owner threshold {config["critical_usage_percent"]:g}%). '
+                      f'This is an Armada reserve, not a provider refusal. Reset: {session["resets_at"]}.')
     return {'critical':bool(critical), 'reserve_slot':reserve_slot, 'reserve_provider':reserve_provider,
-            'reserve_realm':reserve_realm, 'usage_deferred':bool(deferred)}
+            'reserve_realm':reserve_realm, 'usage_deferred':bool(deferred), 'usage_deferred_reason':reason}
 
 
 def time_now():

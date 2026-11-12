@@ -6,7 +6,7 @@ import subprocess
 import sys
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 
 import pytest
 
@@ -73,6 +73,97 @@ def test_saturated_provider_does_not_block_other_provider(tmp_path, tickets):
     other = tickets(context(tmp_path, 'd', '1'), 'gemini')
     assert a.ready() and b.ready()
     assert not blocked.ready() and other.ready()
+
+
+def critical_realm(tmp_path, *, pct=93, at=None, reset=None, **reading):
+    from armada import run_policy, usage_snapshot
+    import datetime as dt
+    ctx = context(tmp_path)
+    root = Path(ctx.realm.root)
+    util.write_json_atomic(root/'realm.json', {'provider': 'claude'})
+    util.write_json_atomic(root/'agents/agent/agent.json', {'id': 'agent', 'model': 'claude-fable-5-2'})
+    job = {'id': 'desk', 'prompt': 'Synthetic critical job', 'kind': 'agent', 'critical': True}
+    util.write_json_atomic(root/'agents/agent/jobs/desk.json', job)
+    run_policy.seal_job(root, 'agent', job)
+    usage_snapshot.remember(root, 'claude', {'available': True, 'session': {
+        'pct': pct, 'resets_at': reset or dt.datetime.fromtimestamp(time.time()+3600, dt.timezone.utc).isoformat()}, **reading}, at=at)
+    return ctx
+
+
+def test_quota_reserve_does_not_block_owner_chat_but_preserves_critical_slots(tmp_path):
+    ctx = critical_realm(tmp_path)
+    root = Path(ctx.realm.root)
+    # Background work waits without consuming a provider slot, even if it arrived first.
+    with ExitStack() as stack:
+        background = admission.Ticket(context(tmp_path, thread='background'), 'claude', background=True)
+        stack.callback(background.close)
+        assert not background.ready() and '93%' in background.queue_reason
+        assert 'not a provider refusal' in background.queue_reason
+        owner = admission.Ticket(ctx, 'claude')
+        stack.callback(owner.close)
+        assert owner.ready()
+        critical = admission.Ticket(RunContext.capture(root, 'agent', 'job-run--desk'), 'claude', background=True)
+        stack.callback(critical.close)
+        assert critical.ready()  # The owner chat still leaves the protected slot free.
+        assert not background.ready()
+        owner.close()
+        critical.close()
+        from armada import usage_snapshot
+        usage_snapshot.remember(root, 'claude', {'available': True, 'session': {'pct': 20}})
+        assert background.ready()  # Same invocation resumes; no request needs recreating.
+
+
+def test_owner_fable_chat_reaches_engine_at_93_percent_without_api_fallback(tmp_path):
+    from armada import runner
+    from armada.engine import MockEngine, RunResult
+    ctx = critical_realm(tmp_path)
+    requests = []
+    class FakeClaude(MockEngine):
+        name = 'claude'
+        def execute(self, request, **kw):
+            requests.append(request)
+            return RunResult(ok=True, output='Owner chat completed on the plan.')
+    result = runner.chat_stream(ctx.realm.root, 'agent', 'main', 'Synthetic owner chat', lambda event: None,
+                                engine=FakeClaude())
+    assert result['ok'] and len(requests) == 1
+    assert requests[0].model == 'claude-fable-5-2'
+    assert not requests[0].env  # No API environment or new spending permission.
+
+
+@pytest.mark.parametrize('change', ['expired', 'old', 'future', 'unknown-reset', 'missing', 'negative', 'over-100'])
+def test_unreliable_usage_cannot_hold_background_work(tmp_path, change):
+    import datetime as dt
+    args = {'pct': 93}
+    if change == 'expired': args['reset'] = dt.datetime.fromtimestamp(time.time()-1, dt.timezone.utc).isoformat()
+    if change == 'old': args['at'] = time.time()-1801
+    if change == 'future': args['at'] = time.time()+60
+    if change == 'unknown-reset': args['reset'] = 'unknown'
+    if change == 'missing': args['pct'] = None
+    if change == 'negative': args['pct'] = -1
+    if change == 'over-100': args['pct'] = 101
+    ctx = critical_realm(tmp_path, **args)
+    ticket = admission.Ticket(ctx, 'claude', background=True)
+    try:
+        assert ticket.ready()
+    finally:
+        ticket.close()
+
+
+def test_queue_reason_changes_from_conversation_to_provider_and_stop_still_works(tmp_path, tickets):
+    a, b = tickets(context(tmp_path, 'a')), tickets(context(tmp_path, 'b'))
+    assert a.ready() and b.ready()
+    c = tickets(context(tmp_path, 'c'))
+    waiting = tickets(context(tmp_path, 'a'))
+    assert not waiting.ready()
+    assert 'this conversation' in waiting.queue_reason
+    a.close()
+    # Force another provider owner before this waiter is reconsidered.
+    assert c.ready()
+    assert not waiting.ready() and 'Claude execution slots' in waiting.queue_reason
+    assert 'not a token-limit refusal' in waiting.queue_reason
+    admission.cancel(waiting.context.realm.realm_id, run_id=waiting.context.run_id)
+    with pytest.raises(admission.Cancelled):
+        waiting.wait()
 
 
 def test_queue_bound_and_cancel_before_execution(tmp_path, tickets, monkeypatch):
@@ -273,7 +364,7 @@ def test_queued_chat_survives_reload_and_later_messages_do_not_leak_into_context
             return RunResult(ok=True, output='FIRST ANSWER' if len(requests) == 1 else 'SECOND ANSWER')
     def run(message, queued):
         results.append(runner.chat_stream(root, 'agent', 'main', message,
-            lambda ev: queued.set() if ev.get('kind') == 'status' else None, engine=Engine()))
+            lambda ev: queued.set() if ev.get('kind') == 'status' and 'this conversation' in ev.get('text', '') else None, engine=Engine()))
     one, two = threading.Event(), threading.Event()
     workers = [threading.Thread(target=run, args=('FIRST UNIQUE REQUEST', one)),
                threading.Thread(target=run, args=('SECOND UNIQUE REQUEST', two))]
@@ -285,6 +376,8 @@ def test_queued_chat_survives_reload_and_later_messages_do_not_leak_into_context
         th = Thread(root / 'agents/agent', 'main')
         assert [m['content'] for m in th._messages()] == ['FIRST UNIQUE REQUEST', 'SECOND UNIQUE REQUEST']
         assert all(th.progress(m['turn'])['activity'].startswith('Queued') for m in th._messages())
+        from armada import thread_windows
+        assert 'another turn in this conversation' in thread_windows.state(root, 'agent', 'main')['html']
         holder.close()
         for worker in workers:
             worker.join(6)

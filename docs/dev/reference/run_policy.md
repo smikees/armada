@@ -89,7 +89,7 @@ Only owner key setup creates the first ledger; a missing used ledger stays close
 
 —
 
-### `admission(root, agent, thread, provider)`
+### `admission(root, agent, thread, provider, *, background=False)`
 
 Scheduling hints derived only from approved jobs and owner choices.
 

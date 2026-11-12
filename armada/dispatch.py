@@ -32,7 +32,7 @@ class Dispatcher:
             raise admission.Cancelled('The scheduler is stopping.')
         if self.contains(context.key):
             return False
-        ticket = admission.Ticket(context, provider)
+        ticket = admission.Ticket(context, provider, background=True)
         try:
             callbacks = prepare()
             if callbacks is None:

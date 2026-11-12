@@ -1348,6 +1348,7 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
                 from . import execution_admission
                 try:
                     with execution_admission.scope(context, 'command',
+                            background=True,
                             cancelled=lambda: session.active.cancelled,
                             on_cancel=lambda: RunSession.cancel(context.key)):
                         policy = load_access_policy(realm_root, agent_id)
@@ -1503,7 +1504,7 @@ def run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str 
     context = RunContext.capture(realm_root, agent_id, thread_name(job_id))
     # Never hold an invocation lock while queued behind its already-admitted scheduler
     # ticket: that worker needs this same lock to complete and release conversation capacity.
-    with execution_admission.scope(context, resource):
+    with execution_admission.scope(context, resource, background=True):
         with util.file_lock(lock, timeout=.05):
             return _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools)
 

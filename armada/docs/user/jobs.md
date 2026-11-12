@@ -23,6 +23,12 @@ Mark a job **Critical** to give it queue priority, protect a provider slot and a
 it to draw on the API reserve. Run-control changes are owner-only and sealed to the
 approved job. Editing a saved job file invalidates its approval.
 
+The session-use threshold protects critical jobs by deferring **unattended work**.
+It never blocks a chat you send yourself. It applies only to a fresh, valid session
+reading with a reset still in the future. This voluntary reserve is separate from
+a provider refusing work at its actual subscription limit. Chats still share the
+local concurrency limits and leave the protected critical-job slot available.
+
 Every run's preamble includes cached Claude and Codex usage, reset times, reading age
 and API credit. The scheduler refreshes the credential-free `usage-last.json` while
 the window is closed. Old or unavailable readings are marked explicitly.
@@ -39,6 +45,9 @@ of creating unlimited background workers.
 Queued chat messages are saved before waiting, so navigating away does not lose your request.
 Each conversation processes one turn at a time; later queued messages stay out of the active
 turn's context.
+The waiting message identifies the reason: another conversation turn, occupied local
+execution slots, a subscription-reset wait or the unattended critical-job reserve.
+A local queue is not evidence that your subscription token limit was reached.
 
 Update preparation stops scheduled work that has not started and waits for running work.
 After a crash, ARMADA frees abandoned capacity but holds jobs whose outcome is uncertain.

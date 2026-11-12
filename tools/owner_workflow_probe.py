@@ -29,7 +29,7 @@ def run(output):
         cfg = util.read_json_state(root / 'realm.json')
         cfg.setdefault('toolkit', {})['connectors'] = [{'id': 'ibkr', 'name': 'Synthetic brokerage',
             'tool_names': ['get_balance', 'submit_order', 'create_order_instruction']}]
-        cfg.update(tool_policy={'ibkr': {'deny': ['*order*']}}, read_only=['skills/**'])
+        cfg.update(tool_policy={'ibkr': {'deny': ['*order*']}}, read_only=['skills/**'], providers=['claude', 'codex', 'gemini'])
         util.write_json_atomic(root / 'realm.json', cfg)
         agent_path = root / 'agents/captain/agent.json'
         agent = util.read_json_state(agent_path)
@@ -51,6 +51,7 @@ def run(output):
             activity_reads = 0
             reject_activity = False
             delay_activity = False
+            mixed_limits = False
 
             def _send(self,code,body,ctype='text/html; charset=utf-8',cache='',csp=''):
                 if isinstance(body,str) and '<head>' in body:
@@ -79,7 +80,16 @@ def run(output):
                 elif path == '/api/providers':
                     self._json(200, {'providers': {p: {} for p in ('claude', 'codex', 'gemini')}, 'models': []})
                 elif path == '/api/usage-limits':
-                    self._json(200,{'available':False,'connected':True,'message':'Synthetic provider has not supplied a reading.'})
+                    if type(self).mixed_limits:
+                        from urllib.parse import parse_qs, urlsplit
+                        provider = parse_qs(urlsplit(self.path).query).get('provider', ['claude'])[0]
+                        payload = {'claude': {'weekly': {'pct': 40}, 'session': {'pct': 93},
+                                              'api_credit': {'spent_usd': 0, 'cap_usd': 100, 'reason': 'No API key configured.'}},
+                                   'codex': {'groups': [{'id': name, 'name': name, 'windows': [{'window_minutes': 10080, 'pct': 12}]} for name in ('codex', 'other')]},
+                                   'gemini': {'weekly': {'pct': 0}}}[provider]
+                        self._json(200, {'available': True, 'connected': True, **payload})
+                    else:
+                        self._json(200,{'available':False,'connected':True,'message':'Synthetic provider has not supplied a reading.'})
                 elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor','/api/agent-activity'):
                     self._json(200, {})
                 else:
@@ -151,6 +161,26 @@ def run(output):
                 wait(lambda: js("document.querySelectorAll('#mc-hdr-limits .mc-limit-unavailable').length===6&&[...document.querySelectorAll('#mc-hdr-limits .mc-limit-unavailable')].every(el=>el.textContent==='Not reported')"),'Missing subscription readings keep Not reported in every row')
                 assert js("[...document.querySelectorAll('#mc-hdr-limits .mc-limit-bar')].every(el=>getComputedStyle(el).borderTopStyle==='dashed'&&parseFloat(getComputedStyle(el).borderTopWidth)>=1&&el.getBoundingClientRect().width>0)")
                 result['checks'].append('Missing subscription readings retain dashed tracks in the default theme')
+                from armada import appconfig
+                Fixture.mixed_limits = True
+                appconfig.save({'theme': 'armada-ii'})
+                js('sessionStorage.clear();true')
+                navigate('/')
+                wait(lambda: js("document.querySelectorAll('#mc-hdr-limits .mc-limit-row[title*=\"93%\"]').length===1"), 'Mixed live subscription readings render')
+                result['limits_dom'] = js("document.getElementById('mc-hdr-limits').outerHTML")
+                result['limits_geometry'] = js("JSON.stringify([...document.querySelectorAll('#mc-hdr-limits .mc-limit-row')].map(e=>({text:e.textContent,rect:e.getBoundingClientRect().toJSON(),display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility})))")
+                capture('m11-mixed-limits-armada-ii')
+                assert js("[...document.querySelectorAll('#mc-hdr-limits .mc-limit-row.is-unavailable')].length===2&&[...document.querySelectorAll('#mc-hdr-limits .mc-limit-row.is-unavailable')].every(e=>e.textContent==='Not reported'&&e.getBoundingClientRect().height>0&&getComputedStyle(e.querySelector('.mc-limit-bar')).borderTopStyle==='dashed')")
+                assert js("(()=>{const h=document.getElementById('mc-hdr-limits').getBoundingClientRect();return [...document.querySelectorAll('#mc-hdr-limits .mc-limit-row,#mc-hdr-limits .mc-limit-credit')].every(e=>{const r=e.getBoundingClientRect();return r.top>=h.top&&r.bottom<=h.bottom&&r.left>=h.left&&r.right<=h.right;});})()")
+                result['checks'].append('Weekly-only connected providers keep visible dashed session rows in Armada II')
+                js("document.documentElement.classList.add('armada-dark')")
+                capture('m11-mixed-limits-armada-ii-dark')
+                assert js("(()=>{const h=document.getElementById('mc-hdr-limits').getBoundingClientRect();return [...document.querySelectorAll('#mc-hdr-limits .mc-limit-row')].every(e=>e.getBoundingClientRect().bottom<=h.bottom);})()")
+                result['checks'].append('API credit and bucket selector leave all six rows visible in dark mode')
+                Fixture.mixed_limits = False
+                appconfig.save({'theme': 'default'})
+                js('sessionStorage.clear();true')
+                navigate('/')
                 from armada import thread_metadata
                 # The probe stays invisible to the owner. Simulate a visible
                 # document for a widget that deliberately pauses hidden polling.

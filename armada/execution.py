@@ -309,7 +309,7 @@ class TurnCoordinator:
             if self.on_proc and self.on_proc != self.session.bind:
                 self.on_proc(handle)
 
-        def queued():
+        def queued(reason='Queued — waiting for local execution capacity…'):
             nonlocal turn, attachments, saved, waited
             waited = True
             if turn is None and not req.task:
@@ -318,8 +318,8 @@ class TurnCoordinator:
                 attachments += [{'kind': 'file', 'name': str(fn)} for fn in req.files if str(fn).strip()]
                 turn = th.begin_turn(message, attachments=attachments or None, queued=True)
             if turn:
-                th.save_progress(turn, '', 'Queued — waiting for execution capacity…')
-            event({'kind': 'status', 'text': 'Queued — waiting for execution capacity…'})
+                th.save_progress(turn, '', reason)
+            event({'kind': 'status', 'text': reason})
 
         try:
             if turn:
@@ -335,9 +335,10 @@ class TurnCoordinator:
                 selected, agent = r._prepare_agent_run(root, aid, req.engine,
                     req.allow_tools or bool(req.images), req.job, scheduled_job)
                 capacity.enter_context(execution_admission.scope(context, selected.name,
+                    background=bool(req.task),
                     cancelled=lambda: self.session.active.cancelled,
                     on_cancel=lambda: RunSession.cancel(context.key, self.session.registry, self.session.lock),
-                    on_wait=queued))
+                    on_wait=queued, on_queue=queued))
                 if req.task:
                     from .run_watchdog import Watchdog
                     from .run_policy import settings as run_settings

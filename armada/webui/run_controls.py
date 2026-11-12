@@ -34,7 +34,7 @@ def panel(root=None, agent='', *, global_provider=False):
         numbers += [('default_job_timeout','Default agent-job ceiling — seconds (empty means No limit)',''),
                     ('agent_inactivity_minutes','Stop after no engine event — minutes',30),
                     ('agent_soft_mark_minutes','Notify after running — minutes (0 disables)',60),
-                    ('critical_usage_percent','Defer other work above session use — %',80)]
+                    ('critical_usage_percent','Defer unattended work above session use — %',80)]
     for key,label,default in numbers:
         content += f'<label class="mc-label" for="{prefix}{key}">{label}</label><input class="mc-field" type="number" step="any" id="{prefix}{key}" data-run-control="{key}" value="{E(str(values.get(key, default)))}">'
     if global_provider:

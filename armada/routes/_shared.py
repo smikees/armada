@@ -118,7 +118,8 @@ def _job_detail(realm_root, agent_id, job_id, selected_run="") -> dict:
         from .. import execution_admission
         queued = execution_admission.view(realm_root, agent_id, job_history.thread_name(job_id))
         if not progress and any(row['state'] == 'queued' for row in queued):
-            progress = {'text': '', 'activity': 'Queued — waiting for execution capacity…'}
+            row = next(row for row in queued if row['state'] == 'queued')
+            progress = {'text': '', 'activity': row.get('queue_reason') or 'Queued — waiting for local execution capacity…'}
         html = _working_turn(avatar, display, progress)
     elif chosen or runs:
         ev = chosen or runs[0]

@@ -440,7 +440,9 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-limits-title{display:flex;align-items:center;gap:8px;height:14px;flex:none;font-size:10px;line-height:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
 .mc-limit-groups{display:grid;grid-template-columns:34px repeat(3,194px);column-gap:16px;margin-top:3px;justify-content:start}
 .mc-limit-periods{display:grid;grid-template-rows:15px 15px;align-content:start}
-.mc-limit-group{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:8px;min-width:0}
+.mc-limit-group{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:8px;min-width:0;align-content:start}
+.mc-limit-credit,.mc-limit-bucket{font-size:10px;line-height:14px;letter-spacing:0;text-transform:none;white-space:nowrap;color:var(--text-muted)}
+.mc-limit-bucket{height:14px;max-width:150px;padding:0;border:0;background:transparent;font-family:inherit}
 .mc-limit-group.is-inactive{opacity:1}
 .mc-limit-group.is-inactive .mc-limit-provider{opacity:.55}
 .mc-limit-group>.mc-limit-row,.mc-limit-group>select{grid-column:2}

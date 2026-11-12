@@ -89,6 +89,39 @@ def _prune(state):
             pass
 
 
+def _blocking_reason(row, active, pending, rows):
+    if row.get('not_before', 0) > time.time():
+        import datetime as dt
+        reset = dt.datetime.fromtimestamp(row['not_before'], dt.timezone.utc).isoformat()
+        return f'Queued — waiting for the subscription reset at {reset}.'
+    if row.get('usage_deferred'):
+        return row.get('usage_deferred_reason') or 'Queued — protecting subscription capacity for critical jobs (Armada reserve).'
+    identity = (row['realm'], row['agent'], row['thread'])
+    if any((r['realm'], r['agent'], r['thread']) == identity for r in active):
+        return 'Queued — another turn in this conversation is still running.'
+    if any((r['realm'], r['agent'], r['thread']) == identity for r in pending[:pending.index(row)]):
+        return 'Queued — an earlier request in this conversation goes first.'
+    maintenance = row['provider'] == 'maintenance'
+    group = [r for r in active if (r['provider'] == 'maintenance') == maintenance]
+    reserved = not row.get('critical') and any(r.get('reserve_slot') for r in rows)
+    total_limit = 1 if maintenance else max(0, TOTAL-1) if reserved else TOTAL
+    provider_reserved = not row.get('critical') and any(
+        r.get('reserve_provider', r.get('reserve_slot')) and r['provider'] == row['provider'] for r in rows)
+    provider_limit = max(0, PER_PROVIDER-1) if provider_reserved else PER_PROVIDER
+    realm_reserved = not row.get('critical') and any(
+        r.get('reserve_realm', r.get('reserve_slot')) and r['realm'] == row['realm'] for r in rows)
+    realm_limit = max(0, PER_REALM-1) if realm_reserved else PER_REALM
+    for count, limit, label, reserve in (
+        (len(group), total_limit, 'Armada execution', reserved and not maintenance),
+        (sum(r['provider'] == row['provider'] for r in group), provider_limit, row['provider'].title()+' execution', provider_reserved),
+        (sum(r['realm'] == row['realm'] for r in group), realm_limit, 'realm execution', realm_reserved)):
+        if count >= limit:
+            return (f'Queued — {count} of {limit} available {label} slots are occupied.'
+                    + (' One slot is reserved for critical jobs.' if reserve else '')
+                    + ' This is local concurrency, not a token-limit refusal.')
+    return ''
+
+
 def _promote(state):
     rows = list(state['tickets'].values())
     active = [r for r in rows if r['state'] == 'running']
@@ -96,29 +129,7 @@ def _promote(state):
     while pending:
         eligible = []
         for row in pending:
-            if row.get('not_before', 0) > time.time() or row.get('usage_deferred'):
-                continue
-            # Maintenance wrappers have their own single slot: a wrapper may await a model
-            # child, so occupying every model slot here would cause a nested-admission deadlock.
-            maintenance = row['provider'] == 'maintenance'
-            group = [r for r in active if (r['provider'] == 'maintenance') == maintenance]
-            reserved = any(r.get('reserve_slot') for r in rows)
-            total_limit = TOTAL if row.get('critical') or not reserved else max(0, TOTAL-1)
-            if len(group) >= (1 if maintenance else total_limit):
-                continue
-            reserve = any(r.get('reserve_provider',r.get('reserve_slot')) and r['provider'] == row['provider'] for r in rows)
-            limit = PER_PROVIDER if row.get('critical') or not reserve else max(0, PER_PROVIDER-1)
-            if sum(r['provider'] == row['provider'] for r in group) >= limit:
-                continue
-            realm_reserved = any(r.get('reserve_realm',r.get('reserve_slot')) and r['realm'] == row['realm'] for r in rows)
-            realm_limit = PER_REALM if row.get('critical') or not realm_reserved else max(0, PER_REALM-1)
-            if sum(r['realm'] == row['realm'] for r in group) >= realm_limit:
-                continue
-            identity = (row['realm'], row['agent'], row['thread'])
-            if any((r['realm'], r['agent'], r['thread']) == identity for r in active):
-                continue
-            # Preserve FIFO for a conversation even when its provider changed while queued.
-            if any((r['realm'], r['agent'], r['thread']) == identity for r in pending[:pending.index(row)]):
+            if _blocking_reason(row, active, pending, rows):
                 continue
             eligible.append(row)
         if not eligible:
@@ -131,9 +142,12 @@ def _promote(state):
         selected_realm = realms[(realms.index(last) + 1) % len(realms)] if last in realms else realms[0]
         row = next(r for r in eligible if r['realm'] == selected_realm)
         row['state'] = 'running'
+        row.pop('queue_reason', None)
         state['last_realm'] = selected_realm
         pending.remove(row)
         active.append(row)
+    for row in pending:
+        row['queue_reason'] = _blocking_reason(row, active, pending, rows)
 
 
 @contextmanager
@@ -151,10 +165,11 @@ def _transaction():
 
 
 class Ticket:
-    def __init__(self, context, provider, *, realm_required=True):
+    def __init__(self, context, provider, *, realm_required=True, background=False):
         if not isinstance(provider, str) or not provider or len(provider) > 80:
             raise util.StateError('Invalid execution resource.')
         self.context, self.provider = context, provider
+        self.background = background
         self.slot = self.token = self.owner = None
         self._callbacks = set()
         self._callback_lock = threading.Lock()
@@ -172,7 +187,7 @@ class Ticket:
     def _publish(self, context, provider, realm_required):
         from . import updater, realmops
         from .run_policy import admission
-        hints = admission(context.realm.root, context.agent, context.thread, provider)
+        hints = admission(context.realm.root, context.agent, context.thread, provider, background=self.background)
         with updater.admission_lock(), realmops.lifecycle_lock(context.realm.root):
             if updater.installed() and updater.admission_paused():
                 raise util.StateError('ARMADA is updating. New work can start after it reopens.')
@@ -206,7 +221,7 @@ class Ticket:
         # Refresh owner priority and current usage while waiting; a fresh reading can
         # release work without recreating tickets or retaining a provider slot.
         from .run_policy import admission
-        hints = admission(self.context.realm.root, self.context.agent, self.context.thread, self.provider)
+        hints = admission(self.context.realm.root, self.context.agent, self.context.thread, self.provider, background=self.background)
         with _transaction() as state:
             row = self._row(state)
             row.update(hints)
@@ -214,10 +229,12 @@ class Ticket:
                 self.cancelled = True
                 raise Cancelled('Run stopped by the owner before execution.')
             _promote(state)
+            self.queue_reason = row.get('queue_reason', '')
             return row['state'] == 'running'
 
-    def wait(self, cancelled=lambda: False, on_wait=None):
+    def wait(self, cancelled=lambda: False, on_wait=None, on_queue=None):
         announced = False
+        previous_reason = None
         while True:
             if cancelled():
                 raise Cancelled('Run stopped by the owner before execution.')
@@ -226,6 +243,9 @@ class Ticket:
             if not announced and on_wait:
                 on_wait()
                 announced = True
+            if on_queue and self.queue_reason != previous_reason:
+                previous_reason = self.queue_reason
+                on_queue(self.queue_reason)
             self._stop.wait(POLL_SECONDS)
 
     def _watch(self):
@@ -289,7 +309,7 @@ class Ticket:
 
 
 @contextmanager
-def scope(context, provider, *, cancelled=lambda: False, on_cancel=None, on_wait=None, realm_required=True):
+def scope(context, provider, *, cancelled=lambda: False, on_cancel=None, on_wait=None, on_queue=None, realm_required=True, background=False):
     inherited = _current.get()
     same = inherited and (inherited.context.realm, inherited.context.agent, inherited.context.thread) == (context.realm, context.agent, context.thread)
     if same:
@@ -300,9 +320,9 @@ def scope(context, provider, *, cancelled=lambda: False, on_cancel=None, on_wait
         with inherited.activate(on_cancel):
             yield inherited
         return
-    ticket = Ticket(context, provider, realm_required=realm_required)
+    ticket = Ticket(context, provider, realm_required=realm_required, background=background)
     try:
-        ticket.wait(lambda: cancelled() or bool(inherited and inherited.cancelled), on_wait)
+        ticket.wait(lambda: cancelled() or bool(inherited and inherited.cancelled), on_wait, on_queue)
         if inherited:
             with inherited.activate(on_cancel), ticket.activate(on_cancel):
                 yield ticket
@@ -356,7 +376,7 @@ def view(root, agent=None, thread=None):
 
 
 @contextmanager
-def provider_call(provider, cwd=None, on_proc=None, on_wait=None):
+def provider_call(provider, cwd=None, on_proc=None, on_wait=None, on_queue=None):
     """Include auxiliary model calls (titles/search/reviews/compaction) in the same budget."""
     from .request_context import RunContext
     inherited = _current.get()
@@ -391,5 +411,6 @@ def provider_call(provider, cwd=None, on_proc=None, on_wait=None):
                 handle.kill()
         if on_proc:
             on_proc(handle)
-    with scope(context, provider, on_cancel=stop, on_wait=on_wait, realm_required=required):
+    with scope(context, provider, on_cancel=stop, on_wait=on_wait, on_queue=on_queue, realm_required=required,
+               background=inherited.background if inherited else True):
         yield bind

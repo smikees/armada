@@ -186,6 +186,19 @@ def test_weekly_only_account_does_not_invent_a_session_limit():
     assert '>Not reported</span>' in rows[1]
 
 
+def test_api_credit_and_bucket_controls_do_not_add_provider_grid_rows():
+    claude = {'available': True, 'session': {'pct': 93}, 'weekly': {'pct': 40},
+              'api_credit': {'spent_usd': 0, 'cap_usd': 100}}
+    codex = {'available': True, 'groups': [{'id': name, 'name': name, 'windows': [
+        {'window_minutes': 10080, 'pct': 12}]} for name in ('codex', 'other')]}
+    html = _render_limits(claude, codex, gemini={'available': True, 'weekly': {'pct': 0}})
+    grid = html.index('<div class="mc-limit-groups">')
+    assert html.index('Claude API $0.00 / $100') < grid
+    assert html.index('aria-label="Codex usage bucket"') < grid
+    rows = _rows(html)
+    assert len(rows) == 6 and rows[1].count('Not reported') == rows[5].count('Not reported') == 1
+
+
 def test_stale_or_null_percentages_are_not_shown_as_current_values():
     claude = {"available": True, "stale": True, "age_sec": 172800,
               "weekly": {"pct": 89, "resets_in": "1h 0m"}}

@@ -112,7 +112,7 @@ def execute_request(engine, request: RunRequest, *, on_event=None, on_proc=None)
     from .process import safe_emit
     try:
         with provider_call(getattr(engine, 'name', 'unknown'), request.cwd, on_proc,
-                on_wait=lambda: safe_emit(on_event, {'kind': 'status', 'activity': 'Queued — waiting for execution capacity…'})) as bind:
+                on_queue=lambda reason: safe_emit(on_event, {'kind': 'status', 'activity': reason})) as bind:
             return _execute_request(engine, request, on_event=on_event, on_proc=bind)
     except Cancelled as exc:
         return RunResult(ok=False, cancelled=True, error=str(exc))

@@ -39,6 +39,10 @@ owner frees capacity; the caller's durable attempt record retains any uncertain 
 
 —
 
+### `_blocking_reason(row, active, pending, rows)`
+
+—
+
 ### `_promote(state)`
 
 —
@@ -51,16 +55,16 @@ owner frees capacity; the caller's durable attempt record retains any uncertain 
 
 —
 
-- `Ticket.__init__(self, context, provider, *, realm_required=True)` — —
+- `Ticket.__init__(self, context, provider, *, realm_required=True, background=False)` — —
 - `Ticket._publish(self, context, provider, realm_required)` — —
 - `Ticket._row(self, state)` — —
 - `Ticket.ready(self)` — —
-- `Ticket.wait(self, cancelled=lambda: False, on_wait=None)` — —
+- `Ticket.wait(self, cancelled=lambda: False, on_wait=None, on_queue=None)` — —
 - `Ticket._watch(self)` — —
 - `Ticket.activate(self, on_cancel=None)` — —
 - `Ticket.close(self)` — —
 
-### `scope(context, provider, *, cancelled=lambda: False, on_cancel=None, on_wait=None, realm_required=True)`
+### `scope(context, provider, *, cancelled=lambda: False, on_cancel=None, on_wait=None, on_queue=None, realm_required=True, background=False)`
 
 —
 
@@ -84,6 +88,6 @@ Release capacity while a logical invocation waits for its subscription reset.
 
 Read-only presentation hint. Kernel ownership, never this hint, admits execution.
 
-### `provider_call(provider, cwd=None, on_proc=None, on_wait=None)`
+### `provider_call(provider, cwd=None, on_proc=None, on_wait=None, on_queue=None)`
 
 Include auxiliary model calls (titles/search/reviews/compaction) in the same budget.

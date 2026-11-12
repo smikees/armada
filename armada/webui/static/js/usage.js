@@ -84,18 +84,19 @@ function headerLimitsHTML(claude,codex,bucket,gemini){
   const weekly=windows.find(w=>w.window_minutes===10080||w.label==='Weekly');
   const session=windows.find(w=>w.window_minutes>0&&w.window_minutes<1440||w.label==='5h window');
   let select='';
-  if(groups.length>1)select='<select aria-label="Codex usage bucket">'
+  if(groups.length>1)select='<select class="mc-limit-bucket" aria-label="Codex usage bucket">'
     +groups.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===g.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>';
-  return '<div class="mc-limits-title">Subscription limits</div><div class="mc-limit-groups">'
+  const credit=claude&&claude.api_credit;
+  const creditHTML=credit?'<span class="mc-limit-credit" title="'+esc(credit.reason||'Real API spend; active runs reserve their ceiling')+'">Claude API '
+    +(typeof credit.spent_usd==='number'?'$'+credit.spent_usd.toFixed(2)+' / $'+esc(String(credit.cap_usd)):'closed')+'</span>':'';
+  return '<div class="mc-limits-title">Subscription limits'+creditHTML+select+'</div><div class="mc-limit-groups">'
     +'<div class="mc-limit-periods" aria-hidden="true"><span class="mc-limit-label">Week</span><span class="mc-limit-label">Session</span></div>'
     +[['Codex',weekly,session,codex],['Claude',claude&&claude.weekly,claude&&claude.session,claude],
       ['Gemini',gemini&&gemini.weekly,null,gemini||{available:false,message:'Checking Gemini connection…'}]].map(([provider,week,session,d])=>
       '<div class="mc-limit-group'+(d&&d.loading?' is-loading':!d||!(d.connected??d.available)?' is-inactive':'')+(d&&d.placeholder?' is-placeholder':'')+'" role="group" aria-label="'+provider+' subscription limits"'+(d&&d.loading?' aria-busy="true"':'')+(d&&d.placeholder?' title="Gemini support is planned; not available yet."':'')+'>'
       +'<div class="mc-limit-group-head"><span class="mc-limit-provider" role="img" aria-label="'+provider+'" title="'+provider+'">'
       +(window.mcProviderLogo?window.mcProviderLogo(provider.toLowerCase(),16,!!(d&&(d.connected??d.available))):window.mcIcon(provider.toLowerCase(),16))+'</span></div>'
-      +limitRowHTML(provider,'Week',week,d)+limitRowHTML(provider,'Session',session,d)+(provider==='Codex'?select:'')
-      +(provider==='Claude'&&d?.api_credit?'<span class="mc-hint" title="'+esc(d.api_credit.reason||'Real API spend; active runs reserve their ceiling')+'">API '
-        +(typeof d.api_credit.spent_usd==='number'?'$'+d.api_credit.spent_usd.toFixed(2)+' / $'+d.api_credit.cap_usd.toFixed(2):'closed')+'</span>':'')+'</div>').join('')+'</div>';
+      +limitRowHTML(provider,'Week',week,d)+limitRowHTML(provider,'Session',session,d)+'</div>').join('')+'</div>';
 }
 let limitsData={},limitsGeneration=0;
 async function renderHeaderLimits(force){
