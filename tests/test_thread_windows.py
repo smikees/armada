@@ -98,6 +98,19 @@ def test_state_detects_messages_renames_and_live_progress(realm):
     assert "No messages yet" in empty["html"]
 
 
+def test_state_updates_detached_model_and_effort_after_owner_settings_save(realm):
+    first=thread_windows.state(realm,'captain','main')
+    before=Thread(Path(realm)/'agents/captain','main').snapshot()
+    with ServedRealm(realm) as server:
+        result=server.post('/api/save-agent',{'agent':'captain','model':'claude-sonnet-4-6','effort':'low'})
+        assert result['ok']
+        after=json.loads(server.get('/api/thread-state?agent=captain&thread=main&revision='+first['revision']))
+    assert after['model_badge']!=first['model_badge']
+    assert 'data-model="claude-sonnet-4-6"' in after['model_badge']
+    assert 'data-effort="low"' in after['model_badge'] and '<a ' not in after['model_badge']
+    assert Thread(Path(realm)/'agents/captain','main').snapshot()==before
+
+
 def test_open_route_returns_bound_destination_and_unavailable_is_explicit(realm, monkeypatch):
     monkeypatch.setattr(app, "open_thread", lambda *args: False)
     ctx = RealmContext.capture(realm)

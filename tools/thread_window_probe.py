@@ -256,6 +256,17 @@ def run(output):
                 check("native frame shaped", companion.native.Region is not None)
                 check('detached header includes model before realm',companion.evaluate_js("(()=>{const h=document.querySelector('.mc-thread-identity');return !!h.querySelector('.mc-agent-model-badge')&&h.innerHTML.indexOf('mc-agent-model-badge')<h.innerHTML.indexOf('mc-ax-subtitle');})()"))
                 check('detached header omits redundant main-thread label',companion.evaluate_js("!document.querySelector('.mc-chat-heading').textContent.includes('main thread')"))
+                original_badge=companion.evaluate_js("document.querySelector('.mc-agent-model-badge').textContent")
+                companion.evaluate_js("window.__modelDraft=document.getElementById('mc-msg');window.__modelDraft.value='Keep this unsent draft';window.__modelDraft.focus();window.__modelDraft.setSelectionRange(5,9);true")
+                changed={**cfg,'agent':'captain','model':'claude-sonnet-4-6','effort':'low'}
+                saved=app._browser_result(main,"fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:"+json.dumps(json.dumps(changed))+"}).then(r=>r.json())")
+                check('owner settings save changes the synthetic model',saved.get('ok'))
+                wait_for(lambda: companion.evaluate_js("!!document.querySelector('.mc-thread-identity [data-model=\"claude-sonnet-4-6\"][data-effort=low]')"),'open detached header follows a model and effort change')
+                check('model refresh preserves draft node text and selection',companion.evaluate_js("window.__modelDraft===document.getElementById('mc-msg')&&window.__modelDraft.value==='Keep this unsent draft'&&window.__modelDraft.selectionStart===5&&window.__modelDraft.selectionEnd===9"))
+                restored=app._browser_result(main,"fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:"+json.dumps(json.dumps({**cfg,'agent':'captain'}))+"}).then(r=>r.json())")
+                check('owner settings restore the synthetic model',restored.get('ok'))
+                wait_for(lambda: companion.evaluate_js("document.querySelector('.mc-agent-model-badge').textContent")==original_badge,'detached header follows restored model settings')
+                companion.evaluate_js("window.__modelDraft.value='';true")
                 edge = wait_for(lambda: getattr(companion, '_thread_edge', None), 'native edge attached')
                 try:
                     wait_for(lambda: edge.current(), 'native antialiased edge captured')

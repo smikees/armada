@@ -255,6 +255,7 @@ mcHydrateTW();mcApplyVis();
     document.querySelectorAll('[data-agentdot]').forEach(el=>{const st=m[el.dataset.agentdot];
       const d=el.querySelector('.mc-actdot');if(d&&st)mcApplyActDot(d,st);});
     mcSeenWidgets.forEach(a=>mcFadeAgentDots(a));   // re-clear anything a read widget already saw
+    window.dispatchEvent(new CustomEvent('armada:agent-activity',{detail:m}));
   }
   tick();setInterval(tick,4000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick();});

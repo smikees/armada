@@ -106,6 +106,28 @@ def test_activity_is_a_builtin_widget_and_outside_dashboard_header(tmp_path):
     assert 'data-id="activity"' in html and 'Activity monitor' in html
     assert html.index('data-activity-monitor') > html.index('id="mc-grid"')
     assert 'mc-attention-summary' not in html[html.index('id="mc-ovh"'):html.index('id="mc-grid"')]
+    assert 'data-activity-refresh' in html and 'aria-label="Refresh activity"' in html
+
+
+def test_activity_deduplicates_portraits_and_tracks_completion_without_marking_read(tmp_path):
+    root=Path(build_fixture(tmp_path/'realm'))
+    agent=root/'agents/captain'
+    util.write_json_atomic(agent/'threads/meta.json',{'unread':{'main':True,'other':True}})
+    marker=agent/'runs/.running/avatar-test.json'
+    util.write_json_atomic(marker,{})
+    rendered=content(reader.read(root),root)
+    assert rendered.count('data-activity-key="working:captain"')==1
+    assert rendered.count('data-activity-key="unread-replies:captain"')==1
+    assert 'data-act="working"' in rendered and 'animation:mc-actwork' in rendered
+    assert '<details' not in rendered and '<summary' not in rendered
+    assert rendered.index('class="mc-attention-summary')>rendered.index('data-activity-group="failed-replies"')
+    assert 'border-radius:50%' in rendered
+    marker.unlink()
+    completed=content(reader.read(root),root)
+    assert 'data-activity-key="working:captain"' not in completed
+    assert 'data-activity-key="unread-replies:captain"' in completed
+    assert 'data-act="unseen"' in completed
+    assert util.read_json_state(agent/'threads/meta.json')['unread']=={'main':True,'other':True}
 
 
 def test_mark_read_requires_an_explicit_thread_action(tmp_path):

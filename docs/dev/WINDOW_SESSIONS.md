@@ -22,15 +22,23 @@ Detached headers share the standard model badge and coordinator, inspector and
 autonomy marks. The redundant main/sub-thread label is omitted in that view. Reading
 is acknowledged through an authenticated realm-bound action after focus, rather
 than by rendering a background window. Companion access remains realm-bound.
+The existing thread-state poll also carries the current model/effort badge. Detached
+views replace only that badge when settings change, preserving the composer draft,
+transcript, selection and native window.
 
 The Activity monitor is a built-in dashboard widget (`activity`), including normal
 layout persistence, hide/show, resizing and promotion to a section. Independent
 groups preserve simultaneous working, unread and input signals. Latest failed chat
 outcomes remain until superseded. Existing attention items appear inside the widget.
-Four-second refreshes use local records only and pause when the document is hidden.
-They preserve scrolling, attention disclosure state and keyboard focus. Failed
-refreshes show that the current reading is stale; merely viewing the widget does
-not change unread metadata.
+Each group is a row of circular portraits with the existing activity dots. Multiple
+threads or requests share one portrait per agent in each row, with details in its
+accessible name and tooltip. Attention items remain visible at the end.
+Full refreshes use local records every five minutes while visible, or on the header's
+Refresh activity button. The shared lightweight activity-dot poll also triggers a
+refresh on state changes, so a finishing agent moves rows promptly. Updates preserve
+scrolling and keyboard focus, including when the focused agent leaves a row. Failed
+refreshes retain the last reading and show it is stale. Merely viewing the widget
+does not change unread metadata.
 
 Synthetic native checks cover real offscreen WinForms recovery, cross-realm session
 reconstruction and its 20-pixel cascade, tray recovery and desktop teardown. The

@@ -1606,7 +1606,7 @@ def _initial_header_limits(codex_enabled: bool) -> str:
         for period in ('Week', 'Session'):
             rest = (f'<span class="mc-limit-loading" role="status" aria-label="Loading {provider} {period.lower()} limit">'
                     '<i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></span>'
-                    if loading else '<span class="mc-limit-bar" role="img" aria-label="Codex is not enabled for this realm."></span>')
+                    if loading else '<span class="mc-limit-bar" role="img" aria-label="Codex is not enabled for this realm."></span><span class="mc-limit-unavailable">Not reported</span>')
             rows.append(f'<div class="mc-limit-row {"is-loading" if loading else "is-unavailable"}"'
                         f'{" aria-busy=\"true\"" if loading else ""}>'
                         f'{rest}</div>')

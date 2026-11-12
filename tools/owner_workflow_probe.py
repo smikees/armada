@@ -41,12 +41,36 @@ def run(output):
                                 'schedule': 'manual', 'prompt': 'Never execute this fixture.', 'enabled': False})
         before = agent_path.read_bytes(), (root / 'realm.json').read_bytes()
         entered, release = threading.Event(), threading.Event()
+        activity_entered,activity_release=threading.Event(),threading.Event()
 
         class Fixture(serve.Handler):
             capture_html = ''
             delay_layout = False
             reject_layout = False
             saves = []
+            activity_reads = 0
+            reject_activity = False
+            delay_activity = False
+
+            def _send(self,code,body,ctype='text/html; charset=utf-8',cache='',csp=''):
+                if isinstance(body,str) and '<head>' in body:
+                    # Observe the real registered timer and advance it without
+                    # making a native probe wait five wall-clock minutes.
+                    body=body.replace('<head>',"<head><script>window.__probeIntervals=[];const nativeInterval=window.setInterval.bind(window);window.setInterval=(fn,delay,...args)=>{window.__probeIntervals.push({fn,delay});return nativeInterval(fn,delay,...args);};</script>",1)
+                super()._send(code,body,ctype,cache,csp)
+
+            def _get_activity_monitor(self):
+                type(self).activity_reads+=1
+                if type(self).delay_activity:
+                    type(self).delay_activity=False
+                    activity_entered.set()
+                    if not activity_release.wait(10):
+                        self._json(503,{'error':'Synthetic delay expired'})
+                        return
+                if type(self).reject_activity:
+                    self._json(503,{'error':'Synthetic refresh refused'})
+                else:
+                    super()._get_activity_monitor()
 
             def _route_get(self):
                 path = self.path.split('?')[0]
@@ -54,7 +78,9 @@ def run(output):
                     self._send(200, type(self).capture_html)
                 elif path == '/api/providers':
                     self._json(200, {'providers': {p: {} for p in ('claude', 'codex', 'gemini')}, 'models': []})
-                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor'):
+                elif path == '/api/usage-limits':
+                    self._json(200,{'available':False,'connected':True,'message':'Synthetic provider has not supplied a reading.'})
+                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor','/api/agent-activity'):
                     self._json(200, {})
                 else:
                     super()._route_get()
@@ -122,20 +148,45 @@ def run(output):
                 wait(lambda: js("document.readyState==='complete'&&typeof mcConfirm==='function'&&!!document.getElementById('mc-grid')"), 'Overview ready')
                 wait(lambda: js("document.querySelector('.mc-attention-summary').textContent.includes('job proposals')"), 'Attention links pending review')
                 wait(lambda: js("!!document.querySelector('.mc-w[data-id=activity] [data-activity-monitor]')&&!document.querySelector('#mc-ovh .mc-attention-summary')"),'Activity monitor owns attention outside the header')
+                wait(lambda: js("document.querySelectorAll('#mc-hdr-limits .mc-limit-unavailable').length===6&&[...document.querySelectorAll('#mc-hdr-limits .mc-limit-unavailable')].every(el=>el.textContent==='Not reported')"),'Missing subscription readings keep Not reported in every row')
+                assert js("[...document.querySelectorAll('#mc-hdr-limits .mc-limit-bar')].every(el=>getComputedStyle(el).borderTopStyle==='dashed'&&parseFloat(getComputedStyle(el).borderTopWidth)>=1&&el.getBoundingClientRect().width>0)")
+                result['checks'].append('Missing subscription readings retain dashed tracks in the default theme')
                 from armada import thread_metadata
                 # The probe stays invisible to the owner. Simulate a visible
                 # document for a widget that deliberately pauses hidden polling.
                 js("Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});true")
+                js("window.__activitySignals=0;window.addEventListener('armada:agent-activity',()=>window.__activitySignals++);true")
                 thread_metadata.set_unread(root/'agents/captain','main',True)
                 marker=root/'agents/captain/runs/.running/widget-probe.json'
                 util.write_json_atomic(marker,{})
-                js('window.mcRefreshActivityMonitor();true')
-                wait(lambda: js("[...document.querySelectorAll('[data-activity-monitor] section')].some(s=>s.textContent.includes('Working')&&s.querySelector('li'))"),'Activity monitor refreshes working agents')
-                wait(lambda: js("[...document.querySelectorAll('[data-activity-monitor] section')].some(s=>s.textContent.includes('Unread replies')&&s.querySelector('li'))"),'Activity monitor refreshes unread replies')
+                Fixture.delay_activity=True
+                js("document.querySelector('[data-activity-refresh]').focus();document.querySelector('[data-activity-refresh]').click();true")
+                assert activity_entered.wait(5)
+                assert js("document.querySelector('[data-activity-refresh]').disabled&&document.querySelector('[data-activity-monitor]').getAttribute('aria-busy')==='true'")
+                activity_release.set()
+                wait(lambda: js("!!document.querySelector('[data-activity-group=working] .mc-activity-avatar .mc-actdot[data-act=working]')&&!document.querySelector('[data-activity-refresh]').disabled"),'Refresh icon updates circular avatars with pulsing working dots')
+                assert js("getComputedStyle(document.querySelector('[data-activity-group=working] .mc-av')).borderRadius==='50%'&&getComputedStyle(document.querySelector('[data-activity-group=working] .mc-actdot')).animationName==='mc-actwork'")
+                wait(lambda: js("!!document.querySelector('[data-activity-group=unread-replies] .mc-activity-avatar[aria-label]')"),'Activity monitor refreshes unread avatars with accessible names')
+                assert js("!document.querySelector('[data-activity-monitor] details')&&!document.querySelector('[data-activity-monitor] summary')")
                 assert util.read_json_state(root/'agents/captain/threads/meta.json')['unread']['main']
+                wait(lambda: js('window.__activitySignals>0'),'Shared status poll reports live activity')
+                js("document.querySelector('[data-activity-group=working] .mc-activity-avatar').focus();true")
                 marker.unlink()
-                js("window.mcRefreshActivityMonitor();true")
-                wait(lambda: js("[...document.querySelectorAll('[data-activity-monitor] section')].find(s=>s.textContent.includes('Working')).querySelector('p').textContent==='None'"),'Completed activity disappears from the monitor')
+                wait(lambda: js("!document.querySelector('[data-activity-group=working] li')&&!!document.querySelector('[data-activity-group=unread-replies] li')"),'Completed agent automatically moves out of Working and remains unread')
+                assert js("document.activeElement.matches('[data-activity-refresh]')"),'Removed focused avatar returns focus to Refresh'
+                result['checks'].append('Completion preserves keyboard focus and unread metadata')
+                assert js("window.__probeIntervals.find(i=>i.fn===window.mcRefreshActivityMonitor).delay===300000")
+                reads=Fixture.activity_reads
+                js('window.__probeIntervals.find(i=>i.fn===window.mcRefreshActivityMonitor).fn();true')
+                wait(lambda: Fixture.activity_reads>reads and js("!document.querySelector('[data-activity-refresh]').disabled"),'Five-minute timer refreshes the actual widget snapshot')
+                snapshot=js("document.querySelector('[data-activity-monitor]').innerHTML")
+                Fixture.reject_activity=True
+                js("document.querySelector('[data-activity-refresh]').click();true")
+                wait(lambda: js("document.querySelector('[data-activity-monitor]').hasAttribute('data-stale')&&!document.querySelector('[data-activity-refresh]').disabled"),'Refresh failure preserves content and reports a stale reading')
+                assert js("document.querySelector('[data-activity-monitor]').innerHTML")==snapshot
+                Fixture.reject_activity=False
+                js("document.querySelector('[data-activity-refresh]').click();true")
+                wait(lambda: js("!document.querySelector('[data-activity-monitor]').hasAttribute('data-stale')&&!document.querySelector('[data-activity-refresh]').disabled"),'Refresh icon recovers after a failed refresh')
                 js("document.getElementById('mc-addwidget').focus();window.answer='pending';mcConfirm('Remove synthetic item?','Nothing real is changed.',{ok:'Remove',danger:true}).then(value=>window.answer=value);true")
                 wait(lambda: js("document.activeElement.matches('[data-no]')&&!!document.querySelector('[role=dialog][aria-modal=true]')"), 'Destructive dialog starts on Cancel and is named')
                 js("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}))")
@@ -149,6 +200,11 @@ def run(output):
                 wait(lambda: js("window.answer===false&&!document.querySelector('.mc-confirm-ov')"), 'Escape cancels without confirming')
                 wait(lambda: js("document.documentElement.scrollWidth<=innerWidth+1&&document.querySelector('.mc-nav-actions').getBoundingClientRect().right<=innerWidth+1"), '1024px navigation fits and actions remain reachable')
                 js("document.documentElement.classList.remove('armada-dark');document.body.classList.remove('armada-dark')")
+                for aid in ('navigator','quartermaster'):
+                    util.write_json_atomic(root/f'agents/{aid}/runs/.running/widget-display.json',{})
+                js('window.mcRefreshActivityMonitor();true')
+                wait(lambda: js("document.querySelectorAll('[data-activity-group=working] .mc-activity-avatar').length===2"),'Working portraits share a horizontal row')
+                assert js("(()=>{const a=[...document.querySelectorAll('[data-activity-group=working] .mc-activity-avatar')].map(e=>e.getBoundingClientRect());return Math.abs(a[0].top-a[1].top)<1&&a[1].left>a[0].right;})()")
                 capture('m11-overview-light-1024')
                 Fixture.delay_layout = True
                 js("MC_DASH.heights.register=401;mcDashSave()")
@@ -177,6 +233,7 @@ def run(output):
                 navigate('/')
                 wait(lambda: js('innerWidth<800&&document.documentElement.scrollWidth<=innerWidth+1'), '150 percent zoom fits the logical viewport')
                 js("document.documentElement.classList.add('armada-dark')")
+                assert js("[...document.querySelectorAll('#mc-hdr-limits .mc-limit-bar')].every(el=>getComputedStyle(el).borderTopStyle==='dashed')")
                 capture('m11-overview-dark-150pct')
                 navigate('/settings?tab=realm')
                 js("document.documentElement.classList.add('armada-dark');mcChangelog(true)")
@@ -191,6 +248,7 @@ def run(output):
                 result['state'] = js("JSON.stringify({path:location.pathname,focus:document.activeElement?.outerHTML?.slice(0,300),width:innerWidth,scrollWidth:document.documentElement.scrollWidth,status:document.querySelector('[data-policy-status]')?.textContent})")
             finally:
                 release.set()
+                activity_release.set()
                 util.write_text_atomic(output, json.dumps(result, indent=2))
                 window.destroy()
 

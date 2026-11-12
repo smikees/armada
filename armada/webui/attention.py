@@ -7,7 +7,7 @@ from .agentbits import _runs
 log = logging.getLogger(__name__)
 
 
-def panel(realm, root):
+def panel(realm, root, *, collapsible=True):
     rows = []
     today = clock.today().isoformat()
     for agent in realm.agents:
@@ -37,8 +37,12 @@ def panel(realm, root):
             swallowed(log, 'attention: review records unavailable')
             rows.append((href, f'Could not read {label}; open the page to check'))
     if not rows:
+        if not collapsible:
+            return ('<section class="mc-attention-summary"><h3>Needs attention</h3>'
+                    '<p>No failed runs today or pending approvals found.</p></section>')
         return ('<div class="mc-attention-summary">Attention: no failed runs today or pending approvals found.</div>')
-    return ('<details class="mc-attention-summary is-active"><summary>Needs attention · '
-            f'{len(rows)} area{"s" if len(rows) != 1 else ""} to review</summary><ul>' +
+    tag,heading=('details','summary') if collapsible else ('section','h3')
+    return (f'<{tag} class="mc-attention-summary is-active"><{heading}>Needs attention · '
+            f'{len(rows)} area{"s" if len(rows) != 1 else ""} to review</{heading}><ul>' +
             ''.join(f'<li><a href="{E(href)}">{E(text)}</a></li>' for href, text in rows) +
-            '</ul><p>Recent failures remain listed for today; this is not a live provider health check.</p></details>')
+            f'</ul><p>Recent failures remain listed for today; this is not a live provider health check.</p></{tag}>')

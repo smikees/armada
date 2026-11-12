@@ -88,6 +88,8 @@ def state(root, agent, thread, revision=""):
                 [{key: item[key] for key in ('id', 'status', 'error') if key in item}
                  for item in steering.receipts(snapshot[1])])
     html, metrics, delivered = _renders.read((context.realm_id, agent, thread), stamp, build)
+    from .webui.agentframe import _agent_model_badge
+    payload['model_badge'] = _agent_model_badge(reader.roster(root),root,a,link=False)
     payload['metrics'] = dict(metrics)
     payload['steering'] = delivered
     digest = hashlib.sha256((html + json.dumps(payload, sort_keys=True)).encode("utf-8")).hexdigest()

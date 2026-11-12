@@ -10,6 +10,12 @@
   // Renaming/selecting the title must not start dragging the native frame.
   document.getElementById('mc-cttitle')?.addEventListener('mousedown',event=>event.stopPropagation());
   const resize=document.querySelector('[data-thread-resize]');
+  let modelHtml='';
+  window.mcSyncThreadModel=html=>{
+    const badge=document.querySelector('.mc-thread-identity .mc-agent-model-badge');
+    if(!badge||typeof html!=='string'||html===modelHtml)return;
+    badge.outerHTML=html;modelHtml=html;
+  };
   window.mcMarkThreadSeen=()=>{
     const box=document.getElementById('mc-turns');
     if(!box||document.hidden||!document.hasFocus?.())return;

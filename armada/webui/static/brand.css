@@ -441,7 +441,8 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-limit-groups{display:grid;grid-template-columns:34px repeat(3,194px);column-gap:16px;margin-top:3px;justify-content:start}
 .mc-limit-periods{display:grid;grid-template-rows:15px 15px;align-content:start}
 .mc-limit-group{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:8px;min-width:0}
-.mc-limit-group.is-inactive{opacity:.45}
+.mc-limit-group.is-inactive{opacity:1}
+.mc-limit-group.is-inactive .mc-limit-provider{opacity:.55}
 .mc-limit-group>.mc-limit-row,.mc-limit-group>select{grid-column:2}
 .mc-limit-group-head{display:flex;align-items:center;grid-column:1;grid-row:1 / span 2;align-self:start;height:15px}
 .mc-limit-group>select{font:inherit;font-size:11px;max-width:150px;height:18px;padding:0;border:0;background:transparent;color:var(--text-muted)}
@@ -455,7 +456,7 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-limit-pct{text-align:right;font-variant-numeric:tabular-nums}
 .mc-limit-reset{font-size:9.5px}
 .mc-limit-row.is-unavailable{color:var(--text-soft)}
-.mc-limit-row.is-unavailable .mc-limit-bar{background:var(--text-12)}
+.mc-limit-row.is-unavailable .mc-limit-bar{background:transparent;border:1px dashed var(--limit-border,var(--text-muted));box-sizing:border-box}
 .mc-limit-row.is-unavailable .mc-limit-pct,.mc-limit-row.is-unavailable .mc-limit-reset{color:var(--text-soft)}
 .mc-limit-loading{grid-column:1 / span 2;display:flex;align-items:center;justify-content:center;gap:4px;width:44px;height:15px;color:var(--text-muted)}
 .mc-limit-loading i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.3;animation:mc-limit-pulse 1.1s ease-in-out infinite}
@@ -1112,15 +1113,21 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-thread-identity .mc-agent-model-badge{max-width:100%;min-width:0}
 .mc-thread-identity .mc-agent-model-badge>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-activity-monitor{container-type:inline-size;container-name:activity-monitor}
-.mc-activity-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-@container activity-monitor (min-width:720px){.mc-activity-groups{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.mc-activity-groups h3{font-size:13px;line-height:1.4;margin:0 0 6px}
+.mc-activity-groups{display:flex;flex-direction:column;gap:8px}
+.mc-activity-groups section{display:flex;align-items:center;gap:12px;min-height:40px}
+.mc-activity-groups h3{flex:0 0 116px;font-size:13px;line-height:1.4;margin:0}
 .mc-activity-groups h3 span{font-weight:400;color:var(--text-muted);margin-left:4px}
-.mc-activity-groups ul{padding:0;margin:0;list-style:none}
-.mc-activity-groups li{margin:0 0 6px;overflow-wrap:anywhere}
-.mc-activity-groups a{font-size:12px;color:var(--color-text);text-decoration:underline;text-underline-offset:3px}
+.mc-activity-groups ul{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:0;margin:0;list-style:none;min-width:0}
+.mc-activity-groups li{display:flex;margin:0}
+.mc-activity-avatar{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px;border-radius:50%;color:inherit;text-decoration:none}
+.mc-activity-avatar:hover{background:var(--text-7)}
+.mc-activity-avatar:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+@container activity-monitor (max-width:280px){.mc-activity-groups section{align-items:flex-start;flex-direction:column;gap:4px}.mc-activity-groups h3{flex-basis:auto}}
 .mc-activity-empty{font-size:12px;color:var(--text-muted);margin:0}
-.mc-activity-monitor .mc-attention-summary{margin:16px 0 0}
+.mc-activity-monitor .mc-attention-summary{margin:16px 0 0;max-height:none;overflow:visible}
+.mc-activity-monitor .mc-attention-summary h3{font-size:12px;font-weight:600;line-height:1.5;margin:0}
+.mc-activity-feedback{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+[data-activity-refresh]:disabled{opacity:.5;cursor:wait}
 [data-activity-monitor][data-stale]::before{content:'Live refresh unavailable';display:block;font-size:12px;color:var(--status-warn);margin-bottom:10px}
 .mc-thread-window.is-window .mc-ax-name{font-size:16px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-thread-window .mc-ax-subtitle{font-size:11px;line-height:1.25;margin:0;padding-left:8px;border-left:1px solid var(--color-divider);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

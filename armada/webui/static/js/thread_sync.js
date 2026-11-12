@@ -38,6 +38,7 @@
         status.textContent='';delete status.dataset.syncError;delete status.dataset.transportError;
       }
       mcSetThreadTitle(thread,state.title);
+      window.mcSyncThreadModel?.(state.model_badge);
       if(state.previews){
         document.querySelectorAll('#mc-threadlist .mc-thread[data-slug]').forEach(row=>{
           const text=state.previews[row.dataset.slug],preview=row.querySelector('.mc-thpreview');

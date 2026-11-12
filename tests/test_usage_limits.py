@@ -159,6 +159,7 @@ def test_header_renderer_never_returns_empty_for_unavailable():
     assert "Codex usage is unavailable right now." in rows[0]
     assert html.count('is-inactive') == 3
     assert 'is-placeholder' not in html and 'Checking Gemini connection' in rows[4]
+    assert all('>Not reported</span>' in row and 'mc-limit-bar' in row for row in rows)
 
 
 def test_header_maps_codex_windows_by_duration_and_preserves_zero():
@@ -182,6 +183,7 @@ def test_weekly_only_account_does_not_invent_a_session_limit():
     assert '>8%</span>' in rows[0]
     assert 'is-unavailable' in rows[1] and 'does not report a session limit' in rows[1]
     assert 'aria-valuenow' not in rows[1]
+    assert '>Not reported</span>' in rows[1]
 
 
 def test_stale_or_null_percentages_are_not_shown_as_current_values():
@@ -234,3 +236,4 @@ def test_server_render_contains_loading_landmarks_before_javascript():
     assert html.count('>Week</span>') == html.count('>Session</span>') == 1
     assert html.count('mc-limit-provider') == 3
     assert _initial_header_limits(False).count('mc-limit-loading') == 4
+    assert _initial_header_limits(False).count('>Not reported</span>') == 2

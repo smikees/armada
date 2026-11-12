@@ -16,8 +16,10 @@ Rates: [OpenAI](https://developers.openai.com/api/docs/pricing),
 ## The widgets
 
 - **Activity monitor** — working agents, unread replies, agents needing input, failed replies,
-  and items needing attention. Each item links to its thread or review page. The widget refreshes
-  while the dashboard is visible; watching it does not mark replies read. Failed replies remain
+  and items needing attention. Each row shows clickable agent portraits with their usual status
+  dots; hover a portrait for its name and details. Needs attention stays visible at the
+  bottom. Use the header's refresh icon to update now. The widget refreshes every five minutes
+  while visible, and when agent activity changes; watching it does not mark replies read. Failed replies remain
   until that thread completes a later successful run. Use Manage widgets to hide or restore it.
 - **Register** — the team. Each row: the agent, their model and effort, how many goals and jobs
   they own, their next run, their tokens, and a seven-square **week strip** (the last three days,

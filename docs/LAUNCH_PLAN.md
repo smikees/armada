@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.144** is in release validation: restored missing subscription readings,
+Activity monitor avatar rows and refresh controls, and synchronized detached model badges.
+[Desktop/session contract](dev/WINDOW_SESSIONS.md).
+
 Version **0.99.143** is published: monitor recovery, saved detached thread
 sessions, shared header badges and an Activity monitor dashboard widget. The publisher
 passed **4,483 tests**, both exact-source Windows jobs passed **4,485 tests**, three
