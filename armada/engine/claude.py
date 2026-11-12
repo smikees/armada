@@ -613,6 +613,7 @@ class ClaudeEngine(EngineAdapter):
         else:
             args += ["--safe-mode", "--disallowedTools", _DENY, "--permission-prompts", "none"]
         state = _ClaudeStream(emit, model or "")
+        interactive=bool(getattr(on_event,'interactive_questions',False))
         def accept(line):
             from .raw_results import loads_event
             event = loads_event(line)
@@ -624,8 +625,12 @@ class ClaudeEngine(EngineAdapter):
                 admission.observed_tools(event.get('tools', []))
             state.accept(event)
         try:
-            process = supervise(lp + args, prompt=prompt, on_line=accept, timeout=timeout,
-                                cwd=cwd, env={**self._env(), **(env or {})}, on_proc=on_proc)
+            if interactive:
+                from .claude_questions import run
+                process=run(self,lp,args,prompt,state,accept,emit,on_event,on_proc,timeout,cwd,env)
+            else:
+                process = supervise(lp + args, prompt=prompt, on_line=accept, timeout=timeout,
+                                    cwd=cwd, env={**self._env(), **(env or {})}, on_proc=on_proc)
         finally:
             _drop_system_file(sys_file)
         error = _failure_reason(process, state.error)

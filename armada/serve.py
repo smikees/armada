@@ -459,6 +459,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         "/api/run": "_run", "/api/chat": "_chat", "/api/save-job": "_save_job",
         "/api/dry-run": "_start_dry_run", "/api/dry-run-stop": "_stop_dry_run",
         "/api/job-proposal": "_job_proposal", "/api/save-agent": "_save_agent",
+        "/api/thread-answer": "_thread_answer",
         "/api/render-md": "_render_md",
         "/api/job-enable": "_job_enable", "/api/delete-job": "_delete_job",
         "/api/upload-avatar": "_upload_avatar", "/api/upload-realm-icon": "_upload_realm_icon",

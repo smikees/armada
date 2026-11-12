@@ -1132,6 +1132,27 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-thread-window.is-window .mc-ax-name{font-size:16px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-thread-window .mc-ax-subtitle{font-size:11px;line-height:1.25;margin:0;padding-left:8px;border-left:1px solid var(--color-divider);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-thread-window .mc-chat-heading #mc-cttitle{grid-column:1;grid-row:2;font-size:16px!important;line-height:1.3;user-select:text}
+.mc-questions{max-height:36dvh;overflow:auto;margin:0 0 10px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-surface)}
+.mc-questions[hidden]{display:none}
+.mc-question-form{padding:12px;margin:0;color:var(--color-text)}
+.mc-question-form+.mc-question-form{border-top:1px solid var(--color-divider)}
+.mc-question-form h3{font-size:14px;line-height:1.4;margin:0 0 12px}
+.mc-question-form fieldset{min-width:0;border:0;padding:0;margin:0 0 14px}
+.mc-question-form legend{font-size:13px;font-weight:600;line-height:1.5;padding:0;margin:0 0 8px;overflow-wrap:anywhere}
+.mc-question-option{display:flex;align-items:flex-start;gap:8px;padding:6px;border-radius:var(--r);cursor:pointer}
+.mc-question-option:hover,.mc-question-option:has(input:checked){background:var(--text-7)}
+.mc-question-option input{flex:none;margin:3px 0 0;accent-color:var(--color-accent-2)}
+.mc-question-option-name,.mc-question-option-description{display:block;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.mc-question-option-description{color:var(--text-muted)}
+.mc-question-custom{display:block;font-size:12px;line-height:1.5;margin-top:6px}
+.mc-question-custom textarea{display:block;box-sizing:border-box;width:100%;resize:vertical;max-height:120px;margin-top:4px;padding:7px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font:inherit}
+.mc-question-actions{display:flex;flex-wrap:wrap;gap:8px}
+.mc-question-status{font-size:12px;line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere}
+.mc-question-status:empty{display:none}
+.mc-question-form :is(input,textarea,button):focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+.mc-question-history{flex:none;margin:4px 0 14px;padding:10px 12px;border:1px solid var(--color-divider);border-radius:var(--r);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.mc-question-history p{margin:4px 0}
+.mc-question-text{font-weight:600}
 .mc-thread-window .mc-chat-heading>span:last-child{grid-column:1/-1;grid-row:3;white-space:normal!important;line-height:1.5}
 .mc-thread-window #mc-comp-wrap{flex-wrap:wrap;gap:3px!important}
 .mc-thread-window [data-thread-close]{grid-column:2;grid-row:1/3;align-self:start;justify-content:center;width:28px;height:28px;padding:0;cursor:pointer}

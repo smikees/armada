@@ -659,6 +659,8 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
             turns += _turn('user', item.get('text', ''), item.get('ts', ''), i, False,
                            a.id, selected, a.display, a.is_coordinator, av=av, userav=userav,
                            actions=False, transcription=label + (': ' + item['error'] if item.get('error') else ''))
+        from .questions import history as question_history
+        turns+=question_history(m.get('question_requests',[]),running=running)
         if i in voice_pending:
             if any(r.get('role') == 'assistant' and r.get('turn') == m.get('turn') for r in msgs):
                 continue
@@ -891,6 +893,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             f'<div id="mc-composer-overlay" style="position:absolute;left:0;right:10px;bottom:0;pointer-events:none">'
             f'<div style="height:38px;background:linear-gradient(to bottom, transparent, var(--color-bg))"></div>'
             f'<div style="background:var(--color-bg);pointer-events:auto;padding:0 20px 14px">'
+            '<div id="mc-questions" class="mc-questions mc-scroll" aria-label="Agent questions" hidden></div>'
             f'{voice_panel}'
             f'<div class="mc-frame" style="display:flex;flex-direction:column;gap:6px;'
             f'border-radius:22px;padding:6px 8px 6px 10px;box-shadow:var(--shadow-sm)">'

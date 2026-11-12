@@ -33,6 +33,7 @@ def run(output):
     started = threading.Event()
     advance = threading.Event()
     steering_enabled = threading.Event()
+    question_mode=threading.Event()
     steering_enabled.set()
     with tempfile.TemporaryDirectory(prefix="armada-thread-window-", ignore_cleanup_errors=True) as directory:
         root = Path(directory)
@@ -92,7 +93,31 @@ def run(output):
                         cancelled.set()
                     def poll(self):
                         return -1 if cancelled.is_set() else None
-                on_proc(SteeringProcess(Process(), control))
+                process=SteeringProcess(Process(),control)
+                if question_mode.is_set():
+                    from armada.engine.questions import QuestionControl,QuestionProcess
+                    questions=QuestionControl(on_event)
+                    on_proc(QuestionProcess(process,questions))
+                    questions.add('synthetic-question','claude',[{
+                        'question':'Which format should this synthetic reply use?','header':'Format',
+                        'options':[{'label':'Brief','description':'A short synthetic reply'},
+                                   {'label':'Detailed','description':'A longer synthetic reply'}],'multiSelect':False},
+                        {'question':'Which sections should be included?','header':'Sections','multiSelect':True,
+                         'options':[{'label':'Summary','description':'Synthetic summary'},
+                                    {'label':'Checks','description':'Synthetic checks'}]}],
+                        lambda answers,skipped:{'answers':answers,'skipped':skipped})
+                    replies=[]
+                    deadline=time.monotonic()+30
+                    while not cancelled.is_set() and not replies and time.monotonic()<deadline:
+                        questions.drain(replies.append)
+                        cancelled.wait(.03)
+                    result.setdefault('question_answers',[]).extend(replies)
+                    questions.close(success=bool(replies) and not cancelled.is_set())
+                    output='Synthetic question answered.' if replies else 'Synthetic question cancelled.'
+                    on_event({'kind':'text','text':output})
+                    return RunResult(ok=bool(replies) and not cancelled.is_set(),output=output,
+                        cancelled=cancelled.is_set(),error='Run stopped by the owner.' if cancelled.is_set() else '',model='mock')
+                on_proc(process)
                 on_event({"kind": "thinking", "text": "Checking synthetic data"})
                 on_event({"kind": "tool", "id": "fixture-tool", "name": "Read", "input": {"file": "synthetic.txt"}})
                 on_event({"kind": "tool_result", "id": "fixture-tool", "content": "125.50", "is_error": False})
@@ -267,21 +292,75 @@ def run(output):
                 check('owner settings restore the synthetic model',restored.get('ok'))
                 wait_for(lambda: companion.evaluate_js("document.querySelector('.mc-agent-model-badge').textContent")==original_badge,'detached header follows restored model settings')
                 companion.evaluate_js("window.__modelDraft.value='';true")
+                original_companion=companion
+                Thread(Path(realm)/'agents/captain','questions-probe')._write({'role':'assistant','content':'Synthetic question fixture ready.'})
+                app.open_thread(realm,'captain','questions-probe')
+                companion=wait_for(lambda:next((w for w in app._thread_windows.values() if w._armada_thread_target['thread']=='questions-probe'),None),'dedicated question companion opens')
+                ready(companion)
+                main.load_url(local_auth.browser_url(url,'/agent/captain/threads?thread=questions-probe'))
+                ready(main)
+                question_mode.set()
+                for sender,responder,label in ((main,companion,'detached'),(companion,main,'main')):
+                    sender.evaluate_js("document.getElementById('mc-msg').value='Synthetic interactive question';mcChat('captain','questions-probe')")
+                    for view in (main,companion):
+                        wait_for(lambda view=view:view.evaluate_js("!!document.querySelector('#mc-questions form')&&!document.getElementById('mc-questions').hidden"),'question is visible in '+label+' shared view')
+                        check('questions do not preselect an answer',view.evaluate_js("!document.querySelector('#mc-questions input:checked')"))
+                    if label=='detached':
+                        companion.load_url(local_auth.browser_url(url,'/thread-window?agent=captain&thread=questions-probe&_realm='+RealmContext.capture(realm).realm_id))
+                        ready(companion)
+                        wait_for(lambda:companion.evaluate_js("!!document.querySelector('#mc-questions form')"),'reopening a view restores the pending question')
+                        for view,name in ((main,'main'),(companion,'detached')):
+                            view.evaluate_js("document.documentElement.classList.remove('armada-dark');true")
+                            screenshot(view,'thread-questions-'+name+'-light')
+                            view.evaluate_js("document.documentElement.classList.add('armada-dark');true")
+                            screenshot(view,'thread-questions-'+name+'-dark')
+                        check('question panel fits a detached window',companion.evaluate_js("document.getElementById('mc-questions').getBoundingClientRect().right<=innerWidth&&document.getElementById('mc-questions').clientHeight<=innerHeight*.37"))
+                    responder.evaluate_js("document.querySelector('#mc-questions button[type=submit]').click();true")
+                    wait_for(lambda:responder.evaluate_js("document.querySelector('#mc-questions [role=status]').textContent.includes('Answer each question')"),'empty answers stay unsent')
+                    selection="const custom=fields[0].querySelector('textarea');custom.value='Custom > detail';custom.dispatchEvent(new Event('input',{bubbles:true}));" if label=='main' else "fields[0].querySelector('input').click();"
+                    responder.evaluate_js("(()=>{const fields=document.querySelectorAll('#mc-questions fieldset');"+selection+"fields[1].querySelectorAll('input').forEach(el=>el.click());document.querySelector('#mc-questions button[type=submit]').click();return true;})()")
+                    for view in (main,companion):
+                        wait_for(lambda view=view:idle(view) and view.evaluate_js("document.getElementById('mc-questions').hidden"),'answered question resumes and clears '+label+' shared view')
+                        check('thread retains the question and owner answer', 'Which format' in text(view) and ('Custom > detail' if label=='main' else 'Brief') in text(view) and 'Summary, Checks' in text(view))
+                check('two question sets produce exactly two native responses',len(result.get('question_answers',[]))==2)
+                main.evaluate_js("document.getElementById('mc-msg').value='Skip a synthetic question';mcChat('captain','questions-probe')")
+                wait_for(lambda:companion.evaluate_js("!!document.querySelector('#mc-questions form')"),'new question can be skipped')
+                companion.evaluate_js("document.querySelector('#mc-questions button[type=button]').click();true")
+                wait_for(lambda:idle(main) and idle(companion),'Skip resumes the same run')
+                check('Skip sends no invented answer',len(result['question_answers'])==3 and result['question_answers'][-1]=={'answers':{},'skipped':True})
+                main.evaluate_js("document.getElementById('mc-msg').value='Cancel a synthetic question';mcChat('captain','questions-probe')")
+                wait_for(lambda:companion.evaluate_js("!!document.querySelector('#mc-questions form')"),'new question can wait for Stop')
+                companion.evaluate_js('mcStop();true')
+                wait_for(lambda:idle(main) and idle(companion),'Stop cancels a waiting question from the other view')
+                question_mode.clear()
+                check('Stop never invents an answer',len(result['question_answers'])==3)
+                companion.destroy()
+                companion=original_companion
+                main.load_url(local_auth.browser_url(url,'/agent/captain/threads?thread=main'))
+                ready(main)
+                check('question probe returns to the original conversation',main.evaluate_js("document.getElementById('mc-turns').dataset.thread==='main'"))
+                main.evaluate_js("document.documentElement.classList.remove('armada-dark');true")
+                companion.evaluate_js("document.documentElement.classList.remove('armada-dark');true")
                 edge = wait_for(lambda: getattr(companion, '_thread_edge', None), 'native edge attached')
                 try:
-                    wait_for(lambda: edge.current(), 'native antialiased edge captured')
+                    wait_for(lambda: edge.current() and not edge.busy and not edge.dirty, 'native antialiased edge captured after view/theme changes')
                 finally:
                     result['edge_diagnostics'] = {'error':edge.error,'size':edge.size,'dimensions':edge.dimensions(),'busy':edge.busy,'dirty':edge.dirty}
-                check('native perimeter leaves live conversation transparent', edge.bitmap.GetPixel(
-                    edge.bitmap.Width//2,edge.bitmap.Height//2).A == 0)
+                from System import Action
+                captures=[]
+                companion.native.Invoke(Action(lambda:captures.append(edge.bitmap.Clone())))
+                perimeter=captures[0]
+                check('native perimeter leaves live conversation transparent', perimeter.GetPixel(
+                    perimeter.Width//2,perimeter.Height//2).A == 0)
                 scale = float(companion.native._scale)
                 partial = []
                 for y in range(round(8*scale), round(104*scale)):
                     for x in range(round(8*scale), round(104*scale)):
-                        pixel = edge.bitmap.GetPixel(x,y)
+                        pixel = perimeter.GetPixel(x,y)
                         if 0 < pixel.A < 255 and max(pixel.R,pixel.G,pixel.B) > 40:
                             partial.append((x,y,pixel.A))
                 check('portrait perimeter retains fractional coloured alpha', len(partial)>20)
+                perimeter.Dispose()
                 result['antialiased_edge_samples'] = partial[:30]
                 from System import Action
                 from System.Drawing.Imaging import ImageFormat

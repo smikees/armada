@@ -12,6 +12,7 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `AgentRoutes._thread_answer(self, body)` — —
 - `AgentRoutes._repair_record(self, body)` — —
 - `AgentRoutes._get_chat_stop(self)` — —
 - `AgentRoutes._get_retired_agents(self)` — Who could be brought back, and what they were. Feeds the Appoint modal's Reinstate tab, which fills its form from this rather than making anyone retype a settled agent.

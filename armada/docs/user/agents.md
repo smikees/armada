@@ -55,6 +55,19 @@ resending an unconfirmed instruction. A message never moves automatically to the
 next run. You can send up to 64 steering messages per run, one pending at a time,
 with a limit of 32,000 characters each.
 
+## Answer an agent's questions
+
+Claude and Codex can pause a conversation to ask for clarification. The question panel appears
+above the message box in both the main app and detached thread window. Choose an answer, select
+several when offered, or type your own when the question allows it, then **Send answers**.
+Nothing is selected automatically. **Skip** sends no assumed answer; **Stop work** stops the run.
+
+Both views show the same pending question. Answering in either continues that same run and closes
+the panel in both. Reopening a view restores an unanswered question. Questions and answers remain
+in the thread; an uncertain delivery is labeled. Questions waiting for an answer also appear under
+**Needs input** in Activity monitor. Credentials still belong in Settings. Background jobs and
+Inbox tasks do not wait for these interactive chat questions.
+
 ## Separate thread windows
 
 Open a thread’s **three-dot menu** in the left-hand list and choose **Detach thread**, directly

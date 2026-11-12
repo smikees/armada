@@ -19,6 +19,15 @@ log = logging.getLogger("armada.serve")
 
 
 class AgentRoutes:
+    def _thread_answer(self,body):
+        from .. import questions
+        try:
+            row=questions.answer(self.realm,body.get('agent'),body.get('thread','main'),
+                body.get('run_id'),body.get('question_id'),body.get('answers',{}),body.get('cancelled',False))
+            return {'ok':True,'request':row}
+        except (ValueError,OSError) as exc:
+            return {'ok':False,'error':str(exc)}
+
     def _repair_record(self, body):
         from .. import records
         if body.get("reviewed") is not True:

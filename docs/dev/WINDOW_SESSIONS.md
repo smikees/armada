@@ -40,6 +40,25 @@ scrolling and keyboard focus, including when the focused agent leaves a row. Fai
 refreshes retain the last reading and show it is stale. Merely viewing the widget
 does not change unread metadata.
 
+Interactive Claude/Codex chat questions use native bidirectional protocols. Claude
+uses SDK stdio control requests restricted to AskUserQuestion; Codex uses the
+item/tool/requestUserInput server request with its installed default-mode question
+feature enabled. Other tool/permission approval requests remain denied. Background
+and Inbox turns retain noninteractive behavior. Question answers are scoped to the
+exact realm, thread, run and public question ID, persisted before becoming deliverable,
+and queued to the supervising protocol thread's sole stdin writer. Duplicate identical
+answers are idempotent; conflicting or stale answers are rejected. Stop cancels the
+owned process and closes its questions. Views share the same pending snapshot and
+retain stable form nodes while polling, so selections and drafts survive updates.
+Question/answer receipts remain on the original owner turn. Secret-input requests
+are declined in favor of Settings; provider HTML previews are not executed.
+
+Protocol sources: [Claude user input](https://code.claude.com/docs/en/agent-sdk/user-input),
+[Claude SDK control transport](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/query.py),
+[Codex app-server](https://developers.openai.com/codex/app-server). The installed
+Codex JSON schemas and a Claude initialize-only handshake are checked without
+making a model/API call; synthetic duplex subprocesses test the complete round trip.
+
 Synthetic native checks cover real offscreen WinForms recovery, cross-realm session
 reconstruction and its 20-pixel cascade, tray recovery and desktop teardown. The
 dashboard probe exercises working/unread transitions and light/dark responsive

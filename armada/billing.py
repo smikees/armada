@@ -110,6 +110,7 @@ def execute(engine, request, *, root, agent, job, run_id, on_event, on_proc, inv
             events.append(value)
         on_event(value)
     event.engine_activity = getattr(on_event, 'engine_activity', None)
+    event.interactive_questions = getattr(on_event,'interactive_questions',False)
     if not reason:
         result = invoke(engine, request, on_event=event, on_proc=on_proc)
         result.raw['billing'] = {'lane':'plan'}

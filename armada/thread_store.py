@@ -187,7 +187,7 @@ class HistoryStore:
             return True
 
     def update_turn_request(self, turn, transform, *, require_open=False):
-        """Journal a steering receipt on its original owner request, never a new turn."""
+        """Journal an owner interaction on its original request, never a new turn."""
         with util.file_lock(self.msgs):
             self._recover()
             current = self._current()

@@ -496,10 +496,16 @@ class CodexEngine(EngineAdapter):
         result = None
         from contextlib import ExitStack
         from .codex_steering import SteeringControl, SteeringProcess
+        from .questions import QuestionControl,QuestionProcess
         steering = SteeringControl()
+        interactive=bool(getattr(on_event,'interactive_questions',False))
+        questions=QuestionControl(emit)
+        approval_items=set()
         startup = ExitStack()
         try:
             args = _feature_args() + _verbosity_args(model, verbosity)
+            if interactive:
+                args += ['-c','features.default_mode_request_user_input=true']
             native_apps = frozenset(getattr(self, 'allowed_app_ids', ())) if allow_tools and not getattr(self, 'managed_tools', None) else frozenset()
             if native_apps:
                 from ..codex_apps import scoped_args
@@ -531,7 +537,7 @@ class CodexEngine(EngineAdapter):
             def start(send):
                 send({"id": 1, "method": "initialize", "params": {"clientInfo": {
                     "name": "armada", "title": "Armada", "version": "1.0"},
-                    **({'capabilities': {'experimentalApi': True}} if native_apps else {})}})
+                    **({'capabilities': {'experimentalApi': True}} if native_apps or interactive else {})}})
             def begin_turn(send):
                 from .mcp_runtime import prompt as readiness_prompt
                 params = {"threadId": state.thread_id, "input": [{"type": "text", "text": full_prompt +
@@ -559,13 +565,35 @@ class CodexEngine(EngineAdapter):
             def accept(message, send):
                 nonlocal native_apps
                 safe_emit(getattr(on_event, 'engine_activity', None), {})
+                if message.get('method') in ('item/started','item/completed'):
+                    item=(message.get('params') or {}).get('item') or {}
+                    if item.get('type') in ('mcpToolCall','commandExecution','fileChange','dynamicToolCall'):
+                        approval_items.add(item.get('id'))
                 if steering.accept(message):
                     return False
+                if interactive and message.get('method')=='serverRequest/resolved':
+                    questions.resolve(message.get('params',{}).get('requestId'))
                 if message.get('method') == 'turn/started':
                     steering.activate(state.thread_id, message.get('params', {}).get('turn', {}).get('id'))
                 elif message.get('method') == 'turn/completed':
                     steering.close()
+                    questions.close(success=message.get('params',{}).get('turn',{}).get('status')=='completed')
                 if "id" in message and "method" in message:
+                    if interactive and message['method']=='item/tool/requestUserInput':
+                        params=message.get('params') or {}
+                        identity=message['id']
+                        if params.get('itemId') in approval_items:
+                            send({'id':identity,'error':{'code':-32601,'message':'Armada does not grant interactive tool approvals.'}})
+                            return False
+                        if params.get('threadId')!=state.thread_id or params.get('turnId')!=steering.turn_id:
+                            raise ValueError('Codex asked a question outside the active thread/turn.')
+                        try:
+                            questions.add(identity,'codex',params.get('questions'),
+                                lambda values,skipped,identity=identity:{'id':identity,'result':{
+                                    'answers':{} if skipped else {key:{'answers':answer} for key,answer in values.items()}}})
+                        except ValueError as exc:
+                            send({'id':identity,'error':{'code':-32602,'message':str(exc)}})
+                        return False
                     # The thread is configured for no approvals. Fail closed if a server request
                     # still arrives, rather than silently granting a shell/MCP action.
                     send({"id": message["id"], "error": {"code": -32601,
@@ -624,10 +652,13 @@ class CodexEngine(EngineAdapter):
                         steering.activate(state.thread_id, message.get('result', {}).get('turn', {}).get('id'))
                     return False
                 return state.accept(message)
+            def tick(send):
+                steering.drain(send)
+                questions.drain(send)
             process = supervise_rpc(launcher + ["app-server"] + args, start=start,
                                     on_message=accept, timeout=timeout, cwd=run_cwd, env={**os.environ, **(env or {})},
-                                    on_proc=lambda p: on_proc(SteeringProcess(p, steering)) if on_proc else None,
-                                    on_tick=steering.drain)
+                                    on_proc=lambda p: on_proc(QuestionProcess(SteeringProcess(p,steering),questions)) if on_proc else None,
+                                    on_tick=tick)
             steering.close()
             error = process.error or state.error
             if not state.completed and not error:
@@ -647,6 +678,7 @@ class CodexEngine(EngineAdapter):
         finally:
             try:
                 steering.close()
+                questions.close()
             finally:
                 startup.close()
             if temp:

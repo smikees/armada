@@ -260,6 +260,9 @@ class TurnCoordinator:
             if cap is not None:
                 cap.on_event(ev)
             kind = ev.get("kind")
+            if kind=='question' and turn:
+                from . import questions
+                questions.record(th,turn,context.run_id,ev['request'])
             if kind == "text" and ev.get("text"):
                 partial.append(ev["text"])
             elif kind in ("thinking", "tool"):
@@ -277,9 +280,11 @@ class TurnCoordinator:
                         if kind == "tool" else "Thinking…")
             if kind == 'status':
                 activity = ev.get('activity') or ev.get('text') or activity
+            elif kind=='question':
+                activity='Needs your input…' if ev['request']['status']=='pending' else 'Continuing…'
             now = time.monotonic()
             current_activity = activity
-            if turn and kind in ("text", "tool", "thinking", "tool_result") and (kind != "text" or now - last_checkpoint >= .15):
+            if turn and kind in ("text", "tool", "thinking", "tool_result", "question") and (kind != "text" or now - last_checkpoint >= .15):
                 th.save_progress(turn, "".join(partial), activity, activity_events)
                 last_checkpoint = now
             safe_emit(self.on_event, {**ev, "activity": activity})
@@ -499,6 +504,12 @@ class TurnCoordinator:
                         self.session.active.steering_enabled = bool(
                             not req.task and getattr(eng, 'capabilities', ProviderCapabilities()).steering)
                     from . import billing
+                    event.interactive_questions=not req.task and bool(turn)
+                    if event.interactive_questions and eng.name in ('claude','codex'):
+                        tool='AskUserQuestion' if eng.name=='claude' else 'request_user_input'
+                        request=replace(request,system=request.system+'\n\nIf you need clarification, '+tool+
+                            ' presents questions to the owner in Armada. Wait for the answer in this run. '
+                            'Credentials belong in Settings, never in a question.')
                     result = billing.execute(eng, request, root=root, agent=aid, job=req.job,
                         run_id=context.run_id, on_event=event, on_proc=process, invoke=execute_request)
                     if watchdog is not None:

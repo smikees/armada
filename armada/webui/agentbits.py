@@ -223,6 +223,9 @@ def _agent_activity(realm_root, agent_id: str) -> str:
       input    — the agent has a job proposal awaiting the owner's approval
       unseen   — the agent has output in a thread the owner hasn't marked read
       idle     — nothing pending."""
+    from .. import questions
+    if questions.waiting(realm_root,agent_id):
+        return 'input'
     if _agent_busy(realm_root, agent_id):
         return "working"
     if _has_pending_proposals(realm_root, agent_id):

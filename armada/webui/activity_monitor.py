@@ -23,12 +23,15 @@ def _content(realm,root):
         row=groups[group].setdefault(agent.id,(agent,href,[]))
         if detail:
             row[2].append(detail)
-    from .. import capabilities
+    from .. import capabilities,questions
     request_agents={aid for aid,_,_,_ in capabilities.iter_requests(root)}
     for agent in realm.agents:
         href=f'/agent/{quote(agent.id,safe="")}/threads'
-        if _agent_busy(root,agent.id):
+        waiting=questions.waiting(root,agent.id)
+        if _agent_busy(root,agent.id) and not waiting:
             add('Working',agent,href,'')
+        for thread in waiting:
+            add('Needs input',agent,href+'?'+urlencode({'thread':thread}),'Question awaiting your answer')
         if _has_pending_proposals(root,agent.id):
             add('Needs input',agent,f'/agent/{quote(agent.id,safe="")}/jobs','Job proposal')
         if agent.id in request_agents:

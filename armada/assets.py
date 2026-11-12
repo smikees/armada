@@ -46,7 +46,7 @@ CSS_LINKS = (f'<link rel="stylesheet" href="/static/industry.css{CSSV}">'
              f'<script src="/static/js/scrollbars.js{CSSV}" defer></script>')
 
 # Per-module <script src> tags for the externalized client JS.
-CHAT_JS = js("chat") + js("thread_sync") + js("thread_voice")
+CHAT_JS = js("chat") + js("questions") + js("thread_sync") + js("thread_voice")
 DASH_JS = js("dash")
 JOBCAL_JS = js("jobcal")
 USAGE_JS = js("usage")

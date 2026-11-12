@@ -62,6 +62,7 @@
 | [`engine.base`](engine.base.md) | Engine adapter contract (SPEC §9) |
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
 | [`engine.claude_isolation`](engine.claude_isolation.md) | Exercise installed Claude child-environment isolation without a real key or paid call. |
+| [`engine.claude_questions`](engine.claude_questions.md) | Claude's documented SDK stdio control protocol, restricted to AskUserQuestion. |
 | [`engine.codex`](engine.codex.md) | Codex CLI turns, using the owner's login and Armada's existing context and history. |
 | [`engine.codex_steering`](engine.codex_steering.md) | Bounded mid-turn input for Codex app-server; the RPC owner alone writes stdin. |
 | [`engine.codex_voice`](engine.codex_voice.md) | Experimental Codex WebRTC signaling |
@@ -72,6 +73,7 @@
 | [`engine.mcp_runtime`](engine.mcp_runtime.md) | Live MCP startup evidence; saved OAuth credentials are not a connection test. |
 | [`engine.mock`](engine.mock.md) | Mock engine — lets the runner + telemetry be tested end-to-end offline, with no Claude Code and no tokens spent |
 | [`engine.process`](engine.process.md) | Owned CLI lifetime: bounded pipe draining, output-independent deadlines and tree cleanup. |
+| [`engine.questions`](engine.questions.md) | Bounded owner questions; only the supervising protocol thread writes answers. |
 | [`engine.raw_results`](engine.raw_results.md) | Keep a CLI JSON value's original spelling across normalized display events. |
 | [`engine.selection`](engine.selection.md) | Resolve the provider from the chosen model, keeping old Claude realms readable. |
 | [`engine.skill_sandbox`](engine.skill_sandbox.md) | Windows LPAC launcher for approved draft scripts; no network or child processes. |
@@ -111,6 +113,7 @@
 | [`provider_limits`](provider_limits.md) | Independent, bounded subscription checks; HTTP requests never wait on a CLI. |
 | [`provider_login`](provider_login.md) | Owned browser-login processes |
 | [`providers`](providers.md) | App-wide provider connections |
+| [`questions`](questions.md) | Realm/run-bound question admission and durable owner answers, never tool approval. |
 | [`reader`](reader.md) | Realm readers for the native schema and legacy schedule-folder imports. |
 | [`realm_export`](realm_export.md) | Verified portable realm copies |
 | [`realm_registry`](realm_registry.md) | Machine realm discovery with one strict, exclusive mutation boundary. |
@@ -206,6 +209,7 @@
 | [`webui.memoryview`](webui.memoryview.md) | Memory rendering (realm + agent memory pages) (Layer 2, Phase 3). |
 | [`webui.pages`](webui.pages.md) | ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3. |
 | [`webui.provider_settings`](webui.provider_settings.md) | Shared connection controls for setup and App Settings; no probes during rendering. |
+| [`webui.questions`](webui.questions.md) | Escaped question/answer receipts retained with the original owner turn. |
 | [`webui.realmpages`](webui.realmpages.md) | Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts. |
 | [`webui.recordrepair`](webui.recordrepair.md) | Owner repair UI, kept separate from ordinary configuration forms. |
 | [`webui.recovery`](webui.recovery.md) | A self-contained error screen: no realm/config reads, scripts or authenticated assets. |

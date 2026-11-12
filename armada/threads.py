@@ -80,6 +80,13 @@ class Thread:
                 line += '\nOwner (steering during this turn): ' + item['text']
             elif item.get('status') in ('pending', 'uncertain'):
                 line += '\nOwner steering (delivery unconfirmed): ' + item['text']
+        for request in message.get('question_requests',[]):
+            for question in request.get('questions',[]):
+                line+='\nAgent question: '+question['question']
+                answer=request.get('answers',{}).get(question['id'])
+                if answer:
+                    label='Owner answer (delivery unconfirmed)' if request.get('status')=='uncertain' else 'Owner answer'
+                    line+='\n'+label+': '+', '.join(answer)
         return line
 
     def _write(self, *records) -> None:

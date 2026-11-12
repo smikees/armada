@@ -6,7 +6,8 @@ from typing import Callable, Literal, Protocol, TypedDict
 
 
 class RunEvent(TypedDict, total=False):
-    kind: Literal["start", "text", "thinking", "tool", "tool_result", "error"]
+    kind: Literal["start", "text", "thinking", "tool", "tool_result", "error", "question"]
+    request: dict
     text: str
     name: str
     id: str

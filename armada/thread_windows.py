@@ -20,6 +20,7 @@ COMPANION_GET = frozenset({
 })
 COMPANION_POST = frozenset({
     "/api/thread-read",
+    "/api/thread-answer",
     "/api/voice-start", "/api/voice-state", "/api/voice-stop",
     "/api/chat-stream", "/api/chat-steer", "/api/thread-truncate", "/api/thread-action",
     "/api/open-file", "/api/reveal", "/api/render-md",
@@ -67,6 +68,8 @@ def state(root, agent, thread, revision=""):
         payload = {"title": title, "run_id": runs[0].context.run_id if runs else "",
                    "stopping": any(run.cancelled for run in runs),
                    "steerable": len(runs) == 1 and steering.available(runs[0])}
+        from . import questions
+        payload['questions']=[{**q,'run_id':run.context.run_id} for run in runs for q in questions.pending(run)]
     from . import voice
     call = voice.current(root, agent, thread)
     payload['voice'] = call.snapshot() if call and not call.finished.is_set() else None
