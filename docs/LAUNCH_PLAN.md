@@ -5,10 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.144** is in release validation: restored missing subscription readings,
+Version **0.99.144** is published: restored dashed missing subscription readings,
 Activity monitor avatar rows and refresh controls, synchronized detached model badges,
 and native Claude/Codex questions in both thread views.
-[Desktop/session contract](dev/WINDOW_SESSIONS.md).
+The publisher passed **4,495 tests**, exact-source Windows CI passed, three
+**163-check** native window cycles and **72 packaged upgrade checks** passed.
+Public signatures, all 496 packaged files, installer hash and website links verified.
+[Desktop/session contract](dev/WINDOW_SESSIONS.md) · [Release evidence](dev/RELEASE_0_99_144.md).
 
 Version **0.99.143** is published: monitor recovery, saved detached thread
 sessions, shared header badges and an Activity monitor dashboard widget. The publisher
