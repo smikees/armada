@@ -31,6 +31,6 @@ thread checks passed. The generated light/dark composites were reviewed. Evidenc
 `build/thread-edge-final.json`; all conversations and provider responses were
 synthetic. The installed app and live realm were not restarted or modified.
 
-This implementation is separate from API billing work. It has not yet been
-published as an installer/update. Do not combine release validation with concurrent
-billing edits without reviewing and testing the resulting source commit.
+This implementation is separate from API billing work. Version 0.99.142 is in
+release validation. Do not combine it with concurrent billing edits without
+reviewing and testing the resulting source commit.
