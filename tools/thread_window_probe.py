@@ -663,6 +663,26 @@ def run(output):
         finally:
             server.shutdown()
             server.server_close()
+            # pywebview bridge callbacks return their values through evaluate_js.
+            # A just-restored hidden view can still have such a callback in
+            # flight when its form closes. Keep Python/CLR alive until those
+            # fixture-owned workers finish, rather than finalizing beneath them.
+            def bridge_workers():
+                return [thread for thread in threading.enumerate()
+                    if thread is not threading.current_thread() and
+                    (getattr(getattr(thread,'_target',None),'__module__','').startswith('webview.')
+                     or thread.name=='armada-browser-call')]
+            deadline=time.monotonic()+5
+            pending=bridge_workers()
+            while pending and time.monotonic()<deadline:
+                for thread in pending:
+                    thread.join(min(.05,max(0,deadline-time.monotonic())))
+                pending=bridge_workers()
+            if pending:
+                result.update(ok=False,error='Native fixture callbacks did not finish teardown: '+', '.join(t.name for t in pending))
+            else:
+                result['checks'].append('native bridge workers finish before interpreter teardown')
+            output.write_text(json.dumps(result,indent=2),encoding='utf-8')
     return 0 if result["ok"] else 1
 
 
