@@ -75,9 +75,12 @@ def test_saturated_provider_does_not_block_other_provider(tmp_path, tickets):
     assert not blocked.ready() and other.ready()
 
 
-def critical_realm(tmp_path, *, pct=93, at=None, reset=None, **reading):
+def critical_realm(tmp_path, monkeypatch, *, pct=93, at=None, reset=None, **reading):
     from armada import run_policy, usage_snapshot
     import datetime as dt
+    # The stabilization gate deliberately supplies an account-wide data override.
+    # This fixture must not leave critical approvals affecting later test realms.
+    monkeypatch.setattr(run_policy, '_path', lambda: tmp_path/'run-policy.json')
     ctx = context(tmp_path)
     root = Path(ctx.realm.root)
     util.write_json_atomic(root/'realm.json', {'provider': 'claude'})
@@ -90,8 +93,8 @@ def critical_realm(tmp_path, *, pct=93, at=None, reset=None, **reading):
     return ctx
 
 
-def test_quota_reserve_does_not_block_owner_chat_but_preserves_critical_slots(tmp_path):
-    ctx = critical_realm(tmp_path)
+def test_quota_reserve_does_not_block_owner_chat_but_preserves_critical_slots(tmp_path, monkeypatch):
+    ctx = critical_realm(tmp_path, monkeypatch)
     root = Path(ctx.realm.root)
     # Background work waits without consuming a provider slot, even if it arrived first.
     with ExitStack() as stack:
@@ -113,10 +116,10 @@ def test_quota_reserve_does_not_block_owner_chat_but_preserves_critical_slots(tm
         assert background.ready()  # Same invocation resumes; no request needs recreating.
 
 
-def test_owner_fable_chat_reaches_engine_at_93_percent_without_api_fallback(tmp_path):
+def test_owner_fable_chat_reaches_engine_at_93_percent_without_api_fallback(tmp_path, monkeypatch):
     from armada import runner
     from armada.engine import MockEngine, RunResult
-    ctx = critical_realm(tmp_path)
+    ctx = critical_realm(tmp_path, monkeypatch)
     requests = []
     class FakeClaude(MockEngine):
         name = 'claude'
@@ -131,7 +134,7 @@ def test_owner_fable_chat_reaches_engine_at_93_percent_without_api_fallback(tmp_
 
 
 @pytest.mark.parametrize('change', ['expired', 'old', 'future', 'unknown-reset', 'missing', 'negative', 'over-100'])
-def test_unreliable_usage_cannot_hold_background_work(tmp_path, change):
+def test_unreliable_usage_cannot_hold_background_work(tmp_path, monkeypatch, change):
     import datetime as dt
     args = {'pct': 93}
     if change == 'expired': args['reset'] = dt.datetime.fromtimestamp(time.time()-1, dt.timezone.utc).isoformat()
@@ -141,7 +144,7 @@ def test_unreliable_usage_cannot_hold_background_work(tmp_path, change):
     if change == 'missing': args['pct'] = None
     if change == 'negative': args['pct'] = -1
     if change == 'over-100': args['pct'] = 101
-    ctx = critical_realm(tmp_path, **args)
+    ctx = critical_realm(tmp_path, monkeypatch, **args)
     ticket = admission.Ticket(ctx, 'claude', background=True)
     try:
         assert ticket.ready()

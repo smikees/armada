@@ -49,6 +49,12 @@ usage tests. The native owner journey passed 33 checks. Its captures are
 `build/queue-limits-native-final.json`. Final-source release evidence is recorded
 separately after the complete publisher and stability gates.
 
+The first stability attempt exposed an isolation defect in the new synthetic
+critical-job fixture under the gate's shared account override. Its approval file
+affected later tests' capacity. The fixture now owns a separate policy file;
+the queue and scheduler tests also passed with an explicit shared account override.
+The failed report remains in `build/stabilization-20261112-203620-089823`.
+
 Diagnostics read only scheduling metadata, usage readings, installed asset hashes
 and the Overview's limits-related styles. No credentials, conversation text or
 business outputs were copied. The owner app was not restarted, and no live job,
