@@ -5,10 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.142** is in release validation. Detached thread and portrait outlines
+Version **0.99.142** is published. Detached thread and portrait outlines
 retain their antialiased boundary pixels using a native transparent perimeter.
-The live conversation, shadow and editor retain their behavior. See
-[edge compositing](dev/THREAD_EDGES.md).
+The publisher passed **4,471 tests**, both exact-source Windows CI jobs passed
+**4,473 tests**, three **112-check** native window cycles and **72 packaged upgrade
+checks** passed. The bundled runtime also passed the native thread probe. Public
+signatures, all 488 packaged files, installer hash and website links verified.
+[Edge compositing](dev/THREAD_EDGES.md) · [Release evidence](dev/RELEASE_0_99_142.md).
 
 Version **0.99.141** is published: shared nested bullets, unlimited agent-job
 and Inbox defaults, stalled-run handling, owner-sealed run controls, Claude API fallback
