@@ -6,6 +6,10 @@ Opt-in local tool-result capture, run audits and conservative retention.
 
 Case-sensitive, whole-name shell globs, independent of the host OS.
 
+### `_comparison_path(path)`
+
+Compare resolved Windows paths consistently across Win32 namespace spelling.
+
 ### `_safe_path(base, relative)`
 
 Reject traversal, Windows aliases and reparse points before filesystem access.

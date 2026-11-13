@@ -23,6 +23,17 @@ def matches(tool, patterns):
     return any(fnmatchcase(tool, pattern) for pattern in patterns)
 
 
+def _comparison_path(path):
+    """Compare resolved Windows paths consistently across Win32 namespace spelling."""
+    if isinstance(path, PureWindowsPath):
+        raw = str(path)
+        if raw[:8].upper() == "\\\\?\\UNC\\":
+            return type(path)("\\\\" + raw[8:])
+        if re.match(r"^\\\\\?\\[A-Za-z]:\\", raw):
+            return type(path)(raw[4:])
+    return path
+
+
 def _safe_path(base, relative):
     """Reject traversal, Windows aliases and reparse points before filesystem access."""
     raw = str(relative).replace("\\", "/")
@@ -48,7 +59,10 @@ def _safe_path(base, relative):
                     raise ValueError("Capture paths cannot contain reparse points.")
             except FileNotFoundError:
                 pass
-    if not target.resolve().is_relative_to(base):
+    # On Windows, resolve() can retain the extended prefix while another thread
+    # creates/replaces the file. Normalize only namespace spelling, after resolving;
+    # reparse-point checks and the actual containment requirement remain intact.
+    if not _comparison_path(target.resolve()).is_relative_to(_comparison_path(base)):
         raise ValueError("Capture path escapes the realm workspace.")
     return target
 

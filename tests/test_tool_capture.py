@@ -3,7 +3,7 @@ import datetime as dt
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -18,6 +18,45 @@ from armada.engine.mock import MockEngine
 TOOL = "mcp__fixture_Interactive_Brokers__get_positions"
 PATTERN = "mcp__*Interactive_Brokers*__get_*"
 RAW = '{ "amount": 12345.6700, "id": 9007199254740993, "tiny": 1.234567890123456789e-30, "unicode": "caf\\u00e9" }'
+
+
+@pytest.mark.parametrize('base,target,inside', [
+    (r'C:\realm', r'\\?\C:\realm\shared\copy.html', True),
+    (r'\\?\C:\realm', r'C:\realm\shared\copy.html', True),
+    (r'\\server\share\realm', r'\\?\UNC\server\share\realm\copy.html', True),
+    (r'\\?\UNC\server\share\realm', r'\\server\share\realm\copy.html', True),
+    (r'C:\realm', r'\\?\C:\realm-other\copy.html', False),
+    (r'C:\realm', r'\\?\D:\realm\copy.html', False),
+    (r'\\server\share\realm', r'\\?\UNC\other\share\realm\copy.html', False),
+    (r'C:\realm', r'\\.\C:\realm\copy.html', False),
+])
+def test_resolved_windows_namespace_containment(base, target, inside):
+    assert tc._comparison_path(PureWindowsPath(target)).is_relative_to(
+        tc._comparison_path(PureWindowsPath(base))) is inside
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows extended-path resolution')
+@pytest.mark.parametrize('extended_base', [False, True])
+@pytest.mark.parametrize('escape', [False, True])
+def test_safe_path_handles_namespace_changes_during_snapshot_write(tmp_path, monkeypatch, extended_base, escape):
+    base = tmp_path / 'realm'
+    base.mkdir()
+    canonical = base.resolve()
+    original = Path.resolve
+    def resolve(path, *args, **kwargs):
+        resolved = original(path, *args, **kwargs)
+        if resolved == canonical and extended_base:
+            return Path('\\\\?\\' + str(resolved))
+        if path.name == 'copy.html':
+            resolved = canonical.parent / 'outside' / path.name if escape else canonical / 'shared' / path.name
+            return resolved if extended_base else Path('\\\\?\\' + str(resolved))
+        return resolved
+    monkeypatch.setattr(Path, 'resolve', resolve)
+    if escape:
+        with pytest.raises(ValueError, match='escapes'):
+            tc._safe_path(base, 'shared/copy.html')
+    else:
+        assert tc._comparison_path(tc._safe_path(base, 'shared/copy.html')) == canonical / 'shared/copy.html'
 
 
 @pytest.fixture
