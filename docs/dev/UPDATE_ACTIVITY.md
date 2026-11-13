@@ -39,3 +39,21 @@ Regression coverage: `test_update_activity.py`, the sender/observer Node harness
 the calendar Node harness, and `owner_workflow_probe.py --system-jobs-only` for
 native light/dark/scaled geometry and every calendar view in both Jobs panes.
 All fixtures are synthetic; no owner's realm or live job is modified.
+
+Validation on source commit `8f2583805ed2241bf41bc48410e2c58fdff701ab`:
+
+- Pinned isolated regression gate: **4,564 passed, 6 skipped**, 999.83 seconds;
+  `build/update-activity-tests.log`.
+- Clean-source stabilization gate: **passed**, 398.81 seconds;
+  `build/stabilization-update-activity.json`, evidence directory
+  `build/stabilization-20261113-185738-985701`.
+- **98 native owner-workflow checks**, including all calendar views, and three
+  successful native main/detached conversation lifecycle runs.
+- **52 dedicated native calendar/layout checks**, including automatic live
+  system-job transitions, narrow windows, both themes and 150% scaling;
+  `build/update-calendar-native-final.json`.
+- Golden diffs reviewed: shared server icon registration, the queued Activity row,
+  system detail refresh targets, calendars for empty-job realms and updated help.
+
+These changes are committed locally; no new release has been published and the
+owner's running installation has not been restarted or modified.
