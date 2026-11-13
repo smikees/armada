@@ -5,13 +5,16 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.146** is in release validation: Claude API fallback has an engine
-setup modal and optional agent workspace keys, uses provider-enforced Console
-budgets, and needs no mandatory Windows worker. Only approved critical jobs enter
-the new mode; connector and replay guards remain. Installed-CLI synthetic checks
-verify successful fallback and latched Console-cap refusals with no paid requests.
-System jobs retain aligned columns after filtering, with native geometry regression
-checks across themes, scaled/narrow layouts, sorting and row updates.
+Version **0.99.146** is published: a Claude API fallback setup modal, optional
+agent workspace keys and provider-enforced Console budgets. Approved critical jobs
+can fall back without a mandatory Windows worker; connector/replay guards remain.
+**4,555 tests**, exact-source Windows CI, three **163-check** native
+cycles, **78 owner workflows** and **72 upgrade checks** passed. The staged
+runtime repeated the owner workflows. System jobs keep their columns through
+filtering and updates, with native browser geometry checks across themes and
+scaled viewports. The installed Claude CLI passed synthetic
+API success/cap-refusal checks with no paid use. Public signatures, all
+499 package files, installer hash and website links verified.
 [Fallback contract](dev/API_FALLBACK.md) · [Release evidence](dev/RELEASE_0_99_146.md).
 
 Version **0.99.145** is published: owner chats bypass the voluntary unattended

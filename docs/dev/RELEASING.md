@@ -1,6 +1,6 @@
 # Releasing
 
-Current procedure for the Windows beta, updated for v0.99.140. The public branch is `main`.
+Current procedure for the Windows beta, updated for v0.99.146. The public branch is `main`.
 A release consists of the source commit, Windows installer and signed update assets on
 [GitHub Releases](https://github.com/smikees/armada/releases), plus publication of the same version
 on [armada.stamih.com](https://armada.stamih.com).
@@ -105,6 +105,14 @@ in the Windows pywebview environment. It uses a synthetic job/engine and checks 
 separate history, disabled production jobs, real owned cancellation, navigation recovery,
 narrow layout and user authorization of inspector access. Managed provider transport changes
 also require harmless actual CLI draft/refusal checks, never a real business publication.
+
+For System jobs rows, shared Jobs filters/sorting, row updates or their stylesheet,
+run `python tools/owner_workflow_probe.py --system-jobs-only --output build/system-jobs.json`
+before release. Its real WebView geometry checks must pass at all three viewports,
+including scaled dark mode and horizontal scrolling. Static HTML/class checks do
+not replace it: the original defect appeared only after filtering cleared inline
+display styles. UI releases also repeat the complete owner-workflow probe with the
+freshly staged runtime before publication. See [the regression contract](SYSTEM_JOBS_LAYOUT.md).
 
 ## 4. Commit
 
