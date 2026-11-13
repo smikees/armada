@@ -45,6 +45,10 @@ Free model-list authentication check; never make a generation request.
 
 —
 
+### `reported_cost(value)`
+
+A finite nonnegative receipt amount, or None for unavailable data.
+
 ### `_usage(provider)`
 
 —

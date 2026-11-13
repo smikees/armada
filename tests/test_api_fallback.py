@@ -306,6 +306,29 @@ def test_failed_key_save_does_not_activate_legacy_spending(realm, monkeypatch):
     assert run_policy.settings(realm, 'a')['plan_limit_action'] == 'fail'
 
 
+@pytest.mark.parametrize('changes', [{'started_at': 'yesterday'}, {'started_at': None}, {'started_at': 10**1000},
+    {'finished_at': 'later'}, {'status': 'invalid'}])
+def test_malformed_advisory_rows_cannot_turn_a_completed_api_job_into_an_error(realm, changes):
+    job = critical(realm)
+    enable()
+    row = {'started_at': 1, 'finished_at': 2, 'status': 'finished', 'cost_usd': .1, **changes}
+    util.write_json_atomic(api_fallback._usage_path('claude'), {'runs': {'damaged': row}})
+    result = execute(realm, lambda engine, request, **kw: refusal() if not request.env else
+                     RunResult(ok=True, output='Finished', raw={'total_cost_usd': .25}), job=job)
+    assert result.ok and result.raw['billing']['real_cost_usd'] == .25
+    assert not result.raw['billing']['accounting_available']
+    assert api_fallback.credit()['spent_usd'] is None
+
+
+def test_overflow_in_advisory_totals_is_unavailable_not_an_invented_balance(realm):
+    import time
+    enable()
+    row = {'started_at': time.time()-10, 'finished_at': time.time(), 'status': 'finished', 'cost_usd': 1e308}
+    util.write_json_atomic(api_fallback._usage_path('claude'), {'runs': {'one': row, 'two': row}})
+    credit = api_fallback.credit()
+    assert credit['spent_usd'] is None and not credit['accounting_available'] and credit['open']
+
+
 def test_damaged_policy_leaves_plan_calls_available_but_api_closed(realm):
     enable()
     api_fallback._path().write_text('{broken', encoding='utf-8')

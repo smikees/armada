@@ -172,11 +172,28 @@ def _usage_path(provider):
     return util.data_dir() / f'{provider}-fallback-usage.json'
 
 
+def reported_cost(value):
+    """A finite nonnegative receipt amount, or None for unavailable data."""
+    if type(value) not in (int, float):
+        return None
+    try:
+        amount = float(value)
+    except OverflowError:
+        return None
+    return amount if math.isfinite(amount) and amount >= 0 else None
+
+
 def _usage(provider):
     state = util.read_json_state(_usage_path(provider), default=lambda: {'runs': {}})
     rows = state.get('runs')
     if not isinstance(rows, dict) or any(not isinstance(row, dict) for row in rows.values()):
         raise util.StateError('API usage tracking is unreadable.')
+    for row in rows.values():
+        fields = ['started_at']
+        if row.get('status') == 'finished' or 'finished_at' in row:
+            fields.append('finished_at')
+        if row.get('status') not in ('running', 'finished') or any(reported_cost(row.get(field)) is None for field in fields):
+            raise util.StateError('API usage tracking contains an invalid status or timestamp.')
     return state
 
 
@@ -193,16 +210,15 @@ def start(provider, run_id, root, agent):
 
 def finish(provider, run_id, result):
     path = _usage_path(provider)
-    cost = result.raw.get('total_cost_usd')
-    known = type(cost) in (int, float) and math.isfinite(cost) and cost >= 0
+    cost = reported_cost(result.raw.get('total_cost_usd'))
     with util.file_lock(path):
         state = _usage(provider)
         if run_id not in state['runs']:
             raise util.StateError('The API usage receipt is unavailable.')
         state['runs'][run_id].update(status='finished', finished_at=time.time(),
-                                      cost_usd=float(cost) if known else None)
+                                      cost_usd=cost)
         util.write_json_atomic(path, state)
-    return float(cost) if known else None
+    return cost
 
 
 def credit(provider='claude'):
@@ -219,14 +235,15 @@ def credit(provider='claude'):
     rows = [r for r in state['runs'].values() if r.get('status') == 'running'
             or r.get('finished_at', r.get('started_at', 0)) >= start_at.timestamp()]
     def known_cost(row):
-        value = row.get('cost_usd')
-        return type(value) in (int, float) and math.isfinite(value) and value >= 0
-    known = [r['cost_usd'] for r in rows if known_cost(r)]
+        return reported_cost(row.get('cost_usd')) is not None
+    known = [reported_cost(r['cost_usd']) for r in rows if known_cost(r)]
+    total = sum(known)
+    unavailable = unavailable or not math.isfinite(total)
     config = settings(provider)
     own_keys = any(provider_keys.configured(provider, *identity.rsplit('|', 1))
                    for identity, row in _read().get('agents', {}).get(provider, {}).items() if row.get('key_source') == 'agent')
     ready = config['enabled'] and (config['key_saved'] or own_keys)
-    return {'budget_managed': 'provider', 'cap_usd': None, 'spent_usd': None if unavailable else round(sum(known), 6),
+    return {'budget_managed': 'provider', 'cap_usd': None, 'spent_usd': None if unavailable else round(total, 6),
             'reserved_usd': 0, 'remaining_usd': None, 'resets_at': reset.isoformat(),
             'unknown_runs': sum(not known_cost(r) and r.get('status') == 'finished' for r in rows),
             'accounting_available': not unavailable,

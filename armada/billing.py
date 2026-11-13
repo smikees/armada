@@ -283,10 +283,7 @@ def _execute_external(engine, request, *, root, agent, config, run_id, reason, r
     result.error = clean(result.error)
     result.output = clean(result.output)
     result.raw = clean(result.raw)
-    cost = result.raw.get('total_cost_usd')
-    import math
-    if type(cost) not in (int, float) or not math.isfinite(cost) or cost < 0:
-        cost = None
+    cost = api_fallback.reported_cost(result.raw.get('total_cost_usd'))
     if tracked:
         try:
             api_fallback.finish(provider, run_id, result)
