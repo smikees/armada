@@ -55,5 +55,6 @@ Validation on source commit `8f2583805ed2241bf41bc48410e2c58fdff701ab`:
 - Golden diffs reviewed: shared server icon registration, the queued Activity row,
   system detail refresh targets, calendars for empty-job realms and updated help.
 
-These changes are committed locally; no new release has been published and the
-owner's running installation has not been restarted or modified.
+These changes are included in the v0.99.147 release candidate. The owner's running
+installation is not restarted or modified during publication. See
+[release validation](RELEASE_0_99_147.md) for final publication evidence.

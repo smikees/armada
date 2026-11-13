@@ -5,6 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.147** is prepared for publication: update-safe drafts, drained
+queued inbox work, live system-job status, queued Activity portraits and system
+work in every calendar view. Final release validation is in progress.
+[Update/activity contract](dev/UPDATE_ACTIVITY.md) · [Release evidence](dev/RELEASE_0_99_147.md).
+
 Version **0.99.146** is published: a Claude API fallback setup modal, optional
 agent workspace keys and provider-enforced Console budgets. Approved critical jobs
 can fall back without a mandatory Windows worker; connector/replay guards remain.
