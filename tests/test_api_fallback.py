@@ -280,6 +280,18 @@ def test_known_secret_is_redacted_from_live_events_and_terminal_receipts(realm):
     assert ENGINE_KEY not in api_fallback._usage_path('claude').read_text()
 
 
+def test_unexpected_api_exception_is_reported_without_logging_the_key(realm, caplog):
+    enable()
+    def invoke(engine, request, **kw):
+        if not request.env:
+            return refusal()
+        raise RuntimeError('Synthetic credential-bearing transport error '+ENGINE_KEY)
+    result = execute(realm, invoke, job=critical(realm))
+    assert not result.ok and result.raw['billing']['final_failure']
+    assert 'API key removed' in result.error and ENGINE_KEY not in caplog.text
+    assert 'RuntimeError' in caplog.text and api_fallback.credit()['active_runs'] == 0
+
+
 def test_unknown_usage_does_not_invent_a_cost_or_reject_a_provider_managed_job(realm):
     job = critical(realm)
     enable()

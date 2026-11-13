@@ -10,6 +10,8 @@ setup modal and optional agent workspace keys, uses provider-enforced Console
 budgets, and needs no mandatory Windows worker. Only approved critical jobs enter
 the new mode; connector and replay guards remain. Installed-CLI synthetic checks
 verify successful fallback and latched Console-cap refusals with no paid requests.
+System jobs retain aligned columns after filtering, with native geometry regression
+checks across themes, scaled/narrow layouts, sorting and row updates.
 [Fallback contract](dev/API_FALLBACK.md) · [Release evidence](dev/RELEASE_0_99_146.md).
 
 Version **0.99.145** is published: owner chats bypass the voluntary unattended

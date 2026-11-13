@@ -279,6 +279,8 @@ def _execute_external(engine, request, *, root, agent, config, run_id, reason, r
             request = replace(request, env={**request.env, **gateway.env})
             result = invoke(engine, request, on_event=event, on_proc=on_proc)
     except Exception as exc:
+        # Log only the exception type: a transport exception can contain a key.
+        logging.getLogger(__name__).warning('Claude API fallback could not complete (%s)', type(exc).__name__)
         result = RunResult(ok=False, error=clean(str(exc)) or 'Claude API fallback could not finish.')
     result.error = clean(result.error)
     result.output = clean(result.output)

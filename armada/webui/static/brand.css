@@ -478,6 +478,9 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 /* A job switched off is still listed — greyed, not hidden, so you can see it exists and switch it
    back on. Matches the treatment a disabled capability gets. */
 .mc-job.mc-job-off>summary{opacity:.55}
+/* Filtering may clear inline display; the row's layout must survive that. */
+.mc-joblist>.mc-sysjob{display:grid}
+.mc-sysjob>span:first-child{overflow-wrap:anywhere}
 
 /* ==== Design-system components (Phase 4, UI_AUDIT F1) =============================================
    The classes docs/dev/DESIGN_SYSTEM.md names, each matching its canonical spec — the variant the app

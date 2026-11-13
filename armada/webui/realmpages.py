@@ -447,7 +447,7 @@ def _system_job_row(j, now, grid: str) -> str:
             f'data-cadence="{E(_sysjob_every(int(j.get("every_minutes") or 0)))}" '
             f'data-jcad="{_sysjob_cadence_bucket(int(j.get("every_minutes") or 0))}" '
             f'data-next="{E(str(j.get("next_due") or "zzzz"))}" '
-            f'style="display:grid;{grid};gap:8px;align-items:center;padding:9px 10px;'
+            f'style="{grid};gap:8px;align-items:center;padding:9px 10px;'
             f'border-bottom:1px solid var(--color-divider)'
             f'{"" if on else ";opacity:.55"}">'
             f'<span style="min-width:0">'

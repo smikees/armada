@@ -11,7 +11,7 @@ import time
 import traceback
 
 
-def run(output):
+def run(output, *, system_jobs_only=False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     output = output.resolve()
     with tempfile.TemporaryDirectory(prefix='armada-owner-workflow-', ignore_cleanup_errors=True) as directory:
@@ -53,6 +53,11 @@ def run(output):
             delay_activity = False
             mixed_limits = False
             reject_fallback = False
+            system_runs = []
+
+            def _system_job_run(self, body):
+                type(self).system_runs.append(body.get('id'))
+                return {'ok': True, 'detail': 'Synthetic layout check; no system job was executed.'}
 
             def _api_fallback_action(self, body):
                 if body.get('action') == 'test':
@@ -98,7 +103,7 @@ def run(output):
                         self._json(200, {'available': True, 'connected': True, **payload})
                     else:
                         self._json(200,{'available':False,'connected':True,'message':'Synthetic provider has not supplied a reading.'})
-                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor','/api/agent-activity'):
+                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor','/api/agent-activity','/api/system-jobs'):
                     self._json(200, {})
                 else:
                     super()._route_get()
@@ -147,6 +152,8 @@ def run(output):
         def capture(name, focus=None):
             chrome = Path(os.environ.get('PROGRAMFILES', 'C:/Program Files')) / 'Google/Chrome/Application/chrome.exe'
             Fixture.capture_html = js("(() => {const copy=document.documentElement.cloneNode(true);copy.querySelectorAll('script').forEach(s=>s.remove());document.querySelectorAll('textarea').forEach((el,i)=>copy.querySelectorAll('textarea')[i].textContent=el.value);document.querySelectorAll('select').forEach((el,i)=>[...copy.querySelectorAll('select')[i].options].forEach((opt,j)=>opt.toggleAttribute('selected',j===el.selectedIndex)));document.querySelectorAll('input[type=checkbox],input[type=radio]').forEach((el,i)=>copy.querySelectorAll('input[type=checkbox],input[type=radio]')[i].toggleAttribute('checked',el.checked));return '<!doctype html>'+copy.outerHTML;})()")
+            scrolls = js("[...document.querySelectorAll('[id]')].filter(e=>e.scrollLeft||e.scrollTop).map(e=>({id:e.id,x:e.scrollLeft,y:e.scrollTop}))")
+            Fixture.capture_html += "<script>addEventListener('load',()=>{"+json.dumps(scrolls)+".forEach(s=>document.getElementById(s.id)?.scrollTo(s.x,s.y));})</script>"
             if focus:
                 Fixture.capture_html += "<script>addEventListener('load',()=>document.querySelector("+json.dumps(focus)+").scrollIntoView({block:'center'}))</script>"
             width, height = json.loads(js('JSON.stringify([innerWidth,innerHeight])'))
@@ -161,9 +168,73 @@ def run(output):
             result['screenshots'].append(str(path))
             result['screenshot_renderer'] = 'Headless Chromium rendering native DOM at its logical viewport size'
 
+        def system_jobs_layout():
+            nonlocal window
+            from System import Action
+            from armada import appconfig
+            main_window, views = window, []
+            def aligned(label):
+                geometry = js('checkSystemJobColumns()')
+                result.setdefault('system_jobs_geometry', []).append({'phase': label, **geometry})
+                assert geometry['ok'], label+': '+json.dumps(geometry)
+                result['checks'].append(label)
+            try:
+                for width, dark, zoom, theme in ((1660,False,1,'armada-ii'), (1024,False,1,'armada'), (720,True,1.5,'armada-ii')):
+                    appconfig.save({'theme': theme})
+                    # Hidden WebView2 controls can defer shrink notifications.
+                    # Fresh native views give each viewport its real initial bounds.
+                    window = webview.create_window('Synthetic System jobs layout', local_auth.browser_url(base, '/jobs'),
+                                                   width=width, height=900, hidden=True)
+                    views.append(window)
+                    wait(lambda: window.native is not None and js("document.readyState==='complete'&&typeof mcJobsFilter==='function'"),
+                         'System jobs view '+str(width)+' loaded')
+                    window.native.Invoke(Action(lambda: setattr(window.native.webview, 'ZoomFactor', zoom)))
+                    wait(lambda: abs(js('innerWidth')-(width-16)/zoom)<2,
+                         'System jobs viewport '+str(width)+' at '+str(zoom))
+                    js("mcJobsTab('system');mcJobsView('list',null,true);true")
+                    js((Path(__file__).resolve().parents[1]/'tests/system_jobs_layout_harness.js').read_text(encoding='utf-8'))
+                    js('document.documentElement.classList.toggle("armada-dark",'+str(dark).lower()+');mcJobsFilter();true')
+                    aligned('System job columns align at '+str(width)+' and '+str(zoom))
+                    js("document.getElementById('sf-search').value='no-such-synthetic-job';mcJobsFilter();true")
+                    assert js("[...document.querySelectorAll('.mc-sysjob')].every(e=>!e.getClientRects().length)")
+                    js("mcJobsFilterClear(document.querySelector('.mc-jobsbar[data-pfx=sf]'));true")
+                    aligned('Clearing search restores system columns at '+str(width))
+                    for control, attribute in (('f1','cost'), ('status','jstatus'), ('cad','jcad')):
+                        js("document.getElementById('sf-"+control+"').dataset.val=document.querySelector('.mc-sysjob').dataset."+attribute+";mcJobsFilter();true")
+                        aligned('System '+control+' filter preserves columns at '+str(width))
+                        js("mcJobsFilterClear(document.querySelector('.mc-jobsbar[data-pfx=sf]'));true")
+                    js("[...document.querySelectorAll('#mc-sysjobstable>div:first-child [onclick]')].forEach(e=>{e.click();e.click();});mcJobsTab('user');mcJobsTab('system');true")
+                    aligned('Sorting and reopening System preserve columns at '+str(width))
+                    if width<900:
+                        assert js("(()=>{const t=document.getElementById('mc-sysjobstable');t.scrollLeft=t.scrollWidth;return t.scrollLeft>0;})()")
+                        aligned('Narrow System list scrolls to reachable actions')
+                        capture('system-jobs-dark-scaled')
+                        js("document.getElementById('mc-sysjobstable').scrollLeft=0;true")
+                    elif width==1660:
+                        capture('system-jobs-light-wide')
+                js("const row=document.querySelector('.mc-sysjob');const text=row.querySelector('.mc-sysjob-msg');text.textContent='A long status '+('synthetic-path-without-breaks'.repeat(15));text.style.display='block';true")
+                aligned('Long system-job status stays inside its column')
+                target = js("document.querySelector('.mc-sysjob').dataset.sysjob")
+                js("const row=document.querySelector('.mc-sysjob'),toggle=row.querySelector('input[type=checkbox]');toggle.checked=false;mcSysJobToggle(toggle,row.dataset.sysjob);true")
+                wait(lambda: js("document.querySelector('.mc-sysjob .btn-primary').disabled&&document.querySelector('.mc-sysjob [data-next-cell]').textContent==='off'"), 'System off refresh completes')
+                aligned('Switching a system job off preserves columns')
+                js("const row=document.querySelector('.mc-sysjob'),toggle=row.querySelector('input[type=checkbox]');toggle.checked=true;mcSysJobToggle(toggle,row.dataset.sysjob);true")
+                wait(lambda: js("!document.querySelector('.mc-sysjob .btn-primary').disabled"), 'System on refresh completes')
+                js("document.querySelector('.mc-sysjob .btn-primary').click();true")
+                wait(lambda: Fixture.system_runs == [target] and js("document.querySelector('.mc-sysjob-msg').textContent.includes('done')&&!document.querySelector('.mc-sysjob .btn-primary').disabled"), 'Synthetic Run now refresh completes')
+                aligned('Run-now feedback preserves system columns')
+            finally:
+                window = main_window
+                for view in views:
+                    view.destroy()
+
         def exercise():
             try:
                 wait(lambda: js("document.readyState==='complete'&&typeof mcConfirm==='function'&&!!document.getElementById('mc-grid')"), 'Overview ready')
+                if system_jobs_only:
+                    system_jobs_layout()
+                    result['ok'] = True
+                    return
                 wait(lambda: js("document.querySelector('.mc-attention-summary').textContent.includes('job proposals')"), 'Attention links pending review')
                 wait(lambda: js("!!document.querySelector('.mc-w[data-id=activity] [data-activity-monitor]')&&!document.querySelector('#mc-ovh .mc-attention-summary')"),'Activity monitor owns attention outside the header')
                 wait(lambda: js("document.querySelectorAll('#mc-hdr-limits .mc-limit-unavailable').length===6&&[...document.querySelectorAll('#mc-hdr-limits .mc-limit-unavailable')].every(el=>el.textContent==='Not reported')"),'Missing subscription readings keep Not reported in every row')
@@ -330,6 +401,7 @@ def run(output):
                 assert not provider_keys.configured('claude', root, 'captain')
                 assert api_fallback.settings('claude', root, 'captain')['key_source'] == 'off'
                 assert provider_keys.key('claude') == 'sk-ant-synthetic-native-api-key'
+                system_jobs_layout()
                 result['ok'] = True
             except Exception:
                 result['error'] = traceback.format_exc()
@@ -352,4 +424,6 @@ def run(output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    raise SystemExit(run(parser.parse_args().output))
+    parser.add_argument('--system-jobs-only', action='store_true')
+    args = parser.parse_args()
+    raise SystemExit(run(args.output, system_jobs_only=args.system_jobs_only))

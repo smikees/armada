@@ -1,7 +1,12 @@
-# 0.99.146 - Simple Claude API fallback with Console budgets
+# 0.99.146 - Claude API fallback and System jobs columns
 
 Release validation is in progress. Publication evidence will be recorded after the
 final committed source passes the release, stabilization and packaged upgrade gates.
+
+System jobs retain their columns after filters clear inline display styles. Long
+status text wraps inside its column. The new native geometry regression fails
+before the fix and passes 32 checks afterward, covering filters, sorting, tab
+changes, row refresh and wide/narrow scaled layouts. See [the diagnosis and tests](SYSTEM_JOBS_LAYOUT.md).
 
 The owner accepted same-user credential access and provider-enforced spending
 limits. Claude has a compact App Settings setup modal; agents may inherit its key,
