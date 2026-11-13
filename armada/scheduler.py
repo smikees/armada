@@ -28,6 +28,8 @@ from typing import Optional
 
 from . import util as _util
 import logging
+import threading
+_work_changed = threading.Event()
 from .util import swallowed
 log = logging.getLogger(__name__)
 
@@ -297,6 +299,25 @@ def _due_time(job: dict, now: datetime.datetime, grace_min: int):
     sched = job.get("schedule", "manual")
     if not cron and isinstance(sched, str) and is_cron(sched):
         cron = sched
+    window = job.get('start_window')
+    if window:
+        from .job_rules import validate
+        validate(job)
+        # A window replaces the time of day, preserving the schedule's weekdays.
+        parsed = parse_schedule(sched) if not cron else None
+        for back in (0, 1):
+            day = now - datetime.timedelta(days=back)
+            if cron and not cron_day_times(cron, day.date()):
+                continue
+            if not cron and (not parsed or day.weekday() not in parsed[0]):
+                continue
+            hour, minute = map(int, window['from'].split(':'))
+            start = day.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            from .job_waits import bounds
+            _, end, _ = bounds(job, start)
+            if start <= now <= end + datetime.timedelta(minutes=grace_min):
+                return start
+        return None
     if cron:
         # Due if the cron fired at any minute within [now-grace, now] (grace catch-up after a reboot).
         base = now.replace(second=0, microsecond=0)
@@ -321,6 +342,8 @@ def _due_time(job: dict, now: datetime.datetime, grace_min: int):
 
 def _first_fire(job, fire):
     """Keep the once-per-scheduled-day contract for cadences with multiple daily fires."""
+    if job.get('start_window'):
+        return fire
     cron = job.get("cron") or job.get("schedule", "")
     times = cron_day_times(cron, fire.date()) if is_cron(cron) else []
     return fire.replace(hour=times[0][0], minute=times[0][1]) if times else fire
@@ -432,14 +455,21 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
             except (OSError, ValueError) as exc:
                 fired.append({"agent": agent_id, "job": job_id, "status": "held", "detail": str(exc)})
                 continue
-            from . import job_retries
+            from . import job_retries, job_waits
             try:
                 waiting = job_retries.pending(realm_root, agent_id, job_id)
             except OSError as exc:
                 fired.append({"agent": agent_id, "job": job_id, "kind": job.get("kind", "agent"),
                               "status": "held", "detail": str(exc)})
                 continue
-            fire = _due_time(job, now, grace)
+            try:
+                fire = _due_time(job, now, grace)
+            except (ValueError, TypeError) as exc:
+                fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': str(exc)})
+                continue
+            prerequisite_wait = job_waits.pending(realm_root, agent_id, job_id)
+            if prerequisite_wait:
+                fire = datetime.datetime.fromisoformat(prerequisite_wait['fire'])
             if waiting:
                 # Resume only a recorded backoff, including outside catch-up grace.
                 fire = datetime.datetime.fromtimestamp(waiting['started_at'], now.tzinfo)
@@ -470,10 +500,35 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 rec["status"] = "would-fire"
                 fired.append(rec)
                 continue
+            job = {**job, 'id': job_id}
+            from .engine.selection import engine_for
+            try:
+                readiness = job_waits.evaluate(realm_root, agent_id, job, fire, now,
+                    provider=engine_for(realm_root, agent_id, job, override=engine)
+                    if any(job.get(k) for k in ('after', 'requires_connectors', 'start_window')) else '')
+            except (OSError, ValueError, TypeError) as exc:
+                fired.append({**rec, 'status': 'held', 'detail': str(exc)})
+                continue
+            if _dispatch is not None and readiness['state'] in ('failed', 'waiting'):
+                from .request_context import RunContext
+                from .job_history import thread_name
+                import hashlib
+                rid = 'scheduled-' + hashlib.sha256(f'{agent_id}/{job_id}/{day_iso}'.encode()).hexdigest()[:32]
+                context = RunContext.capture(realm_root, agent_id, thread_name(job_id), run_id=rid)
+                _dispatch.defer_prerequisites(context.key, readiness.get('reason', 'Waiting for prerequisites'))
+            if readiness['state'] in ('failed', 'cancelled', 'started'):
+                if readiness['state'] == 'failed':
+                    _record_start_failure(lease, realm_root, agent_id, job_id, day_iso, readiness)
+                fired.append({**rec, 'status': readiness['state'], 'detail': readiness.get('reason', '')})
+                continue
+            if readiness['state'] == 'waiting':
+                fired.append({**rec, 'status': 'waiting', 'detail': readiness['reason']})
+                continue
             if _dispatch is not None:
                 try:
                     overlap = _skip_overlapping(lease, realm_root, agent_id, job_id, day_iso)
                     if overlap:
+                        job_waits.transition(realm_root, agent_id, job_id, 'cancelled')
                         fired.append({**rec, **overlap})
                         continue
                     queued = _enqueue_job(_dispatch, lease, realm_root, agent_id, job_id,
@@ -497,6 +552,10 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                     fired.append(rec)
                     continue
                 fresh = True
+            if not fresh and prerequisite_wait:
+                resumed = _state.resume_prerequisites(lease, agent_id, job_id, day_iso)
+                if resumed:
+                    attempt, fresh = resumed, True
             if not fresh:
                 if attempt["state"] == "claimed":
                     rec.update(status="held", detail="Previous attempt has no recorded outcome; inspect before using Run now.",
@@ -505,6 +564,7 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 continue
             rec["attempt_id"] = attempt["attempt_id"]
             try:
+                job_waits.transition(realm_root, agent_id, job_id, 'started')
                 report = run_job(realm_root, agent_id, job_id, engine=engine,
                                  allow_tools=bool(job.get("allow_tools")))
                 rec["status"] = report.get("status", "ok")
@@ -525,6 +585,23 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
             lease._gate.release()
         if locked_here:
             _lock_release(lease)
+
+
+def _record_start_failure(lease, root, agent, jid, day, readiness):
+    from . import runner
+    from .job_history import thread_name
+    attempt, fresh = _state.claim(lease, agent, jid, day)
+    if not fresh:
+        attempt = _state.resume_prerequisites(lease, agent, jid, day)
+        if not attempt:
+            return
+    reason = readiness['reason']
+    runner._write_report(root/'agents'/agent, agent, {
+        'ts': datetime.datetime.now().astimezone().isoformat(), 'task': jid,
+        'thread': thread_name(jid), 'status': 'error', 'engine': 'scheduler',
+        'run_id': attempt['attempt_id'], 'summary': reason, 'start_failure': True,
+        'result': {'execution': 'failed', 'startup_failure': True, 'delivery': []}})
+    _state.finish(lease, attempt, 'error')
 
 
 def _skip_overlapping(lease, root, agent, jid, day):
@@ -569,24 +646,31 @@ def _enqueue_job(dispatcher, lease, root, agent, jid, job, engine, day, waiting)
             attempt = _state.resume_waiting(lease, agent, jid, day)
             fresh = True
         if not fresh:
+            resumed = _state.resume_prerequisites(lease, agent, jid, day)
+            if resumed:
+                attempt, fresh = resumed, True
+        if not fresh:
             if attempt['state'] == 'claimed':
                 outcome.update(status='held', detail='Previous attempt has no recorded outcome; inspect before using Run now.')
             return None
         outcome.update(status='queued', attempt_id=attempt['attempt_id'])
 
-        def cancel(reason):
+        def cancel(reason, *, prerequisites=False):
             try:
+                from . import job_waits
+                if not prerequisites:
+                    job_waits.transition(root, agent, jid, 'cancelled')
                 if waiting:
                     from . import job_retries
                     job_retries.cancel_waiting(root, agent, jid, waiting.get('series_id'))
             finally:
                 # Even if the backoff journal could not be changed, the stopped claim
                 # must forbid automatic restoration of that old retry.
-                _state.finish(lease, attempt, 'stopped')
+                _state.finish(lease, attempt, 'waiting_prerequisites' if prerequisites else 'stopped')
             print(f'  {root.name}: {agent}/{jid} stopped before execution: {reason}', flush=True)
 
         def run():
-            from . import runner, realmops, records
+            from . import runner, realmops, records, job_waits
             status = 'error'
             try:
                 realmops.assert_active(root)
@@ -594,12 +678,31 @@ def _enqueue_job(dispatcher, lease, root, agent, jid, job, engine, day, waiting)
                 if current.get('enabled') is False:
                     cancel('This job was switched off while queued.')
                     return
+                current.setdefault('id', jid)
+                from .job_access import fingerprint
+                if fingerprint(current) != fingerprint(job):
+                    cancel('This job changed while queued. Use Run now after reviewing its updated settings.')
+                    return
+                prior = job_waits.state(root).get(agent + '/' + jid)
+                if prior and prior.get('day') == day:
+                    ready = job_waits.evaluate(root, agent, current, datetime.datetime.fromisoformat(prior['fire']),
+                        now_in(_load_json(root/'realm.json')), provider=provider)
+                    if ready['state'] == 'waiting':
+                        _state.finish(lease, attempt, 'waiting_prerequisites')
+                        return
+                    if ready['state'] != 'ready':
+                        _state.finish(lease, attempt, 'waiting_prerequisites')
+                        if ready['state'] == 'failed':
+                            _record_start_failure(lease, root, agent, jid, day, ready)
+                        return
+                job_waits.transition(root, agent, jid, 'started')
                 report = runner.run_job(root, agent, jid, engine=engine,
                                         allow_tools=current.get('allow_tools') is True)
                 status = report.get('status', 'ok')
             except Exception:
                 log.exception('Scheduled job failed: %s/%s', agent, jid)
             _state.finish(lease, attempt, status)
+            _work_changed.set()
             print(f'  {root.name}: {agent}/{jid} finished → {status}', flush=True)
         return run, cancel
 
@@ -769,6 +872,7 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
         print("  (Ctrl-C to stop. Jobs fire once per day when due; missed jobs catch up within grace.)", flush=True)
         _note_running(True)
         while True:
+            _work_changed.clear()
             if app_owner and (not _util.pid_alive(app_owner) or
                               ( _util.data_dir() / f"scheduler-stop-{app_owner}").exists()):
                 print("  ARMADA window exited — stopping scheduled jobs", flush=True)
@@ -816,6 +920,8 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                 restart = not app_owner
                 break
             for _ in range(max(5, interval)):
+                if _work_changed.is_set():
+                    break
                 from . import updater
                 if updater.admission_paused():
                     break

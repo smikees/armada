@@ -71,6 +71,10 @@ Owner-facing state and recovery action; unsupported is never called disconnected
 
 Nonblocking, independent provider checks; pending checks have a fixed deadline.
 
+### `resolved_snapshot(root, *, cancelled=None, timeout=92)`
+
+Setup tools return terminal evidence rather than an unhelpful first 'checking'.
+
 ### `is_provider_placeholder(cap: dict)`
 
 Old auto-discovery filed the model app itself as a user MCP connector.

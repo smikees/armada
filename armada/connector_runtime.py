@@ -385,7 +385,11 @@ def connection_snapshot(realm_root, *, force=False, provider=None) -> dict:
         return detail, inventory
 
     caps = capabilities.catalogue(realm_root)["connectors"]
-    signature = json.dumps(caps, sort_keys=True, default=str)
+    # Usage/last-seen metadata is not connection configuration. Including it here
+    # restarted every in-flight check when discovery or another window updated it.
+    signature = json.dumps(sorted(({k: c.get(k) for k in ('id', 'name', 'command', 'mcp_url',
+        'enabled', 'provider_bindings', 'connection_type', 'native_service', 'catalogue_key')}
+        for c in caps), key=lambda c: str(c['id'])), sort_keys=True, default=str)
     checks = {}
     now = time.monotonic()
     with _checks_lock:
@@ -463,6 +467,30 @@ def connection_snapshot(realm_root, *, force=False, provider=None) -> dict:
             rows[sid]["details"][p] = detail
     pending = any(states[p] == 'checking' or any(r[p] == 'starting' for r in rows.values()) for p in requested)
     return {"providers": states, "connectors": rows, "pending": pending}
+
+
+def resolved_snapshot(root, *, cancelled=None, timeout=92):
+    """Setup tools return terminal evidence rather than an unhelpful first 'checking'."""
+    deadline = time.monotonic() + timeout
+    while True:
+        result = connection_snapshot(root)
+        if not result.get('pending', False):
+            return result
+        if cancelled and cancelled():
+            raise ValueError('Connector check cancelled.')
+        if time.monotonic() >= deadline:
+            result['pending'] = False
+            for provider, state in result['providers'].items():
+                if state == 'checking':
+                    result['providers'][provider] = 'unknown'
+            for row in result['connectors'].values():
+                for provider in ('claude', 'codex', 'gemini'):
+                    if row.get(provider) in ('checking', 'starting'):
+                        row[provider] = 'unknown'
+                        row.setdefault('details', {})[provider] = {'state': 'unknown',
+                            'reason': 'Connection check timed out. No availability was assumed.', 'tool_names': []}
+            return result
+        time.sleep(min(.2, max(0, deadline-time.monotonic())))
 
 
 def is_provider_placeholder(cap: dict) -> bool:

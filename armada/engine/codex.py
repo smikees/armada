@@ -347,6 +347,12 @@ class CodexEngine(EngineAdapter):
                 if not re.fullmatch(r"[A-Za-z0-9_-]+", sid):
                     raise ValueError(f"Rename Codex MCP server {sid!r} using letters, numbers, _ or - so Armada can gate it.")
                 args += ["-c", f"mcp_servers.{sid}.enabled=false"]
+        if allow_tools:
+            from ..connector_registry import record_unavailable
+            missing = set(self.allowed_mcp_ids or ()) - granted - withheld - denied
+            record_unavailable(self, [{'server': sid, 'state': 'missing', 'tool_names': [],
+                'error': 'This granted connector is absent, disabled or has no admitted tools in Codex.'}
+                for sid in sorted(missing)])
         self._turn_mcp_ids = tuple(sorted(granted))
         if allow_tools and getattr(self, 'connector_tools', None):
             from ..connector_tools import codex_args

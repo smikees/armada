@@ -136,6 +136,7 @@ def render_agent(realm, realm_root, agent_id: str, subtab: str = "threads", dark
 
 def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False) -> str:
     from .run_controls import job_fields
+    from .job_readiness import fields as readiness_fields
     realm_root = Path(realm_root)
     a = next((x for x in realm.agents if x.id == agent_id), None)
     body_cls = "armada-dark" if dark else ""
@@ -249,7 +250,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<div><label style="{lbl}">On failure</label><select id="j-onfail" style="{field}">{retry_options}</select>'
         f'<small>Retry failed execution after 30s, 1m and 2m. Completed, stopped or uncertain-delivery runs are not repeated.</small></div>'
         f'<div><label style="{lbl}">Budget / run</label><input id="j-budget" value="{E(budget)}" placeholder="E.g. 10K token" style="{field}"></div></div>'
-        + job_fields(jc)
+        + job_fields(jc) + readiness_fields(jc, realm_root, agent_id)
         )
 
     from ..tool_capture import DEFAULT_DIR
@@ -1730,6 +1731,7 @@ def _app_advanced(updater, realm_root="") -> str:
     """Settings → App → Advanced: the automatic-updates switch (5.4, decided in ADR-005)."""
     from .provider_settings import alexander_settings
     from .run_controls import worker_controls
+    from .connector_health import secrets_controls
     alexander = alexander_settings(realm_root)
     on = updater.auto_enabled()
     note = ("" if updater.installed() else
@@ -1770,4 +1772,4 @@ def _app_advanced(updater, realm_root="") -> str:
             'settings are never touched. Off: nothing is checked or downloaded until you use Check '
             'for updates.</div>'
             '<span id="mc-updauto-msg" style="font-size:11.5px;color:var(--text-muted)"></span>'
-            f'{note}</div></div>{alexander}{worker_controls()}</details>')
+            f'{note}</div></div>{alexander}{secrets_controls(realm_root)}{worker_controls()}</details>')

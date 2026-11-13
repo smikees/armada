@@ -155,6 +155,8 @@ def approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET,
         from .tool_capture import validate as validate_capture
         try:
             validate_capture(norm, realm_root, jid)
+            from .job_rules import validate_graph
+            validate_graph(realm_root, agent_id, norm)
         except (ValueError, OSError) as exc:
             return {"ok": False, "error": str(exc)}
         dst = Path(realm_root) / "agents" / agent_id / "jobs" / f"{jid}.json"

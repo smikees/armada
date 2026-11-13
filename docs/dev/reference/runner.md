@@ -235,11 +235,11 @@ Decode data-URL images from the composer to files under the thread. Returns [{"p
 
 Compatibility streaming entry point; the coordinator owns persistence and cleanup.
 
-### `run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str='mock', thread: str='main', allow_tools: bool=False)`
+### `run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str='mock', thread: str='main', allow_tools: bool=False, *, trigger=None, override_reason='')`
 
 —
 
-### `_run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools)`
+### `_run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools, *, trigger=None, override_reason='')`
 
 —
 

@@ -48,6 +48,8 @@ async function mcSaveJob(agent,job){
     approve_dry_run_scripts:document.getElementById('j-dry-approve').checked,
     dry_run_command:document.getElementById('j-dry-command').value.trim()};
   const m=document.getElementById('j-savemsg'); m.textContent='saving…';
+  try{Object.assign(payload,mcJobReadiness());}catch(e){m.textContent=e.message;return;}
+  if(payload.kind==='command')payload.run=payload.prompt;
   try{let r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     if(r.connector_warning){
       if(!await mcConfirm('Review connector access',r.connector_warning,{ok:'Save model choice'})){m.textContent='Model change not saved.';return;}

@@ -10,6 +10,10 @@ Bounded job retries with durable attempt evidence and conservative replay rules.
 
 —
 
+### `backoff(job)`
+
+Owner-selected delays, indexed by retry number; replay admission is unchanged.
+
 ### `retryable(report)`
 
 —

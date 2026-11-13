@@ -10,6 +10,7 @@ cards are built from, and _realm_skills, the page that stitches all three tabs t
 from __future__ import annotations
 import html, json, datetime, time, re
 from pathlib import Path
+from .connector_health import card as health_card, watch_controls
 from .. import memory, model, models, brand, status, sysskills
 from .. import goals as goalsmod
 from ..icons import ICONS, _provider_logo, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR
@@ -958,7 +959,8 @@ def _cap_card(it: dict, inherited: bool = False, manage=None, kind: str = "",
             f'<summary style="display:grid;grid-template-columns:{cols};'
             f'column-gap:16px;align-items:center">'
             f'{col0}{col2}{_cap_runs_cell(it)}{_cap_touch_cell(it)}{availto}{col5}'
-            f'</summary>{_cap_prov(it, kind, manage, realm, realm_root)}</details>')
+            f'</summary>{_cap_prov(it, kind, manage, realm, realm_root)}'
+            + (health_card(realm_root, it.get('id')) if kind == 'connectors' and realm_root else '')+'</details>')
 
 
 _tool_row = _cap_card   # back-compat alias: the row renderer is now a trust card (same signature)
@@ -1463,7 +1465,7 @@ def _realm_skills_content(realm, realm_root) -> str:
     drag_js = _CAPDRAG_JS
     return (f'<div style="padding:18px 24px 24px">'
             f'<div style="display:flex;align-items:flex-start"><div style="flex:1">{_page_title("Capabilities", "who made it · what it can touch · your risk")}</div>'
-            f'<span id="cap-actions">{scan_btn}{_cap_manage_btn()}</span></div>'
+            f'<span id="cap-actions">{watch_controls(realm_root)}{scan_btn}{_cap_manage_btn()}</span></div>'
             f'{tabs}{user_pane}{sys_pane}{cat_pane}'
             f'{_CAP_HELP}{_CAP_EDIT_MODAL}{_CONNECTOR_MODAL}</div>'
             # fdrop.js FIRST: both filter bars on this page are the app's dropdown, and the page

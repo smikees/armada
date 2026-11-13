@@ -244,7 +244,8 @@ def read_native(root: Path, *, details=True) -> Realm:
                 jid = jf.stem
                 seen = latest.get(jid)
                 kind = jc.get("kind") or ("command" if (jc.get("run") or jc.get("command")) else "agent")
-                cadence = jc.get("schedule") or jc.get("cron") or "manual"
+                from .job_rules import cadence as job_cadence
+                cadence = job_cadence(jc)
                 a.jobs.append(Job(id=jid, name=jc.get("name", jid), cadence=cadence,
                                   summary=str(jc.get("summary") or ""),
                                   # absent means on: a job written before the toggle existed, or by

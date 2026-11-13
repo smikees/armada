@@ -18,7 +18,12 @@ class ConnectorTools(ManagedTools):
         self.actions = []
 
     def tools(self):
-        return [
+        from . import util
+        coordinator = util.read_json_state(self.root / 'agents' / self.agent / 'agent.json').get('coordinator')
+        extra = [_tool('start_approved_job', 'Start an enabled owner-approved job which explicitly allows coordinator starts. Pass only its IDs and your reason. Daily caps, non-overlap, usage limits and critical reserves apply; cannot edit or approve jobs.',
+                       {'agent': _string('Target agent ID'), 'job': _string('Approved job ID'),
+                        'reason': _string('Reason for running this job now')}, ('agent', 'job', 'reason'), read_only=False)] if coordinator else []
+        return extra + [
             _tool('list_connectors', 'List your realm-approved connectors and independent engine connection states. No credentials.'),
             _tool('connect_connector', 'Prepare/sign in an existing connector approved for you. The owner completes browser sign-in. Never changes grants, disabled realm capabilities, endpoints or other registrations. Newly connected tools load next turn.',
                   {'capability': _string('Exact connector ID from list_connectors'),
@@ -46,12 +51,18 @@ class ConnectorTools(ManagedTools):
                 approved = self._approved()
                 if not approved:
                     return {'connectors': []}
-                snapshot = connector_runtime.connection_snapshot(self.root)
+                snapshot = connector_runtime.resolved_snapshot(self.root, cancelled=self.cancelled)
                 return {'connectors': [{'id': c['id'], 'name': c.get('name') or c['id'],
                         'connections': {p: {k: v for k, v in
                                             (snapshot['connectors'].get(c['id'], {}).get('details', {}).get(p) or {}).items()
                                             if k in ('state', 'reason', 'tool_names')}
                                         for p in ('claude', 'codex', 'gemini')}} for c in approved]}
+            if name == 'start_approved_job':
+                from . import job_triggers
+                result = job_triggers.enqueue(self.root, arguments['agent'], arguments['job'],
+                                              arguments['reason'], coordinator=self.agent)
+                self.actions.append({'tool': name, 'agent': arguments['agent'], 'job': arguments['job'], 'ok': True})
+                return result
             cid = arguments['capability']
             kind, cap = capabilities.find(self.root, cid)
             if kind != 'connectors' or not cap:

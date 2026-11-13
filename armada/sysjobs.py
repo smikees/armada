@@ -305,7 +305,15 @@ def _job_usage_readings(root):
     return {'ok':True, 'detail':'Refreshing connected-provider readings for usage-last.json.'}
 
 
+def _job_connector_heartbeat(root):
+    from .connector_health import tick
+    return tick(root)
+
+
 JOBS = [
+    {'id': 'connector-heartbeat', 'name': 'Watch connector availability', 'every_minutes': 1,
+     'description': 'Check watched connectors without model calls; speed up before dependent jobs and report outages and recovery.',
+     'cost': FREE, 'run': _job_connector_heartbeat},
     {"id":"usage-readings", "name":"Refresh provider usage readings", "every_minutes":25,
      "description":"Save current Claude, Codex and Gemini usage for agents, even while the window is closed.",
      "cost":FREE, "run":_job_usage_readings},

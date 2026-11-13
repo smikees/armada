@@ -63,6 +63,12 @@ def validate(data: dict, kind: str, identity: str | None = None) -> dict:
             validate_retries(data["retries"])
         except ValueError as exc:
             raise util.StateError(f"Invalid job record: {exc}") from exc
+    if kind == 'job':
+        from .job_rules import validate as validate_readiness
+        try:
+            validate_readiness(data)
+        except (ValueError, TypeError) as exc:
+            raise util.StateError(f'Invalid job record: {exc}') from exc
     for field in ("timeout", "max_budget_usd"):
         value = data.get(field)
         if value in (None, ""):

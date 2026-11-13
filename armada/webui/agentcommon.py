@@ -2,6 +2,7 @@
 from __future__ import annotations
 import html, json, datetime, time, re
 from pathlib import Path
+from .job_readiness import summary as readiness_summary
 from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
@@ -193,6 +194,8 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
                   f'Connector unavailable: {E(job.get("connector_limit_action") or "Inherit")}. '
                   f'API ceiling: {E(str(job.get("api_run_ceiling_usd") or "Inherit"))}. '
                   f'API model: {E(job.get("api_model") or "Same model")}.</p>'
+                  + readiness_summary(job)
+                  +
                   f'<div style="display:flex;gap:8px;margin-top:10px;align-items:center">{approve}'
                   f'<button class="btn btn-secondary btn-sm" '
                   f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'reject\',this)">Reject</button>'

@@ -27,6 +27,18 @@ def validate(value):
     return value
 
 
+def backoff(job):
+    """Owner-selected delays, indexed by retry number; replay admission is unchanged."""
+    if 'retry_backoff_seconds' not in job:
+        return BACKOFF
+    values = job.get('retry_backoff_seconds', BACKOFF)
+    if (not isinstance(values, (list, tuple)) or not 1 <= len(values) <= 3
+            or any(type(v) not in (int, float) or not math.isfinite(v) or not 1 <= v <= 86400 for v in values)
+            or len(values) < count(job)):
+        raise ValueError('Retry delays must supply one positive delay per retry, at most three delays of up to 86400 seconds.')
+    return tuple(values)
+
+
 def retryable(report):
     if report.get('billing', {}).get('final_failure'):
         return False
@@ -153,6 +165,6 @@ def execute(root, agent, job_id, job, run, *, sleep=time.sleep, clock=time.time)
                 journal.update(state='finished', finished_at=clock())
                 util.write_json_atomic(path, journal)
                 return report
-            journal.update(state='waiting', next_at=clock()+BACKOFF[len(journal['attempts'])-1])
+            journal.update(state='waiting', next_at=clock()+backoff(job)[len(journal['attempts'])-1])
             util.write_json_atomic(path, journal)
             resume = True

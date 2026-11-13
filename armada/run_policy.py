@@ -9,7 +9,9 @@ import math
 from pathlib import Path
 from . import util
 
-JOB_FIELDS = ('timeout', 'plan_limit_action', 'connector_limit_action', 'critical', 'api_model', 'api_run_ceiling_usd')
+LEGACY_JOB_FIELDS = ('timeout', 'plan_limit_action', 'connector_limit_action', 'critical', 'api_model', 'api_run_ceiling_usd')
+from .job_rules import FIELDS as READINESS_FIELDS
+JOB_FIELDS = (*LEGACY_JOB_FIELDS, *READINESS_FIELDS)
 ACTIONS = ('api', 'wait', 'fail')
 
 
@@ -26,6 +28,8 @@ def scope_id(root, agent=''):
 
 
 def validate_job(job):
+    from .job_rules import validate
+    validate(job)
     value = job.get('timeout')
     if value not in (None, '') and (isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0):
         raise ValueError('Time limit must be a positive number of seconds, or empty for No limit.')
@@ -52,9 +56,22 @@ def _positive(value, name):
 def seal_job(root, agent, job):
     from .job_access import identity, fingerprint
     validate_job(job)
+    from .job_rules import validate_graph
+    validate_graph(root, agent, job)
+    starters = []
+    if job.get('coordinator_may_start'):
+        from . import records
+        for path in sorted((Path(root)/'agents').glob('*/agent.json')):
+            try:
+                if records.read(path, 'agent').get('coordinator'):
+                    starters.append(path.parent.name)
+            except (OSError, ValueError):
+                continue
     with util.file_lock(_path()):
         state = _read()
-        state.setdefault('jobs', {})[identity(root, agent, job['id'])] = fingerprint(job)
+        key = identity(root, agent, job['id'])
+        state.setdefault('jobs', {})[key] = fingerprint(job)
+        state.setdefault('coordinator_starters', {})[key] = starters
         util.write_json_atomic(_path(), state)
     audit('approve-job-controls', root, agent=agent, job=job['id'], values={k: job.get(k) for k in JOB_FIELDS})
 
@@ -64,11 +81,30 @@ def verify_job(root, agent, job):
     validate_job(job)
     state=_read()
     seal = state.get('jobs', {}).get(identity(root, agent, job.get('id', '')))
+    if seal and seal != fingerprint(job) and not any(job.get(k) for k in READINESS_FIELDS):
+        # Only previously approved, unchanged legacy instructions may migrate. New
+        # waiting, secret and coordinator controls always need fresh owner approval.
+        import hashlib, json
+        old = {k: job.get(k) for k in ('id', 'kind', 'prompt', 'allow_tools', *LEGACY_JOB_FIELDS)}
+        if seal == hashlib.sha256(json.dumps(old, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest():
+            target = identity(root, agent, job.get('id', ''))
+            with util.file_lock(_path()):
+                current = _read()
+                if current.get('jobs', {}).get(target) == seal:
+                    current['jobs'][target] = fingerprint(job)
+                    util.write_json_atomic(_path(), current)
+                    from . import appconfig
+                    def migrate(data):
+                        entry = data.get('job_access', {}).get(target)
+                        if entry and entry.get('fingerprint') == seal:
+                            entry['fingerprint'] = fingerprint(job)
+                    util.mutate_json(appconfig._path(), migrate, default=dict)
+                    seal = fingerprint(job)
     if seal and seal != fingerprint(job):
         raise ValueError('Job instructions or run controls changed after approval. Review and save the job before running.')
     imported=scope_id(root) in state.get('legacy_imported', [])
     if not seal and (any(job.get(k) for k in JOB_FIELDS if k != 'timeout') or imported and job.get('timeout')):
-        raise ValueError('The owner must approve time limits, fallback and critical-job controls in Jobs before this job runs.')
+        raise ValueError('The owner must approve this job’s run controls in Jobs before it runs.')
     return bool(seal)
 
 
@@ -149,7 +185,7 @@ def save(root, values, *, provider='claude', agent='', global_provider=False):
     if global_provider:
         allowed |= {'monthly_cap_usd', 'cycle_day', 'reserve_percent'}
     elif not agent:
-        allowed.add('default_job_timeout')
+        allowed |= {'default_job_timeout', 'coordinator_daily_cap'}
     clean = {k: v for k, v in values.items() if k in allowed and v not in (None, '')}
     validate_job(clean)
     for key in ('monthly_cap_usd', 'agent_inactivity_minutes', 'api_run_ceiling_usd', 'default_job_timeout'):

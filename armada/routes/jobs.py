@@ -117,12 +117,28 @@ class JobRoutes:
             return {"ok": False, "error": f"no job {job}"}
         try:
             on = bool(body.get("enabled"))
+            from .. import run_policy, job_access
+            before = util.read_json_state(p)
+            before.setdefault('id', job)
+            try:
+                approved = run_policy.verify_job(self.realm, agent, before)
+            except ValueError:
+                if on:
+                    raise
+                approved = False
             def change(jc):
                 if on:
                     jc.pop("enabled", None)
                 else:
                     jc["enabled"] = False
-            util.mutate_json(p, change)
+            saved = util.mutate_json(p, change)
+            if approved:
+                saved.setdefault('id', job)
+                run_policy.seal_job(self.realm, agent, saved)
+                job_access.reseal_controls(self.realm, agent, before, saved)
+            if not on:
+                from .. import job_waits
+                job_waits.transition(self.realm, agent, job, 'cancelled')
             return {"ok": True, "enabled": on}
         except Exception as e:  # noqa
             swallowed(log, '_job_enable: failed; error returned to the caller')
@@ -139,6 +155,8 @@ class JobRoutes:
             with util.file_lock(p):
                 util.read_json_state(p)
                 p.unlink()
+            from .. import job_waits
+            job_waits.transition(self.realm, agent, job, 'cancelled')
             return {"ok": True, "deleted": f"agents/{agent}/jobs/{job}.json"}
         except Exception as e:  # noqa
             swallowed(log, '_delete_job: failed; error returned to the caller')
@@ -170,7 +188,7 @@ class JobRoutes:
                     else:
                         jc[key] = body[key]
             validate_job(jc)
-            for k in ("prompt", "summary", "kind", "thread", "budget"):
+            for k in ("prompt", "summary", "kind", "thread", "budget", "run", "command"):
                 if k in body:
                     jc[k] = body[k]
             if "name" in body:
@@ -204,6 +222,8 @@ class JobRoutes:
                     else:
                         jc[key] = body[key]
             dry_runs.settings(jc)
+            from ..job_rules import validate_graph
+            validate_graph(self.realm, agent, {**jc, 'id': job})
             if jc.get('dry_run_scripts'):
                 from ..draft_skills import fingerprint
                 fingerprint(self.realm, agent, {**jc, 'id': job})
@@ -281,8 +301,15 @@ class JobRoutes:
             pass                              # unreadable job: let run_job report the real problem
         buf = io.StringIO()
         try:
+            from .. import job_waits
+            from ..engine.selection import engine_for
+            current = util.read_json_state(jf)
+            warning = job_waits.override_warning(self.realm, current,
+                provider=engine_for(self.realm, agent, current, override=engine))
+            if warning and body.get('confirm_prerequisite_override') is not True:
+                return {'ok': False, 'prerequisite_warning': warning}
             with contextlib.redirect_stdout(buf):
-                report = run_job(self.realm, agent, job, engine=engine)
+                report = run_job(self.realm, agent, job, engine=engine, **({'override_reason': warning} if warning else {}))
             from ..job_history import transcript
             output = transcript(Path(self.realm) / "agents" / agent, report).get("content")
             return {"ok": report.get("status") == "ok", "status": report.get("status"),

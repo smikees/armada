@@ -1,5 +1,79 @@
 # Jobs
 
+### Waiting through outages
+
+In **Edit job → Start conditions & recovery**, select the connectors the job must
+have. Armada checks them without a model before starting and waits while any is
+unavailable. The default start deadline is 90 minutes; you can change it. Waiting
+holds no provider slot and spends no tokens. A deadline failure records the last
+connector error. Existing execution timeouts are separate and unchanged.
+
+Choose a **start window** and add jobs under **Wait for successful jobs**. Each
+dependency has accepted outcomes and a freshness limit. A currently running or
+queued dependency takes precedence over an older successful result. Manual runs
+count too. The job starts after all dependencies finish, inside its window, using
+the realm timezone and its scheduled days. Cycles are refused. At the end, choose
+to fail or run with a warning about unmet job dependencies. Required connectors
+still have to be healthy for an automatic start.
+
+Waiting appears in Jobs, the calendar and Activity monitor. Connector waits notify
+you immediately; dependency waits notify after 15 minutes. Both notify when they
+end. **Run now** can bypass the wait after a warning; the run records and receives
+that warning. Changing approved conditions in a job file revokes approval.
+
+Set custom retry delays in seconds if an outage needs longer gaps. Retry counts
+and safeguards against repeating sent or uncertain side effects still apply.
+You can also choose an enabled, approved **fallback job**. Armada starts it only
+after a failure passes the same replay check, links its result to the original
+run, and accepts a fresh successful fallback for downstream dependencies.
+The fallback waits for its own required connectors and job dependencies before
+claiming execution capacity. If they become unavailable while it is queued,
+the run stops before starting and reports why. An interrupted requested start
+requires review and **Run now**; it is not automatically replayed.
+
+**The coordinator may start this approved job** is off by default. When enabled,
+the current coordinator can call `start_approved_job` with the target IDs and a
+reason. The default allowance is two starts per job per realm-local day and six
+across the realm (change the latter in Realm run controls). Queue requests consume
+an allowance immediately, even if they later fail; overlapping requests are refused.
+The prompt and controls stay sealed, and normal usage and critical reserves apply.
+Requested starts appear in job history and notify you. A new coordinator identity
+needs the owner to save this permission again; editing an agent's role cannot grant it.
+
+### Connector monitoring and command credentials
+
+Open **Capabilities → Connector monitoring** to choose watched connectors. By
+default Armada checks them every 15 minutes on weekdays and every 5 minutes from
+30 minutes before a required job until it starts. The modal lets you change these
+intervals. Expanded connector cards show state, last successful check and the
+percentage of checks that passed in the past 30 days. Notifications report state
+changes once each way. `connector-health.json` contains the latest credential-free
+readings; `job-waits.json` describes pending starts. Runs receive the heartbeat
+summary, including stale-reading labels. Full check history stays in Armada's
+machine data folder, outside the realm.
+
+An HTTP response alone does not prove a connector works: Armada also checks its
+engine registration and callable tools. A missing claude.ai list is reported as
+missing, even when the CLI exits successfully. A provider incident is shown as
+related evidence, not a proven cause. These checks send no model prompt and do
+not call a broker trading tool.
+
+Use **App Settings → Advanced → Command credentials** to save a named secret.
+An approved command job can select that name and receives `ARMADA_SECRET_NAME`
+only in its process environment. Values are Windows-encrypted outside realms and
+are redacted from captured output. They are not included in exports or run records.
+This uses your Windows account: another program under that account can technically
+access them, and a deliberately hostile script can defeat output redaction.
+Never put a secret value in the job file, prompt, command line or ordinary `env` field.
+
+For IBKR, a direct connector or gateway needs separate account validation before
+replacing an existing registration. The heartbeat does not make the broker
+read-only, prove end-to-end data access, or authorize trading. A second AI connection
+may replace the existing one. Keep the current registration until coexistence and
+source-enforced read-only access have been checked.
+
+### Execution limits and API fallback
+
 Agent jobs and Inbox tasks have **no default time limit**. Set an optional positive
 `timeout` in seconds for a ceiling, or choose it under **Edit job → Time limit,
 fallback & priority**. An empty field shows **No limit** and inherits a realm ceiling

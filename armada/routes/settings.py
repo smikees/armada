@@ -20,6 +20,30 @@ _APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
+    def _get_connector_health(self):
+        from .. import connector_health
+        data = connector_health.snapshot(self.realm)
+        self._json(200, {'connectors': {key: {k:v for k,v in row.items() if k!='checks'}
+                                      for key,row in data['connectors'].items()}})
+
+    def _connector_watches(self, body):
+        from .. import connector_health
+        try:
+            if self.headers.get('X-Armada-Companion') == 'thread':
+                raise ValueError('Manage connector monitoring in the main app.')
+            return {'ok': True, 'settings': connector_health.save(self.realm, body.get('values', {}))}
+        except (OSError, ValueError, TypeError) as exc:
+            return {'ok': False, 'error': str(exc)}
+
+    def _command_secret(self, body):
+        from .. import command_secrets
+        try:
+            if self.headers.get('X-Armada-Companion') == 'thread':
+                raise ValueError('Manage command credentials in the main app Settings.')
+            return {'ok': True, 'names': command_secrets.save(self.realm, body.get('name'), body.get('value'))}
+        except (OSError, ValueError, TypeError) as exc:
+            return {'ok': False, 'error': str(exc)}
+
     def _api_fallback_action(self, body):
         from .. import api_fallback
         try:

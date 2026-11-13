@@ -308,6 +308,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         "/api/providers": "_get_providers",
         "/api/font-size": "_get_font_size",
         "/api/capability-connections": "_get_capability_connections",
+        "/api/connector-health": "_get_connector_health",
         "/api/capabilities-content": "_get_capabilities_content",
         "/api/capability-reviews": "_get_capability_reviews",
         "/api/engine-impact": "_get_engine_impact",
@@ -455,6 +456,8 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
     _POST_JSON = {
         "/api/worker": "_worker_action",
         "/api/run-controls": "_save_run_controls",
+        "/api/connector-watches": "_connector_watches",
+        "/api/command-secret": "_command_secret",
         "/api/api-fallback": "_api_fallback_action",
         "/api/repair-record": "_repair_record",
         "/api/voice-start": "_voice_start", "/api/voice-state": "_voice_state", "/api/voice-stop": "_voice_stop",

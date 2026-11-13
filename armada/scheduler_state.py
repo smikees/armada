@@ -200,6 +200,20 @@ def inspect_attempt(root, agent, job, day):
     return _attempts(_attempt_path(root, day))["attempts"].get(_key(agent, job))
 
 
+def resume_prerequisites(lease, agent, job, day):
+    """Reopen only an attempt explicitly released before any execution occurred."""
+    lease.verify(lease.root)
+    path = _attempt_path(lease.root, day)
+    with util.file_lock(path):
+        data = _attempts(path)
+        entry = data['attempts'].get(_key(agent, job))
+        if not entry or entry.get('state') != 'finished' or entry.get('status') != 'waiting_prerequisites':
+            return None
+        entry.update(owner_token=lease.token, state='claimed')
+        util.write_json_atomic(path, data)
+        return entry
+
+
 def resume_waiting(lease, agent, job, day):
     """Transfer a known finished-attempt backoff after a scheduler restart."""
     from . import job_retries

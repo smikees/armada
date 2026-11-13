@@ -65,6 +65,10 @@ Keep ARMADA itself up to date (5.4). Machine-wide, though it's listed in every r
 
 —
 
+### `_job_connector_heartbeat(root)`
+
+—
+
 ### `_state_path(realm_root)`
 
 —

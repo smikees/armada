@@ -160,10 +160,23 @@ def _job_detail(realm_root, agent_id, job_id, selected_run="") -> dict:
     week = _job_health7(all_runs, jc.get("cron") or jc.get("schedule") or "manual", now,
                        running, since=_job_created_ts(realm_root, agent_id, job_id, jc), latest_today=True)
     from ..webui.schedfmt import _job_next_dt
-    next_run = _job_next_dt(jc.get("cron") or jc.get("schedule"), now.replace(tzinfo=None))
+    from ..job_rules import cadence
+    next_run = _job_next_dt(cadence(jc), now.replace(tzinfo=None))
     from .. import datefmt
     next_label = ("off" if jc.get("enabled") is False else "running now" if running else
                   datefmt.moment(next_run) if next_run else "on demand")
+    from ..webui.job_readiness import wait_label
+    waiting = wait_label(realm_root, agent_id, job_id) if jc.get('enabled', True) else ''
+    if waiting and not running:
+        next_label = waiting
+        if not selected_run:
+            html = '<p role="status">'+E(waiting)+'</p>'+html
+    from .. import job_triggers
+    triggers = [r for r in job_triggers.history(realm_root) if r['agent'] == agent_id and r['job'] == job_id][-5:]
+    if triggers and not selected_run:
+        html += '<details><summary>Requested starts</summary><ul>'+''.join(
+            '<li>'+E(f'{r["at"]}: {r["coordinator"] or "Fallback"} — {r["reason"]} ({r["state"]})'
+                + (': '+str(r.get('error') or r.get('wait_reason')) if r.get('error') or r.get('wait_reason') else ''))+'</li>' for r in triggers)+'</ul></details>'
     return {"id": jc.get("id", job_id), "name": jc.get("name", job_id),
             "kind": jc.get("kind") or ("command" if (jc.get("run") or jc.get("command")) else "agent"),
             "cadence": jc.get("schedule") or jc.get("cron") or "manual",

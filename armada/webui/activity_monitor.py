@@ -19,6 +19,10 @@ def content(realm,root):
 def _content(realm,root):
     groups={name:{} for name in ('Working','Queued','Unread replies','Needs input','Failed replies')}
     from .. import execution_admission
+    from .. import job_waits
+    prerequisite_waits = job_waits.state(root)
+    from .. import job_triggers, util
+    requested = [r for r in job_triggers.history(root) if r['state']=='queued' and util.pid_alive(r.get('owner_pid',0))]
     live=[row for row in execution_admission.snapshot() if Path(row['root']).resolve()==Path(root).resolve()]
     def add(group,agent,href,detail):
         # One portrait per agent per row; keep multiple threads/requests in its tooltip.
@@ -31,6 +35,12 @@ def _content(realm,root):
         href=f'/agent/{quote(agent.id,safe="")}/threads'
         waiting=questions.waiting(root,agent.id)
         tickets=[row for row in live if row['agent']==agent.id]
+        for row in requested:
+            if row['agent']==agent.id:
+                add('Queued',agent,f'/agent/{quote(agent.id,safe="")}/jobs?'+urlencode({'job':row['job']}),row.get('wait_reason') or row['reason'])
+        for row in prerequisite_waits.values():
+            if row.get('agent') == agent.id and row.get('state') == 'waiting':
+                add('Queued', agent, f'/agent/{quote(agent.id,safe="")}/jobs?' + urlencode({'job':row['job']}), row.get('reason', 'Waiting for prerequisites'))
         queued=[row for row in tickets if row['state']=='queued']
         for row in queued:
             from ..job_history import JOB_PREFIX

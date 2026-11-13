@@ -296,6 +296,11 @@ class ClaudeEngine(EngineAdapter):
         self._cached: Optional[list[str]] = None
         self.allowed_mcp_ids = frozenset()
 
+    def _inventory_unavailable(self, reason):
+        from ..connector_registry import record_unavailable
+        record_unavailable(self, [{'server': sid, 'state': 'missing', 'tool_names': [],
+                                  'error': reason} for sid in sorted(self.allowed_mcp_ids or ())])
+
     def _mcp_args(self, denied, cwd=None):
         """Deny every effective server absent from this agent's validated grants."""
         if not self._direct():
@@ -313,20 +318,35 @@ class ClaudeEngine(EngineAdapter):
         try:
             result = worker.run(self._launcher() + ["mcp", "list"], **kwargs)
         except subprocess.TimeoutExpired as exc:
+            self._inventory_unavailable('Claude connector discovery exceeded 90 seconds.')
             raise ValueError("Claude connector discovery exceeded 90 seconds. Check connector health before running the job again.") from exc
         if result.returncode or result.stderr.strip():
+            from ..connector_health import public_error
+            self._inventory_unavailable(public_error(result.stderr.strip()) or 'Claude connector inventory could not be fetched.')
             raise ValueError("Could not inspect Claude MCP configuration; refusing to run without capability gating.")
         names = _mcp_inventory(result.stdout)
         from .mcp import claude_rows
         from ..connector_registry import unavailable_registrations, record_unavailable
         rows = claude_rows(result.stdout)
+        from ..connector_health import public_error
         entries = {_mcp_server_id(row['name']): row['endpoint'] for row in rows}
         issues = unavailable_registrations(getattr(self, 'connector_requirements', {}), entries)
+        # Native claude.ai grants do not necessarily have explicit endpoint bindings.
+        # Their absence must still be recorded, including a successful CLI exit with
+        # only local servers after Anthropic's connector inventory failed to load.
+        present = set(entries) | {row['name'] for row in rows}
+        absent = set(self.allowed_mcp_ids or ()) - present - {row['server'] for row in issues}
+        native_list_missing = not any(row['name'].startswith('claude.ai ') for row in rows)
+        for sid in sorted(absent):
+            issues.append({'server': sid, 'state': 'missing', 'tool_names': [],
+                           'error': 'The claude.ai connector list was not returned; this granted connector is unavailable.'
+                           if native_list_missing and sid.startswith(('claude_ai_', 'claude.ai ')) else
+                           'This granted connector was absent from the engine inventory.'})
         for row in rows:
             sid = _mcp_server_id(row['name'])
             if not row['ready'] and (sid in self.allowed_mcp_ids or row['name'] in self.allowed_mcp_ids):
                 issues.append({'server': sid, 'state': row['state'], 'tool_names': [],
-                               'error': 'Sign-in is required.' if row['state'] == 'sign_in' else 'This connector failed its CLI health check.'})
+                               'error': public_error(row.get('error') or 'This connector failed its CLI health check.')})
         record_unavailable(self, issues)
         withheld = {row['server'] for row in issues}
         allowed = set(self.allowed_mcp_ids or ())

@@ -38,7 +38,8 @@ def identity(realm_root, agent_id: str, job_id: str) -> str:
 def fingerprint(job: dict) -> str:
     """Changing a prompt or tool mode revokes its access until the owner re-approves it."""
     from .run_policy import JOB_FIELDS
-    sealed = {k: job.get(k) for k in ("id", "kind", "prompt", "allow_tools", *JOB_FIELDS)}
+    sealed = {k: job.get(k) for k in ("id", "kind", "prompt", "allow_tools", *JOB_FIELDS,
+                                     'schedule', 'cron', 'run', 'command', 'retries', 'cwd', 'env', 'enabled')}
     data = json.dumps(sealed, sort_keys=True, ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(data).hexdigest()
 

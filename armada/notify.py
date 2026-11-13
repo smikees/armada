@@ -49,6 +49,12 @@ CHANNELS = {
 # otherwise. The defaults encode one judgement: interrupt only for things that need a person.
 AGENTS, SYSTEM = "agents", "system"
 EVENTS = {
+    'connector_health': {'label': 'A watched connector goes down or recovers', 'group': SYSTEM,
+        'default': {'inapp': True, 'desktop': True, 'telegram': True}},
+    'job_wait': {'label': 'A job waits for prerequisites or ends its wait', 'group': AGENTS,
+        'default': {'inapp': True, 'desktop': True, 'telegram': True}},
+    'coordinator_job': {'label': 'The coordinator starts an approved job', 'group': AGENTS,
+        'default': {'inapp': True, 'desktop': True, 'telegram': True}},
     "job_stalled": {
         "label": "An unattended run stalls", "group": AGENTS,
         "default": {"inapp": True, "desktop": True, "telegram": True}},

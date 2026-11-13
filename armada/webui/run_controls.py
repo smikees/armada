@@ -35,6 +35,7 @@ def panel(root=None, agent='', *, global_provider=False):
                     ('agent_inactivity_minutes','Stop after no engine event — minutes',30),
                     ('agent_soft_mark_minutes','Notify after running — minutes (0 disables)',60),
                     ('critical_usage_percent','Defer unattended work above session use — %',80)]
+        numbers += [('coordinator_daily_cap', 'Coordinator starts per day across this realm', 6)]
     for key,label,default in numbers:
         content += f'<label class="mc-label" for="{prefix}{key}">{label}</label><input class="mc-field" type="number" step="any" id="{prefix}{key}" data-run-control="{key}" value="{E(str(values.get(key, default)))}">'
     return (f'<details class="mc-run-controls" data-agent="{E(agent)}" data-global="{str(global_provider).lower()}"><summary>{title}</summary>'

@@ -5,6 +5,7 @@ const CLR={missed:'var(--text-9)',
  warn:'color-mix(in srgb,var(--status-warn) 30%,var(--color-bg))',
  success:'color-mix(in srgb,var(--status-ok) 22%,var(--color-bg))',
  running:'var(--status-running)',
+ queued:'color-mix(in srgb,var(--status-warn) 20%,var(--color-bg))',
  scheduled:'var(--color-accent-2)'};
 const WHITETEXT={running:1};   // running is saturated teal → white text; the light fills use dark text
 // saturated dot colours for the day-view list (the pale chip fills would be invisible as a small dot)
@@ -33,7 +34,7 @@ async function fetchEvents(a,b,scope){const key=(scope||'')+'|'+iso(a)+'_'+iso(b
 function href(e){return (e.agent==='system')?'/jobs?tab=system'
  :('/agent/'+encodeURIComponent(e.agent)+'/jobs?job='+encodeURIComponent(e.job)+(e.run_id?'&run='+encodeURIComponent(e.run_id):''));}
 function attempts(e){return e.attempt_count>1?' · '+e.attempt_count+' attempts':'';}
-function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' · '+e.job_name+' · '+e.status+attempts(e);
+function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' · '+e.job_name+' · '+e.status+attempts(e)+(e.wait_reason?' · '+e.wait_reason:'');
  const c=CLR[e.status]||CLR.scheduled;const hollow=(e.status==='scheduled');
  const base='display:block;cursor:pointer;border-radius:var(--r);font-size:10.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 4px;';
  const txt=WHITETEXT[e.status]?'#fff':'var(--color-text)';

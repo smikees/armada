@@ -46,6 +46,7 @@ def claude_rows(text: str) -> list[dict]:
         address, state = detail.rsplit(' - ', 1)
         address = re.sub(r'\s+\((?:HTTP|SSE|WebSocket|WS)\)$', '', address.strip(), flags=re.I)
         rows.append({'name': name, 'endpoint': address, 'ready': name in connected,
+                     'error': '' if name in connected else state.strip(),
                      'state': 'ready' if name in connected else 'sign_in' if 'authentication' in state.lower() else 'failed',
                      'remote': address.startswith(('https://', 'http://'))})
     return rows

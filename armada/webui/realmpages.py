@@ -615,6 +615,8 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
                 f'{E(a.display)} / {E(j.name)} — Needs repair</a><p>{E(problem)}</p></div>')
     grid = _JOB_GRID_OWNED if show_owner else _JOB_GRID
     jc = _job_prompt(realm_root, a.id, j.id)
+    from .job_readiness import wait_label
+    waiting_label = wait_label(realm_root, a.id, j.id) if j.enabled else ''
     _run = jc.get("run")
     if isinstance(_run, list):                        # command jobs may store an argv list
         _run = " ".join(str(x) for x in _run)
@@ -686,6 +688,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
         + (f'<span class="mc-hint" style="display:block;margin-left:18px">'
            f'Time limit: {E(str(jc.get("timeout") or rc.get("default_job_timeout"))+"s" if jc.get("timeout") or rc.get("default_job_timeout") else "No limit")}'
            f'{" · Critical" if jc.get("critical") else ""}</span>' if j.kind != 'command' else '')
+        + (f'<span class="mc-hint" style="display:block;margin-left:18px">{E(waiting_label)}</span>' if waiting_label else '')
         + f'</span>{owner_cells}<span>{badge}</span>'
         f'<span class="mono" style="font-size:11.5px;color:var(--text-dim)">'
         f'{_humanize(j.cadence)}</span>'

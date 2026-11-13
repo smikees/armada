@@ -5,8 +5,13 @@ async function mcRun(agent,job,engine,btn){
   out.textContent='Starting…'; msg.textContent='';
   d.querySelectorAll('.mc-job-actions button').forEach(b=>b.disabled=true);
   const poll=setInterval(()=>mcLoadJobOutput(d),700);
-  try{ const r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},
+  try{ let r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({agent,job,engine})})).json();
+    if(r.prerequisite_warning){
+      if(await mcConfirm('Run before prerequisites are ready?',r.prerequisite_warning,{ok:'Run now'})){
+        r=await (await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,job,engine,confirm_prerequisite_override:true})})).json();
+      }else{r={ok:false,output:'Run cancelled.'};}
+    }
     msg.textContent=r.ok?'done ✓':'finished with errors';
     msg.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';
     if(!r.report)msg.textContent=r.output||'Unable to start the job.';

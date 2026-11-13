@@ -108,6 +108,10 @@ Keep the once-per-scheduled-day contract for cadences with multiple daily fires.
 
 One pass, with at most one automatic attempt per job and realm-local day.
 
+### `_record_start_failure(lease, root, agent, jid, day, readiness)`
+
+—
+
 ### `_skip_overlapping(lease, root, agent, jid, day)`
 
 —

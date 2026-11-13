@@ -65,6 +65,10 @@ Persist admission before side effects. Return (attempt, newly_claimed). Never re
 
 Advisory dry-run read; creates neither state nor lock files.
 
+### `resume_prerequisites(lease, agent, job, day)`
+
+Reopen only an attempt explicitly released before any execution occurred.
+
 ### `resume_waiting(lease, agent, job, day)`
 
 Transfer a known finished-attempt backoff after a scheduler restart.

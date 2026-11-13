@@ -414,6 +414,15 @@ class TurnCoordinator:
                 core = memory.assemble_core(root, agent_dir, run_agent)
                 from .usage_snapshot import preamble as usage_preamble
                 core += usage_preamble(root)
+                from . import connector_health, job_waits
+                health_context = connector_health.context(root)
+                if health_context:
+                    core += '\n\n# Latest connector heartbeat (no model calls)\n' + health_context
+                if scheduled_job:
+                    wait_context = ('Run now bypassed these prerequisites: ' + job['_prerequisite_override']
+                                    if job.get('_prerequisite_override') else job_waits.context(root, aid, req.task))
+                    if wait_context:
+                        core += '\n\n' + wait_context
                 compact_engine = eng  # Context summarization must never receive inspector action tools.
                 from . import inspection
                 if inspector_turn:
@@ -621,6 +630,8 @@ class TurnCoordinator:
                 "tokens": result.usage.as_dict(), "duration_s": round(time.monotonic() - started, 2),
                 "memory_boundary": cap.memory_report if cap else None,
                 "realm_id": context.realm.realm_id, "run_id": context.run_id}
+            from .job_triggers import report_fields
+            report.update(report_fields(req.job or {}))
             if raw_capture is not None:
                 report["capture"] = raw_capture.report()
             report['access_audit'] = access_audit

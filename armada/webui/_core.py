@@ -466,7 +466,7 @@ def _jc_norm(st) -> str:
 def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
     """Job occurrences in [d_from, d_to]: projected from each job's schedule, with past slots
     resolved to their actual run status (success/failed/warn/missed); manual/ad-hoc runs added too."""
-    from .. import scheduler as S, job_history
+    from .. import scheduler as S, job_history, job_waits
     realm_root = Path(realm_root)
     now = clock.now().replace(tzinfo=None)
     today_d = now.date()
@@ -478,6 +478,7 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
         d += datetime.timedelta(days=1)
     lo, hi = d_from.isoformat(), d_to.isoformat()
     out = []
+    waits = job_waits.state(realm_root)
     for a in agents:
         idx = {}
         for r in sorted(job_history.logical_runs(realm_root / "agents" / a.id, _runs(realm_root, a.id)),
@@ -533,11 +534,15 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
                             idx[(day.isoformat(), task)] = rs[1:]
                         elif j.id in run_now and day == today_d:
                             status = "running"           # executing now (its slot passed, no report yet)
+                        elif (waits.get(a.id+'/'+j.id, {}).get('state') in ('waiting', 'ready', 'queued')
+                              and waits[a.id+'/'+j.id].get('day') == day.isoformat() and j.enabled):
+                            status = 'queued'
                         else:
                             status = "missed"
                     out.append({"agent": a.id, "agent_disp": a.display, "job": j.id, "job_name": j.name,
                                 "ts": dt.strftime("%Y-%m-%dT%H:%M"), "status": status, "past": past,
                                 "cad": _cadence_bucket(j.cadence),
+                                "wait_reason": waits.get(a.id+'/'+j.id, {}).get('reason', '') if status == 'queued' else '',
                                 "attempt_count": occurrence.get("attempt_count", 0), "run_id": occurrence.get("run_id")})
         for (dd, task), rs in idx.items():
             for r in rs:

@@ -105,6 +105,18 @@ class Dispatcher:
                     self.pending.pop(key, None)
                 ticket.close()
 
+    def defer_prerequisites(self, key, reason):
+        """Release a queued job's capacity while its durable prerequisite wait continues."""
+        with self.lock:
+            pending = self.pending.pop(key, None)
+        if pending:
+            ticket, _, cancelled = pending
+            try:
+                cancelled(reason, prerequisites=True)
+            finally:
+                ticket.close()
+        return pending is not None
+
     def busy(self, root):
         with self.lock:
             return any(t.context.realm.root == str(root.resolve()) for t, _ in self.running.values())

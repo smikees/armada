@@ -116,6 +116,8 @@ def _prepare_agent_run(realm_root, agent_id, engine, allow_tools, job=None, sche
     records.validate(agent, "agent", agent_id)
     if job is not None:
         records.validate(job, "job")
+        from .run_policy import verify_job
+        verify_job(realm_root, agent_id, job)
     from .access_policy import load as load_access_policy
     load_access_policy(realm_root, agent)
     if "allow_tools" in agent and type(agent["allow_tools"]) is not bool:
@@ -454,12 +456,22 @@ def _jobs_capability(agent_dir: Path) -> str:
         "positive number of seconds. Omit it unless the owner wants a ceiling; a realm default_job_timeout "
         "still applies when configured. Inactivity supervision can stop a silent engine. "
         "Fallback, API spending and critical priority are owner-approved controls, not agent permissions.\n"
+        "- Optional start conditions: requires_connectors is a list of already-granted connector IDs; "
+        "start_deadline_minutes defaults to 90. start_window is {from: HH:MM, until: HH:MM} in the realm timezone. "
+        "after is a list of {agent, job, outcome: [ok, warn], max_age_minutes: 60}. Waiting holds no provider slot. "
+        "on_window_end defaults to fail; run_anyway permits unmet job dependencies, never missing required connectors. "
+        "retry_backoff_seconds supplies up to three delays, one per retry. fallback_job is {agent, job}; "
+        "only enabled, approved jobs may be fallbacks and existing replay safeguards still apply. "
+        "A command job may name owner-configured secrets (names only) and reads ARMADA_SECRET_NAME. Never handle the value. "
+        "coordinator_may_start defaults false; when the owner opts in, a coordinator may use start_approved_job "
+        "with IDs and a reason, subject to per-job (default 2) and realm (default 6) daily caps. "
+        "All these controls are sealed by owner approval; proposing them does not grant them.\n"
         "- Every agent job MUST set allow_tools to the JSON boolean true or false. Missing values "
         "are rejected. Draft true when reading/writing files or using shell, web, connectors, "
         "Telegram or inbox; use false only for text-only work. Tools remain limited to the "
         "owner's existing grants. The owner reviews this choice before approval.\n"
         "- The job is a PROPOSAL: it appears on the owner's Jobs page for approval and only runs "
-        "AFTER they approve it — you cannot enable or run it yourself. After writing the file, tell "
+        "AFTER they approve it — you cannot enable it yourself; only explicitly opted-in coordinator starts use the setup tool. After writing the file, tell "
         "the owner you've proposed \"<name>\" and it's awaiting their approval on the Jobs page.\n"
         "- Whether a proposal is still pending, was approved, or was rejected is given to you in the "
         "'Your scheduled jobs — current status' snapshot below — treat that as ground truth and never "
@@ -1297,6 +1309,10 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     records.admit_agent(realm_root, agent_id)
     records.validate(job, "job", job_id)
     from . import run_policy
+    try:
+        run_policy.verify_job(realm_root, agent_id, {**job, 'id': job_id})
+    except ValueError as exc:
+        raise CapabilityPolicyError(str(exc)) from exc
     from .job_access import identity, fingerprint
     seal=run_policy._read().get('jobs',{}).get(identity(realm_root,agent_id,job_id))
     if seal and seal != fingerprint(job):
@@ -1322,6 +1338,9 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
     env["PYTHONPATH"] = os.pathsep.join(
         [p for p in (_pkg_root, os.environ.get("PYTHONPATH", "")) if p])
     env.update({str(k): str(v) for k, v in (job.get("env") or {}).items()})
+    from . import command_secrets
+    secret_env = command_secrets.environment(realm_root, agent_id, job)
+    env.update(secret_env)
     import uuid
     from . import job_results, job_access
     run_id = uuid.uuid4().hex
@@ -1362,10 +1381,10 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
                     result = ProcessResult(error=str(exc), cancelled=True)
         except CapabilityPolicyError as exc:
             result = ProcessResult(error=str(exc))
-    out = result.stdout.strip()
-    err = result.stderr.strip()
+    out = command_secrets.redact(result.stdout.strip(), secret_env.values())
+    err = command_secrets.redact(result.stderr.strip(), secret_env.values())
     if result.error:
-        err = (err + "\n" + result.error).strip()
+        err = (err + "\n" + command_secrets.redact(result.error, secret_env.values())).strip()
     ok = result.returncode == 0 and not result.error
     rc = result.returncode if result.returncode is not None else -1
     timed_out = result.timed_out
@@ -1386,6 +1405,8 @@ def _run_command(realm_root: Path, agent_id: str, job_id: str, job: dict, agent_
               "summary": tail}
     from .job_history import save_transcript
     report["run_id"] = run_id
+    from .job_triggers import report_fields
+    report.update(report_fields(job))
     report['access_audit'] = audit.report()
     report['operational_warnings'] = report['access_audit']['warnings']
     if job.get("_retry_series"):
@@ -1488,7 +1509,7 @@ def chat_stream(realm_root, agent_id: str, thread: str, message: str, on_event,
 
 
 def run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str = "mock",
-            thread: str = "main", allow_tools: bool = False) -> dict:
+            thread: str = "main", allow_tools: bool = False, *, trigger=None, override_reason='') -> dict:
     from . import util
     lock = Path(realm_root) / 'agents' / agent_id / 'runs' / '.invocations' / f'{job_id}.json'
     from . import records, execution_admission
@@ -1506,10 +1527,24 @@ def run_job(realm_root, agent_id: str, job_id: str, engine: EngineAdapter | str 
     # ticket: that worker needs this same lock to complete and release conversation capacity.
     with execution_admission.scope(context, resource, background=True):
         with util.file_lock(lock, timeout=.05):
-            return _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools)
+            extras = {}
+            if trigger:
+                extras['trigger'] = trigger
+            if override_reason:
+                extras['override_reason'] = override_reason
+            report = _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools,
+                                     **extras)
+    # Release provider and invocation capacity before requesting the alternate job.
+    if job.get('fallback_job'):
+        from . import job_triggers
+        try:
+            job_triggers.fallback(realm_root, agent_id, job, report)
+        except (ValueError, OSError) as exc:
+            _notify(realm_root, 'job_failed', 'Fallback could not start', str(exc))
+    return report
 
 
-def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
+def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools, *, trigger=None, override_reason=''):
     realm_root = Path(realm_root)
     agent_dir = realm_root / "agents" / agent_id
     job_path = agent_dir / "jobs" / f"{job_id}.json"
@@ -1523,6 +1558,26 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
         if not job:
             raise SystemExit(f"ARMADA: no job '{job_id}' for agent '{agent_id}'")
         job.setdefault('id',job_id)  # Legacy files may use the filename as their identity.
+        if override_reason:
+            job['_prerequisite_override'] = override_reason
+            from . import job_waits
+            if not (trigger or {}).get('fallback_for'):
+                job_waits.transition(realm_root, agent_id, job_id, 'started')
+        if trigger:
+            from . import job_access, run_policy, job_triggers
+            if not job.get('enabled', True) or job_access.fingerprint(job) != trigger['fingerprint']:
+                raise ValueError('The approved job changed while its requested run was queued.')
+            run_policy.verify_job(realm_root, agent_id, job)
+            if trigger.get('coordinator'):
+                job_triggers.validate_coordinator(realm_root, agent_id, job, trigger['coordinator'])
+            if trigger.get('fallback_for'):
+                ready = job_triggers.prerequisites(realm_root, job, trigger)
+                if ready['state'] != 'ready':
+                    raise ValueError('Fallback prerequisites changed while queued: ' + ready.get('reason', 'not ready'))
+                from . import job_waits
+                job_waits.transition(realm_root, agent_id, job_id, 'started', request_id=trigger['id'])
+            job['_trigger'] = trigger
+            job_triggers._update(realm_root, trigger['id'], state='running')
         util.write_json_atomic(agent_dir / "runs" / ".running" / f"{job_id}.json",
                                {"owner_pid": os.getpid(), "invocation_owned": True,
                                 "ts": datetime.datetime.now().astimezone().isoformat()})

@@ -38,6 +38,8 @@
 | [`clock`](clock.md) | One place the app asks what time it is. |
 | [`codex_apps`](codex_apps.md) | Codex-native connected apps, discovered through the CLI's app-server protocol. |
 | [`codex_usage`](codex_usage.md) | Account-wide OpenAI limits through Codex's authenticated app-server protocol. |
+| [`command_secrets`](command_secrets.md) | Owner-managed command credentials outside realms; never returned by an API. |
+| [`connector_health`](connector_health.md) | No-model connector heartbeats with durable history and bounded background checks. |
 | [`connector_login`](connector_login.md) | Bounded connector OAuth attempts; CLI output and authorization URLs stay in memory. |
 | [`connector_registry`](connector_registry.md) | Logical connectors with explicit provider-local registrations; no credential copying. |
 | [`connector_runtime`](connector_runtime.md) | Provider-specific MCP connections for realm capabilities. |
@@ -94,7 +96,10 @@
 | [`job_history`](job_history.md) | Job transcripts live separately from owner conversations; old logs stay intact. |
 | [`job_results`](job_results.md) | Versioned per-run job results |
 | [`job_retries`](job_retries.md) | Bounded job retries with durable attempt evidence and conservative replay rules. |
+| [`job_rules`](job_rules.md) | Validated, owner-approved prerequisites for unattended jobs; no execution here. |
 | [`job_tools`](job_tools.md) | Read-only job tool checks and a daily owner notification, independent of providers. |
+| [`job_triggers`](job_triggers.md) | Audited, bounded requests to run sealed jobs; never accepts execution instructions. |
+| [`job_waits`](job_waits.md) | Durable pre-execution waits |
 | [`jobs`](jobs.md) | Agent-authored job proposals (pending owner approval). |
 | [`local_auth`](local_auth.md) | Per-server loopback credentials, bootstrapped through an owner-only local file. |
 | [`managed_mcp`](managed_mcp.md) | Small stdio MCP transport for a single, scoped ARMADA managed-tools invocation. |
@@ -204,9 +209,11 @@
 | [`webui.capabilities`](webui.capabilities.md) | Capabilities / connectors / skills rendering (Layer 2, Phase 3). |
 | [`webui.catalogue`](webui.catalogue.md) | Catalogue tab rendering: search results, filters, the bring-a-link review report, and the info box (ADR-004) — everything that renders from CATALOGUE/registry d |
 | [`webui.changelog`](webui.changelog.md) | Changelog data + its modal renderer (carved out of _core.py in Phase 3). |
+| [`webui.connector_health`](webui.connector_health.md) | Local heartbeat and command-credential settings, with secrets entered in a modal. |
 | [`webui.consumption`](webui.consumption.md) | Token-consumption gradient + model-colour mapping (carved from _core.py in Phase 3). |
 | [`webui.dryruns`](webui.dryruns.md) | Inline draft-only job controls and review output, using existing Jobs styles. |
 | [`webui.goalsview`](webui.goalsview.md) | Goals rendering (realm goals page + agent goals tab) (Layer 2, Phase 3). |
+| [`webui.job_readiness`](webui.job_readiness.md) | Owner-facing readiness controls; rendering reads local state only. |
 | [`webui.jobresults`](webui.jobresults.md) | Shared execution/audit/delivery evidence for realm and agent job outputs. |
 | [`webui.layout`](webui.layout.md) | Page chrome / layout (carved from _core.py in Phase 3). |
 | [`webui.memoryview`](webui.memoryview.md) | Memory rendering (realm + agent memory pages) (Layer 2, Phase 3). |

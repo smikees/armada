@@ -15,5 +15,6 @@ No executor's hidden/unbounded queue, and no worker is occupied waiting for a sl
 - `Dispatcher.pump(self)` — —
 - `Dispatcher._run(self, key, ticket, work)` — —
 - `Dispatcher.cancel_pending(self, root, reason='The scheduler stopped before this job began.')` — —
+- `Dispatcher.defer_prerequisites(self, key, reason)` — Release a queued job's capacity while its durable prerequisite wait continues.
 - `Dispatcher.busy(self, root)` — —
 - `Dispatcher.close(self)` — —
