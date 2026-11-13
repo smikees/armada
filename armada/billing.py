@@ -17,7 +17,7 @@ def refusal(result):
     # A generic HTTP 429 is not evidence of a subscription limit.
     return (not result.ok and not result.cancelled and not result.timed_out
             and raw.get('api_error_status') == 429
-            and bool(re.search(r"(?:you['’]ve hit|you have hit|reached|exceeded).{0,70}(?:session|weekly|usage|subscription|week).{0,20}limit", text, re.I)))
+            and bool(re.search(r"(?:you['’]ve hit|you have hit|reached|exceeded).{0,70}(?:session|weekly|usage|subscription|week|hourly|(?:\d+[ -])?hour).{0,20}limit", text, re.I)))
 
 
 def _reset(text):
@@ -128,6 +128,16 @@ def execute(engine, request, *, root, agent, job, run_id, on_event, on_proc, inv
             return result
     config = run_policy.settings(root,agent,job,provider)
     action = config['plan_limit_action']
+    from . import api_fallback
+    external = config.get('api_budget_mode') == 'provider'
+    if external and action == 'api':
+        fallback = api_fallback.settings(provider, root, agent)
+        if not config.get('critical'):
+            action = 'fail'
+            reason += '\nAPI fallback is reserved for approved critical jobs. Ordinary chats and jobs stay on the subscription.'
+        elif not fallback['ready']:
+            action = 'fail'
+            reason += '\nClaude API fallback is off or its selected API key is not configured.'
     if action == 'api':
         missing = connector_guard(root, agent, request)
         if missing:
@@ -137,14 +147,19 @@ def execute(engine, request, *, root, agent, job, run_id, on_event, on_proc, inv
         return _wait(engine, request, root, agent, job, run_id, reason, reset, on_event, on_proc, invoke, started)
     if action != 'api':
         return RunResult(ok=False, error=reason, raw={'billing':{'lane':'plan', 'fallback_reason':reason, 'refused_attempt':refused}})
+    if external:
+        return _execute_external(engine, request, root=root, agent=agent, config=config,
+                                 run_id=run_id, reason=reason, refused=refused,
+                                 started=started, reset=reset, on_event=on_event, on_proc=on_proc, invoke=invoke)
     from . import provider_keys
     if not provider_keys.configured(provider):
         return RunResult(ok=False, error='Subscription limit reached; no Anthropic API key is configured.')
     from . import worker
-    try:
-        worker.require()
-    except OSError as exc:
-        return RunResult(ok=False, error=str(exc))
+    if worker.enabled():
+        try:
+            worker.require()
+        except OSError as exc:
+            return RunResult(ok=False, error=str(exc))
     # Runtime proof of child-environment isolation is required, not a guessed version check.
     from .engine.claude import credential_scrub_supported
     if not credential_scrub_supported(engine):
@@ -202,11 +217,90 @@ def execute(engine, request, *, root, agent, job, run_id, on_event, on_proc, inv
 
 
 def notify_credit(root, provider, credit):
+    if credit.get('budget_managed') == 'provider':
+        return  # Only the provider knows authoritative spend, including other apps.
     for threshold in (50, 80, 100):
         if credit['spent_usd']+credit['reserved_usd'] >= credit['cap_usd']*threshold/100:
             run_policy.notify_once(root, f'{provider}-{credit["resets_at"]}-{threshold}',
                 f'API credit is {threshold}% used or reserved: ${credit["spent_usd"]:.2f} spent of ${credit["cap_usd"]:.2f}.'+
                 (' The API lane is closed.' if threshold == 100 else ''))
+
+
+def _execute_external(engine, request, *, root, agent, config, run_id, reason, refused,
+                      started, reset, on_event, on_proc, invoke):
+    """One critical-job API attempt; billing authority stays with the Console."""
+    from . import api_fallback
+    from .engine.process import safe_emit
+    import logging
+    provider = engine.name
+    if request.timeout is not None:
+        remaining = request.timeout-(time.time()-started)
+        if remaining <= 0:
+            return RunResult(ok=False, timed_out=True, error='The owner-chosen time limit expired before API fallback.')
+        request = replace(request, timeout=remaining)
+    secret = api_fallback.credential(provider, root, agent)
+    if not secret:
+        return RunResult(ok=False, error='The selected Claude API key is no longer available.')
+    tracked = True
+    try:
+        api_fallback.start(provider, run_id, root, agent)
+    except OSError:
+        # Observations are not spending authority in this mode. A damaged local
+        # usage summary must not masquerade as a provider limit or block a job.
+        logging.getLogger(__name__).warning('API usage tracking is unavailable; the provider spending limit remains authoritative')
+        tracked = False
+    if config.get('api_model'):
+        from .runner import _cli_model
+        request = replace(request, model=_cli_model(config['api_model'], root))
+    ceiling = config.get('api_run_ceiling_usd')
+    if ceiling:
+        request = replace(request, max_budget_usd=min(request.max_budget_usd or ceiling, ceiling))
+    request = replace(request, system=request.system+'\n\nThis critical job is using Claude API fallback. '
+                      'Its API budget is managed in Claude Console. Only directly registered connectors are available on this lane.',
+                      env={**request.env, 'ANTHROPIC_AUTH_TOKEN': '', 'CLAUDE_CODE_OAUTH_TOKEN': '',
+                           'CLAUDE_CODE_USE_BEDROCK': '0', 'CLAUDE_CODE_USE_VERTEX': '0', 'CLAUDE_CODE_USE_FOUNDRY': '0',
+                           'CLAUDE_CODE_SUBPROCESS_ENV_SCRUB': '1',
+                           'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1'})
+    invocation_token = ''
+    def clean(value):
+        return api_fallback.redact(api_fallback.redact(value, secret), invocation_token)
+    def event(value):
+        safe_emit(on_event, clean(value))
+    event.engine_activity = getattr(on_event, 'engine_activity', None)
+    event.interactive_questions = getattr(on_event, 'interactive_questions', False)
+    window = str(reset or util.read_json_state(_refusal_path(provider), default=dict).get('at', 'unknown'))
+    run_policy.notify_once(root, 'external-fallback-'+window, 'A critical job reached the subscription limit and is using Claude API credit. Spending is limited in Claude Console.')
+    try:
+        from .api_gateway import Gateway
+        # The Console cap is authoritative. Keep the host-only key proxy without
+        # making local token-price guesses another reason to interrupt the job.
+        with Gateway(secret, None) as gateway:
+            invocation_token = gateway.token
+            request = replace(request, env={**request.env, **gateway.env})
+            result = invoke(engine, request, on_event=event, on_proc=on_proc)
+    except Exception as exc:
+        result = RunResult(ok=False, error=clean(str(exc)) or 'Claude API fallback could not finish.')
+    result.error = clean(result.error)
+    result.output = clean(result.output)
+    result.raw = clean(result.raw)
+    cost = result.raw.get('total_cost_usd')
+    import math
+    if type(cost) not in (int, float) or not math.isfinite(cost) or cost < 0:
+        cost = None
+    if tracked:
+        try:
+            api_fallback.finish(provider, run_id, result)
+        except OSError:
+            tracked = False
+    result.raw['billing'] = {'lane': 'api', 'real_cost_usd': cost, 'budget_managed': 'provider',
+                             'fallback_reason': reason, 'refused_attempt': refused,
+                             'credential_source': api_fallback.settings(provider, root, agent)['key_source'],
+                             'accounting_available': tracked, 'final_failure': not result.ok}
+    try:
+        publish_credit(root, provider, api_fallback.credit(provider))
+    except OSError:
+        pass  # Run records retain their receipt even if the advisory mirror fails.
+    return result
 
 
 def publish_credit(root, provider, credit):

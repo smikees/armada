@@ -1,9 +1,10 @@
 # `armada/api_gateway.py`
 
-Invocation-local Anthropic gateway: real keys stay in the host, requests are bounded.
+Invocation-local Anthropic gateway: real keys stay in the host.
 
-Only Messages and free token counting are exposed. Unknown model prices, server tools,
-premium service tiers and unbounded requests fail closed before paid work is forwarded.
+Only Messages and free token counting are exposed. A numeric ceiling keeps the legacy
+conservative per-request budget. Explicit None delegates spending enforcement to the
+provider, as selected in the owner API fallback setup.
 
 ### class `Budget`
 

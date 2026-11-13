@@ -23,23 +23,30 @@ use reported accounting and do not represent a subscription charge.
 
 ## API credit at the subscription limit
 
-In **Settings → App → Claude → API credit & fallback**, set up the Windows worker,
-sign in to Claude for that account, and enter your Anthropic Console API key. The key
-stays outside realms and agent processes. Worker setup needs administrator consent
-from the signed-in owner; using a different administrator account is not supported.
+In **Settings → App → Claude → Set up API usage fallback**, follow the dialog's
+three steps: check Console credit, set its spending limit, and save a workspace API
+key. **Test key** checks sign-in without a paid model call or saving the key. Your
+normal Claude CLI sign-in remains the subscription lane; no second account is needed.
 
-Choose use the key, wait for reset, or fail. Realm, agent and job controls can override
-the default. The monthly cap defaults to $100, with a $5 per-run ceiling and a 30%
-reserve for critical jobs. The API lane closes at the cap. Missing cost data charges
-the full reserved ceiling. The header shows spent credit and warnings arrive through
-your enabled notification channels. Anthropic decides whether the key draws on a
-promotional credit or another Console balance.
+Only approved **critical jobs** use the new fallback at a confirmed session or weekly
+limit. Explicit wait/fail choices still apply. A mid-run refusal can restart only
+when replay is safe; otherwise ARMADA stops and explains why. After a subscription
+reset, the next job uses the plan again. A Console credit or spend-limit refusal
+stops further API calls for that invocation.
+
+**Claude Console enforces the budget**, including other apps. Keep auto-reload off
+to use existing credit only. Promotional credit eligibility and expiry are shown
+there. Armada reports its own API costs, not your remaining credit. For a separate
+agent budget, create a Console workspace with its own spend limit and use its
+workspace-scoped key in that agent's **Configure → Run limits & fallback** dialog.
+Shared keys share their budget. Keys are encrypted outside realms on Windows; code
+running as your Windows account can still access them. The optional isolated worker
+under App Settings → Advanced offers a stronger boundary with separate sign-ins.
 
 A claude.ai connector cannot follow a run onto the key. ARMADA waits or fails with its
-name and reason; register a direct MCP connection when the service supports it. Inline
-images and documents are refused by the API lane because their cost cannot be bounded
-safely here. Use the subscription for those inputs. Text and compatible directly
-registered tools can use the key.
+name and reason; register a direct MCP connection when the service supports it.
+Fallback never silently removes a required connector. Previously configured local
+API caps and reserve controls remain until you explicitly save the new setup dialog.
 
 Jobs and Inbox tasks have no default wall-clock deadline. Optional job and realm
 ceilings still apply, and inactive jobs stop with a notification. Usage readings in

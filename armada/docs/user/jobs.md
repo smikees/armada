@@ -12,15 +12,23 @@ minutes sends one notification linking to its thread, where Stop remains availab
 Both intervals are owner settings under Realm run controls. A next start that overlaps
 an earlier invocation is recorded as skipped and notifies you.
 
-Configure **API credit & fallback** on the Claude App Settings card. Realm and agent
-run controls can override the subscription-limit policy; jobs can override it after
-approval. The default credit cap is $100 per monthly cycle, with 30% kept for critical
-jobs. The header shows API spend beside plan usage. A granted claude.ai connector
+Choose **App Settings → Claude → Set up API usage fallback**. The dialog links to
+Claude Console: check your API credit, set its spending limit, then paste a workspace
+API key. **Test key** is a free sign-in check; it does not spend tokens or save the key.
+Save enables fallback for approved **critical jobs only**. Ordinary chats, Inbox tasks
+and other jobs stay on the subscription. Existing wait-or-fail job choices still apply.
+
+Anthropic enforces the budget in Console, including calls outside Armada. Keep
+auto-reload off to use existing credit only. Armada reports its own API costs; that
+figure is not your remaining credit or total Console spend. For a separate agent
+budget, use **Configure → Run limits & fallback → API usage fallback**: create a Console
+workspace with its own spend limit and use its workspace-scoped key for that agent.
+A shared key shares its budget. A granted claude.ai connector
 prevents API fallback: choose whether that job waits for reset or fails. Register the
 connector directly for Claude to make it available to both lanes.
 
 Mark a job **Critical** to give it queue priority, protect a provider slot and allow
-it to draw on the API reserve. Run-control changes are owner-only and sealed to the
+it to use API fallback when configured. Run-control changes are owner-only and sealed to the
 approved job. Editing a saved job file invalidates its approval.
 
 The session-use threshold protects critical jobs by deferring **unattended work**.

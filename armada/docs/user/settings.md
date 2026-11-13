@@ -29,6 +29,16 @@ you use them.
   agent folder and explicitly approved job folders. Web tools require the job's network grant.
   Claude sign-out appears as a dismissible notification once per app session. After closing it,
   sign-in remains available here; restarting Armada allows the notice to appear again.
+- **Claude → Set up API usage fallback** — opens a dialog with three steps: check
+  credit in Claude Console, set its spending limit, and save a workspace API key.
+  **Test key** checks sign-in without a paid model call. Approved critical jobs can
+  then use API credit at a session or weekly subscription limit. No separate Windows
+  account or second CLI sign-in is required. For a separate agent budget, choose a
+  workspace-scoped key in that agent's Configure → Run limits & fallback dialog; set the
+  workspace's limit in Console. See [Jobs](jobs.md).
+- **Advanced → Isolated Windows worker (optional)** — runs agent processes as a
+  separate Windows user. This requires administrator setup and separate provider
+  sign-ins. It is an optional credential boundary, not a requirement for API fallback.
 - **Telegram** — talk to your agents from your phone: add your bot's token, message the bot, press
   link. Only your **one-to-one** chat with the bot is linked — never a group, where everyone could
   drive your agents. Send `/agentname your question` to ask a specific agent.

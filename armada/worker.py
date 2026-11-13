@@ -40,19 +40,22 @@ def state():
 
 
 def enabled():
-    if state():
-        return True
-    # Losing worker configuration must never re-enable owner-identity tools while
-    # an API credential still exists on this machine.
-    from . import provider_keys
-    return provider_keys.configured('claude')
+    # Isolation is an explicit execution choice. A saved API key no longer changes
+    # the Windows identity or requires separate CLI sign-ins.
+    value = state()
+    marker = util.data_dir() / 'worker-isolation-required.json'
+    if value and not marker.exists():
+        # Preserve explicit isolation if its larger manifest is later lost.
+        with util.file_lock(marker):
+            util.write_json_atomic(marker, {'required': True})
+    return bool(value) or marker.exists()
 
 
 def require():
     value = state()
     provisioned=all(value.get(k) for k in ('sid','home','python','python_root','bootstrap','launches','station'))
     if os.name != 'nt' or not value.get('ready') and not (_checking.get() and provisioned):
-        raise OSError('Set up the isolated Windows worker in App Settings before using API fallback.')
+        raise OSError('The configured isolated Windows worker is unavailable. Repair it in App Settings → Advanced before running agents.')
     checked={**value,'app_root':str(Path(__file__).resolve().parent.parent), 'data_root':str(util.data_dir()),
              'python_root':sys.base_prefix,'python_env_root':sys.prefix}
     if deletion_guard_paths(checked):
@@ -405,9 +408,10 @@ def draft_desktop():
 
 def status():
     value = state()
-    return {'enabled': bool(value), 'ready': bool(value.get('ready')), 'pending': _pending,
+    required = enabled()
+    return {'enabled': required, 'ready': bool(value.get('ready')), 'pending': _pending,
             'username':value.get('username',''), 'folders':value.get('allowed_roots', []),
-            'error': value.get('error','')}
+            'error': value.get('error','') or ('Worker configuration is missing. Repair the opted-in worker before running agents.' if required and not value else '')}
 
 
 def setup(roots):

@@ -34,6 +34,10 @@ Provider lane selection for one invocation; retries never bypass replay evidence
 
 —
 
+### `_execute_external(engine, request, *, root, agent, config, run_id, reason, refused, started, reset, on_event, on_proc, invoke)`
+
+One critical-job API attempt; billing authority stays with the Console.
+
 ### `publish_credit(root, provider, credit)`
 
 —

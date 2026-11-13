@@ -5,10 +5,10 @@ import pytest
 from armada import worker, provider_keys, util
 
 
-def test_key_cannot_be_saved_before_worker_setup():
-    with pytest.raises(OSError, match='isolated Windows worker'):
-        provider_keys.save('claude','sk-ant-synthetic-isolation-test')
-    assert not provider_keys.configured('claude')
+def test_key_can_be_saved_without_changing_execution_identity():
+    provider_keys.save('claude','sk-ant-synthetic-isolation-test')
+    assert provider_keys.configured('claude')
+    assert not worker.enabled() and not worker.state()
 
 
 def test_broken_worker_never_reverts_to_owner(monkeypatch):
@@ -65,10 +65,19 @@ def test_station_keeper_never_reuses_existing_station_or_accepts_commands():
     assert 'WinSta0' not in script and 'CreateNamedPipe' not in script
 
 
-def test_lost_worker_config_does_not_restore_owner_launch(monkeypatch):
+def test_api_key_does_not_implicitly_enable_a_worker(monkeypatch):
     monkeypatch.setattr(provider_keys,'configured',lambda provider:True)
-    assert worker.enabled()
+    assert not worker.enabled()
     with pytest.raises(OSError):worker.require()
+
+
+def test_explicit_worker_opt_in_survives_a_lost_manifest():
+    util.write_json_atomic(worker._path(), {'ready': False})
+    assert worker.enabled()
+    worker._path().unlink()
+    assert worker.enabled()
+    with pytest.raises(OSError):
+        worker.require()
 
 
 def test_realm_file_cannot_remove_an_imported_owner_ceiling(tmp_path):

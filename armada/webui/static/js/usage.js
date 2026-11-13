@@ -87,8 +87,11 @@ function headerLimitsHTML(claude,codex,bucket,gemini){
   if(groups.length>1)select='<select class="mc-limit-bucket" aria-label="Codex usage bucket">'
     +groups.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===g.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>';
   const credit=claude&&claude.api_credit;
-  const creditHTML=credit?'<span class="mc-limit-credit" title="'+esc(credit.reason||'Real API spend; active runs reserve their ceiling')+'">Claude API '
-    +(typeof credit.spent_usd==='number'?'$'+credit.spent_usd.toFixed(2)+' / $'+esc(String(credit.cap_usd)):'closed')+'</span>':'';
+  const external=credit?.budget_managed==='provider';
+  const creditText=external?(credit.open?(typeof credit.spent_usd==='number'?'$'+credit.spent_usd.toFixed(2)+' reported':'usage not reported'):'fallback off'):
+    credit&&(typeof credit.spent_usd==='number'?'$'+credit.spent_usd.toFixed(2)+' / $'+esc(String(credit.cap_usd)):'closed');
+  const creditTitle=external?'Costs reported by Armada only; active runs, unreported costs and other apps are not included. Manage the spending cap and available credit in Claude Console.':credit?.reason||'Real API spend; active runs reserve their ceiling';
+  const creditHTML=credit?'<span class="mc-limit-credit" title="'+esc(creditTitle)+'">Claude API '+creditText+'</span>':'';
   return '<div class="mc-limits-title">Subscription limits'+creditHTML+select+'</div><div class="mc-limit-groups">'
     +'<div class="mc-limit-periods" aria-hidden="true"><span class="mc-limit-label">Week</span><span class="mc-limit-label">Session</span></div>'
     +[['Codex',weekly,session,codex],['Claude',claude&&claude.weekly,claude&&claude.session,claude],

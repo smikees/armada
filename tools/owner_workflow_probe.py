@@ -52,6 +52,14 @@ def run(output):
             reject_activity = False
             delay_activity = False
             mixed_limits = False
+            reject_fallback = False
+
+            def _api_fallback_action(self, body):
+                if body.get('action') == 'test':
+                    return {'ok': True, 'message': 'Key accepted by the synthetic free-check fixture.'}
+                if body.get('action') == 'save' and type(self).reject_fallback:
+                    return {'ok': False, 'error': 'Synthetic save refused. Try again.'}
+                return super()._api_fallback_action(body)
 
             def _send(self,code,body,ctype='text/html; charset=utf-8',cache='',csp=''):
                 if isinstance(body,str) and '<head>' in body:
@@ -138,7 +146,7 @@ def run(output):
 
         def capture(name, focus=None):
             chrome = Path(os.environ.get('PROGRAMFILES', 'C:/Program Files')) / 'Google/Chrome/Application/chrome.exe'
-            Fixture.capture_html = js("(() => {const copy=document.documentElement.cloneNode(true);copy.querySelectorAll('script').forEach(s=>s.remove());document.querySelectorAll('textarea').forEach((el,i)=>copy.querySelectorAll('textarea')[i].textContent=el.value);return '<!doctype html>'+copy.outerHTML;})()")
+            Fixture.capture_html = js("(() => {const copy=document.documentElement.cloneNode(true);copy.querySelectorAll('script').forEach(s=>s.remove());document.querySelectorAll('textarea').forEach((el,i)=>copy.querySelectorAll('textarea')[i].textContent=el.value);document.querySelectorAll('select').forEach((el,i)=>[...copy.querySelectorAll('select')[i].options].forEach((opt,j)=>opt.toggleAttribute('selected',j===el.selectedIndex)));document.querySelectorAll('input[type=checkbox],input[type=radio]').forEach((el,i)=>copy.querySelectorAll('input[type=checkbox],input[type=radio]')[i].toggleAttribute('checked',el.checked));return '<!doctype html>'+copy.outerHTML;})()")
             if focus:
                 Fixture.capture_html += "<script>addEventListener('load',()=>document.querySelector("+json.dumps(focus)+").scrollIntoView({block:'center'}))</script>"
             width, height = json.loads(js('JSON.stringify([innerWidth,innerHeight])'))
@@ -271,6 +279,57 @@ def run(output):
                 capture('m11-dialog-dark-150pct')
                 js("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))")
                 assert js("getComputedStyle(document.getElementById('mc-changelog')).display==='none'")
+                window.native.Invoke(Action(lambda: setattr(window.native.webview, 'ZoomFactor', 1.0)))
+                from armada import appconfig, provider_keys, api_fallback, worker
+                appconfig.save({'theme': 'armada-ii'})
+                navigate('/settings?tab=app')
+                js("document.querySelector('[data-fallback-open=mc-api-fallback-claude]').focus();document.querySelector('[data-fallback-open=mc-api-fallback-claude]').click();true")
+                wait(lambda: js("!document.getElementById('mc-api-fallback-claude').hidden&&!document.querySelector('#mc-api-fallback-claude [data-fallback-save]').disabled"), 'Claude setup opens as a loaded modal')
+                assert js("document.activeElement.closest('#mc-api-fallback-claude')!==null&&document.querySelector('#mc-api-fallback-claude [data-fallback-key]').type==='password'")
+                assert not worker.enabled() and not provider_keys.configured('claude')
+                js("document.querySelector('#mc-api-fallback-claude [data-fallback-key]').value='sk-ant-synthetic-native-api-key';document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));true")
+                assert js("document.getElementById('mc-api-fallback-claude').hidden&&document.querySelector('#mc-api-fallback-claude [data-fallback-key]').value===''&&document.activeElement.matches('[data-fallback-open=mc-api-fallback-claude]')")
+                assert not provider_keys.configured('claude')
+                result['checks'].append('Escape clears an unsaved key, restores focus and does not enable fallback')
+                js("mcOpenApiFallback('mc-api-fallback-claude');true")
+                wait(lambda: js("!document.querySelector('#mc-api-fallback-claude [data-fallback-save]').disabled"), 'Fallback metadata reloads before save')
+                capture('api-fallback-light')
+                js("document.querySelector('#mc-api-fallback-claude [data-fallback-key]').value='sk-ant-synthetic-native-api-key';document.querySelector('#mc-api-fallback-claude [data-fallback-test]').click();true")
+                wait(lambda: js("document.querySelector('#mc-api-fallback-claude [data-fallback-feedback]').textContent.includes('synthetic free-check')"), 'Free key check is separate from saving and model execution')
+                assert not provider_keys.configured('claude')
+                Fixture.reject_fallback = True
+                js("document.querySelector('#mc-api-fallback-claude [data-fallback-save]').click();true")
+                wait(lambda: js("document.querySelector('#mc-api-fallback-claude [data-fallback-feedback]').textContent.includes('Synthetic save refused')"), 'Failed save keeps the modal open and offers retry')
+                assert not provider_keys.configured('claude')
+                Fixture.reject_fallback = False
+                js("document.querySelector('#mc-api-fallback-claude [data-fallback-save]').click();true")
+                wait(lambda: js("document.getElementById('mc-api-fallback-claude').hidden&&document.querySelector('[data-fallback-entry=claude] [data-fallback-summary]').textContent==='Critical jobs only'"), 'Save enables critical-job fallback and closes the modal')
+                assert provider_keys.key('claude') == 'sk-ant-synthetic-native-api-key' and not worker.enabled()
+                assert js("document.querySelector('#mc-api-fallback-claude [data-fallback-key]').value===''")
+                navigate('/agent/captain/configure')
+                js("document.querySelector('[data-fallback-open=mc-api-fallback-claude-captain]').closest('details').open=true;mcOpenApiFallback('mc-api-fallback-claude-captain');true")
+                wait(lambda: js("!document.querySelector('#mc-api-fallback-claude-captain [data-fallback-save]').disabled"), 'Agent key setup uses the same modal')
+                js("const select=document.querySelector('#mc-api-fallback-claude-captain [data-fallback-source]');select.value='agent';mcFallbackSource(select);document.querySelector('#mc-api-fallback-claude-captain [data-fallback-key]').value='sk-ant-synthetic-agent-native-key';document.querySelector('#mc-api-fallback-claude-captain [data-fallback-save]').click();true")
+                wait(lambda: js("document.getElementById('mc-api-fallback-claude-captain').hidden"), 'Agent workspace key saves without changing the engine key')
+                assert api_fallback.credential('claude', root, 'captain') == 'sk-ant-synthetic-agent-native-key'
+                assert provider_keys.key('claude') == 'sk-ant-synthetic-native-api-key'
+                window.native.Invoke(Action(lambda: setattr(window.native.webview, 'ZoomFactor', 1.5)))
+                js("document.documentElement.classList.add('armada-dark');mcOpenApiFallback('mc-api-fallback-claude-captain');true")
+                wait(lambda: js("!document.querySelector('#mc-api-fallback-claude-captain [data-fallback-save]').disabled"), 'Agent modal reopens at 150 percent zoom')
+                assert js("document.querySelector('#mc-api-fallback-claude-captain [data-fallback-source]').value==='agent'")
+                assert js("(()=>{const r=document.querySelector('#mc-api-fallback-claude-captain .mc-modal-box').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;})()")
+                js("document.querySelector('#mc-api-fallback-claude-captain [data-fallback-save]').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));true")
+                assert js("document.activeElement.matches('#mc-api-fallback-claude-captain [data-fallback-dismiss]')")
+                capture('api-fallback-agent-dark-150pct')
+                js("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));true")
+                result['checks'].append('API setup fits a scaled dark viewport and traps keyboard focus')
+                js("mcOpenApiFallback('mc-api-fallback-claude-captain');true")
+                wait(lambda: js("!document.querySelector('#mc-api-fallback-claude-captain [data-fallback-save]').disabled"), 'Agent API removal opens')
+                js("document.querySelector('#mc-api-fallback-claude-captain [data-fallback-remove]').checked=true;document.querySelector('#mc-api-fallback-claude-captain [data-fallback-save]').click();true")
+                wait(lambda: js("document.getElementById('mc-api-fallback-claude-captain').hidden"), 'Removing an agent key turns its fallback off')
+                assert not provider_keys.configured('claude', root, 'captain')
+                assert api_fallback.settings('claude', root, 'captain')['key_source'] == 'off'
+                assert provider_keys.key('claude') == 'sk-ant-synthetic-native-api-key'
                 result['ok'] = True
             except Exception:
                 result['error'] = traceback.format_exc()

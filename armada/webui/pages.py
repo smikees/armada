@@ -1729,6 +1729,7 @@ def render_dashboard(realm, realm_root, dark: bool = False) -> str:
 def _app_advanced(updater, realm_root="") -> str:
     """Settings → App → Advanced: the automatic-updates switch (5.4, decided in ADR-005)."""
     from .provider_settings import alexander_settings
+    from .run_controls import worker_controls
     alexander = alexander_settings(realm_root)
     on = updater.auto_enabled()
     note = ("" if updater.installed() else
@@ -1769,4 +1770,4 @@ def _app_advanced(updater, realm_root="") -> str:
             'settings are never touched. Off: nothing is checked or downloaded until you use Check '
             'for updates.</div>'
             '<span id="mc-updauto-msg" style="font-size:11.5px;color:var(--text-muted)"></span>'
-            f'{note}</div></div>{alexander}</details>')
+            f'{note}</div></div>{alexander}{worker_controls()}</details>')

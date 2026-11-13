@@ -5,6 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.146** is in release validation: Claude API fallback has an engine
+setup modal and optional agent workspace keys, uses provider-enforced Console
+budgets, and needs no mandatory Windows worker. Only approved critical jobs enter
+the new mode; connector and replay guards remain. Installed-CLI synthetic checks
+verify successful fallback and latched Console-cap refusals with no paid requests.
+[Fallback contract](dev/API_FALLBACK.md) · [Release evidence](dev/RELEASE_0_99_146.md).
+
 Version **0.99.145** is published: owner chats bypass the voluntary unattended
 quota reserve, queued threads explain their blocker, and API credit no longer clips
 missing session rows. **4,510 tests**, exact-source Windows CI, three

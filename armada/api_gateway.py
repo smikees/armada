@@ -1,7 +1,8 @@
-"""Invocation-local Anthropic gateway: real keys stay in the host, requests are bounded.
+"""Invocation-local Anthropic gateway: real keys stay in the host.
 
-Only Messages and free token counting are exposed. Unknown model prices, server tools,
-premium service tiers and unbounded requests fail closed before paid work is forwarded.
+Only Messages and free token counting are exposed. A numeric ceiling keeps the legacy
+conservative per-request budget. Explicit None delegates spending enforcement to the
+provider, as selected in the owner API fallback setup.
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
@@ -182,8 +183,9 @@ class Gateway:
     def __init__(self, key, ceiling):
         self._key = key
         self.token = 'armada-run-'+secrets.token_urlsafe(32)
-        self.budget = Budget(ceiling)
+        self.budget = Budget(ceiling) if ceiling is not None else None
         self.closed = False
+        self.provider_stop = None
         self.inflight = 0
         self.lock = threading.Lock()
         self.server = self.worker = None
@@ -213,11 +215,13 @@ class Gateway:
             protocol_version = 'HTTP/1.0'
             def log_message(self, *args):
                 pass  # Never log credentials, provider bodies or prompts.
-            def error(self, code, message):
+            def error(self, code, message, *, no_retry=False):
                 raw = json.dumps({'type':'error','error':{'type':'invalid_request_error','message':message}}).encode()
                 self.send_response(code)
                 self.send_header('Content-Type','application/json')
                 self.send_header('Content-Length',str(len(raw)))
+                if no_retry:
+                    self.send_header('x-should-retry', 'false')
                 self.end_headers()
                 self.wfile.write(raw)
             def do_POST(self):
@@ -229,6 +233,11 @@ class Gateway:
                     return
                 if path not in ('/v1/messages','/v1/messages/count_tokens'):
                     self.error(403, 'This API endpoint is not available to agent runs.')
+                    return
+                with gateway.lock:
+                    stopped = gateway.provider_stop
+                if stopped:
+                    self.error(*stopped, no_retry=True)
                     return
                 try:
                     with gateway.lock:
@@ -242,7 +251,7 @@ class Gateway:
                     body = json.loads(self.rfile.read(length))
                     if not isinstance(body, dict):
                         raise ValueError('API request must be an object.')
-                    if path == '/v1/messages':
+                    if path == '/v1/messages' and gateway.budget is not None:
                         # All billing checks precede the first paid request.
                         reservation = gateway.budget.authorise(body, gateway.count(body, self.headers))
                     with gateway._open(path, body, self.headers) as response:
@@ -251,19 +260,45 @@ class Gateway:
                         self.send_header('Content-Type',response.headers.get('Content-Type','application/json'))
                         self.end_headers()
                         while chunk := response.read1(65536):
-                            if path == '/v1/messages':
+                            if path == '/v1/messages' and gateway.budget is not None:
                                 usage.add(chunk)
                             self.wfile.write(chunk)
                             self.wfile.flush()
-                        if path == '/v1/messages' and usage.finish():
+                        if path == '/v1/messages' and gateway.budget is not None and usage.finish():
                             gateway.budget.finish(body['model'],reservation,usage.usage)
                 except urllib.error.HTTPError as exc:
-                    # Provider errors can contain request/credential details. Status alone is enough.
-                    self.error(exc.code, f'Anthropic declined the API request (HTTP {exc.code}).')
+                    # Classify known billing refusals without returning provider
+                    # bodies, which can contain request or credential details.
+                    message = ''
+                    error_code = ''
+                    try:
+                        payload = json.loads(exc.read(65536))
+                        detail = payload.get('error') or {}
+                        message = str(detail.get('message') or '').lower()
+                        error_code = (detail.get('details') or {}).get('error_code', '')
+                    except (ValueError, OSError, AttributeError):
+                        pass
+                    stopped = None
+                    if error_code == 'enforced_spend_limit_reached' or message.startswith((
+                            'you have reached your specified api usage limits',
+                            'you have reached your specified workspace api usage limits')):
+                        stopped = (exc.code, 'Claude Console spending limit reached. API fallback has stopped; manage this budget in Claude Console.')
+                    elif message.startswith(('your credit balance is too low', 'credit balance is too low')):
+                        stopped = (exc.code, 'Claude Console API credit is exhausted. API fallback has stopped until credit is available.')
+                    if stopped:
+                        # Some CLI versions retry or try a smaller model despite
+                        # x-should-retry. Keep these retries local after a budget
+                        # refusal; never forward another request in this invocation.
+                        with gateway.lock:
+                            gateway.provider_stop = stopped
+                        self.error(*stopped, no_retry=True)
+                    else:
+                        self.error(exc.code, f'Anthropic declined the API request (HTTP {exc.code}).')
                 except (ValueError, TypeError, KeyError) as exc:
                     self.error(400, str(exc))
                 except (OSError, urllib.error.URLError):
-                    self.error(502, 'The Anthropic API request could not be completed. Its budget remains reserved.')
+                    self.error(502, 'The Anthropic API request could not be completed.'+
+                               (' Its budget remains reserved.' if gateway.budget is not None else ' Try again later.'))
                 finally:
                     if counted:
                         with gateway.lock:

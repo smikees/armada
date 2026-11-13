@@ -14,14 +14,18 @@ Windows DPAPI keeps literal keys out of machine files as well as realm exports.
 
 —
 
-### `configured(provider)`
+### `_scope(root, agent)`
 
 —
 
-### `key(provider)`
+### `configured(provider, root=None, agent='')`
 
 —
 
-### `save(provider, value)`
+### `key(provider, root=None, agent='')`
+
+—
+
+### `save(provider, value, root=None, agent='', *, managed_externally=False)`
 
 —

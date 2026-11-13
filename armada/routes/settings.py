@@ -20,6 +20,40 @@ _APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
+    def _api_fallback_action(self, body):
+        from .. import api_fallback
+        try:
+            if self.headers.get('X-Armada-Companion') == 'thread':
+                raise ValueError('Configure API fallback in the main app Settings or agent settings.')
+            provider = body.get('provider', 'claude')
+            if provider not in api_fallback.SUPPORTED:
+                raise ValueError('API usage fallback is currently available for Claude only.')
+            agent = body.get('agent') or ''
+            if not isinstance(agent, str):
+                raise ValueError('Choose a valid agent.')
+            if agent:
+                safe_seg(agent, 'agent')
+                if not self.realm or not (Path(self.realm)/'agents'/agent/'agent.json').is_file():
+                    raise ValueError('This agent is no longer available.')
+            action = body.get('action', 'status')
+            api_key = body.get('api_key')
+            if api_key is not None and not isinstance(api_key, str):
+                raise ValueError('Enter a valid API key.')
+            if action == 'save':
+                state = api_fallback.save(provider, root=self.realm, agent=agent,
+                    enabled=body.get('enabled'), key_source=body.get('key_source'),
+                    api_key=api_key or None, remove_key=body.get('remove_key') is True)
+                return {'ok': True, 'state': state}
+            if action == 'test':
+                message = api_fallback.verify(provider, root=self.realm, agent=agent,
+                    api_key=api_key or None, key_source=body.get('key_source'))
+                return {'ok': True, 'message': message}
+            if action != 'status':
+                raise ValueError('Unknown API fallback action.')
+            return {'ok': True, 'state': api_fallback.settings(provider, self.realm, agent)}
+        except (ValueError, OSError) as exc:
+            return {'ok': False, 'error': str(exc)}
+
     def _worker_action(self, body):
         from .. import worker, realm_registry, execution_admission
         try:

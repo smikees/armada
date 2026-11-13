@@ -123,7 +123,17 @@ def settings(root=None, agent='', job=None, provider='claude'):
               'monthly_cap_usd': 100, 'cycle_day': 1, 'reserve_percent': 30, 'api_run_ceiling_usd': 5,
               'agent_inactivity_minutes': 30, 'agent_soft_mark_minutes': 60, 'critical_usage_percent': 80,
               'critical': False, 'api_model': '', 'default_job_timeout':None}
-    result.update(state.get('providers', {}).get(provider, {}))
+    from . import api_fallback
+    fallback = api_fallback.settings(provider, root, agent)
+    provider_values = dict(state.get('providers', {}).get(provider, {}))
+    if fallback['managed']:
+        result.update(plan_limit_action='api' if fallback['ready'] else 'fail',
+                      api_run_ceiling_usd=None, api_budget_mode='provider')
+        # The new engine modal owns enablement; old engine-wide caps remain only
+        # for legacy runs. Explicit realm/agent/job choices below still apply.
+        provider_values.pop('plan_limit_action', None)
+        provider_values.pop('api_run_ceiling_usd', None)
+    result.update(provider_values)
     if root:
         scopes = state.get('scopes', {})
         for identity in (scope_id(root), scope_id(root, agent)) if agent else (scope_id(root),):
@@ -222,6 +232,9 @@ def initialise_ledger(provider):
 
 
 def credit(provider='claude', config=None):
+    from . import api_fallback
+    if api_fallback.managed(provider):
+        return api_fallback.credit(provider)
     config = config or settings(provider=provider)
     start, reset = cycle(config)
     with util.file_lock(_ledger_path(provider)):

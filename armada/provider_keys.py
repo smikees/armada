@@ -37,12 +37,20 @@ def _read():
     return util.read_json_state(_path(), default=dict)
 
 
-def configured(provider):
-    return bool(_read().get(provider))
+def _scope(root, agent):
+    import hashlib
+    from .run_policy import scope_id
+    return hashlib.sha256(scope_id(root, agent).encode('utf-8')).hexdigest()
 
 
-def key(provider):
-    value = _read().get(provider, '')
+def configured(provider, root=None, agent=''):
+    state = _read()
+    return bool(state.get('agents', {}).get(_scope(root, agent), {}).get(provider)) if agent else bool(state.get(provider))
+
+
+def key(provider, root=None, agent=''):
+    state = _read()
+    value = state.get('agents', {}).get(_scope(root, agent), {}).get(provider, '') if agent else state.get(provider, '')
     if not isinstance(value, str):
         raise ValueError('Invalid provider key store.')
     if value.startswith('dpapi:'):
@@ -50,26 +58,28 @@ def key(provider):
     return value
 
 
-def save(provider, value):
+def save(provider, value, root=None, agent='', *, managed_externally=False):
     if provider != 'claude':
         raise ValueError('Only Claude API fallback is enabled. Other providers remain on their existing authentication.')
     if not isinstance(value, str) or value and (not value.startswith('sk-ant-') or any(c.isspace() for c in value)):
         raise ValueError('Enter a valid Anthropic API key, or clear it.')
-    if value:
-        from . import worker
-        worker.require()
+    if agent and not root:
+        raise ValueError('An agent API key must belong to a realm.')
     path = _path()
     if any((parent/'realm.json').is_file() for parent in path.resolve().parents):
         raise ValueError('Provider secrets must be stored outside every realm folder. Change the app data location first.')
     with util.file_lock(path):
         state = _read()
+        bucket = state.setdefault('agents', {}).setdefault(_scope(root, agent), {}) if agent else state
         if value:
             from .run_policy import initialise_ledger
-            initialise_ledger(provider)
-            state[provider] = 'dpapi:'+base64.b64encode(_crypt(value.encode('utf-8'))).decode('ascii') if os.name == 'nt' else value
+            from .api_fallback import managed
+            if not managed_externally and not managed(provider) and not agent:
+                initialise_ledger(provider)
+            bucket[provider] = 'dpapi:'+base64.b64encode(_crypt(value.encode('utf-8'))).decode('ascii') if os.name == 'nt' else value
         else:
-            state.pop(provider, None)
+            bucket.pop(provider, None)
         util.write_json_atomic(path, state)
         os.chmod(path, 0o600)
     from .run_policy import audit
-    audit('set-provider-key', provider=provider, configured=bool(value))
+    audit('set-provider-key', root, provider=provider, agent=agent, configured=bool(value))

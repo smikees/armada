@@ -14,6 +14,10 @@ Shared owner controls for provider, realm, agent and approved jobs.
 
 —
 
+### `worker_controls()`
+
+Optional isolation stays out of normal API setup.
+
 ### `job_fields(job)`
 
 —

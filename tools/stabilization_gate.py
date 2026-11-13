@@ -18,7 +18,7 @@ PERFORMANCE_BUDGETS = {'realm_warm': 100, 'usage_warm': 500, 'unchanged_poll': 2
                        'four_windows': 1000, 'metadata': 100}
 FAULT_TESTS = ['test_http_limits.py', 'test_execution_admission.py', 'test_dispatch.py',
                'test_record_health.py', 'test_verified_exports.py', 'test_access_policy.py',
-               'test_access_preview.py', 'test_section_snapshots.py']
+               'test_access_preview.py', 'test_section_snapshots.py', 'test_api_fallback.py']
 
 
 def validate_performance(report):

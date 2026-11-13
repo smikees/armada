@@ -338,6 +338,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
                      "/api/save-appearance": "_save_appearance",
                      "/api/new-realm": "_new_realm", "/api/auth-login": "_auth_login",
                      "/api/provider-action": "_provider_action",
+                     "/api/api-fallback": "_api_fallback_action",
                      "/api/install-claude": "_install_claude"}
 
     def _route_welcome_get(self, path: str):
@@ -454,6 +455,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
     _POST_JSON = {
         "/api/worker": "_worker_action",
         "/api/run-controls": "_save_run_controls",
+        "/api/api-fallback": "_api_fallback_action",
         "/api/repair-record": "_repair_record",
         "/api/voice-start": "_voice_start", "/api/voice-state": "_voice_state", "/api/voice-stop": "_voice_stop",
         "/api/run": "_run", "/api/chat": "_chat", "/api/save-job": "_save_job",

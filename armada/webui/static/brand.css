@@ -967,6 +967,16 @@ details.mc-cap[open] > .mc-cap-prov{animation:mc-capopen .2s ease}
 .mc-provider-grid .mc-provider-signed-in::before{font-size:12px;line-height:12px;margin-right:4px;font-weight:400}
 .mc-provider-plan-slot,.mc-provider-login-slot{min-width:0;overflow:auto}
 .mc-provider-plan-slot{white-space:nowrap;font-size:12px;line-height:18px;color:var(--text-muted)}
+.mc-fallback-entry{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:8px}
+.mc-api-fallback-dialog{width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;box-sizing:border-box}
+.mc-api-fallback-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mc-api-fallback-heading h3{margin:0}
+.mc-api-fallback-dialog p,.mc-fallback-steps{line-height:1.5}
+.mc-fallback-steps{padding-left:22px}
+.mc-fallback-steps li+li{margin-top:8px}
+.mc-fallback-enable{display:flex;align-items:flex-start;gap:8px;margin:16px 0}
+.mc-fallback-enable input{margin-top:4px;flex:none}
+.mc-api-fallback-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:16px}
 .mc-provider-plan:not([hidden]){display:inline}
 .mc-provider-grid .mc-provider-login-url{margin:0;font-size:12px;line-height:18px}
 .mc-provider-grid [id$="-feedback"]{margin:0;min-height:0;overflow:auto;line-height:18px}

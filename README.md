@@ -26,8 +26,8 @@ see what each one is being told before it answers.
 > **Status: beta, Windows only.** ARMADA is in a small invited beta. Expect rough edges — and
 > please report them.
 
-**Current release: [v0.99.145 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.145).**
-[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.145/ARMADA-Setup-0.99.145.exe)
+**Current release: [v0.99.146 — unsigned beta](https://github.com/smikees/armada/releases/tag/v0.99.146).**
+[Download the Windows installer](https://github.com/smikees/armada/releases/download/v0.99.146/ARMADA-Setup-0.99.146.exe)
 or browse [all releases](https://github.com/smikees/armada/releases).
 Upgrading from 0.99.124 or earlier requires running this full installer once to replace
 the native launcher and bundled runtime. It preserves realms and settings. Later compatible
@@ -36,8 +36,9 @@ Only one desktop/server can run per Windows user, independent of realm or instal
 
 ## Before you give an agent tools
 
-By default, an agent with tools uses your Windows account. API fallback requires the isolated
-Windows worker, which uses its own account and provider sign-ins. Tool access still needs careful
+By default, an agent with tools uses your Windows account. Claude API fallback for critical
+jobs uses a workspace API key and spending limits managed in Claude Console. The optional isolated
+Windows worker uses a separate account and provider sign-ins. Tool access still needs careful
 grants; ordinary worker-readable files and connected services remain available to it. Read [Staying safe](armada/docs/user/safety.md) first.
 
 ## Requirements
@@ -55,7 +56,7 @@ with error 4551. This is not the ordinary SmartScreen warning; it has no "Run an
 This beta does not fix that restriction; publisher signing remains pending. Keep Windows protections enabled.
 Packaged startup and update-recovery checks passed on the developer's machine. Clean Windows Sandbox GUI
 acceptance remains open because Microsoft's WebView2 prerequisite installer failed there;
-see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.145).
+see the [release notes](https://github.com/smikees/armada/releases/tag/v0.99.146).
 **Upgrading from 0.99.124 or earlier:** let current work finish, quit ARMADA, and run
 the full installer once to replace the bundled runtime. Realms and settings are preserved.
 Later compatible releases continue to use in-app updates.

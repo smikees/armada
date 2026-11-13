@@ -90,8 +90,14 @@ def preamble(root):
         from . import run_policy, billing
         credit = run_policy.credit()
         billing.publish_credit(root_path(root), 'claude', credit)
-        lines.append(f'Claude API credit: ${credit["spent_usd"]:.2f} of ${credit["cap_usd"]:.2f} spent, ${credit["reserved_usd"]:.2f} reserved; resets {credit["resets_at"]}; '
-                     + ('open' if credit['open'] else 'closed: '+credit['reason'])+'.')
+        if credit.get('budget_managed') == 'provider':
+            amount = f'${credit["spent_usd"]:.2f}' if credit['spent_usd'] is not None else 'unavailable'
+            lines.append(f'Claude API fallback: {amount} reported by Armada this month; {credit["unknown_runs"]} completed run(s) have no reported cost. '
+                         'Claude Console controls the spending cap and available credit, including use by other apps. '
+                         + ('Enabled for approved critical jobs.' if credit['open'] else credit['reason']))
+        else:
+            lines.append(f'Claude API credit: ${credit["spent_usd"]:.2f} of ${credit["cap_usd"]:.2f} spent, ${credit["reserved_usd"]:.2f} reserved; resets {credit["resets_at"]}; '
+                         + ('open' if credit['open'] else 'closed: '+credit['reason'])+'.')
     except (OSError, ValueError):
         lines.append('Claude API credit: closed; accounting unavailable.')
     return '\n\n' + '\n'.join(lines)

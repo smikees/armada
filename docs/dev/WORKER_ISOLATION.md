@@ -1,5 +1,14 @@
 # Windows worker isolation
 
+**Superseded default, 13 November 2026 (v0.99.146):** the owner chose provider-enforced
+spending limits and accepted same-user credential access. Claude fallback setup now
+uses the normal account and an owner modal; the worker is optional under Advanced.
+An existing explicit worker opt-in remains enforced, including a durable marker
+when its manifest is lost. Saving an API key never opts into worker isolation.
+Newly saved fallback settings use Console budgets, not the legacy price-bound
+gateway described below. See [the current fallback contract](API_FALLBACK.md).
+The remainder records the original stricter implementation.
+
 **Decision:** dedicated non-admin Windows account, accepted 11 November 2026.
 API fallback requires this boundary. Ordinary operation without a configured worker
 continues to use the owner's identity, as previous releases did.

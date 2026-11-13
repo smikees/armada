@@ -5,12 +5,20 @@
 By default, an agent with tools runs with your Windows permissions. Treat each grant
 as permission to use that tool on your computer.
 
-API fallback requires the **isolated Windows worker**, configured in App Settings.
-Normal agent, shell and connector processes then use a separate non-admin account.
-The owner API key and run-control files stay outside realms, inaccessible to that
-account. Approved draft scripts retain their AppContainer restrictions and use a
-private desktop. Set up the worker from the normal installation, then sign in to
-providers and reconnect services for that account.
+Claude API fallback normally uses this same Windows account. Keys are encrypted on
+this computer and kept outside realms and exports. The CLI receives a temporary
+invocation token instead of the real key. Code running as your Windows user can
+still access your credential store: set the spending limit in **Claude Console**,
+which also limits calls outside Armada. Keep auto-reload off to use existing credit
+only. Armada's reported costs cover its own runs, not your authoritative balance.
+
+For a stronger credential boundary, **App Settings → Advanced → Isolated Windows
+worker (optional)** runs normal agent, shell and connector processes as a separate
+non-admin user. Its setup needs administrator approval and separate provider
+sign-ins. Owner credential files are inaccessible to that account. Approved draft
+scripts keep their AppContainer restrictions. An explicitly configured worker
+continues to be required until its configuration is repaired; losing its manifest
+does not silently restore the owner identity.
 
 This protects owner credentials; files accessible to the worker and services you grant
 remain available to agents. Agents sharing that account are not isolated from each

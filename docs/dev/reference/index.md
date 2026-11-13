@@ -16,7 +16,8 @@
 | [`alexander.remedies`](alexander.remedies.md) | Remedies: the fixed list of app actions Alexander may propose (ADR-012, docs/dev/ALEXANDER.md). |
 | [`alexander.support`](alexander.support.md) | Alexander in the app: support conversations (launch plan 6.2, 6.3, 6.6; docs/dev/ALEXANDER.md). |
 | [`alexander.wizard_script`](alexander.wizard_script.md) | Everything Alexander says in the setup wizard, written in advance (ADR-012; docs/dev/ALEXANDER.md). |
-| [`api_gateway`](api_gateway.md) | Invocation-local Anthropic gateway: real keys stay in the host, requests are bounded. |
+| [`api_fallback`](api_fallback.md) | Owner API fallback choices; the provider enforces externally managed budgets. |
+| [`api_gateway`](api_gateway.md) | Invocation-local Anthropic gateway: real keys stay in the host. |
 | [`app`](app.md) | Native desktop window for ARMADA (SPEC §13 — the app wrapper). |
 | [`appconfig`](appconfig.md) | App-level (per-machine) configuration — distinct from a realm's own files. |
 | [`approot`](approot.md) | The app root — the one folder on this machine that ARMADA is allowed to work in. |
@@ -197,6 +198,7 @@
 | [`webui.agentcommon`](webui.agentcommon.md) | Shared agent/realm page helpers (Phase 3 split of agentpages): job cards, artefact gathering, autonomy/colour controls, filter dropdowns and the status-filter p |
 | [`webui.agentframe`](webui.agentframe.md) | Agent frame (Phase 3 split of agentpages): agent header/body + the Jobs/Inbox/Configure sub-tabs, avatar + appoint modals. |
 | [`webui.alexander_window`](webui.alexander_window.md) | Transparent shell for Alexander's independent desktop companion. |
+| [`webui.api_fallback`](webui.api_fallback.md) | Compact engine/agent entry points and the shared owner API setup dialog. |
 | [`webui.attention`](webui.attention.md) | Actionable owner summary from local records, without provider probes. |
 | [`webui.capabilities`](webui.capabilities.md) | Capabilities / connectors / skills rendering (Layer 2, Phase 3). |
 | [`webui.catalogue`](webui.catalogue.md) | Catalogue tab rendering: search results, filters, the bring-a-link review report, and the info box (ADR-004) — everything that renders from CATALOGUE/registry d |
