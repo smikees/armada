@@ -123,6 +123,9 @@ def _blocking_reason(row, active, pending, rows):
 
 
 def _promote(state):
+    from . import updater
+    if updater.installed() and updater.admission_paused():
+        return
     rows = list(state['tickets'].values())
     active = [r for r in rows if r['state'] == 'running']
     pending = sorted((r for r in rows if r['state'] == 'queued' and not r['cancelled']), key=lambda r: r['seq'])
@@ -222,9 +225,14 @@ class Ticket:
         # release work without recreating tickets or retaining a provider slot.
         from .run_policy import admission
         hints = admission(self.context.realm.root, self.context.agent, self.context.thread, self.provider, background=self.background)
-        with _transaction() as state:
+        from . import updater
+        with updater.admission_lock(), _transaction() as state:
             row = self._row(state)
             row.update(hints)
+            if row['state'] == 'queued' and updater.installed() and updater.admission_paused():
+                self.cancelled = True
+                row['cancelled'] = True
+                raise Cancelled('ARMADA is preparing an update. This queued run did not start; retry after the update.')
             if row['cancelled']:
                 self.cancelled = True
                 raise Cancelled('Run stopped by the owner before execution.')

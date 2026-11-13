@@ -103,7 +103,7 @@ def run(output, *, system_jobs_only=False):
                         self._json(200, {'available': True, 'connected': True, **payload})
                     else:
                         self._json(200,{'available':False,'connected':True,'message':'Synthetic provider has not supplied a reading.'})
-                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor','/api/agent-activity','/api/system-jobs'):
+                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state','/api/activity-monitor','/api/agent-activity','/api/system-jobs','/api/job-calendar'):
                     self._json(200, {})
                 else:
                     super()._route_get()
@@ -188,6 +188,7 @@ def run(output, *, system_jobs_only=False):
                     views.append(window)
                     wait(lambda: window.native is not None and js("document.readyState==='complete'&&typeof mcJobsFilter==='function'"),
                          'System jobs view '+str(width)+' loaded')
+                    js("window.__calendarResponses=[];const originalFetch=window.fetch;window.fetch=async(...args)=>{const response=await originalFetch(...args);if(String(args[0]).includes('/api/job-calendar'))window.__calendarResponses.push({status:response.status,body:await response.clone().text()});return response;};true")
                     window.native.Invoke(Action(lambda: setattr(window.native.webview, 'ZoomFactor', zoom)))
                     wait(lambda: abs(js('innerWidth')-(width-16)/zoom)<2,
                          'System jobs viewport '+str(width)+' at '+str(zoom))
@@ -212,6 +213,17 @@ def run(output, *, system_jobs_only=False):
                         js("document.getElementById('mc-sysjobstable').scrollLeft=0;true")
                     elif width==1660:
                         capture('system-jobs-light-wide')
+                    for pane in ('user','system'):
+                        js("mcJobsTab('"+pane+"');mcJobsView('cal',null,true);true")
+                        for mode in ('month','week','day'):
+                            selector='#jobs-pane-'+pane+' .mc-jobcal'
+                            js("document.querySelector('"+selector+" .mc-jc-view[data-jc="+mode+"]').click();true")
+                            wait(lambda: js("!!document.querySelector('"+selector+" .mc-jc-systems [data-system-job=inbox-dispatch] svg')&&!!document.querySelector('"+selector+" .mc-jc-systems [data-system-job=telegram-inbox] svg')"),
+                                 'Inbox and Telegram system jobs at top of '+pane+' '+mode+' '+str(width))
+                            assert js("(()=>{const section=document.querySelector('"+selector+" .mc-jc-systems');return section===section.parentElement.firstElementChild&&[...section.querySelectorAll('.mc-jc-system')].every(e=>e.getBoundingClientRect().right<=section.getBoundingClientRect().right+1);})()")
+                        if pane=='user':
+                            capture('system-calendar-'+str(width),'#jobs-pane-user .mc-jc-systems')
+                    js("mcJobsTab('system');mcJobsView('list',null,true);true")
                 js("const row=document.querySelector('.mc-sysjob');const text=row.querySelector('.mc-sysjob-msg');text.textContent='A long status '+('synthetic-path-without-breaks'.repeat(15));text.style.display='block';true")
                 aligned('Long system-job status stays inside its column')
                 target = js("document.querySelector('.mc-sysjob').dataset.sysjob")
@@ -223,6 +235,26 @@ def run(output, *, system_jobs_only=False):
                 js("document.querySelector('.mc-sysjob .btn-primary').click();true")
                 wait(lambda: Fixture.system_runs == [target] and js("document.querySelector('.mc-sysjob-msg').textContent.includes('done')&&!document.querySelector('.mc-sysjob .btn-primary').disabled"), 'Synthetic Run now refresh completes')
                 aligned('Run-now feedback preserves system columns')
+                system_state=util.read_json_state(root/'system_jobs.json',default=dict)
+                # Native fixtures stay hidden. Simulate a visible page for the
+                # production poller, which intentionally pauses when hidden.
+                js("Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});true")
+                try:
+                    util.write_json_atomic(root/'system_jobs.json',{'inbox-dispatch':{'attempt':{'state':'claimed','attempt_id':'native','owner_pid':os.getpid(),'started':'2026-11-13T16:00:00+01:00'}}})
+                    with util.file_lock(root/'.scheduler/system/inbox-dispatch.json',validate_state=False):
+                        js("document.dispatchEvent(new Event('visibilitychange'));true")
+                        try:
+                            wait(lambda: js("document.querySelector('[data-sysjob=inbox-dispatch]').dataset.jstatus==='running'&&document.querySelector('[data-sysjob=inbox-dispatch] .btn-primary').disabled"),'Live system execution updates Running without reloading')
+                        finally:
+                            result['live_system_diagnostic']=js("JSON.stringify({hidden:document.hidden,helper:typeof mcSetRunBtn,row:document.querySelector('[data-sysjob=inbox-dispatch]').outerHTML})")
+                        js("document.getElementById('sf-status').dataset.val='running';mcJobsFilter();true")
+                        assert js("document.querySelector('[data-sysjob=inbox-dispatch]').getClientRects().length>0")
+                    wait(lambda: js("document.querySelector('[data-sysjob=inbox-dispatch] [data-system-detail]').textContent.includes('interrupted')"),'Released system ownership shows Interrupted without a false running state')
+                finally:
+                    util.write_json_atomic(root/'system_jobs.json',system_state)
+            except Exception:
+                result['calendar_diagnostic']=js("JSON.stringify({path:location.pathname,responses:window.__calendarResponses,calendars:[...document.querySelectorAll('.mc-jobcal')].map(w=>({scope:w.dataset.scope,view:w._view,html:w.querySelector('.mc-jc-body').innerHTML}))})")
+                raise
             finally:
                 window = main_window
                 for view in views:
@@ -267,7 +299,7 @@ def run(output, *, system_jobs_only=False):
                 js("window.__activitySignals=0;window.addEventListener('armada:agent-activity',()=>window.__activitySignals++);true")
                 thread_metadata.set_unread(root/'agents/captain','main',True)
                 marker=root/'agents/captain/runs/.running/widget-probe.json'
-                util.write_json_atomic(marker,{})
+                util.write_json_atomic(marker,{'owner_pid':os.getpid()})
                 Fixture.delay_activity=True
                 js("document.querySelector('[data-activity-refresh]').focus();document.querySelector('[data-activity-refresh]').click();true")
                 assert activity_entered.wait(5)
@@ -310,7 +342,7 @@ def run(output, *, system_jobs_only=False):
                 wait(lambda: js("document.documentElement.scrollWidth<=innerWidth+1&&document.querySelector('.mc-nav-actions').getBoundingClientRect().right<=innerWidth+1"), '1024px navigation fits and actions remain reachable')
                 js("document.documentElement.classList.remove('armada-dark');document.body.classList.remove('armada-dark')")
                 for aid in ('navigator','quartermaster'):
-                    util.write_json_atomic(root/f'agents/{aid}/runs/.running/widget-display.json',{})
+                    util.write_json_atomic(root/f'agents/{aid}/runs/.running/widget-display.json',{'owner_pid':os.getpid()})
                 js('window.mcRefreshActivityMonitor();true')
                 wait(lambda: js("document.querySelectorAll('[data-activity-group=working] .mc-activity-avatar').length===2"),'Working portraits share a horizontal row')
                 assert js("(()=>{const a=[...document.querySelectorAll('[data-activity-group=working] .mc-activity-avatar')].map(e=>e.getBoundingClientRect());return Math.abs(a[0].top-a[1].top)<1&&a[1].left>a[0].right;})()")

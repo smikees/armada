@@ -136,6 +136,7 @@
 | [`routes.realm`](routes.realm.md) | Realm lifecycle: switch/new/archive/export/delete, preflight, workspace/approot, icon, settings, covenant. |
 | [`routes.settings`](routes.settings.md) | Settings, the signed-in user, notification channels (incl |
 | [`routes.voice`](routes.voice.md) | Authenticated local signaling only; microphone audio never crosses these routes. |
+| [`run_activity`](run_activity.md) | Shared liveness evidence for presentation and update draining. |
 | [`run_policy`](run_policy.md) | Machine-local owner choices, approval seals and fail-closed API reservations. |
 | [`run_summary`](run_summary.md) | Disposable presentation summaries and date indexes; never execution or policy evidence. |
 | [`run_watchdog`](run_watchdog.md) | Inactivity supervision for unattended agent turns; time spent queued is excluded. |

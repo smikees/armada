@@ -194,7 +194,7 @@ def _turns(realm_root, thread="main"):
 def _mark(agent_dir, thread="main", kind="chat"):
     d = agent_dir / "runs" / ".running"
     d.mkdir(parents=True, exist_ok=True)
-    (d / "_chat.json").write_text(json.dumps({"kind": kind, "thread": thread}), encoding="utf-8")
+    (d / "_chat.json").write_text(json.dumps({"kind": kind, "thread": thread, "owner_pid": __import__('os').getpid()}), encoding="utf-8")
 
 
 def test_an_open_turn_with_a_live_run_says_working(agent_dir):
@@ -225,15 +225,15 @@ def test_a_run_in_another_thread_does_not_spin_this_one(agent_dir):
     assert "working on it" not in _turns(agent_dir.parent.parent, "taxes")
 
 
-def test_a_stale_marker_does_not_spin_forever(agent_dir):
-    """Same cut-off the activity dot uses: a crashed run stops claiming to be running."""
+def test_an_old_live_marker_still_shows_unlimited_work(agent_dir):
+    """Age alone cannot make a live long-running turn disappear."""
     import os, time
     Thread(agent_dir, "main").begin_turn("make me a flower")
     _mark(agent_dir)
     p = agent_dir / "runs" / ".running" / "_chat.json"
     old = time.time() - 60 * 60
     os.utime(p, (old, old))
-    assert "working on it" not in _turns(agent_dir.parent.parent)
+    assert "working on it" in _turns(agent_dir.parent.parent)
 
 
 def test_a_closed_turn_shows_no_placeholder(agent_dir):

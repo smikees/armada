@@ -422,10 +422,13 @@ def _system_job_row(j, now, grid: str) -> str:
     nxt_style = ("color:var(--text-muted)" if not on
                  else "color:var(--text-strong)")
     week7 = _sysjob_health7(j.get("runs"), now, on)
+    if j.get('status') == 'running':
+        day, dt, _, wknd = week7[_WEEK_BACK]
+        week7[_WEEK_BACK] = (day, dt, 'Running', wknd)
     week = "".join(_health_square(label, _health_tip(day, dt, label, wknd))
                    for day, dt, label, wknd in week7)
     # Read from the strip, exactly as the user jobs are: one definition of what a row's status is.
-    bucket = _week_filter_bucket(week7)
+    bucket = 'running' if j.get('status') == 'running' else _week_filter_bucket(week7)
     toggle = (f'<label class="mc-toggle" onclick="event.stopPropagation()" '
               f'title="{"On — click to stop it running on its schedule" if on else "Off — click to let it run again"}">'
               f'<input type="checkbox" {"checked" if on else ""} '
@@ -460,7 +463,7 @@ def _system_job_row(j, now, grid: str) -> str:
             f'<span style="display:block;margin-left:20px;font-size:11.5px;line-height:1.4;'
             f'color:var(--text-muted)">{E(j.get("description") or "")}</span>'
             + (f'<span style="display:block;margin-left:20px;font-size:11px;line-height:1.4;'
-               f'color:var(--text-muted)">{E(detail)}</span>' if detail else "")
+               f'color:var(--text-muted)" data-system-detail>{E(detail)}</span>')
             + f'<span class="mc-sysjob-msg" data-for="{E(j["id"])}" style="display:none;'
               f'margin-left:20px;font-size:11.5px;color:var(--text-muted);margin-top:4px"></span>'
             f'</span>'
@@ -777,14 +780,13 @@ def _realm_jobs(realm, realm_root, today) -> str:
     table = _job_list(realm, realm_root, pairs, today, now, show_owner=True,
                       list_id="mc-jobstable")
     n = sum(len(a.jobs) for a in realm.agents)
-    filters = _jobs_filter_bar(owners, n, now, lead=_jobs_view_toggle()) if n else ""
+    filters = _jobs_filter_bar(owners, n, now, lead=_jobs_view_toggle())
     legend = (f'<div style="display:flex;justify-content:flex-end;margin:0 0 8px">{_status_legend()}</div>' if n else "")
     # the calendar simply replaces the list; filters + legend stay above both. No bottom legend
     # on the calendar here — the status legend already shows above it.
     list_view = f'<div class="mc-jobs-list">{table}</div>'
     cal_view = (f'<div class="mc-jobs-cal" style="display:none;height:72vh">'
-                f'{_jobcal(realm, realm_root, today, legend=False, widget=False, fpfx="jf")}</div>'
-                if n else "")
+                f'{_jobcal(realm, realm_root, today, legend=False, widget=False, fpfx="jf")}</div>')
     proposals = _job_proposals_block(realm, realm_root) + _job_tools_warnings_block(realm_root)
     # User / System tabs, mirroring Capabilities. Proposals and approvals stay under User: they're
     # about your agents, not about the app keeping itself current.
@@ -798,7 +800,7 @@ def _realm_jobs(realm, realm_root, today) -> str:
     tab_js = _JOBSTAB_JS
     return (f'<div style="padding:18px 24px 24px">{_page_title("Jobs", f"{n} across the realm")}'
             f'{_hold_banner(realm_root)}{tabs}{user_pane}{sys_pane}'
-            f'{_FDROP_JS}{_JOBS_FILTER_JS}{_JOBCAL_JS}{_JOBS_SORT_JS}</div>'
+            f'{_ICONS_JS}{_FDROP_JS}{_JOBS_FILTER_JS}{_JOBCAL_JS}{_JOBS_SORT_JS}</div>'
             f'{tab_js}{_health_styles_js()}{_SYSJOBS_JS}')
 
 
@@ -863,9 +865,9 @@ def _system_jobs_pane(realm, realm_root, today, now) -> str:
                                table="mc-sysjobstable", f1key="cost", f1_label="Any cost")
     legend = f'<div style="display:flex;justify-content:flex-end;margin:0 0 8px">{_status_legend()}</div>'
     cal_note = ('<div style="font-size:11.5px;color:var(--text-muted);margin-top:8px">'
-                'Shows recorded runs and upcoming due times. Jobs that run more often than hourly '
-                'aren\'t plotted, and days before this realm started keeping system-job history '
-                'stay blank rather than being guessed.</div>')
+                'System jobs and inbox processing stay visible in the live section above. '
+                'The date grid shows recorded runs and upcoming hourly or daily due times; '
+                'unknown past activity stays blank.</div>')
     cal_view = (f'<div class="mc-jobs-cal" style="display:none">'
                 f'<div style="height:72vh">{_jobcal(realm, realm_root, today, legend=False, widget=False, scope="system", fpfx="sf", title="System job calendar")}</div>'
                 f'{cal_note}</div>')

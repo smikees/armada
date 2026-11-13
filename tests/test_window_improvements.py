@@ -114,7 +114,7 @@ def test_activity_deduplicates_portraits_and_tracks_completion_without_marking_r
     agent=root/'agents/captain'
     util.write_json_atomic(agent/'threads/meta.json',{'unread':{'main':True,'other':True}})
     marker=agent/'runs/.running/avatar-test.json'
-    util.write_json_atomic(marker,{})
+    util.write_json_atomic(marker,{'owner_pid':__import__('os').getpid()})
     rendered=content(reader.read(root),root)
     assert rendered.count('data-activity-key="working:captain"')==1
     assert rendered.count('data-activity-key="unread-replies:captain"')==1

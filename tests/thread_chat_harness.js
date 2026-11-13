@@ -5,7 +5,7 @@ const source=name=>fs.readFileSync(path.join(__dirname,'../armada/webui/static/j
 const settle=async()=>{for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));};
 let shared={revision:'initial',html:'saved initial transcript',title:'Main',run_id:'',stopping:false,
   metrics:{messages:2,pct:1,chars:40,context_window:200000}};
-let stream,stopError=false,deferAdmission=false,pendingAdmission,stopRequests=[],closedStreams=0;
+let stream,stopError=false,deferAdmission=false,pendingAdmission,stopRequests=[],closedStreams=0,refuse=false;
 function view(hidden=false){
   const node=()=>({dataset:{},style:{},textContent:'',addEventListener:()=>{}});
   const nodes={'mc-turns':{...node(),dataset:{agent:'captain',thread:'main'},innerHTML:shared.html,
@@ -30,6 +30,7 @@ function view(hidden=false){
         return json(state);
       }
       if(parsed.pathname==='/api/chat-stream'){
+        if(refuse)return {ok:false,json:async()=>({error:'ARMADA is restarting to update.'})};
         const request=JSON.parse(options.body);
         const body=new ReadableStream({start(controller){stream=controller;},cancel(){closedStreams++;}});
         options.signal.addEventListener('abort',()=>{
@@ -110,5 +111,31 @@ function same(a,b){assert.equal(a.nodes['mc-turns'].innerHTML,b.nodes['mc-turns'
   assert(main.get('mcCtrl')&&!main.get('mcGen'),'server completion overrides a stalled transport');
   assert(!main.nodes['mc-msg'].disabled&&!detached.nodes['mc-msg'].disabled);
   main.get('mcCtrl').abort();await settle();
+  refuse=true;
+  for(const view of [main,detached]){
+    const original=shared.html;
+    view.get("mcAttach=[{name:'notes.txt',text:'attachment content'}]");
+    view.send('  Keep this draft intact\nwith its second line  ');
+    await sync(view);
+    assert.equal(view.nodes['mc-msg'].value,'  Keep this draft intact\nwith its second line  ');
+    assert.equal(view.get('mcAttach.length'),1);
+    assert.equal(shared.html,original,'rejected send cannot append or replay a turn');
+    assert(!view.get('mcGen'),'rejected admission releases the composer');
+    assert.match(view.nodes['mc-chatmsg'].textContent,/restarting to update/);
+  }
+  shared={...shared,admission_paused:true};await sync(main,detached);
+  for(const view of [main,detached]){
+    assert(view.nodes['mc-send'].disabled);
+    assert.match(view.nodes['mc-chatmsg'].textContent,/draft is kept/);
+    const draft=view.nodes['mc-msg'].value;view.ctx.mcChat('captain','main');
+    assert.equal(view.nodes['mc-msg'].value,draft);
+  }
+  shared={...shared,admission_paused:false};await sync(main,detached);
+  assert(!main.nodes['mc-send'].disabled&&!detached.nodes['mc-send'].disabled);
+  refuse=false;deferAdmission=true;main.send('Keep me until accepted');await settle();
+  assert.equal(main.nodes['mc-msg'].value,'Keep me until accepted');
+  pendingAdmission();await sync(main,detached);
+  assert.equal(main.nodes['mc-msg'].value,'');assert.equal(main.get('mcAttach.length'),0);
+  await main.ctx.mcStop();await sync(main,detached);
   console.log('shared canonical rendering, Stop from either view, disconnect and admission races passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

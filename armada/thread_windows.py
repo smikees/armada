@@ -71,6 +71,8 @@ def state(root, agent, thread, revision=""):
         from . import questions
         payload['questions']=[{**q,'run_id':run.context.run_id} for run in runs for q in questions.pending(run)]
     from . import voice
+    from . import updater
+    payload['admission_paused'] = updater.installed() and updater.admission_paused()
     call = voice.current(root, agent, thread)
     payload['voice'] = call.snapshot() if call and not call.finished.is_set() else None
     from .webui.threadsview import _portrait, _user_avatar, _chat_running, _agent_model_label

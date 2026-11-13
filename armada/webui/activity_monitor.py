@@ -17,7 +17,9 @@ def content(realm,root):
 
 
 def _content(realm,root):
-    groups={name:{} for name in ('Working','Unread replies','Needs input','Failed replies')}
+    groups={name:{} for name in ('Working','Queued','Unread replies','Needs input','Failed replies')}
+    from .. import execution_admission
+    live=[row for row in execution_admission.snapshot() if Path(row['root']).resolve()==Path(root).resolve()]
     def add(group,agent,href,detail):
         # One portrait per agent per row; keep multiple threads/requests in its tooltip.
         row=groups[group].setdefault(agent.id,(agent,href,[]))
@@ -28,7 +30,14 @@ def _content(realm,root):
     for agent in realm.agents:
         href=f'/agent/{quote(agent.id,safe="")}/threads'
         waiting=questions.waiting(root,agent.id)
-        if _agent_busy(root,agent.id) and not waiting:
+        tickets=[row for row in live if row['agent']==agent.id]
+        queued=[row for row in tickets if row['state']=='queued']
+        for row in queued:
+            from ..job_history import JOB_PREFIX
+            target=(f'/agent/{quote(agent.id,safe="")}/jobs?'+urlencode({'job':row['thread'][len(JOB_PREFIX):]})
+                    if row['thread'].startswith(JOB_PREFIX) else href+'?'+urlencode({'thread':row['thread']}))
+            add('Queued',agent,target,row.get('queue_reason') or 'Waiting for execution capacity')
+        if (any(row['state']=='running' for row in tickets) or (not tickets and _agent_busy(root,agent.id))) and not waiting:
             add('Working',agent,href,'')
         for thread in waiting:
             add('Needs input',agent,href+'?'+urlencode({'thread':thread}),'Question awaiting your answer')
@@ -58,10 +67,19 @@ def _content(realm,root):
             label=f'{agent.display} · {title}'+(' · '+', '.join(details) if details else '')
             links+=(f'<li><a class="mc-activity-avatar" href="{E(href)}" title="{E(label)}" '
                     f'aria-label="{E(label)}" data-activity-key="{E(key+":"+agent.id)}">'
-                    f'{_portrait(root,agent,36,dot=True)}</a></li>')
+                    f'{_portrait(root,agent,36,dot=True,dot_state="queued" if title=="Queued" else "")}</a></li>')
         blocks.append(f'<section data-activity-group="{key}"><h3>{title} <span>{len(rows)}</span></h3>'+
                       (f'<ul>{links}</ul>' if rows else '<p class="mc-activity-empty">None</p>')+'</section>')
     from .attention import panel
+    from .. import sysjobs
+    background=[j for j in sysjobs.status(root) if j['status'] in ('running','queued','held')]
+    systems=''.join(f'<li><span><a href="/jobs?tab=system">{E(j["name"])}</a> · '
+                    f'{"Interrupted" if j["status"]=="held" else j["status"].title()} — {E(j["detail"])}</span></li>' for j in background)
+    for row in live:
+        if row['agent']=='system' and row['thread'].startswith('aux-'):
+            systems+=f'<li><span>{E(row["provider"].title())} background model call · {E(row["state"].title())}</span></li>'
+    if systems:
+        blocks.append('<section data-activity-group="system"><h3>System work</h3><ul>'+systems+'</ul></section>')
     return '<div class="mc-activity-groups">'+''.join(blocks)+'</div>'+panel(realm,root,collapsible=False)
 
 

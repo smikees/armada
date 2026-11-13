@@ -27,9 +27,10 @@ const JC_CACHE={},JC_TTL=60000;
 async function fetchEvents(a,b,scope){const key=(scope||'')+'|'+iso(a)+'_'+iso(b);const c=JC_CACHE[key];const now=Date.now();
  if(c&&(now-c.t)<JC_TTL)return c.events;
  try{const r=await(await fetch('/api/job-calendar?from='+iso(a)+'&to='+iso(b)+(scope?('&scope='+encodeURIComponent(scope)):''))).json();
-  const evs=r.events||[];JC_CACHE[key]={t:now,events:evs};return evs;}
- catch(e){return c?c.events:[];}}
-function href(e){return (e.agent==='system')?'/jobs'
+ if(!r.ok)throw Error(r.error||'Calendar unavailable');
+ const evs={events:r.events||[],systems:r.systems||[]};JC_CACHE[key]={t:now,events:evs};return evs;}
+ catch(e){if(c)return {...c.events,stale:true};throw e;}}
+function href(e){return (e.agent==='system')?'/jobs?tab=system'
  :('/agent/'+encodeURIComponent(e.agent)+'/jobs?job='+encodeURIComponent(e.job)+(e.run_id?'&run='+encodeURIComponent(e.run_id):''));}
 function attempts(e){return e.attempt_count>1?' · '+e.attempt_count+' attempts':'';}
 function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' · '+e.job_name+' · '+e.status+attempts(e);
@@ -37,7 +38,7 @@ function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' �
  const base='display:block;cursor:pointer;border-radius:var(--r);font-size:10.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 4px;';
  const txt=WHITETEXT[e.status]?'#fff':'var(--color-text)';
  const style=hollow?(base+'border:1px solid '+c+';color:'+c+';background:transparent'):(base+'background:'+c+';color:'+txt);
- return '<div class="mc-jc-ev" data-job-state="'+esc(e.status)+'" title="'+esc(label)+'" data-href="'+href(e)+'" style="'+style+'">'+esc(t+' '+e.job_name+attempts(e))+'</div>';}
+ return '<div class="mc-jc-ev" data-job-state="'+esc(e.status)+'" title="'+esc(label)+'" data-href="'+href(e)+'" style="'+style+'">'+(e.agent==='system'?window.mcIcon('server-filled',12,'display:inline-block;vertical-align:-1px')+' ':'')+esc(t+' '+e.job_name+attempts(e))+'</div>';}
 function byDay(evs){const m={};evs.forEach(e=>{const k=e.ts.slice(0,10);(m[k]=m[k]||[]).push(e);});Object.values(m).forEach(l=>l.sort((x,y)=>x.ts<y.ts?-1:1));return m;}
 function drawMonth(body,a,evs){const gs=monday(new Date(a.getFullYear(),a.getMonth(),1));const map=byDay(evs);const tk=iso(new Date());
  let h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--color-divider)">';
@@ -62,7 +63,7 @@ function drawDay(body,a,evs){const evd=byDay(evs)[iso(a)]||[];
   h+='<div class="mc-jc-ev" title="'+esc(e.ts.slice(11,16)+' · '+e.agent_disp+' · '+e.job_name+' · '+e.status)+'" data-href="'+href(e)+'" style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--color-divider);cursor:pointer">'
    +'<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--text-dim);width:40px">'+e.ts.slice(11,16)+'</span>'
    +'<span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(hollow?'transparent':c)+';box-shadow:'+(hollow?('inset 0 0 0 1.5px '+c):'none')+'"></span>'
-   +'<span style="font-weight:600;font-size:12.5px">'+esc(e.job_name)+'</span>'
+   +'<span style="font-weight:600;font-size:12.5px">'+(e.agent==='system'?window.mcIcon('server-filled',12,'display:inline-block;vertical-align:-1px')+' ':'')+esc(e.job_name)+'</span>'
    +'<span style="font-size:11.5px;color:var(--text-muted)">'+esc(e.agent_disp)+'</span>'
    +'<span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">'+esc(e.status+attempts(e))+'</span></div>';});
  body.innerHTML=h;}
@@ -81,12 +82,28 @@ function applyFilters(evs,pfx){
  const sw=st?(STATUS_MAP[st]||st):'';
  return evs.filter(e=>(!f1||(key==='cost'?e.cost:e.agent)===f1)&&(!cad||e.cad===cad)&&(!sw||e.status===sw)
    &&(!q||((e.job_name||'')+' '+(e.agent_disp||'')).toLowerCase().includes(q)));}
-async function render(w){const v=w._view,a=w._anchor;const win=windowFor(v,a);
+function systemSection(jobs){
+ const names={running:'Running',queued:'Queued',held:'Interrupted — needs review',error:'Failed',ok:'Completed',skipped:'Skipped'};
+ return '<section class="mc-jc-systems" aria-label="System jobs"><h3>System jobs <small>Live status · recurring work</small></h3><div class="mc-jc-system-list">'+jobs.map(j=>{
+   const cadence=j.every_minutes<60?'Every '+j.every_minutes+' min':j.every_minutes===1440?'Daily':'Every '+(j.every_minutes/60)+' hours';
+   const active=j.status==='running'||j.status==='queued'||j.status==='held';
+   const state=active?(names[j.status]):!j.enabled?'Off':j.due_now?'Due now':(names[j.status]||'Scheduled');
+   const next=j.next_due?' · Next '+new Date(j.next_due).toLocaleString():'';
+   return '<a href="/jobs?tab=system" class="mc-jc-system" data-system-job="'+esc(j.id)+'" data-job-state="'+esc(j.status)+'" title="'+esc((j.detail||'')+next)+'">'+window.mcIcon('server-filled',14)+'<span>'+esc(j.name)+'<small>'+esc(cadence+' · '+state+next)+'</small></span></a>';
+ }).join('')+'</div></section>';
+}
+async function render(w,quiet=false){const v=w._view,a=w._anchor;const win=windowFor(v,a),generation=w._generation=(w._generation||0)+1;
  const lbl=w.querySelector('.mc-jc-label');if(lbl)lbl.textContent=fmtLabel(v,a);
  w.querySelectorAll('.mc-jc-view').forEach(b=>{const on=b.dataset.jc===v;b.style.background=on?'var(--text-9)':'transparent';b.style.color=on?'var(--color-text)':'var(--text-muted)';});
- const body=w.querySelector('.mc-jc-body');if(body)body.innerHTML='<div style="padding:16px;font-size:12px;color:var(--text-soft)">Loading…</div>';
- const evs=applyFilters(await fetchEvents(win[0],win[1],w.dataset.scope||''),w.dataset.fpfx||'');
- if(v==='month')drawMonth(body,a,evs);else if(v==='week')drawWeek(body,a,evs);else drawDay(body,a,evs);}
+ const body=w.querySelector('.mc-jc-body'),scroll=body.scrollTop;
+ if(body&&!quiet)body.innerHTML='<div style="padding:16px;font-size:12px;color:var(--text-soft)">Loading…</div>';
+ try{
+ const data=await fetchEvents(win[0],win[1],w.dataset.scope||'');if(generation!==w._generation)return;
+ const evs=applyFilters(data.events,w.dataset.fpfx||'');
+ if(v==='month')drawMonth(body,a,evs);else if(v==='week')drawWeek(body,a,evs);else drawDay(body,a,evs);
+ body.insertAdjacentHTML('afterbegin',(data.stale?'<p role="status">Refresh unavailable — showing the last reading.</p>':'')+systemSection(data.systems));
+ if(quiet)body.scrollTop=scroll;
+ }catch(error){if(generation===w._generation)body.innerHTML='<p role="status">Calendar could not be refreshed. Change the view or try again shortly.</p>';}}
 // let the Jobs page re-draw the calendar when a filter changes
 window.mcJobcalRefresh=function(){document.querySelectorAll('.mc-jobcal').forEach(w=>{if(w._jc)render(w);});};
 function setup(w){if(w._jc)return;w._jc=1;w._view='week';w._anchor=new Date();
@@ -101,5 +118,6 @@ function setup(w){if(w._jc)return;w._jc=1;w._view='week';w._anchor=new Date();
    const ev=e.target.closest('.mc-jc-ev');if(ev&&ev.dataset.href)location.href=ev.dataset.href;});
  render(w);}
 function init(){document.querySelectorAll('.mc-jobcal').forEach(setup);}
+setInterval(()=>{if(document.hidden)return;Object.keys(JC_CACHE).forEach(k=>delete JC_CACHE[k]);document.querySelectorAll('.mc-jobcal').forEach(w=>{if(w._jc&&w.getClientRects().length&&!w.contains(document.activeElement))render(w,true);});},15000);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

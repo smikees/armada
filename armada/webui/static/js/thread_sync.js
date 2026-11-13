@@ -37,6 +37,7 @@
       if(status?.dataset.syncError||status?.dataset.transportError){
         status.textContent='';delete status.dataset.syncError;delete status.dataset.transportError;
       }
+      window.mcUpdateAdmission?.(!!state.admission_paused);
       mcSetThreadTitle(thread,state.title);
       window.mcSyncThreadModel?.(state.model_badge);
       window.mcSyncQuestions?.(state.questions||[]);

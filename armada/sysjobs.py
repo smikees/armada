@@ -483,12 +483,17 @@ def _entry_due(job, entry, now):
 def status(realm_root) -> list:
     """Everything the System tab needs: definition + live state, newest-relevant first."""
     st = state(realm_root)
+    from . import execution_admission
+    tickets = {row['thread']: row for row in execution_admission.view(realm_root, 'system')}
     out = []
     for j in JOBS:
         s = st.get(j["id"], {})
         last = _parse(str(s.get("last_run") or ""))
         mins = interval_minutes(j)
         uncertain = s.get("attempt", {}).get("state") == "claimed"
+        from .run_activity import locked
+        running = uncertain and locked(Path(realm_root) / '.scheduler' / 'system' / f'{j["id"]}.json')
+        queued = tickets.get('system-' + j['id'], {}).get('state') == 'queued'
         nxt = None
         if last is not None and not uncertain:
             nxt = (last + _dt.timedelta(minutes=mins)).isoformat(timespec="seconds")
@@ -496,8 +501,11 @@ def status(realm_root) -> list:
             "id": j["id"], "name": j["name"], "description": j["description"],
             "cost": j["cost"], "every_minutes": mins,
             "enabled": bool(s.get("enabled", True)),
-            "last_run": s.get("last_run") or "", "status": "held" if uncertain else s.get("status") or "",
-            "detail": "Attempt in progress or interrupted; inspect before retrying." if uncertain else s.get("detail") or "", "next_due": nxt or "",
+            "last_run": s.get("last_run") or "", "status": "running" if running else "queued" if queued else "held" if uncertain else s.get("status") or "",
+            "detail": "Running since " + str(s['attempt'].get('started') or 'an unknown time') if running else
+                      "Waiting for execution capacity." if queued else
+                      "Previous attempt was interrupted; inspect before retrying." if uncertain else s.get("detail") or "",
+            "next_due": nxt or "",
             "due_now": due(realm_root, j["id"]), "reason": s.get("reason") or "",
             # What the Jobs list draws its week strip from. A job that ran before this build has
             # no history and shows an empty week rather than a guessed one.

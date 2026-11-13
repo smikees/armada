@@ -461,7 +461,8 @@ def pending_work() -> list:
                 item = json.loads(path.read_text(encoding='utf-8'))
                 if item.get('status') == 'finished':
                     continue
-                if item.get('owner_pid') and util.pid_alive(item['owner_pid']):
+                from .run_activity import marker_live
+                if marker_live(path, item):
                     blockers.append({'kind': 'task', 'label': f'{path.parents[2].name}/{path.stem}'})
             except (OSError, ValueError, TypeError, AttributeError):
                 blockers.append({'kind': 'error', 'label': f'Cannot read activity record: {path.name}'})

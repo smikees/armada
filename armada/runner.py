@@ -1524,7 +1524,8 @@ def _run_job_series(realm_root, agent_id, job_id, engine, thread, allow_tools):
             raise SystemExit(f"ARMADA: no job '{job_id}' for agent '{agent_id}'")
         job.setdefault('id',job_id)  # Legacy files may use the filename as their identity.
         util.write_json_atomic(agent_dir / "runs" / ".running" / f"{job_id}.json",
-                               {"owner_pid": os.getpid(), "ts": datetime.datetime.now().astimezone().isoformat()})
+                               {"owner_pid": os.getpid(), "invocation_owned": True,
+                                "ts": datetime.datetime.now().astimezone().isoformat()})
     # Metadata here only labels notifications. Execution admission is owned by the coordinator.
     try:
         agent = _load_json(agent_dir / "agent.json") or {}

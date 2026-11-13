@@ -52,7 +52,7 @@ Windowed usage from run telemetry, for the Usage widget's line/graph modes. line
 
 Job occurrences in [d_from, d_to]: projected from each job's schedule, with past slots resolved to their actual run status (success/failed/warn/missed); manual/ad-hoc runs added too.
 
-### `_sysjobcal_events(realm_root, d_from, d_to)`
+### `_sysjobcal_events(realm_root, d_from, d_to, jobs=None)`
 
 System-job occurrences in [d_from, d_to], in the same shape as _jobcal_events.
 

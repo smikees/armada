@@ -552,21 +552,18 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
     return out
 
 
-def _sysjobcal_events(realm_root, d_from, d_to) -> list[dict]:
+def _sysjobcal_events(realm_root, d_from, d_to, jobs=None) -> list[dict]:
     """System-job occurrences in [d_from, d_to], in the same shape as _jobcal_events.
 
-    System jobs keep only their *last* run in state, not a history — so this draws only what is
-    actually known: the one recorded run, plus the upcoming due times projected forward from it at
-    the job's interval. Past slots we have no record for are left blank rather than invented.
-
-    Jobs that run more often than hourly (inbox delivery) are omitted: plotting 1,440 identical
-    chips a day would tell you nothing and hide everything else."""
+    Known history and projected hourly/daily slots. Frequent inbox jobs are always
+    visible in the calendar's dedicated live section; their minute-by-minute
+    projections would otherwise swamp every date cell."""
     from .. import sysjobs as _sj
     now = clock.now().replace(tzinfo=None)
     lo = datetime.datetime.combine(d_from, datetime.time.min)
     hi = datetime.datetime.combine(d_to, datetime.time.max)
     out = []
-    for j in _sj.status(realm_root):
+    for j in (_sj.status(realm_root) if jobs is None else jobs):
         mins = int(j.get("every_minutes") or 0)
         ev = {"agent": "system", "agent_disp": "ARMADA", "job": j["id"], "job_name": j["name"],
               "cad": _sysjob_cadence_bucket(mins), "cost": j.get("cost") or ""}
@@ -575,12 +572,22 @@ def _sysjobcal_events(realm_root, d_from, d_to) -> list[dict]:
             last = datetime.datetime.fromisoformat(str(j.get("last_run") or ""))
         except ValueError:
             last = None
-        if last is not None:
-            naive = last.replace(tzinfo=None)
+        if mins < 60:
+            continue
+        history = j.get('runs') or ([{'ts':j['last_run'],'status':j['status']}] if last else [])
+        for record in history:
+            try:
+                naive = datetime.datetime.fromisoformat(record['ts']).replace(tzinfo=None)
+            except (KeyError, TypeError, ValueError):
+                continue
             if lo <= naive <= hi:
-                st = "failed" if j.get("status") == "error" else "success"
+                st = {'ok':'success','error':'failed','held':'warn','skipped':'skipped'}.get(record.get('status'),'warn')
                 out.append({**ev, "ts": naive.strftime("%Y-%m-%dT%H:%M"), "status": st, "past": True})
-        if mins < 60 or not j.get("enabled"):
+        if j.get('status') in ('running','queued','held'):
+            if lo <= now <= hi:
+                out.append({**ev,'ts':now.strftime('%Y-%m-%dT%H:%M'),'status':j['status'],'past':True})
+            continue
+        if not j.get("enabled"):
             continue                       # sub-hourly: unplottable. Switched off: nothing upcoming.
         step = datetime.timedelta(minutes=mins)
         nxt = (last.replace(tzinfo=None) + step) if last is not None else now

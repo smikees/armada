@@ -97,6 +97,7 @@ class RunSession:
         self.lock = RUNS_LOCK if lock is None else lock
         self.active = ActiveRun(context)
         self.started = False
+        self.owner = None
 
     def __enter__(self):
         from . import realmops, updater
@@ -107,10 +108,17 @@ class RunSession:
             if self.context.key in self.registry:
                 raise util.StateError("This run ID is already active in this realm.")
             mark = self.context.marker
-            with util.file_lock(mark):
-                util.write_json_atomic(mark, {"kind": getattr(self.active, 'kind', 'chat'), "owner_pid": os.getpid(),
-                    "thread": self.context.thread, "run_id": self.context.run_id,
-                    "realm_id": self.context.realm.realm_id})
+            self.owner = util.file_lock(mark.with_suffix('.owner'), timeout=0, validate_state=False)
+            self.owner.__enter__()
+            try:
+                with util.file_lock(mark):
+                    util.write_json_atomic(mark, {"kind": getattr(self.active, 'kind', 'chat'), "owner_pid": os.getpid(),
+                        "thread": self.context.thread, "run_id": self.context.run_id, "owned": True,
+                        "realm_id": self.context.realm.realm_id})
+            except BaseException:
+                self.owner.__exit__(None, None, None)
+                self.owner = None
+                raise
             self.registry[self.context.key] = self.active
             self.started = True
         return self
@@ -157,6 +165,9 @@ class RunSession:
                 except Exception:
                     log.exception("Could not mark run activity terminal")
             finally:
+                if self.owner is not None:
+                    self.owner.__exit__(None, None, None)
+                    self.owner = None
                 self.registry.pop(self.context.key)
                 self.started = False
 

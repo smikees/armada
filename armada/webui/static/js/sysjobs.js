@@ -24,20 +24,27 @@
   // change says the run didn't count. The square styles come from the server (window.MC_HEALTH) so
   // there is one definition of what a status looks like, not a copy here that drifts from it.
   async function refresh(id){
-    let j=null;
+    let jobs=[];
     try{
       const r=await(await fetch('/api/system-jobs',{cache:'no-store'})).json();
-      j=((r&&r.jobs)||[]).filter(x=>x.id===id)[0]||null;
+      jobs=(r&&r.jobs)||[];
     }catch(e){ return; }
+    jobs.filter(j=>!id||j.id===id).forEach(paint);
+    if(window.mcJobsBars&&window.mcJobsFilterOne)mcJobsBars().forEach(mcJobsFilterOne);
+  }
+  function paint(j){
+    const id=j.id;
     const tr=row(id); if(!tr||!j)return;
+    const detail=tr.querySelector('[data-system-detail]');if(detail)detail.textContent=j.detail||'';
     tr.style.opacity=j.enabled?'':'.55';
-    if(window.mcSetRunBtn)mcSetRunBtn(tr.querySelector('.btn-primary'),j.enabled);
+    if(window.mcSetRunBtn)mcSetRunBtn(tr.querySelector('.btn-primary'),j.enabled&&j.status!=='running'&&j.status!=='queued');
+    tr.dataset.next=j.next_due||'zzzz';
     const nxt=tr.querySelector('[data-next-cell]');
     if(nxt)nxt.textContent=!j.enabled?'off':nextRun(j.next_due,j.due_now);
     const week=tr.querySelector('[data-week]');
     if(week&&window.MC_HEALTH){
       const sq=week.children[week.children.length-4];       // today: 3 days of outlook follow it
-      const lbl=!j.enabled?'Not scheduled'
+      const lbl=j.status==='running'?'Running':!j.enabled?'Not scheduled'
                :(j.status==='error'?'Failed':(j.status==='held'?'Warning':
                  (j.status==='skipped'?'Not scheduled':(j.last_run?'Success':'Scheduled'))));
       const st=window.MC_HEALTH[lbl];
@@ -49,6 +56,9 @@
         const phrase=(window.MC_HEALTH_PHRASE||{})[lbl]||lbl;
         sq.setAttribute('title',ti.split(' \u00b7 ')[0]+' \u00b7 '+phrase);
       }
+      const labels=[...week.children].slice(0,week.children.length-3).reverse().map(s=>s.dataset.jobState);
+      const bucket=labels.find(s=>['running','success','warning','failed','missed'].includes(s))||'';
+      tr.dataset.status=tr.dataset.jstatus=bucket==='missed'?'none':bucket;
     }
   }
 
@@ -88,4 +98,6 @@
     }catch(e){ el.checked=!on; msg(id,'could not change this: '+e,true); return; }
     await refresh(id);
   };
+  setInterval(()=>{if(!document.hidden&&document.querySelector('[data-sysjob]'))refresh();},5000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 })();

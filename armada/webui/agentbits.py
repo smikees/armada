@@ -70,7 +70,7 @@ def _status_dot_on_avatar(state: str, size: int, grow: int = 0) -> str:
             f'transition:background-color .55s ease;background-color:{col};{anim}"></i>')
 
 
-def _portrait(realm_root, a, size: int, color: str = "", dot: bool = False, dot_grow: int = 0) -> str:
+def _portrait(realm_root, a, size: int, color: str = "", dot: bool = False, dot_grow: int = 0, dot_state: str = "") -> str:
     """An uploaded avatar image if present, else the generic bust.
 
     No border. The agent's colour is a filled disc behind the avatar, offset left so a crescent of
@@ -106,8 +106,8 @@ def _portrait(realm_root, a, size: int, color: str = "", dot: bool = False, dot_
             f'width:{size}px;height:{size}px;border-radius:50%;background:{col}"></span>') if col else ""
     status, hook = "", ""
     if dot:
-        status = _status_dot_on_avatar(_agent_activity(realm_root, a.id), size, dot_grow)
-        hook = f' data-agentdot="{E(a.id)}"'      # the live poller repaints .mc-actdot inside this
+        status = _status_dot_on_avatar(dot_state or _agent_activity(realm_root, a.id), size, dot_grow)
+        hook = '' if dot_state else f' data-agentdot="{E(a.id)}"'
     return (f'<span class="mc-avwrap" data-agent="{E(a.id)}"{hook} '
             f'style="position:relative;display:inline-block;flex:none;'
             f'width:{size + peek}px;height:{size}px;vertical-align:top">{disc}{av}{status}</span>')
@@ -142,7 +142,7 @@ def _health7(runs: list[dict], today: datetime.date) -> list[str]:
 
 
 def _running_markers(realm_root, agent_id: str) -> set:
-    """Stems of fresh .running markers (jobs *and* the reserved '_chat' interactive-run marker)."""
+    """Live job/chat markers, using ownership rather than an age cutoff."""
     d = Path(realm_root) / "agents" / agent_id / "runs" / ".running"
     out = set()
     try:
@@ -154,18 +154,11 @@ def _running_markers(realm_root, agent_id: str) -> set:
     except (OSError, ValueError):
         log.debug('Execution activity unavailable', exc_info=True)
     if d.is_dir():
-        cutoff = time.time() - 30 * 60          # ignore stale markers (crashed runs)
         for p in d.glob("*.json"):
             try:
-                if p.stat().st_mtime >= cutoff:
-                    if p.stem == "_chat" or p.stem.startswith("_chat-"):
-                        from ..util import pid_alive
-                        marker = json.loads(p.read_text(encoding="utf-8-sig"))
-                        if marker.get("status") == "finished":
-                            continue
-                        owner = marker.get("owner_pid")
-                        if owner and not pid_alive(owner):
-                            continue
+                from ..run_activity import marker_live
+                marker = json.loads(p.read_text(encoding="utf-8-sig"))
+                if marker_live(p, marker):
                     out.add(p.stem)
             except (OSError, ValueError):
                 pass
@@ -240,6 +233,7 @@ def _agent_activity(realm_root, agent_id: str) -> str:
 # shows through, and a semi-transparent colour can't be animated smoothly — the pulse degraded into
 # a flip between two flat values. Opaque colours interpolate, so the pulse is a pulse again.
 _ACTIVITY_DOT = {
+    "queued": ("var(--status-warn)", False, "Queued"),
     "working": ("color-mix(in srgb,var(--color-text) 55%,var(--color-bg))", True,  "Working…"),
     "input":   ("var(--status-warn)",                                       False, "Needs input"),
     "unseen":  ("var(--color-accent-2)",                                     False, "Unseen output"),

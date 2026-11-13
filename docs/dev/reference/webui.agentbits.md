@@ -22,7 +22,7 @@ How far the colour disc sticks out past the avatar, in px.
 
 The activity dot, sat on the avatar's lower-right corner.
 
-### `_portrait(realm_root, a, size: int, color: str='', dot: bool=False, dot_grow: int=0)`
+### `_portrait(realm_root, a, size: int, color: str='', dot: bool=False, dot_grow: int=0, dot_state: str='')`
 
 An uploaded avatar image if present, else the generic bust.
 
@@ -36,7 +36,7 @@ An uploaded avatar image if present, else the generic bust.
 
 ### `_running_markers(realm_root, agent_id: str)`
 
-Stems of fresh .running markers (jobs *and* the reserved '_chat' interactive-run marker).
+Live job/chat markers, using ownership rather than an age cutoff.
 
 ### `_agent_busy(realm_root, agent_id: str)`
 

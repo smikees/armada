@@ -292,6 +292,16 @@ const MC_ACT={copy:window.mcIcon('copy',14), check:window.mcIcon('check',14),
 let mcAttach=[], mcCtrl=null, mcTid=null, mcLocalTid=null, mcGen=false, mcViewGeneration=0;
 let mcStopRequested=false,mcStopBusy=false,mcFocusOnIdle=false,mcServerAdmitted=false;
 let mcSteerable=false,mcSteerBusy=false,mcSteerRequest=null;
+let mcAdmissionPaused=false;
+function mcUpdateAdmission(paused){
+  mcAdmissionPaused=!!paused;
+  const note=document.getElementById('mc-chatmsg');
+  if(note&&!mcGen){
+    if(paused){note.textContent='Update pending. Your draft is kept. Postpone the update to send now, or send after ARMADA reopens.';note.dataset.updateNotice='1';}
+    else if(note.dataset.updateNotice){note.textContent='';delete note.dataset.updateNotice;}
+  }
+  mcSyncSend();
+}
 function mcBuildMessage(text){let m='';for(const f of mcAttach){if(f.text)m+='```'+f.name+'\n'+f.text+'\n```\n\n';}return (m+(text||'')).trim();}
 const MC_IMGICON=window.mcIcon('image',13,'opacity:.6');
 const MC_FILEICON=window.mcIcon('file',12,'opacity:.6');
@@ -359,7 +369,7 @@ document.addEventListener('keydown',(e)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLow
 function mcSyncSend(){const ta=document.getElementById('mc-msg'),s=document.getElementById('mc-send');
   if(s){
     s.style.display=((!mcGen||mcSteerable||mcSteerRequest)&&!window.mcAudioBusy?.()&&(mcSteerRequest||ta?.value.trim()))?'inline-flex':'none';
-    s.disabled=mcSteerBusy||mcStopRequested;
+    s.disabled=mcSteerBusy||mcStopRequested||(mcAdmissionPaused&&!mcGen);
     const label=mcSteerRequest?'Check steering delivery':mcGen?'Steer active run':'Send';
     s.title=label;s.setAttribute?.('aria-label',label);
     s.classList?.toggle('mc-steer-send',mcGen||!!mcSteerRequest);
@@ -472,6 +482,7 @@ function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-
 function mcChat(agent,thread,forceText){
   if(forceText===undefined&&(mcGen||mcSteerRequest)){mcSteer(agent,thread);return;}
   if(mcGen||window.mcAudioBusy?.())return;
+  if(mcAdmissionPaused){mcUpdateAdmission(true);return;}
   const ta=document.getElementById('mc-msg'),box=document.getElementById('mc-turns');
   if(!ta||!box)return;
   const text=forceText!==undefined?forceText:(ta.value||'').trim();
@@ -482,8 +493,11 @@ function mcChat(agent,thread,forceText){
   const tid='t'+Date.now()+Math.random().toString(36).slice(2,7),ctrl=new AbortController();
   mcViewGeneration++;mcLocalTid=mcTid=tid;mcCtrl=ctrl;mcServerAdmitted=false;
   mcStopRequested=false;mcFocusOnIdle=true;mcSetGen(true);
-  ta.value='';mcSaveDraft();mcAutosize();mcClearAttach();
-  const note=document.getElementById('mc-chatmsg');if(note)note.textContent='';
+  // Keep text and attachments until the server acknowledges admission. In
+  // particular, an update/queue refusal must never discard the owner's work.
+  const draft=ta.value;
+  mcSaveDraft();
+  const note=document.getElementById('mc-chatmsg');if(note){note.textContent='';delete note.dataset.transportError;delete note.dataset.syncError;delete note.dataset.updateNotice;}
   let finished=false,connected=false;
   function finish(){
     if(finished)return;finished=true;
@@ -510,6 +524,8 @@ function mcChat(agent,thread,forceText){
         throw new Error(result.error||result.output||'Could not send the message.');
       }
       connected=true;
+      if(ta.value===draft&&forceText===undefined){ta.value='';mcSaveDraft();mcAutosize();}
+      mcClearAttach();
       // The server admits RunSession before sending these headers. Discard polls
       // predating that admission; thereafter only the server decides busy/idle.
       if(mcCtrl===ctrl){mcServerAdmitted=true;mcViewGeneration++;window.mcThreadChanged?.();}

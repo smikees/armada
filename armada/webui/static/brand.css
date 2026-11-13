@@ -1466,3 +1466,12 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
   .mc-settings-pane{min-width:0}
   .mc-settings-main .mc-frame{overflow-wrap:anywhere}
 }
+.mc-jc-systems{padding:10px 12px;border-bottom:1px solid var(--color-divider)}
+.mc-jobcal>.mc-wid-h{flex-wrap:wrap}
+.mc-jc-systems h3{font:600 12px var(--font-heading);margin:0 0 8px}
+.mc-jc-systems small{display:block;font-size:10.5px;font-weight:400;color:var(--text-muted)}
+.mc-jc-system-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:8px 14px}
+.mc-jc-system{display:flex;gap:6px;align-items:flex-start;font-size:11.5px;color:var(--color-text);text-decoration:none;min-width:0}
+.mc-jc-system svg{flex:none;margin-top:2px}
+.mc-jc-system span{overflow-wrap:anywhere}
+.mc-jc-system:hover{text-decoration:underline}

@@ -56,5 +56,7 @@
     activityState=state;window.mcRefreshActivityMonitor();
   });
   setInterval(window.mcRefreshActivityMonitor,300000);
+  // Queue and system-job transitions need not change an agent's status dot.
+  setInterval(window.mcRefreshActivityMonitor,10000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)window.mcRefreshActivityMonitor();});
 })();

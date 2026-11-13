@@ -97,10 +97,14 @@ class JobRoutes:
         if (b - a).days > 45:
             b = a + datetime.timedelta(days=45)
         try:
+            from .. import sysjobs
+            systems = sysjobs.status(self.realm)
+            system_events = webui._sysjobcal_events(self.realm, a, b, jobs=systems)
             if scope == "system":
-                return {"ok": True, "events": webui._sysjobcal_events(self.realm, a, b)}
+                return {"ok": True, "events": system_events, "systems": systems}
             realm = reader.read(self.realm)
-            return {"ok": True, "events": webui._jobcal_events(realm, self.realm, a, b)}
+            return {"ok": True, "events": webui._jobcal_events(realm, self.realm, a, b) + system_events,
+                    "systems": systems}
         except Exception as e:  # noqa
             swallowed(log, '_job_calendar: failed; error returned to the caller')
             return {"ok": False, "error": str(e), "events": []}

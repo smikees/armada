@@ -43,6 +43,16 @@ the window is closed. Old or unavailable readings are marked explicitly.
 
 ### When work is queued
 
+The **Activity monitor** separates **Queued** agents from **Working** agents.
+Queued avatars link to their conversation and explain the wait in their tooltip.
+Live system work appears there too. Jobs → System distinguishes running work from
+interrupted attempts that need review, and refreshes while the page is open.
+
+Every Jobs calendar view has a **System jobs** section at the top, marked with the
+server icon. It includes frequent agent-to-agent Inbox delivery and Telegram
+processing, their cadence and live status. Minute-by-minute processing is shown
+once in this section; hourly and daily jobs also appear in the date grid.
+
 ARMADA shares execution capacity across the desktop, scheduler and command line: up to
 four executions, two per provider, two per realm and one per conversation at a time.
 Other work waits in a bounded queue. Eligible realms take turns, so a slow job need not
@@ -51,6 +61,9 @@ does not run automatically again that day. If the queue is full, ARMADA reports 
 of creating unlimited background workers.
 
 Queued chat messages are saved before waiting, so navigating away does not lose your request.
+Before a new message is accepted, its text and attachments remain in the composer.
+If update preparation prevents sending, the draft stays available in the main app
+and detached thread. Postpone the update to send immediately, or send after reopening.
 Each conversation processes one turn at a time; later queued messages stay out of the active
 turn's context.
 The waiting message identifies the reason: another conversation turn, occupied local
