@@ -5,9 +5,12 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.147** is prepared for publication: update-safe drafts, drained
-queued inbox work, live system-job status, queued Activity portraits and system
-work in every calendar view. Final release validation is in progress.
+Version **0.99.147** is published: update-safe drafts, drained queued inbox work,
+live system-job status, queued Activity portraits and system work in every calendar
+view. **4,578 local tests**, exact-source Windows CI, three **163-check** native
+cycles, **98 staged owner workflows** and **72 upgrade checks** passed. Public
+signatures, all 500 package files, installer hash and website links verified.
+A reproduced Windows snapshot path-comparison race was fixed before publication.
 [Update/activity contract](dev/UPDATE_ACTIVITY.md) · [Release evidence](dev/RELEASE_0_99_147.md).
 
 Version **0.99.146** is published: a Claude API fallback setup modal, optional

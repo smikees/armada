@@ -55,6 +55,8 @@ Validation on source commit `8f2583805ed2241bf41bc48410e2c58fdff701ab`:
 - Golden diffs reviewed: shared server icon registration, the queued Activity row,
   system detail refresh targets, calendars for empty-job realms and updated help.
 
-These changes are included in the v0.99.147 release candidate. The owner's running
-installation is not restarted or modified during publication. See
+These changes are published in v0.99.147 on GitHub and the Armada website. The
+owner's running installation was not restarted or modified during publication.
+The final source passed 4,578 local tests, exact-source Windows CI, stabilization,
+98 staged owner workflows and 72 signed-upgrade checks. See
 [release validation](RELEASE_0_99_147.md) for final publication evidence.
