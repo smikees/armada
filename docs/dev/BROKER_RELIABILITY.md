@@ -39,7 +39,7 @@ empty successful prerequisite check. No credentials belong in health history.
   full, native UI and lifecycle validation. Do not mutate the live trading realm
   or retire its existing probe until a replacement is configured and accepted.
 
-## Release note draft (not published)
+## Release scope (0.99.148)
 
 Jobs can wait for required connectors and fresh successful results from other
 jobs, inside an owner-approved start window. Connector monitoring makes no model
@@ -124,8 +124,10 @@ its captured form was visually reviewed (`build/job-readiness-native-reviewed.js
 and `.png`). Generated references and the four intentional golden-page changes
 were reviewed. Stabilization recorded an uncommitted development tree; these are
 local implementation results, not exact-commit CI or packaged-release evidence.
-No release has been published for this work and no live broker sign-in, model
-call, hosts-file change or job reconfiguration was performed.
+Those implementation checks did not publish a release or perform any live broker
+sign-in, model call, hosts-file change or job reconfiguration. On 14 November the
+owner confirmed keeping the existing IBKR connection and deferring live broker
+sign-in, then authorized publication of the implemented Armada features.
 
 Synthetic tests cover repeated connector failure/recovery, no claim or provider
 ticket during waits, fresh-check requirements, deadlines, scheduler restart,
