@@ -196,7 +196,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 vm.runInThisContext(fs.readFileSync(process.argv[1],'utf8'));
 const status={},warning={},approve={disabled:true},msg={style:{}};
 const select={value:'',dataset:{needsTools:'true',validOther:'true'},closest:()=>box};
-const box={querySelector:s=>({'.mc-proptools':select,'.mc-proptoolstatus':status,
+const box={dataset:{reviewToken:'reviewed-proposal-token'},querySelector:s=>({'.mc-proptools':select,'.mc-proptoolstatus':status,
   '.mc-proptoolwarning':warning,'.mc-propapprove':approve,'.mc-propmsg':msg})[s]};
 const btn={closest:()=>box};let sent=[],reloads=0,confirmed=false;
 global.location={reload:()=>reloads++};
@@ -210,6 +210,7 @@ global.mcConfirm=async()=>confirmed;
  await mcJobProposal('writer','report','approve',btn);assert.equal(sent.length,0);
  confirmed=true;await mcJobProposal('writer','report','approve',btn);
  assert.equal(sent[0].allow_tools,false);assert.equal(sent[0].tools_warning_ack,true);
+ assert.equal(sent[0].review_token,'reviewed-proposal-token');
  select.value='true';mcJobProposalTools(select);assert.equal(warning.hidden,true);
  confirmed=false;await mcJobProposal('writer','report','approve',btn);
  assert.equal(sent[1].allow_tools,true);assert.equal(sent[1].tools_warning_ack,undefined);
