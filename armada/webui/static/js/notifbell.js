@@ -11,6 +11,7 @@
     job_started:   {g:'▶', c:'var(--text-muted)'},
     job_finished:  {g:'✓', c:'var(--color-accent-2)'},
     job_failed:    {g:'!', c:'var(--status-bad)'},
+    job_held:      {g:'?', c:'var(--status-warn)'},
     job_stalled:   {g:'!', c:'var(--status-bad)'},
     job_long_running:{g:'!', c:'var(--status-warn)'},
     job_overlap:   {g:'!', c:'var(--status-warn)'},
