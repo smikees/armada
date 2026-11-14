@@ -41,6 +41,8 @@ empty successful prerequisite check. No credentials belong in health history.
 
 ## Release scope (0.99.148)
 
+Published on 14 November 2026. See [release verification](RELEASE_0_99_148.md).
+
 Jobs can wait for required connectors and fresh successful results from other
 jobs, inside an owner-approved start window. Connector monitoring makes no model
 calls, records outages and recovery, and supplies agent-readable readings.

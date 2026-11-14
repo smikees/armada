@@ -5,10 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.148** is prepared for publication: no-model connector monitoring,
+Version **0.99.148** is published: no-model connector monitoring,
 durable prerequisite waits, dependent start windows, approved fallback jobs,
 guarded coordinator starts and command credentials. Live IBKR sign-in is deferred
 by the owner; existing broker registrations and job settings are preserved.
+**4,628 local tests**, exact-source CI, clean-source stabilization,
+**98 staged owner workflows** and **11 staged recovery-control checks** passed.
+Public signatures, package/installer hashes and website links were verified.
 [Recovery contract](dev/BROKER_RELIABILITY.md) · [Release evidence](dev/RELEASE_0_99_148.md).
 
 Version **0.99.147** is published: update-safe drafts, drained queued inbox work,
