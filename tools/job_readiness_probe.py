@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 def run(output):
     import webview
-    from armada import app, local_auth, serve, util, run_policy, capabilities
+    from armada import app, local_auth, serve, util, run_policy, capabilities, connector_health
     from tests.golden_support import build_fixture, fixture_inputs
     result = {'ok': False, 'checks': []}
     with tempfile.TemporaryDirectory(prefix='armada-job-readiness-', ignore_cleanup_errors=True) as folder, fixture_inputs():
@@ -28,6 +28,9 @@ def run(output):
         config.setdefault('toolkit', {})['connectors'] = [{'id':'broker','name':'Synthetic broker','mcp_url':'https://broker.example/mcp'}]
         util.write_json_atomic(realm/'realm.json', config)
         capabilities.grant(realm,'captain','broker')
+        # This journey must never contact a real provider.
+        connector_health.probe = lambda root, provider, ids: {cid: {'id':cid, 'name':'Synthetic broker',
+            'provider':provider, 'state':'up', 'reason':'Synthetic check passed', 'links':{}} for cid in ids}
         for jid in ('read','desk'):
             job = {'id':jid,'kind':'agent','name':jid.title(),'prompt':'Never execute this fixture.',
                    'allow_tools':False,'schedule':'daily 16:00'}
@@ -114,6 +117,20 @@ def run(output):
                 js("document.getElementById('connector-watch-dialog').showModal();document.querySelector('[data-watch][value=broker]').checked=true;mcSaveWatches(document.querySelector('#connector-watch-dialog .btn-primary'));true")
                 from armada import connector_health, command_secrets
                 check('Watch settings save without a model call',lambda:'broker' in connector_health.settings(realm).get('watched',[]))
+                js("mcCheckHealth(document.querySelector('#connector-watch-dialog [onclick=\"mcCheckHealth(this)\"]'));true")
+                check('On-demand heartbeat is recorded even outside weekday watch hours',lambda:(realm/'connector-health.json').exists())
+                check('On-demand check gives visible feedback',lambda:'Check requested' in js("document.querySelector('#connector-watch-dialog [data-feedback]').textContent"))
+                original = util.read_json_state(realm/'agents/captain/jobs/read.json')
+                util.write_json_atomic(realm/'agents/captain/jobs/_pending/read.json', {**original, 'timeout':1234, 'prompt':'Proposed replacement prompt.'})
+                window.load_url(local_auth.browser_url(base,'/jobs'))
+                check('Change proposal displays every changed field',lambda:js("!!document.querySelector('.mc-propdiff')&&document.querySelector('.mc-propdiff').textContent.includes('timeout')&&document.querySelector('.mc-propdiff').textContent.includes('Proposed replacement prompt.')"))
+                assert util.read_json_state(realm/'agents/captain/jobs/read.json') == original
+                assert run_policy.verify_job(realm,'captain',original)
+                result['checks'].append('Pending change leaves the approved job intact')
+                js("document.querySelector('.mc-propdiff').closest('.mc-prop').querySelector('.mc-propapprove').click();true")
+                check('Reviewed change replaces and reseals the job',lambda:util.read_json_state(realm/'agents/captain/jobs/read.json').get('timeout')==1234)
+                assert run_policy.verify_job(realm,'captain',util.read_json_state(realm/'agents/captain/jobs/read.json'))
+                assert not (realm/'agents/captain/jobs/_pending/read.json').exists()
                 window.load_url(local_auth.browser_url(base,'/settings?tab=app'))
                 check('Command credentials modal is available',lambda:js("typeof mcSaveCommandSecret==='function'&&!!document.getElementById('command-secret-dialog')"))
                 js("document.getElementById('command-secret-dialog').showModal();document.getElementById('command-secret-name').value='synthetic';document.getElementById('command-secret-value').value='synthetic-probe-secret';mcSaveCommandSecret(document.querySelector('#command-secret-dialog .btn-primary'),false);true")

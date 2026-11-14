@@ -31,6 +31,9 @@ def panel(root=None, agent='', *, global_provider=False):
     content = (setup('claude', root, agent) if agent else '')+fields(values, prefix=prefix)
     numbers = []
     if not agent:
+        content += ('<label class="mc-label"><input type="checkbox" data-run-control="coordinator_may_propose_changes" '
+                    + ('checked' if values.get('coordinator_may_propose_changes') else '')
+                    + '> Allow coordinators to propose changes to other agents’ existing jobs</label>')
         numbers += [('default_job_timeout','Default agent-job ceiling — seconds (empty means No limit)',''),
                     ('agent_inactivity_minutes','Stop after no engine event — minutes',30),
                     ('agent_soft_mark_minutes','Notify after running — minutes (0 disables)',60),

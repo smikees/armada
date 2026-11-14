@@ -316,3 +316,51 @@ def test_completion_during_page_render_does_not_leave_a_frozen_transcript(agent_
     html = _turns(agent_dir.parent.parent)
     assert "Pong completed" in html
     assert "mc-pending" not in html and "No reply" not in html
+
+
+def test_plan_limit_after_writes_survives_restart_and_informs_next_turn(agent_dir, monkeypatch):
+    from armada.engine.base import RunResult
+    from armada import billing
+    prompts = []
+    path = str(agent_dir/'jobs/daily.json')
+    class Engine:
+        name = 'codex'
+        def run_stream(self, on_event, **kw):
+            prompts.append(kw['prompt'])
+            if len(prompts) > 1:
+                return RunResult(ok=True, output='Inspected existing work.')
+            on_event({'kind':'text','text':'Partial work completed.'})
+            on_event({'kind':'tool','name':'Write','id':'write1','input':{'file_path':path}})
+            on_event({'kind':'tool_result','id':'write1','content':'written','is_error':False})
+            return RunResult(ok=False, output='Partial work completed.',
+                error="You've hit your 5-hour limit - resets 5:10pm (Europe/Madrid)", raw={'api_error_status':429})
+    monkeypatch.setattr(billing, 'execute', lambda engine, request, **kw: kw['invoke'](engine, request, on_event=kw['on_event'], on_proc=kw['on_proc']))
+    first = runner.chat_stream(agent_dir.parent.parent, 'hand', 'main', 'Change the daily job', lambda e:None, engine=Engine())
+    assert not first['ok']
+    th = Thread(agent_dir)
+    messages = th._messages()
+    assert messages[0]['content'] == 'Change the daily job'
+    assert 'Interrupted: plan limit reached at ' in messages[1]['content']
+    assert 'resets 5:10pm' in messages[1]['content']
+    interrupted = messages[1]['interruption']
+    assert interrupted['files'] == [path] and interrupted['run_id']
+    assert interrupted['run_id'] in _turns(agent_dir.parent.parent)
+    # Restarting from that request must not erase evidence of side effects.
+    th.truncate(0)
+    assert len(th._messages()) == 2
+    runner.chat_stream(agent_dir.parent.parent, 'hand', 'main', 'Continue carefully', lambda e:None, engine=Engine())
+    assert interrupted['run_id'] in prompts[1] and path in prompts[1]
+    assert 'Inspect existing work before repeating side effects' in prompts[1]
+    reports = [json.loads(line) for line in (agent_dir/'runs/hand.jsonl').read_text().splitlines()]
+    assert reports[0]['owner_message'] == 'Change the daily job'
+    assert reports[0]['interruption']['files'] == [path]
+
+
+def test_owner_message_is_durable_before_engine_preparation(agent_dir, monkeypatch):
+    def failed(*a, **kw):
+        assert Thread(agent_dir)._messages()[0]['content'] == 'Keep my request'
+        raise ValueError('Synthetic startup refusal')
+    monkeypatch.setattr(runner, '_prepare_agent_run', failed)
+    result = runner.chat_stream(agent_dir.parent.parent, 'hand', 'main', 'Keep my request', lambda e:None)
+    assert not result['ok']
+    assert len(Thread(agent_dir)._messages()) == 2

@@ -3,7 +3,7 @@ async function mcSaveRunControls(button){
   const values={};
   for(const input of box.querySelectorAll('[data-run-control]')){
     const key=input.dataset.runControl.replace(/^rp-(global|agent|realm)-/,'');
-    values[key]=input.value===''?'':input.type==='number'?Number(input.value):input.value;
+    values[key]=input.type==='checkbox'?input.checked:input.value===''?'':input.type==='number'?Number(input.value):input.value;
   }
   const payload={values,agent:box.dataset.agent||'',global_provider:box.dataset.global==='true'};
   const key=box.querySelector('[data-api-key]'),clear=box.querySelector('[data-clear-key]');

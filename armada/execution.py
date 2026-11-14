@@ -252,6 +252,20 @@ class TurnCoordinator:
         policy_audit = PolicyAudit(root, aid)
         execution_started = time.time()
         attempted_tools = set()
+        written_paths = set()
+        write_calls = {}
+        def job_files():
+            # Job edits via shell tools are omitted from the artifact gallery, but
+            # must remain visible when recovering interrupted work. Hashes only.
+            import hashlib
+            snapshot = {}
+            for path in (root/'agents').glob('*/jobs/*.json'):
+                try:
+                    snapshot[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+                except OSError:
+                    continue
+            return snapshot
+        prior_jobs = job_files() if not req.task else {}
         from .job_history import JOB_PREFIX
         scheduled_job = bool(req.task) and thread.startswith(JOB_PREFIX)
         grant = None
@@ -274,6 +288,13 @@ class TurnCoordinator:
             if cap is not None:
                 cap.on_event(ev)
             kind = ev.get("kind")
+            if kind == 'tool' and ev.get('name') in ('Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'write_file'):
+                inp = ev.get('input') or {}
+                path = inp.get('file_path') or inp.get('notebook_path') or inp.get('path')
+                if path and ev.get('id'):
+                    write_calls[ev['id']] = str(path)
+            if kind == 'tool_result' and not ev.get('is_error') and ev.get('id') in write_calls:
+                written_paths.add(write_calls[ev['id']])
             if kind=='question' and turn:
                 from . import questions
                 questions.record(th,turn,context.run_id,ev['request'])
@@ -343,6 +364,11 @@ class TurnCoordinator:
                     raise ValueError('The admitted spoken request is no longer pending.')
             try:
                 from . import inbox_timing
+                if turn is None and not req.task:
+                    saved = r._save_images(agent_dir, thread, list(req.images))
+                    attachments = [{'kind': 'image', 'name': s['name'], 'file': s['file']} for s in saved]
+                    attachments += [{'kind': 'file', 'name': str(fn)} for fn in req.files if str(fn).strip()]
+                    turn = th.begin_turn(message, attachments=attachments or None, queued=True)
                 inbox_message = None if req.inbox_timing_override else req.inbox_message
                 if inbox_message is not None:
                     inbox_timing.require_eligible(root, inbox_message)
@@ -495,6 +521,10 @@ class TurnCoordinator:
                 # Never leak a later request into the active turn or replay one after a crash.
                 convo = th._render(summary, [m for i, m in enumerate(messages)
                     if not (i in pending and (m.get('voice_request') or m.get('queued_request')))])
+                if not req.task:
+                    recovery = th.interruption_context()
+                    if recovery:
+                        convo += '\n\n[Interrupted work — durable run evidence]\n' + recovery
                 msg = message
                 if scheduled_job:
                     msg += job_results.instructions(context.run_id, result_job)
@@ -618,7 +648,21 @@ class TurnCoordinator:
             from . import steering
             if self.session.active.steering_received:
                 steering.finish(th, turn)
-            th.complete_turn(turn, text, status=status,
+            interruption = None
+            if not req.task and not result.ok:
+                from . import billing
+                limit = billing.refusal(result)
+                at = datetime.datetime.now().astimezone().isoformat(timespec='seconds')
+                interruption = {'run_id': context.run_id, 'at': at,
+                    'reason': result.error or 'Run interrupted', 'plan_limit': limit,
+                    'files': sorted(written_paths | {o['path'] for o in cap.outputs} if cap else written_paths)}
+                changed_jobs = [path for path, digest in job_files().items() if prior_jobs.get(path) != digest]
+                interruption['files'] = sorted(set(interruption['files']) | set(changed_jobs))
+                interruption['observed_job_changes'] = changed_jobs
+                text += '\n\nInterrupted'+(': plan limit reached' if limit else '')+' at '+at[11:16]+'. Run ID: '+context.run_id+'.'
+                if interruption['files']:
+                    text += '\nRecorded file changes: '+', '.join(interruption['files'])
+            th.complete_turn(turn, text, status=status, interruption=interruption, run_id=context.run_id,
                              spoken_reply=req.spoken_reply,
                              outputs=cap.outputs or None if cap else None,
                              caps=cap.caps or None if cap else None)
@@ -636,6 +680,8 @@ class TurnCoordinator:
                 "memory_boundary": cap.memory_report if cap else None,
                 "realm_id": context.realm.realm_id, "run_id": context.run_id}
             from .job_triggers import report_fields
+            if interruption:
+                report.update(interruption=interruption, owner_message=message, turn=turn)
             report.update(report_fields(req.job or {}))
             if raw_capture is not None:
                 report["capture"] = raw_capture.report()

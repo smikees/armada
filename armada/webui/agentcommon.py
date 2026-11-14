@@ -137,6 +137,26 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
         return ""
     cards = ""
     for aid, slug, job, ok, errs in items:
+        review_token, diffhtml = '', ''
+        try:
+            review = jobs_mod.review(realm_root, aid, job)
+            review_token = review['token']
+            if review['before'] is not None:
+                def value(value, absent=False):
+                    return E('Not set' if absent else json.dumps(value, ensure_ascii=False, indent=2))
+                rows = ''.join('<tr><th scope="row">'+E(c['field'])+'</th><td><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+value(c['before'], c['added'])
+                    +'</pre></td><td><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+value(c['after'], c['removed'])+'</pre></td></tr>' for c in review['changes'])
+                diffhtml = ('<section aria-label="Job changes"><h3>Change proposal — '+E(disp.get(review['target'], review['target']))
+                    +'</h3><p>This proposal does not change the saved job or its approval. Approve replaces the saved job; Reject discards only this proposal.</p>'
+                    +('<p>The saved file also differs from its last approved version. Review before approving.</p>' if review['approved'] and review['approved'] != review['before'] else '')
+                    +'<div style="overflow:auto"><table class="mc-propdiff" style="width:100%;table-layout:fixed"><thead><tr><th>Field</th><th>'
+                    +('Approved value' if review['approved'] else 'Saved value (older approval snapshot unavailable)')
+                    +'</th><th>Proposed value</th></tr></thead><tbody>'
+                    +rows+'</tbody></table></div></section>')
+                if review['access']:
+                    diffhtml += '<p>Approval also retains these existing extra access and completion checks:</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+E(json.dumps({k:v for k,v in review['access'].items() if k!='fingerprint'}, ensure_ascii=False, indent=2))+'</pre>'
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            ok, errs = False, [*errs, str(exc)]
         kind = job.get("kind", "agent")
         sched = job.get("cron") or job.get("schedule") or "manual"
         _r = job.get("run")
@@ -180,14 +200,14 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
         approve = (f'<button class="btn btn-primary btn-sm mc-propapprove"'
                    f'{"" if ok else " disabled title=\"fix the errors above first\""} '
                    f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'approve\',this)">Approve</button>')
-        cards += (f'<div class="mc-prop mc-frame" style="border-radius:var(--r);padding:12px 14px;margin-bottom:10px">'
+        cards += (f'<div class="mc-prop mc-frame" data-review-token="{E(review_token)}" style="border-radius:var(--r);padding:12px 14px;margin-bottom:10px">'
                   f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
                   f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">{E(job.get("name") or slug)}</span>{kbadge}'
                   f'{owner}<span class="mono" style="font-size:11px;margin-left:auto;'
                   f'color:var(--text-dim)">{E(_humanize(sched))}</span></div>'
                   f'<pre style="white-space:pre-wrap;background:var(--color-sand-100);border:1px solid var(--color-sand-300);'
                   f'border-radius:var(--r);padding:9px 11px;margin:8px 0 0;font-size:11.5px;max-height:160px;overflow:auto">{preview}</pre>'
-                  f'{toolshtml}{errhtml}'
+                  f'{diffhtml}{toolshtml}{errhtml}'
                   f'<p>Time limit: {E(str(job["timeout"])+" seconds" if job.get("timeout") else "No limit (inherits a realm ceiling if set)")}. '
                   f'Critical: {"Yes" if job.get("critical") else "No"}. '
                   f'At subscription limit: {E(job.get("plan_limit_action") or "Inherit")}. '
@@ -206,7 +226,7 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
             f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">Proposed jobs</span>'
             f'<span class="mc-count" style="margin-left:0">{n}</span>'
             f'<span style="font-size:11.5px;color:var(--text-muted)">'
-            f'awaiting your approval — nothing runs until you approve</span></div>')
+            f'awaiting your approval — changes do not affect the saved job</span></div>')
     return (f'<div style="margin-bottom:18px;padding:14px 16px;border:1px solid var(--color-accent-2);border-radius:var(--r);'
             f'background:var(--accent2-7)">{head}{cards}</div>{_JOB_PROPOSAL_JS}')
 

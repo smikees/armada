@@ -49,7 +49,7 @@ def test_deadline_records_failure_without_engine_call(realm,monkeypatch):
 
 def test_queued_job_releases_ticket_if_prerequisite_fails_again(realm,monkeypatch):
     state=['up']
-    monkeypatch.setattr(connector_health,'request',lambda *a,**kw:{'broker':{'state':state[0],'checked_at':AT.timestamp()+30,'reason':'HTTP 503'}})
+    monkeypatch.setattr(connector_health,'request',lambda *a,**kw:{'broker':{'state':state[0],'checked_at':AT.timestamp(),'reason':'HTTP 503'}})
     pool=dispatch.Dispatcher();lease=scheduler_state.acquire(realm)
     try:
         result=scheduler.tick(realm,engine='claude',at=AT,_lease=lease,_dispatch=pool)
@@ -69,3 +69,17 @@ def test_window_overrides_hour_but_preserves_weekdays_and_overnight(schedule):
     assert scheduler._due_time(job,friday,0)==friday
     assert scheduler._due_time(job,friday+dt.timedelta(hours=1),0)==friday
     assert scheduler._due_time(job,friday+dt.timedelta(days=1),0) is None
+
+
+def test_later_occurrence_is_recorded_as_skipped_while_prior_waits(realm,monkeypatch):
+    job=util.read_json_state(realm/'agents/a/jobs/read.json')
+    job.update(cron='0 16,17 * * *',start_deadline_minutes=120)
+    util.write_json_atomic(realm/'agents/a/jobs/read.json',job)
+    run_policy.seal_job(realm,'a',job)
+    monkeypatch.setattr(connector_health,'request',lambda *a,**kw:{})
+    assert scheduler.tick(realm,at=AT)[0]['status']=='waiting'
+    rows=scheduler.tick(realm,at=AT+dt.timedelta(hours=1))
+    assert [row['status'] for row in rows]==['skipped','waiting']
+    assert scheduler_state.inspect_attempt(realm,'a','read','2026-11-13T17:00')['status']=='skipped'
+    rows=scheduler.tick(realm,at=AT+dt.timedelta(hours=1,minutes=1))
+    assert [row['status'] for row in rows]==['waiting']

@@ -10,6 +10,7 @@ stays in serve.py, only the handler bodies moved.
 
 —
 
+- `SettingsRoutes._check_connector_health(self, body)` — —
 - `SettingsRoutes._get_connector_health(self)` — —
 - `SettingsRoutes._connector_watches(self, body)` — —
 - `SettingsRoutes._command_secret(self, body)` — —

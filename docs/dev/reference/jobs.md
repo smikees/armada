@@ -49,7 +49,11 @@ Validated proposals owned by one agent: [{slug, job, ok, errors}].
 
 Locate a pending file by (agent, stem) WITHOUT building a path from the raw slug — match against real stems on disk so an odd slug can't traverse out of the folder.
 
-### `approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET, tools_warning_ack: bool=False)`
+### `review(root, proposer, job)`
+
+Resolve a proposal's authority and bind owner review to both exact documents.
+
+### `approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET, tools_warning_ack: bool=False, review_token: str='')`
 
 —
 

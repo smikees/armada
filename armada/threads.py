@@ -129,7 +129,7 @@ class Thread:
         return tid
 
     def complete_turn(self, turn: str, assistant: str, outputs=None, caps=None,
-                      status: str = "ok", spoken_reply: bool = False) -> None:
+                      status: str = "ok", spoken_reply: bool = False, interruption=None, run_id='') -> None:
         """Close a turn opened by begin_turn. `status` is 'ok', 'error' or 'stopped'.
 
         A turn is always closed, including when the run failed, because an owner message with
@@ -138,6 +138,16 @@ class Thread:
         """
         ts = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
         rec = {"role": "assistant", "ts": ts, "content": assistant, "turn": turn}
+        if run_id:
+            rec['run_id'] = run_id
+        if interruption:
+            rec['interruption'] = interruption
+            # Side effects cannot be undone by removing a conversation turn.
+            from . import util
+            path = self.dir / '.interrupted-runs.json'
+            def save(data):
+                data[run_id] = interruption
+            util.mutate_json(path, save, default=dict)
         if spoken_reply:
             rec.update(content='', work_result=assistant, voice_state='pending')
         if status != "ok":
@@ -149,6 +159,14 @@ class Thread:
         self._write(rec)
         with file_lock(self._progress_path(turn)):
             self._progress_path(turn).unlink(missing_ok=True)
+
+    def interruption_context(self):
+        from . import util
+        records = util.read_json_state(self.dir / '.interrupted-runs.json', default=dict)
+        recent = sorted(records.values(), key=lambda r: r['at'])[-3:]
+        return '\n'.join('Previous interrupted run '+r['run_id']+' at '+r['at']+': '+r['reason']
+            + '. Recorded file changes (may omit shell writes): '+(', '.join(r['files']) or 'none recorded')
+            + '. Inspect existing work before repeating side effects.' for r in recent)
 
     def voice_segment(self, turn, identity, text):
         """Native speech is the conversation; the original result stays as evidence."""

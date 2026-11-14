@@ -137,14 +137,15 @@ PID liveness cannot override the modern OS lock, and stale metadata with a reuse
 block recovery. A known-live legacy PID-only scheduler is refused; stop old writers on upgrade.
 Owner-write failure holds all dispatch and releases the kernel lock.
 
-Agent/command jobs keep one durable automatic admission per `(agent, job, realm-local scheduled day)` in
-`.scheduler/attempts/YYYY-MM-DD.json`, preserving the existing once-per-day behavior, including
-cron schedules with multiple matching minutes. The day is taken from the matched fire time,
-including grace-period catch-up after midnight. The scheduler still honors earlier run reports
-at or after that day's first fire time; a previous night's catch-up cannot suppress tonight's run.
+Agent/command jobs keep durable automatic admissions in
+`.scheduler/attempts/YYYY-MM-DD.json`. Single-time schedules retain their daily key;
+multi-time cron uses one key per realm-local `YYYY-MM-DDTHH:MM` occurrence. Repeated
+DST clock minutes do not dispatch twice. Grace catch-up chooses only the latest
+matching occurrence, including across midnight. Legacy daily claims conservatively
+hold that job's remaining starts on the upgrade day; later days use occurrence keys.
 Each admission has an attempt ID, owner token and `claimed` state written and flushed before the
 runner is called. A terminal result changes it to `finished` with the result status. Failure
-also consumes that day's automatic attempt. No age-based cleanup deletes this evidence.
+also consumes that occurrence's automatic attempt. No age-based cleanup deletes this evidence.
 
 If the process dies after admission, the next owner gets the kernel lock but does not replay
 the uncertain claim. This includes a crash just before dispatch: the job may have done nothing,

@@ -340,19 +340,17 @@ def _due_time(job: dict, now: datetime.datetime, grace_min: int):
     return None
 
 
-def _first_fire(job, fire):
-    """Keep the once-per-scheduled-day contract for cadences with multiple daily fires."""
-    if job.get('start_window'):
-        return fire
-    cron = job.get("cron") or job.get("schedule", "")
-    times = cron_day_times(cron, fire.date()) if is_cron(cron) else []
-    return fire.replace(hour=times[0][0], minute=times[0][1]) if times else fire
+def _fire_slot(job, fire):
+    """A distinct durable claim for each multi-time cron occurrence."""
+    cron = job.get('cron') or job.get('schedule', '')
+    multiple = not job.get('start_window') and is_cron(cron) and len(cron_day_times(cron, fire.date())) > 1
+    return fire.strftime('%Y-%m-%dT%H:%M') if multiple else fire.date().isoformat()
 
 
 def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
          at: Optional[datetime.datetime] = None, dry_run: bool = False,
          *, _lease: _state.Lease | None = None, _dispatch=None) -> list[dict]:
-    """One pass, with at most one automatic attempt per job and realm-local day.
+    """One pass, with at most one automatic attempt per scheduled occurrence.
 
     A daemon passes its actual lease, never a boolean bypass. Every caller also takes that
     lease's non-reentrant gate, so overlapping calls within the daemon cannot dispatch twice.
@@ -449,6 +447,16 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 continue
             if job.get("enabled") is False:
                 continue
+            if not dry_run:
+                from . import run_policy
+                try:
+                    why = run_policy.held_reason(realm_root, agent_id, {**job, 'id': job_id})
+                    if why:
+                        fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': why})
+                        continue
+                except OSError as exc:
+                    fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': str(exc)})
+                    continue
             from . import records, util
             try:
                 records.admit_agent(realm_root, agent_id)
@@ -469,15 +477,27 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 continue
             prerequisite_wait = job_waits.pending(realm_root, agent_id, job_id)
             if prerequisite_wait:
-                fire = datetime.datetime.fromisoformat(prerequisite_wait['fire'])
+                previous_fire = datetime.datetime.fromisoformat(prerequisite_wait['fire'])
+                if fire is not None and _fire_slot(job, fire) > _fire_slot(job, previous_fire) and not dry_run:
+                    try:
+                        skipped = _record_overlap(lease, realm_root, agent_id, job_id, _fire_slot(job, fire),
+                            'Scheduled start skipped: the previous start is still waiting for prerequisites.',
+                            prerequisite_wait['fire'])
+                        if skipped:
+                            fired.append({'agent': agent_id, 'job': job_id, **skipped})
+                    except OSError as exc:
+                        fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': str(exc)})
+                        continue
+                fire = previous_fire
             if waiting:
                 # Resume only a recorded backoff, including outside catch-up grace.
-                fire = datetime.datetime.fromtimestamp(waiting['started_at'], now.tzinfo)
+                begun = datetime.datetime.fromtimestamp(waiting['started_at'], now.tzinfo)
+                fire = _due_time(job, begun, 1440) or begun
             if fire is None:
                 continue
-            day_iso = fire.date().isoformat()
+            day_iso = _fire_slot(job, fire)
             try:
-                already_ran = ran_today(realm_root, agent_id, job_id, day_iso, not_before=_first_fire(job, fire))
+                already_ran = ran_today(realm_root, agent_id, job_id, fire.date().isoformat(), not_before=fire)
                 if not waiting and already_ran:
                     continue
             except OSError as exc:
@@ -614,14 +634,22 @@ def _skip_overlapping(lease, root, agent, jid, day):
     current_id = 'scheduled-' + hashlib.sha256(f'{agent}/{jid}/{day}'.encode()).hexdigest()[:32]
     if any(row['run_id'] == current_id for row in active):
         return None
-    attempt, fresh = _state.claim(lease, agent, jid, day)
+    return _record_overlap(lease, root, agent, jid, day,
+        f'Scheduled start skipped: the previous invocation of {agent}/{jid} is still running or queued.', active[0]['run_id'])
+
+
+def _record_overlap(lease, root, agent, jid, day, reason, previous_id):
+    from . import runner, notify
+    from .job_history import thread_name
+    import hashlib
+    current_id = 'scheduled-' + hashlib.sha256(f'{agent}/{jid}/{day}'.encode()).hexdigest()[:32]
+    attempt, fresh = _state.claim(lease, agent, jid, day, allow_active=True)
     if not fresh:
-        return {'status':'skipped', 'detail':'This scheduled start has already been recorded.'}
-    reason = f'Scheduled start skipped: the previous invocation of {agent}/{jid} is still running or queued.'
+        return None
     _state.finish(lease, attempt, 'skipped')
     report = {'ts':datetime.datetime.now().astimezone().isoformat(), 'status':'skipped',
               'task':jid, 'thread':thread_name(jid), 'run_id':current_id, 'engine':'scheduler',
-              'summary':reason, 'skip_reason':'previous_invocation_active', 'previous_run_id':active[0]['run_id']}
+              'summary':reason, 'skip_reason':'previous_invocation_active', 'previous_run_id':previous_id}
     runner._write_report(root/'agents'/agent, agent, report)
     notify.emit(root, 'job_overlap', 'A scheduled start was skipped', reason, f'/agent/{agent}/jobs?job={jid}')
     return {'status':'skipped', 'detail':reason}
@@ -684,7 +712,7 @@ def _enqueue_job(dispatcher, lease, root, agent, jid, job, engine, day, waiting)
                     cancel('This job changed while queued. Use Run now after reviewing its updated settings.')
                     return
                 prior = job_waits.state(root).get(agent + '/' + jid)
-                if prior and prior.get('day') == day:
+                if prior and _fire_slot(job, datetime.datetime.fromisoformat(prior['fire'])) == day:
                     ready = job_waits.evaluate(root, agent, current, datetime.datetime.fromisoformat(prior['fire']),
                         now_in(_load_json(root/'realm.json')), provider=provider)
                     if ready['state'] == 'waiting':
@@ -869,7 +897,7 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
               f"tick={interval}s  ·  grace={grace_min if grace_min is not None else cfg.get('grace_minutes', 120)}m", flush=True)
         for p in others:
             print(f"  also firing ▶ {p}", flush=True)
-        print("  (Ctrl-C to stop. Jobs fire once per day when due; missed jobs catch up within grace.)", flush=True)
+        print("  (Ctrl-C to stop. Jobs fire at each scheduled time; missed jobs catch up at the latest time within grace.)", flush=True)
         _note_running(True)
         while True:
             _work_changed.clear()

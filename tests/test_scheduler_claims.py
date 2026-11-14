@@ -182,11 +182,12 @@ def test_early_legacy_report_does_not_block_todays_later_fire(realm):
     assert len(scheduler.tick(realm, at=dt.datetime(2026, 10, 1, 22, 30))) == 1
 
 
-def test_multiple_daily_cron_fires_still_dispatch_only_once_per_day(realm):
+def test_multiple_daily_cron_fires_dispatch_once_per_occurrence(realm):
     job = realm / "agents/a/jobs/daily.json"
     job.write_text('{"id":"daily","schedule":"0 9,16 * * *"}', encoding="utf-8")
     assert len(scheduler.tick(realm, at=dt.datetime(2026, 10, 1, 9))) == 1
-    assert scheduler.tick(realm, at=dt.datetime(2026, 10, 1, 16)) == []
+    assert len(scheduler.tick(realm, at=dt.datetime(2026, 10, 1, 16))) == 1
+    assert scheduler.tick(realm, at=dt.datetime(2026, 10, 1, 16, 1)) == []
 
 
 def test_pid_liveness_cannot_steal_a_kernel_lease(realm, monkeypatch):
@@ -459,3 +460,36 @@ def test_bad_retry_journal_holds_only_its_job(realm):
     assert results['daily']['status']=='held'
     assert 'retry journal' in results['daily']['detail']
     assert results['other']['status']=='ok'
+
+
+def test_quarter_hour_schedule_fires_each_slot_without_replaying_catchup(realm):
+    (realm/'agents/a/jobs/daily.json').write_text(json.dumps({'id':'daily','cron':'*/15 15-16 * * 1-5'}))
+    for hour,minute in [(15,39),(15,45),(16,0),(16,15),(16,30),(16,45)]:
+        at=dt.datetime(2026,11,13,hour,minute)
+        assert len(scheduler.tick(realm,at=at)) == 1
+        assert scheduler.tick(realm,at=at+dt.timedelta(seconds=20)) == []
+    rows=json.loads((realm/'.scheduler/attempts/2026-11-13.json').read_text())['attempts']
+    assert len(rows)==6 and len({r['slot'] for r in rows.values()})==6
+
+
+def test_uncertain_multitime_claim_holds_later_occurrence(realm):
+    path=realm/'agents/a/jobs/daily.json'
+    path.write_text(json.dumps({'id':'daily','cron':'0 9,16 * * *'}))
+    lease=state.acquire(realm)
+    state.claim(lease,'a','daily','2026-11-13T09:00')
+    lease.close()
+    result=scheduler.tick(realm,at=dt.datetime(2026,11,13,16))
+    assert result[0]['status']=='held' and 'earlier' in result[0]['detail']
+
+
+def test_multiple_occurrence_wait_does_not_stay_started(realm, monkeypatch):
+    from armada import job_waits,run_policy,connector_health
+    monkeypatch.setattr('armada.capabilities.execution_policy',lambda *a:type('P',(),{'allowed_mcp_ids':{'broker'}})())
+    job={'id':'daily','cron':'0 9,16 * * *','requires_connectors':['broker']}
+    util.write_json_atomic(realm/'agents/a/jobs/daily.json',job)
+    run_policy.seal_job(realm,'a',job)
+    for hour in (9,16):
+        at=dt.datetime(2026,11,13,hour)
+        monkeypatch.setattr(connector_health,'request',lambda *a,**kw:{'broker':{'state':'up','checked_at':at.timestamp()}})
+        assert scheduler.tick(realm,at=at)[0]['status']=='ok'
+        assert job_waits.state(realm)['a/daily']['fire']==at.isoformat()

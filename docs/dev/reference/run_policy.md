@@ -45,6 +45,10 @@ Once on upgrade, preserve existing owner ceilings without changing job files.
 
 —
 
+### `held_reason(root, agent, job)`
+
+Detect changed approvals before their due time and notify once per version.
+
 ### `audit(action, root=None, **values)`
 
 —

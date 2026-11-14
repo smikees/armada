@@ -117,7 +117,7 @@ def test_connector_recovery_and_deadline_do_not_launch_engine(realm, monkeypatch
     assert evaluate(realm, job, clock())['state'] == 'waiting'
     checked[0] = {'checked_at': clock(16, 22).timestamp(), 'state': 'up'}
     assert evaluate(realm, job, clock(16, 22))['state'] == 'ready'
-    assert calls[0]['not_before'] == clock().timestamp()
+    assert calls[0]['not_before'] == clock().timestamp()-300
     checked[0] = None
     result = evaluate(realm, job, clock(17, 30))
     assert result['state'] == 'failed' and 'broker' in result['reason']
@@ -134,3 +134,29 @@ def test_heartbeat_records_transition_once_and_mirrors_without_credentials(realm
     latest = json.loads((realm/'connector-health.json').read_text())['connectors']['claude:broker']
     assert latest['last_up_at'] == 1200 and latest['uptime_percent'] == 33.3
     assert 'checks' not in latest
+
+
+def test_recent_healthy_preflight_is_silent(realm, monkeypatch):
+    monkeypatch.setattr('armada.capabilities.execution_policy', lambda *a: type('Policy', (), {'allowed_mcp_ids': {'broker'}})())
+    job = save(realm, 'read', requires_connectors=['broker'])
+    notices = []
+    monkeypatch.setattr('armada.notify.emit', lambda *a: notices.append(a))
+    monkeypatch.setattr(health, 'request', lambda *a, **kw: {'broker': {'checked_at': clock(15,58).timestamp(), 'state': 'up'}})
+    assert evaluate(realm, job, clock())['state'] == 'ready'
+    waits.transition(realm, 'a', 'read', 'started')
+    assert not notices
+
+
+def test_missing_reading_waits_quietly_then_notifies_once(realm, monkeypatch):
+    monkeypatch.setattr('armada.capabilities.execution_policy', lambda *a: type('Policy', (), {'allowed_mcp_ids': {'broker'}})())
+    job = save(realm, 'read', requires_connectors=['broker'])
+    notices = []
+    monkeypatch.setattr('armada.notify.emit', lambda *a: notices.append(a))
+    monkeypatch.setattr(health, 'request', lambda *a, **kw: {})
+    assert evaluate(realm, job, clock())['state'] == 'waiting'
+    assert not notices
+    evaluate(realm, job, clock(16,5)); evaluate(realm, job, clock(16,6))
+    assert len(notices) == 1
+    waits.transition(realm, 'a', 'read', 'started')
+    waits.transition(realm, 'a', 'read', 'started')
+    assert len(notices) == 2

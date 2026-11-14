@@ -453,8 +453,15 @@ function mcCopyTurn(btn){const txt=mcRawText(btn.closest('.mc-turn'));try{naviga
   const old=btn.innerHTML;btn.innerHTML=MC_ACT.check;btn.style.color='var(--status-ok)';setTimeout(()=>{btn.innerHTML=old;btn.style.color='';},1200);}
 function mcDropFrom(turn){let n=turn;const rm=[];while(n){if(n.classList&&n.classList.contains('mc-turn'))rm.push(n);n=n.nextElementSibling;}rm.forEach(x=>x.remove());}
 async function mcRestartTurn(btn,agent,thread,idx){const turn=btn.closest('.mc-turn');const txt=mcRawText(turn);
-  await fetch('/api/thread-truncate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,thread,keep:idx})});
-  mcDropFrom(turn);mcChat(agent,thread,txt);}
+  await mcRestartRequest(turn,agent,thread,idx,txt);}
+async function mcRestartRequest(turn,agent,thread,idx,text){
+  try{
+    const response=await fetch('/api/thread-truncate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,thread,keep:idx})});
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw Error(result.error||'Could not update the conversation. Your text is unchanged.');
+    mcDropFrom(turn);await window.mcThreadSync?.();mcChat(agent,thread,text);
+  }catch(error){const message=document.getElementById('mc-chatmsg');if(message)message.textContent=error.message;}
+}
 function mcEditTurn(btn,agent,thread,idx){const turn=btn.closest('.mc-turn');const body=turn.querySelector('.mc-body');const txt=mcRawText(turn);
   const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='width:100%;min-height:60px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);padding:8px 10px;font:inherit;font-size:13px;resize:vertical';
   const acts=turn.querySelector('.mc-turn-actions');if(acts)acts.style.display='none';
@@ -468,7 +475,7 @@ function mcEditTurn(btn,agent,thread,idx){const turn=btn.closest('.mc-turn');con
   syncSave();ta.addEventListener('input',syncSave);
   bar.appendChild(info);bar.appendChild(cancel);bar.appendChild(send);body.replaceWith(ta);ta.parentNode.appendChild(bar);ta.focus();
   cancel.onclick=()=>location.reload();
-  send.onclick=async()=>{const nt=ta.value.trim();if(!nt||nt===txt.trim())return;await fetch('/api/thread-truncate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,thread,keep:idx})});mcDropFrom(turn);mcChat(agent,thread,nt);};}
+  send.onclick=async()=>{const nt=ta.value.trim();if(!nt||nt===txt.trim())return;await mcRestartRequest(turn,agent,thread,idx,nt);};}
 function mcActBtn(icon,title,onclick,cls){return '<button class="mc-iconbtn mc-act '+(cls||'')+'" title="'+title+'" onclick="'+onclick+'">'+icon+'</button>';}
 function mcAddActions(turn,role,agent,thread,isLast){if(turn.querySelector('.mc-turn-actions'))return;
   const idx=[...document.querySelectorAll('#mc-turns .mc-turn')].indexOf(turn);const d=new Date();

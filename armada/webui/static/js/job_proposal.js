@@ -17,6 +17,7 @@ function mcJobProposalTools(select){
 async function mcJobProposal(agent,slug,action,btn){
   const box=btn.closest('.mc-prop'); const msg=box?box.querySelector('.mc-propmsg'):null;
   const body={agent,slug,action};
+  if(action==='approve')body.review_token=box?.dataset.reviewToken||'';
   const tools=box?box.querySelector('.mc-proptools'):null;
   if(action==='approve'&&tools){
     if(tools.value!=='true'&&tools.value!=='false')return;

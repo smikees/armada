@@ -5,6 +5,12 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.150** is prepared: reviewed job-change proposals, per-occurrence
+cron dispatch, quieter fresh connector checks and durable interrupted-chat evidence.
+Native owner controls (19 checks) and shared thread windows (163 checks) passed.
+Publication gates and public download verification are pending.
+[Investigation](dev/AGENT_REPORTED_FAULTS_2.md).
+
 Version **0.99.149** is published: schedule preservation, late Claude result
 handling, consistent connector evidence, scoped job audit errors and clearer API
 fallback diagnostics. **4,663 local tests**, exact-source Windows CI,

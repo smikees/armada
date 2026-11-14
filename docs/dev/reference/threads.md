@@ -28,7 +28,8 @@ Sub-threads inherit the core but NOT each other's history — that's the scoping
 - `Thread._write(self, *records)` — —
 - `Thread.append(self, user: str, assistant: str, attachments=None, outputs=None, caps=None)` — Write a complete turn — both halves at once. For a live chat use begin_turn / complete_turn instead, so the owner's message survives them walking away.
 - `Thread.begin_turn(self, user: str, attachments=None, *, queued=False)` — Record what the owner said, now, before the agent has said anything back.
-- `Thread.complete_turn(self, turn: str, assistant: str, outputs=None, caps=None, status: str='ok', spoken_reply: bool=False)` — Close a turn opened by begin_turn. `status` is 'ok', 'error' or 'stopped'.
+- `Thread.complete_turn(self, turn: str, assistant: str, outputs=None, caps=None, status: str='ok', spoken_reply: bool=False, interruption=None, run_id='')` — Close a turn opened by begin_turn. `status` is 'ok', 'error' or 'stopped'.
+- `Thread.interruption_context(self)` — —
 - `Thread.voice_segment(self, turn, identity, text)` — Native speech is the conversation; the original result stays as evidence.
 - `Thread.finish_voice(self, turn, *, interrupted=False)` — —
 - `Thread._progress_path(self, turn: str)` — —

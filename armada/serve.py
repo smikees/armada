@@ -457,6 +457,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         "/api/worker": "_worker_action",
         "/api/run-controls": "_save_run_controls",
         "/api/connector-watches": "_connector_watches",
+        "/api/connector-health-check": "_check_connector_health",
         "/api/command-secret": "_command_secret",
         "/api/api-fallback": "_api_fallback_action",
         "/api/repair-record": "_repair_record",

@@ -97,7 +97,7 @@ def test_approve_conflict_with_existing_job(tmp_path):
                                                       "allow_tools": False, "prompt": "p"}), encoding="utf-8")
     _propose(ad, "dup", {"name": "Dup", "id": "dup", "kind": "agent", "allow_tools": False, "prompt": "p"})
     res = jobs.approve(tmp_path, "warren", "dup")
-    assert not res["ok"] and "already exists" in res["error"]
+    assert not res["ok"] and "review" in res["error"].lower()
 
 
 def test_approve_rejects_invalid(tmp_path):
@@ -154,3 +154,81 @@ def test_sync_proposals_idempotent(tmp_path):
     jobs.sync_proposals(tmp_path, "warren")          # second call must not double-log
     proposed = [e for e in jobs.ledger_events(tmp_path, "warren") if e["event"] == "proposed" and e["id"] == "p1"]
     assert len(proposed) == 1
+
+
+def test_change_proposal_preserves_saved_job_until_reviewed_approval(tmp_path):
+    from armada import run_policy
+    ad = _mk_agent(tmp_path)
+    original = {'id':'daily','name':'Daily','kind':'agent','allow_tools':False,'prompt':'Original', 'schedule':'daily 09:00', 'timeout':600}
+    path = ad/'jobs/daily.json'
+    path.write_text(json.dumps(original), encoding='utf-8')
+    run_policy.seal_job(tmp_path, 'warren', original)
+    changed = {**original, 'prompt':'Changed', 'critical':True}
+    _propose(ad, 'daily', changed)
+    assert json.loads(path.read_text()) == original
+    assert run_policy.verify_job(tmp_path, 'warren', original)
+    reviewed = jobs.review(tmp_path, 'warren', jobs.validate(changed)[2])
+    assert {c['field'] for c in reviewed['changes']} == {'prompt', 'critical', 'enabled'}
+    assert jobs.approve(tmp_path, 'warren', 'daily', review_token=reviewed['token'])['ok']
+    saved = json.loads(path.read_text())
+    assert saved['prompt'] == 'Changed' and saved['timeout'] == 600
+    assert run_policy.verify_job(tmp_path, 'warren', saved)
+    assert not (ad/'jobs/_pending/daily.json').exists()
+
+
+def test_changed_review_cannot_overwrite_new_owner_edit(tmp_path):
+    ad = _mk_agent(tmp_path)
+    original = {'id':'daily','name':'Daily','kind':'agent','allow_tools':False,'prompt':'Original'}
+    path = ad/'jobs/daily.json';path.write_text(json.dumps(original))
+    _propose(ad, 'daily', {**original, 'prompt':'Proposed'})
+    proposal = jobs.validate(json.loads((ad/'jobs/_pending/daily.json').read_text()))[2]
+    token = jobs.review(tmp_path, 'warren', proposal)['token']
+    path.write_text(json.dumps({**original, 'prompt':'New owner edit'}))
+    assert not jobs.approve(tmp_path, 'warren', 'daily', review_token=token)['ok']
+    assert json.loads(path.read_text())['prompt'] == 'New owner edit'
+    assert jobs.reject(tmp_path, 'warren', 'daily')['ok']
+    assert json.loads(path.read_text())['prompt'] == 'New owner edit'
+
+
+def test_cross_agent_proposal_requires_owner_opt_in_and_coordinator(tmp_path):
+    from armada import run_policy, util
+    ad = _mk_agent(tmp_path)
+    util.write_json_atomic(tmp_path/'agents/other/agent.json', {'id':'other'})
+    job = {'id':'daily','name':'Daily','kind':'agent','allow_tools':False,'prompt':'Original'}
+    util.write_json_atomic(tmp_path/'agents/other/jobs/daily.json', job)
+    proposal = {**job, 'target_agent':'other', 'prompt':'Proposed'}
+    _propose(ad, 'daily', proposal)
+    assert not jobs.approve(tmp_path, 'warren', 'daily')['ok']
+    util.write_json_atomic(ad/'agent.json', {'id':'warren','coordinator':True})
+    assert not jobs.approve(tmp_path, 'warren', 'daily')['ok']
+    run_policy.save(tmp_path, {'coordinator_may_propose_changes':True})
+    reviewed = jobs.review(tmp_path, 'warren', jobs.validate(proposal)[2])
+    assert jobs.approve(tmp_path, 'warren', 'daily', review_token=reviewed['token'])['ok']
+    assert json.loads((tmp_path/'agents/other/jobs/daily.json').read_text())['prompt'] == 'Proposed'
+
+
+def test_held_job_notifies_once_before_due_time(tmp_path, monkeypatch):
+    from armada import run_policy,util
+    ad = _mk_agent(tmp_path)
+    job = {'id':'daily','kind':'agent','allow_tools':False,'prompt':'Approved','schedule':'daily 23:59'}
+    run_policy.seal_job(tmp_path, 'warren', job)
+    changed = {**job, 'prompt':'Changed without approval'}
+    notices = []
+    monkeypatch.setattr('armada.notify.emit',lambda *a:notices.append(a))
+    assert run_policy.held_reason(tmp_path,'warren',changed)
+    assert run_policy.held_reason(tmp_path,'warren',changed)
+    assert len(notices)==1
+    run_policy.seal_job(tmp_path,'warren',changed)
+    assert not run_policy.held_reason(tmp_path,'warren',changed)
+
+
+def test_coordinator_cannot_self_promote_after_owner_opt_in(tmp_path):
+    from armada import run_policy,util
+    ad = _mk_agent(tmp_path)
+    util.write_json_atomic(tmp_path/'agents/other/agent.json', {'id':'other'})
+    job={'id':'daily','name':'Daily','kind':'agent','allow_tools':False,'prompt':'Original'}
+    util.write_json_atomic(tmp_path/'agents/other/jobs/daily.json',job)
+    run_policy.save(tmp_path,{'coordinator_may_propose_changes':True})
+    util.write_json_atomic(ad/'agent.json',{'id':'warren','coordinator':True})
+    _propose(ad,'daily',{**job,'target_agent':'other'})
+    assert not jobs.approve(tmp_path,'warren','daily')['ok']

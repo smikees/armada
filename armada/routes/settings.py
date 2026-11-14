@@ -20,6 +20,24 @@ _APP_SESSION_ID = uuid4().hex
 
 
 class SettingsRoutes:
+    def _check_connector_health(self, body):
+        from .. import connector_health, capabilities
+        from ..connector_registry import provider_cap
+        try:
+            if self.headers.get('X-Armada-Companion') == 'thread':
+                raise ValueError('Check connector monitoring in the main app.')
+            ids = body.get('ids', [])
+            catalogue = capabilities.catalogue(self.realm)['connectors']
+            if not isinstance(ids, list) or not ids or any(not isinstance(cid, str) or cid not in {c['id'] for c in catalogue} for cid in ids):
+                raise ValueError('Choose connectors to check.')
+            for provider in ('claude', 'codex', 'gemini'):
+                selected = [c['id'] for c in catalogue if c['id'] in ids and not provider_cap(c, provider).get('_unbound')]
+                if selected:
+                    connector_health.request(self.realm, provider, selected, not_before=time.time())
+            return {'ok': True, 'detail': 'Check requested. Readings update here when it finishes; no model tokens are used.'}
+        except (OSError, ValueError, TypeError) as exc:
+            return {'ok': False, 'error': str(exc)}
+
     def _get_connector_health(self):
         from .. import connector_health
         data = connector_health.snapshot(self.realm)

@@ -100,19 +100,23 @@ Yield (agent_id, job_id, job_dict) for every job in a native realm.
 
 Most recent due fire time. Catch-up claims belong to its day, even after midnight.
 
-### `_first_fire(job, fire)`
+### `_fire_slot(job, fire)`
 
-Keep the once-per-scheduled-day contract for cadences with multiple daily fires.
+A distinct durable claim for each multi-time cron occurrence.
 
 ### `tick(realm_root, engine: str='auto', grace_min: Optional[int]=None, at: Optional[datetime.datetime]=None, dry_run: bool=False, *, _lease: _state.Lease | None=None, _dispatch=None)`
 
-One pass, with at most one automatic attempt per job and realm-local day.
+One pass, with at most one automatic attempt per scheduled occurrence.
 
 ### `_record_start_failure(lease, root, agent, jid, day, readiness)`
 
 —
 
 ### `_skip_overlapping(lease, root, agent, jid, day)`
+
+—
+
+### `_record_overlap(lease, root, agent, jid, day, reason, previous_id)`
 
 —
 

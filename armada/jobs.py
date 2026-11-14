@@ -133,8 +133,41 @@ def _find_pending(realm_root, agent_id: str, slug: str):
     return None, None
 
 
+def review(root, proposer, job):
+    """Resolve a proposal's authority and bind owner review to both exact documents."""
+    import hashlib
+    from . import run_policy
+    target = util.safe_seg(job.get('target_agent') or proposer, 'agent')
+    if target != proposer:
+        settings = run_policy._read().get('scopes', {}).get(run_policy.scope_id(root), {})
+        allowed = settings.get('coordinator_may_propose_changes') is True and proposer in settings.get('coordinator_change_proposers', [])
+        coordinator = util.read_json_state(Path(root)/'agents'/proposer/'agent.json').get('coordinator') is True
+        if not allowed or not coordinator:
+            raise ValueError('The owner must allow coordinator job-change proposals in realm Settings.')
+    jid = util.safe_seg(job['id'], 'job')
+    path = Path(root)/'agents'/target/'jobs'/f'{jid}.json'
+    before = util.read_json_state(path) if path.exists() else None
+    from .job_access import identity
+    approved = run_policy._read().get('job_snapshots', {}).get(identity(root, target, jid))
+    from . import appconfig
+    access = appconfig.get('job_access', {}).get(identity(root, target, jid))
+    if target != proposer and before is None:
+        raise ValueError('Coordinators may propose changes to existing jobs only.')
+    after = {k:v for k,v in job.items() if k not in ('target_agent', 'proposed_by', 'proposed_at', 'approved_at', 'created')}
+    if before is not None:
+        after.setdefault('enabled', before.get('enabled', True))
+    baseline = approved if before is not None and approved is not None else before
+    fields = sorted(set(baseline or {}) | set(after))
+    ignored = {'proposed_by', 'proposed_at', 'approved_at', 'created', 'target_agent'}
+    changes = [{'field': k, 'before': (baseline or {}).get(k), 'after': after.get(k),
+                'removed': k not in after, 'added': k not in (baseline or {})}
+               for k in fields if k not in ignored and ((baseline or {}).get(k) != after.get(k) or (k in (baseline or {})) != (k in after))]
+    token = hashlib.sha256(json.dumps([target, job, before, approved, access], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return {'target': target, 'before': before, 'approved': approved, 'access': access, 'after': after, 'changes': changes, 'token': token}
+
+
 def approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET,
-            tools_warning_ack: bool = False) -> dict:
+            tools_warning_ack: bool = False, review_token: str = '') -> dict:
     agent_id = util.safe_seg(agent_id, "agent")
     _job, src = _find_pending(realm_root, agent_id, str(slug))
     if not src:
@@ -143,6 +176,11 @@ def approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET,
         if not src.is_file():
             return {"ok": False, "error": "proposal not found"}
         job = _read_json(src)
+        try:
+            _, _, original = validate(job)
+            reviewed = review(realm_root, agent_id, original)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            return {'ok': False, 'error': str(exc)}
         if isinstance(job, dict) and allow_tools is not _UNSET:
             job["allow_tools"] = allow_tools
         ok, errs, norm = validate(job)
@@ -156,27 +194,42 @@ def approve(realm_root, agent_id: str, slug: str, *, allow_tools=_UNSET,
         try:
             validate_capture(norm, realm_root, jid)
             from .job_rules import validate_graph
-            validate_graph(realm_root, agent_id, norm)
+            validate_graph(realm_root, reviewed['target'], norm)
         except (ValueError, OSError) as exc:
             return {"ok": False, "error": str(exc)}
-        dst = Path(realm_root) / "agents" / agent_id / "jobs" / f"{jid}.json"
+        target = reviewed['target']
+        dst = Path(realm_root) / "agents" / target / "jobs" / f"{jid}.json"
         with util.file_lock(dst):
-            if dst.exists():
-                return {"ok": False, "error": f"a job '{jid}' already exists — reject or rename the proposal"}
-            norm["enabled"] = True
+            current = review(realm_root, agent_id, original)
+            if (dst.exists() or review_token) and (not review_token or review_token != current['token']):
+                return {'ok': False, 'error': 'The proposal or saved job changed, or its changes have not been reviewed. Reload and review before approving.'}
+            before = current['before']
+            norm.pop('target_agent', None)
+            norm['enabled'] = norm.get('enabled', before.get('enabled', True) if before else True)
             norm["proposed_by"] = agent_id
             norm.setdefault("proposed_at", _now())
             norm["approved_at"] = _now()
-            norm.setdefault("created", datetime.date.today().isoformat())
+            norm['created'] = before.get('created', datetime.date.today().isoformat()) if before else datetime.date.today().isoformat()
             util.write_json_atomic(dst, norm)
             from .run_policy import seal_job
-            seal_job(realm_root, agent_id, norm)
+            seal_job(realm_root, target, norm)
+            if before:
+                from .job_access import identity, fingerprint
+                from . import appconfig
+                key = identity(realm_root, target, jid)
+                def reseal(config):
+                    entry = config.get('job_access', {}).get(key)
+                    if entry != current['access']:
+                        raise ValueError('Job access changed during approval. Review and save the job again.')
+                    if entry:
+                        entry['fingerprint'] = fingerprint(norm)
+                util.mutate_json(appconfig._path(), reseal, default=dict)
             try:
                 src.unlink()
             except OSError:
                 swallowed(log, 'approve: job saved; pending proposal cleanup failed')
     log_event(realm_root, agent_id, jid, norm.get("name", jid), "approved")
-    return {"ok": True, "id": jid, "path": f"agents/{agent_id}/jobs/{jid}.json"}
+    return {"ok": True, "id": jid, "path": f"agents/{target}/jobs/{jid}.json"}
 
 
 def reject(realm_root, agent_id: str, slug: str) -> dict:

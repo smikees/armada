@@ -259,7 +259,7 @@ through `runner._TurnCapture` (artefacts, publish boundary, capabilities used) �
 
 **A scheduled job.** `scheduler.run_daemon` → every realm → `tick`: `realmformat.ensure`,
 exclusive lease and per-pass gate, preflight hold check, `sysjobs.run_due`, then each `due_now`
-job not already `ran_today` → durable daily claim → `runner.run_job` (agent job: same context +
+job occurrence not already recorded → durable occurrence claim → `runner.run_job` (agent job: same context +
 engine path as chat; command job: a subprocess) → run report / notification → complete the claim.
 An uncertain claim is not retried automatically. System jobs claim their interval under a
 separate per-job execution lock, shared with app-startup nudges and manual requests.

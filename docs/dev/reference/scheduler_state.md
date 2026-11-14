@@ -49,7 +49,7 @@ Best-effort status; stale modern metadata is not evidence of a running scheduler
 
 —
 
-### `_key(agent, job)`
+### `_key(agent, job, slot='')`
 
 —
 
@@ -57,7 +57,7 @@ Best-effort status; stale modern metadata is not evidence of a running scheduler
 
 —
 
-### `claim(lease: Lease, agent, job, day)`
+### `claim(lease: Lease, agent, job, day, *, allow_active=False)`
 
 Persist admission before side effects. Return (attempt, newly_claimed). Never replay.
 

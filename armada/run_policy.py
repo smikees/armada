@@ -71,6 +71,7 @@ def seal_job(root, agent, job):
         state = _read()
         key = identity(root, agent, job['id'])
         state.setdefault('jobs', {})[key] = fingerprint(job)
+        state.setdefault('job_snapshots', {})[key] = dict(job)
         state.setdefault('coordinator_starters', {})[key] = starters
         util.write_json_atomic(_path(), state)
     audit('approve-job-controls', root, agent=agent, job=job['id'], values={k: job.get(k) for k in JOB_FIELDS})
@@ -185,9 +186,11 @@ def save(root, values, *, provider='claude', agent='', global_provider=False):
     if global_provider:
         allowed |= {'monthly_cap_usd', 'cycle_day', 'reserve_percent'}
     elif not agent:
-        allowed |= {'default_job_timeout', 'coordinator_daily_cap'}
+        allowed |= {'default_job_timeout', 'coordinator_daily_cap', 'coordinator_may_propose_changes'}
     clean = {k: v for k, v in values.items() if k in allowed and v not in (None, '')}
     validate_job(clean)
+    if 'coordinator_may_propose_changes' in clean and type(clean['coordinator_may_propose_changes']) is not bool:
+        raise ValueError('Coordinator proposal permission must be true or false.')
     for key in ('monthly_cap_usd', 'agent_inactivity_minutes', 'api_run_ceiling_usd', 'default_job_timeout'):
         if key in clean:
             clean[key] = _positive(clean[key], key)
@@ -200,10 +203,34 @@ def save(root, values, *, provider='claude', agent='', global_provider=False):
         state = _read()
         bucket = state.setdefault('providers' if global_provider else 'scopes', {})
         identity = provider if global_provider else scope_id(root, agent)
+        if clean.get('coordinator_may_propose_changes'):
+            clean['coordinator_change_proposers'] = [p.parent.name for p in (Path(root)/'agents').glob('*/agent.json')
+                if util.read_json_state(p).get('coordinator') is True]
         # This endpoint replaces the visible choices; empty fields inherit defaults.
         bucket[identity] = clean
         util.write_json_atomic(_path(), state)
     audit('save-run-controls', root, provider=provider, agent=agent, values=clean)
+
+
+def held_reason(root, agent, job):
+    """Detect changed approvals before their due time and notify once per version."""
+    try:
+        verify_job(root, agent, job)
+        return ''
+    except ValueError as exc:
+        from . import notify
+        from .job_access import identity, fingerprint
+        key = identity(root, agent, job['id'])
+        digest = fingerprint(job)
+        path = util.data_dir() / 'held-job-notices.json'
+        with util.file_lock(path):
+            state = util.read_json_state(path, default=dict)
+            if state.get(key) != digest:
+                notify.emit(root, 'job_held', 'Job needs approval: '+str(job.get('name') or job['id']),
+                    str(exc), f'/agent/{agent}/jobs?job={job["id"]}')
+                state[key] = digest
+                util.write_json_atomic(path, state)
+        return str(exc)
 
 
 def audit(action, root=None, **values):

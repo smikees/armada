@@ -98,7 +98,7 @@ def evaluate(root, agent, job, fire, now, *, provider, refresh=True, request_id=
     key = agent + '/' + job['id'] + ('/' + request_id if request_id else '')
     fingerprint = job_access.fingerprint(job)
     previous = state(root).get(key, {})
-    same = previous.get('day') == fire.date().isoformat()
+    same = previous.get('fire') == fire.isoformat()
     if same and previous.get('fingerprint') != fingerprint:
         return {'state': 'failed', 'reason': 'Job instructions changed during the start window. Run now after owner review.'}
     if same and previous.get('state') in ('failed', 'cancelled', 'started'):
@@ -106,18 +106,20 @@ def evaluate(root, agent, job, fire, now, *, provider, refresh=True, request_id=
     if not same:
         previous = {'day': fire.date().isoformat(), 'fire': fire.isoformat(), 'since': start.timestamp(),
                     'deadline': end.timestamp(), 'fingerprint': fingerprint, 'notified': False,
-                    'agent': agent, 'job': job['id'], 'state': 'waiting', 'health_after': now.timestamp()}
+                    'agent': agent, 'job': job['id'], 'state': 'waiting', 'health_after': now.timestamp()-300}
     if now < start:
         return {**previous, 'state': 'waiting', 'reason': f'Start window opens at {start:%H:%M}'}
     dependencies = dependency_errors(root, job, now.timestamp())
     connectors = []
+    unhealthy = False
     ids = job.get('requires_connectors', [])
     health = connector_health.request(root, provider, ids, max_age=300, not_before=previous['health_after']) if ids and refresh else {
         cid: connector_health.snapshot(root)['connectors'].get(provider+':'+cid, {}) for cid in ids}
     for cid in ids:
         row = health.get(cid, {})
-        fresh = row.get('checked_at', 0) >= previous['health_after'] and now.timestamp()-row.get('checked_at', 0) <= 300
+        fresh = row.get('checked_at', 0) >= previous['health_after'] and 0 <= now.timestamp()-row.get('checked_at', 0) < 300
         if not fresh or row.get('state') != 'up':
+            unhealthy = unhealthy or (fresh and row.get('state') in ('down', 'missing', 'failed'))
             detail = row.get('reason') or 'Health not verified'
             connectors.append(f'{cid}: ' + (detail if fresh else 'waiting for a fresh connector check; last result: '+detail))
     deadline = now >= end
@@ -133,7 +135,7 @@ def evaluate(root, agent, job, fire, now, *, provider, refresh=True, request_id=
     if failure:
         row['reason'] = f'Start window expired ({start:%H:%M}–{min(end, connector_end) if connector_expired else end:%H:%M}): ' + reason
     from . import notify
-    if row['state'] == 'waiting' and not row['notified'] and (connectors or now.timestamp()-row['since'] >= 900):
+    if row['state'] == 'waiting' and not row['notified'] and (unhealthy or now.timestamp()-row['since'] >= (300 if connectors else 900)):
         row['notified'] = True
         notify.emit(root, 'job_wait', f'{job.get("name") or job["id"]} is waiting', reason, f'/agent/{agent}/jobs?job={job["id"]}')
     if row['state'] == 'failed' and previous.get('state') != 'failed':

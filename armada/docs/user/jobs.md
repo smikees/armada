@@ -551,3 +551,39 @@ Research jobs can record ordinary facts in `observations` and optional future an
 in `expected_unknowns`. These are distinct from audit/rule breaches (`findings`) and unavailable
 required evidence (`missing_inputs`). Actual contradictions or unresolved risk gates still
 produce warnings; older reports are preserved with their original evidence.
+
+
+## Proposing a change to an approved job
+
+An agent writes the complete proposed job JSON into its own `jobs/_pending` folder,
+using the existing job ID. It must leave the live job file alone. The existing approved
+version keeps running while you review the change card. The card compares all fields,
+including the complete prompt, schedule, tools and run controls. Approve replaces and
+re-seals the job; Reject removes only the proposal. If the job or proposal changes
+while the card is open, reload and review before approving.
+
+In Settings → Realm → Run limits & fallback, you can allow current coordinators to
+propose changes to other agents' existing jobs. They still write into their own pending
+folder and add `target_agent` to the proposal. Only the owner approves changes.
+Older approvals may have no stored snapshot; those cards explicitly compare the current
+saved file. New approvals retain a snapshot for subsequent reviews. Existing extra
+job access and completion checks are shown and retained when a change is approved.
+
+Cron expressions with several times, such as `0 10,15 * * 6,0` or `*/15 15-16 * * 1-5`,
+run at each matching time. A repeated tick never dispatches the same occurrence twice.
+Overlapping starts are skipped; after downtime, only the latest time within the grace
+window catches up. A start window still represents one daily window. An uncertain
+unfinished claim is held for review. Legacy daily claims retain their old day-wide
+protection on the upgrade day.
+
+A healthy connector reading less than five minutes old can satisfy a job requirement.
+A first check does not immediately notify you: a confirmed outage does, or a check
+still pending after five minutes. In Capabilities → Connector monitoring, select the
+connectors and use **Check selected now** to take readings even at weekends, without
+model tokens or changing the saved watch selection.
+
+Interrupted chat replies retain the owner request and a failure notice, including any
+provider reset message. Restart/Edit retains interruption evidence because it cannot
+undo earlier file writes or other side effects. The next run gets the interrupted run
+ID and recorded file changes. Shell changes outside tracked artifacts and job files
+may not be identifiable; agents must inspect existing work before repeating actions.

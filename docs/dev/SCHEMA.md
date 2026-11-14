@@ -196,10 +196,11 @@ unique `owner_token`. It is metadata; the stable `.scheduler.lock.json.lock` hol
 OS lock. Never delete that hidden file to resolve contention.
 
 `.scheduler/attempts/YYYY-MM-DD.json` contains `schema_version: 1` and an `attempts` object
-keyed by a hash of `[agent, job]`. Each entry contains `agent`, `job`, `day` (realm-local),
+keyed by a hash of `[agent, job]` for single-time schedules, or `[agent, job, slot]`
+for multi-time cron. `slot` is the realm-local `YYYY-MM-DDTHH:MM` fire time. Each entry contains `agent`, `job`, `day` (realm-local),
 `attempt_id`, `owner_token`, `started`, and `state` (`claimed` or `finished`). Finished entries
-also carry `status` and `finished`. This preserves one automatic attempt per job/day, including
-cron schedules matching multiple minutes. Unfinished claims are not automatically replayed.
+also carry `status` and `finished`. This preserves one automatic attempt per scheduled occurrence. Legacy daily claims
+remain authoritative for their day during upgrade. Unfinished claims are not automatically replayed.
 
 `system_jobs.json` retains its per-job map and adds an `attempt` object containing `attempt_id`,
 `started` and `state`; completion adds `status` and `finished`. An explicit manual retry of an

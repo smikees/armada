@@ -26,6 +26,7 @@ def watch_controls(root):
             '<dialog id="connector-watch-dialog" class="mc-frame" style="width:min(560px,90vw);max-height:85vh;overflow:auto">'
             '<h2>Connector monitoring</h2><p>Checks run without a model or tokens. Required connectors are also checked before their jobs start.</p>'+checks+fields+
             '<p data-feedback role="status"></p><button class="btn btn-primary" type="button" onclick="mcSaveWatches(this)">Save</button> '
+            '<button class="btn btn-secondary" type="button" onclick="mcCheckHealth(this)">Check selected now</button> '
             '<button class="btn btn-secondary" type="button" onclick="this.closest(\'dialog\').close()">Close</button></dialog>'+js('connector_health'))
 
 

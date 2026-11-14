@@ -157,12 +157,15 @@ def release(lease: Lease):
 
 def _attempt_path(root, day):
     # Keep days separate: bounded read/modify/write cost, and no automatic deletion of evidence.
-    dt.date.fromisoformat(day)
-    return Path(root) / ".scheduler" / "attempts" / f"{day}.json"
+    dt.date.fromisoformat(day[:10])
+    if len(day) > 10:
+        dt.datetime.fromisoformat(day)
+    return Path(root) / ".scheduler" / "attempts" / f"{day[:10]}.json"
 
 
-def _key(agent, job):
-    return hashlib.sha256(json.dumps([agent, job], ensure_ascii=True).encode()).hexdigest()
+def _key(agent, job, slot=""):
+    values = [agent, job] + ([slot] if slot and len(slot) > 10 else [])
+    return hashlib.sha256(json.dumps(values, ensure_ascii=True).encode()).hexdigest()
 
 
 def _attempts(path):
@@ -174,21 +177,24 @@ def _attempts(path):
         if (not isinstance(entry, dict) or entry.get("state") not in ("claimed", "finished")
                 or not all(isinstance(entry.get(k), str) and entry[k]
                            for k in ("agent", "job", "day", "attempt_id", "owner_token", "started"))
-                or key != _key(entry["agent"], entry["job"]) or entry["day"] != path.stem):
+                or key != _key(entry["agent"], entry["job"], entry.get("slot", "")) or entry["day"] != path.stem):
             raise util.StateError("Invalid scheduler attempt; dispatch is held.")
     return data
 
 
-def claim(lease: Lease, agent, job, day):
+def claim(lease: Lease, agent, job, day, *, allow_active=False):
     """Persist admission before side effects. Return (attempt, newly_claimed). Never replay."""
     lease.verify(lease.root)
-    path, key = _attempt_path(lease.root, day), _key(agent, job)
+    path, key = _attempt_path(lease.root, day), _key(agent, job, day)
     with util.file_lock(path):
         data = _attempts(path)
-        existing = data["attempts"].get(key)
+        existing = data["attempts"].get(key) or data["attempts"].get(_key(agent, job))
         if existing:
             return existing, False
-        entry = {"agent": agent, "job": job, "day": day, "attempt_id": uuid.uuid4().hex,
+        if not allow_active and any(e['agent'] == agent and e['job'] == job and e['state'] == 'claimed'
+                                    for e in data['attempts'].values()):
+            raise util.StateError('An earlier scheduled occurrence has no recorded outcome; inspect before running again.')
+        entry = {"agent": agent, "job": job, "day": day[:10], "slot": day, "attempt_id": uuid.uuid4().hex,
                  "owner_token": lease.token, "state": "claimed", "started": _stamp()}
         data["attempts"][key] = entry
         util.write_json_atomic(path, data)
@@ -197,7 +203,8 @@ def claim(lease: Lease, agent, job, day):
 
 def inspect_attempt(root, agent, job, day):
     """Advisory dry-run read; creates neither state nor lock files."""
-    return _attempts(_attempt_path(root, day))["attempts"].get(_key(agent, job))
+    rows = _attempts(_attempt_path(root, day))["attempts"]
+    return rows.get(_key(agent, job, day)) or rows.get(_key(agent, job))
 
 
 def resume_prerequisites(lease, agent, job, day):
@@ -206,7 +213,7 @@ def resume_prerequisites(lease, agent, job, day):
     path = _attempt_path(lease.root, day)
     with util.file_lock(path):
         data = _attempts(path)
-        entry = data['attempts'].get(_key(agent, job))
+        entry = data['attempts'].get(_key(agent, job, day))
         if not entry or entry.get('state') != 'finished' or entry.get('status') != 'waiting_prerequisites':
             return None
         entry.update(owner_token=lease.token, state='claimed')
@@ -224,7 +231,7 @@ def resume_waiting(lease, agent, job, day):
     path = _attempt_path(lease.root, day)
     with util.file_lock(path):
         data = _attempts(path)
-        entry = data['attempts'].get(_key(agent, job))
+        entry = data['attempts'].get(_key(agent, job, day))
         if not entry:
             raise util.StateError('Retry has no scheduler claim.')
         if entry.get('status') == 'stopped':
@@ -240,7 +247,7 @@ def finish(lease: Lease, attempt, status):
     path = _attempt_path(lease.root, attempt["day"])
     with util.file_lock(path):
         data = _attempts(path)
-        entry = data["attempts"].get(_key(attempt["agent"], attempt["job"]), {})
+        entry = data["attempts"].get(_key(attempt["agent"], attempt["job"], attempt.get("slot", "")), {})
         if (entry.get("attempt_id") != attempt["attempt_id"]
                 or entry.get("owner_token") != lease.token or entry.get("state") != "claimed"):
             raise util.StateError("Scheduler attempt ownership changed; result was not recorded.")

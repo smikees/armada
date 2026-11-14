@@ -279,8 +279,9 @@ def tick(root, now=None):
             continue
         provider = engine_for(root, agent, job)
         prior = job_waits.pending(root, agent, jid)
-        near = prior is not None or scheduler._due_time(job, now+dt.timedelta(minutes=lead), lead) is not None
-        if near and prior is None and scheduler.ran_today(root, agent, jid, now.date().isoformat()):
+        upcoming = scheduler._due_time(job, now+dt.timedelta(minutes=lead), lead)
+        near = prior is not None or upcoming is not None
+        if near and prior is None and upcoming and scheduler.ran_today(root, agent, jid, upcoming.date().isoformat(), not_before=upcoming):
             near = False
         for cid in required:
             if near or now.weekday() < 5 and cid in watches:

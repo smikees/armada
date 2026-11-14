@@ -4,10 +4,14 @@ async function mcHealthSettings(button,url,payload){
   try{
     const result=await (await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     if(!result.ok)throw Error(result.error||'Could not save.');
-    feedback.textContent='Saved.';
+    feedback.textContent=result.detail||'Saved.';
     if(result.names)box.querySelector('[data-secret-names]').textContent=result.names.join(', ')||'None';
   }catch(e){feedback.textContent=e.message;}
   finally{button.disabled=false;}
+}
+function mcCheckHealth(button){
+  const ids=[...button.closest('dialog').querySelectorAll('[data-watch]:checked')].map(x=>x.value);
+  return mcHealthSettings(button,'/api/connector-health-check',{ids});
 }
 function mcSaveWatches(button){
   const box=button.closest('dialog'),values={watched:[...box.querySelectorAll('[data-watch]:checked')].map(x=>x.value)};

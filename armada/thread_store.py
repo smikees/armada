@@ -162,10 +162,13 @@ class HistoryStore:
         with util.file_lock(self.msgs):
             self._recover()
             current = self._current()
-            lines = [line for line, record in entries(current.messages) if record is not None]
+            rows = [(line, record) for line, record in entries(current.messages) if record is not None]
+            lines = [line for line, record in rows]
             keep = min(max(0, keep), len(lines))
             if keep < len(lines):
-                self._commit(current, "".join(lines[:keep]), current.summary, "truncate")
+                interrupted = {record.get('turn') for _, record in rows[keep:] if record.get('interruption')}
+                preserved = [line for line, record in rows[keep:] if record.get('turn') in interrupted]
+                self._commit(current, "".join(lines[:keep] + preserved), current.summary, "truncate")
             return keep
 
     def update_voice(self, turn, transform):

@@ -355,6 +355,9 @@ class AgentRoutes:
         try:
             from ..threads import Thread
             adir = Path(self.realm) / "agents" / safe_seg(agent, "agent")
+            from .. import execution_admission
+            if execution_admission.view(self.realm, agent, thread):
+                return {'ok': False, 'error': 'Wait for this conversation to finish or stop it before editing its history.'}
             kept = Thread(adir, safe_seg(thread, "thread")).truncate(keep)
             return {"ok": True, "kept": kept}
         except Exception as e:  # noqa
@@ -638,6 +641,7 @@ class AgentRoutes:
         if action == "approve":
             options = {"allow_tools": body["allow_tools"]} if "allow_tools" in body else {}
             return jobs_mod.approve(self.realm, agent, str(slug), **options,
+                                   review_token=body.get('review_token', ''),
                                    tools_warning_ack=body.get("tools_warning_ack") is True)
         return jobs_mod.reject(self.realm, agent, str(slug))
 
