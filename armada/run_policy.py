@@ -77,7 +77,8 @@ def seal_job(root, agent, job):
     audit('approve-job-controls', root, agent=agent, job=job['id'], values={k: job.get(k) for k in JOB_FIELDS})
 
 
-def verify_job(root, agent, job):
+def verify_job(root, agent, job, *, migrate_legacy=True):
+    """Check owner approval; display-only callers must disable legacy migration."""
     from .job_access import identity, fingerprint
     validate_job(job)
     state=_read()
@@ -88,25 +89,50 @@ def verify_job(root, agent, job):
         import hashlib, json
         old = {k: job.get(k) for k in ('id', 'kind', 'prompt', 'allow_tools', *LEGACY_JOB_FIELDS)}
         if seal == hashlib.sha256(json.dumps(old, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest():
-            target = identity(root, agent, job.get('id', ''))
-            with util.file_lock(_path()):
-                current = _read()
-                if current.get('jobs', {}).get(target) == seal:
-                    current['jobs'][target] = fingerprint(job)
-                    util.write_json_atomic(_path(), current)
-                    from . import appconfig
-                    def migrate(data):
-                        entry = data.get('job_access', {}).get(target)
-                        if entry and entry.get('fingerprint') == seal:
-                            entry['fingerprint'] = fingerprint(job)
-                    util.mutate_json(appconfig._path(), migrate, default=dict)
-                    seal = fingerprint(job)
+            if not migrate_legacy:
+                seal = fingerprint(job)
+            else:
+                target = identity(root, agent, job.get('id', ''))
+                with util.file_lock(_path()):
+                    current = _read()
+                    if current.get('jobs', {}).get(target) == seal:
+                        current['jobs'][target] = fingerprint(job)
+                        util.write_json_atomic(_path(), current)
+                        from . import appconfig
+                        def migrate(data):
+                            entry = data.get('job_access', {}).get(target)
+                            if entry and entry.get('fingerprint') == seal:
+                                entry['fingerprint'] = fingerprint(job)
+                        util.mutate_json(appconfig._path(), migrate, default=dict)
+                        seal = fingerprint(job)
     if seal and seal != fingerprint(job):
         raise ValueError('Job instructions or run controls changed after approval. Review and save the job before running.')
     imported=scope_id(root) in state.get('legacy_imported', [])
     if not seal and (any(job.get(k) for k in JOB_FIELDS if k != 'timeout') or imported and job.get('timeout')):
         raise ValueError('The owner must approve this job’s run controls in Jobs before it runs.')
     return bool(seal)
+
+
+def approval_reason(root, agent, job):
+    """Read-only approval blocker for Jobs views; never reseal or send notifications."""
+    try:
+        verify_job(root, agent, job, migrate_legacy=False)
+        from . import appconfig
+        from .job_access import identity, fingerprint
+        entries = appconfig.get('job_access', {})
+        grant = entries.get(identity(root, agent, job.get('id', ''))) if isinstance(entries, dict) else None
+        if grant is not None and (not isinstance(grant, dict) or grant.get('fingerprint') != fingerprint(job)):
+            import hashlib, json
+            old = {k: job.get(k) for k in ('id', 'kind', 'prompt', 'allow_tools', *LEGACY_JOB_FIELDS)}
+            legacy = hashlib.sha256(json.dumps(old, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
+            if (isinstance(grant, dict) and not any(job.get(k) for k in READINESS_FIELDS)
+                    and grant.get('fingerprint') == legacy
+                    and _read().get('jobs', {}).get(identity(root, agent, job.get('id', ''))) == legacy):
+                return ''
+            return 'Approved access no longer matches this job. Review its permissions and save it before running.'
+    except (OSError, ValueError) as exc:
+        return str(exc)
+    return ''
 
 
 def import_legacy(root):

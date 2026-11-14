@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.152** is prepared: visible saved-job approval holds and system
+calendar entries without the duplicate top section. Publication gates pending.
+[Investigation](dev/JOB_APPROVAL_VISIBILITY.md).
+
 Version **0.99.151** is published: held-job diagnostics no longer stop the
 scheduler. **4,700 local tests**, exact-source Windows CI, clean-source
 stabilization, native packaged checks and signed upgrade rehearsal passed.

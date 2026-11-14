@@ -29,9 +29,13 @@ No credentials are stored in this module's policy or accounting files.
 
 —
 
-### `verify_job(root, agent, job)`
+### `verify_job(root, agent, job, *, migrate_legacy=True)`
 
-—
+Check owner approval; display-only callers must disable legacy migration.
+
+### `approval_reason(root, agent, job)`
+
+Read-only approval blocker for Jobs views; never reseal or send notifications.
 
 ### `import_legacy(root)`
 

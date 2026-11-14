@@ -39,6 +39,18 @@ def run(output, *, system_jobs_only=False):
         util.write_json_atomic(root / 'agents/captain/jobs' / jobs.PENDING / 'synthetic-review.json',
                                {'id': 'synthetic-review', 'name': 'Synthetic review', 'kind': 'agent',
                                 'schedule': 'manual', 'prompt': 'Never execute this fixture.', 'enabled': False})
+        from armada import run_policy, clock
+        review_job = {'id':'approval-check','name':'Synthetic approval check','kind':'agent',
+                      'schedule':'daily 09:00','prompt':'Synthetic text','allow_tools':True}
+        review_path = root/'agents/captain/jobs/approval-check.json'
+        util.write_json_atomic(review_path, review_job)
+        run_policy.seal_job(root, 'captain', review_job)
+        util.write_json_atomic(review_path, {**review_job,'timeout':600})
+        timestamp = clock.now().isoformat()
+        system_state = util.read_json_state(root/'system_jobs.json', default=dict)
+        for jid in ('inbox-dispatch','telegram-inbox'):
+            system_state[jid] = {'last_run':timestamp,'status':'ok','runs':[{'ts':timestamp,'status':'ok'}]}
+        util.write_json_atomic(root/'system_jobs.json',system_state)
         before = agent_path.read_bytes(), (root / 'realm.json').read_bytes()
         entered, release = threading.Event(), threading.Event()
         activity_entered,activity_release=threading.Event(),threading.Event()
@@ -192,6 +204,14 @@ def run(output, *, system_jobs_only=False):
                     window.native.Invoke(Action(lambda: setattr(window.native.webview, 'ZoomFactor', zoom)))
                     wait(lambda: abs(js('innerWidth')-(width-16)/zoom)<2,
                          'System jobs viewport '+str(width)+' at '+str(zoom))
+                    js("mcJobsTab('user');mcJobsView('list',null,true);true")
+                    assert js("document.querySelector('#job-approval-check .mc-job-review').textContent==='Needs approval'&&document.querySelector('#job-approval-check .mc-job-next').textContent==='Needs approval'")
+                    js("document.getElementById('jf-status').dataset.val='approval';mcJobsFilter();true")
+                    assert js("document.getElementById('job-approval-check').getClientRects().length>0&&[...document.querySelectorAll('#mc-jobstable .mc-job')].filter(e=>e.getClientRects().length).every(e=>e.dataset.jstatus==='approval')")
+                    js("document.getElementById('job-approval-check').open=true;true")
+                    assert js("document.querySelector('#job-approval-check .mc-job-actions .btn-primary').disabled&&document.querySelector('#job-approval-check .mc-job-actions a').textContent.includes('Review and approve')")
+                    capture('approval-required-'+str(width),'#job-approval-check')
+                    js("mcJobsFilterClear(document.querySelector('.mc-jobsbar[data-pfx=jf]'));true")
                     js("mcJobsTab('system');mcJobsView('list',null,true);true")
                     js((Path(__file__).resolve().parents[1]/'tests/system_jobs_layout_harness.js').read_text(encoding='utf-8'))
                     js('document.documentElement.classList.toggle("armada-dark",'+str(dark).lower()+');mcJobsFilter();true')
@@ -218,11 +238,11 @@ def run(output, *, system_jobs_only=False):
                         for mode in ('month','week','day'):
                             selector='#jobs-pane-'+pane+' .mc-jobcal'
                             js("document.querySelector('"+selector+" .mc-jc-view[data-jc="+mode+"]').click();true")
-                            wait(lambda: js("!!document.querySelector('"+selector+" .mc-jc-systems [data-system-job=inbox-dispatch] svg')&&!!document.querySelector('"+selector+" .mc-jc-systems [data-system-job=telegram-inbox] svg')"),
-                                 'Inbox and Telegram system jobs at top of '+pane+' '+mode+' '+str(width))
-                            assert js("(()=>{const section=document.querySelector('"+selector+" .mc-jc-systems');return section===section.parentElement.firstElementChild&&[...section.querySelectorAll('.mc-jc-system')].every(e=>e.getBoundingClientRect().right<=section.getBoundingClientRect().right+1);})()")
+                            wait(lambda: js("!!document.querySelector('"+selector+" .mc-jc-ev svg')"),
+                                 'System calendar entries in '+pane+' '+mode+' '+str(width))
+                            assert js("!document.querySelector('"+selector+" .mc-jc-systems')")
                         if pane=='user':
-                            capture('system-calendar-'+str(width),'#jobs-pane-user .mc-jc-systems')
+                            capture('system-calendar-'+str(width),'#jobs-pane-user .mc-jc-body')
                     js("mcJobsTab('system');mcJobsView('list',null,true);true")
                 js("const row=document.querySelector('.mc-sysjob');const text=row.querySelector('.mc-sysjob-msg');text.textContent='A long status '+('synthetic-path-without-breaks'.repeat(15));text.style.display='block';true")
                 aligned('Long system-job status stays inside its column')

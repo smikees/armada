@@ -137,7 +137,7 @@ def _tab_jobs(realm, realm_root, a, today, open_job: str = "") -> str:
                     f'class="mc-field" style="padding-left:30px;padding-right:30px">'
                     f'<span id="mc-jobsearch-x" onclick="mcJobSearchClear()" title="Clear" style="display:none;position:absolute;'
                     f'right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text-faint)">{_icon("x",14)}</span></div>')
-    status_opts = [("", "All statuses", "")] + [(v, lbl, _STATUS_FILTER_COLOR.get(v, "")) for v, lbl in _STATUS_FILTERS]
+    status_opts = [("", "All statuses", ""), ("approval", "Needs approval / review", "Warning")] + [(v, lbl, _STATUS_FILTER_COLOR.get(v, "")) for v, lbl in _STATUS_FILTERS]
     cad_opts = [("", "All cadences", "")] + [(v, lbl, "") for v, lbl in _CADENCE_FILTERS]
     toolbar = (f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">{search_input}'
                f'{_filter_dropdown("ajf-status", "All statuses", status_opts, width="140px", onpick="mcAgentJobFilter")}'

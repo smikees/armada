@@ -122,10 +122,17 @@ Queued avatars link to their conversation and explain the wait in their tooltip.
 Live system work appears there too. Jobs → System distinguishes running work from
 interrupted attempts that need review, and refreshes while the page is open.
 
-Every Jobs calendar view has a **System jobs** section at the top, marked with the
-server icon. It includes frequent agent-to-agent Inbox delivery and Telegram
-processing, their cadence and live status. Minute-by-minute processing is shown
-once in this section; hourly and daily jobs also appear in the date grid.
+System jobs appear as individual calendar entries marked with the server icon.
+There is no separate section above the calendar. Frequent Inbox delivery and
+Telegram processing show recorded activity, current running/queued work and the
+next due time; hourly and daily jobs also show projected due times.
+
+A saved job whose instructions, controls or permissions need renewed owner approval
+is marked **Needs approval** in both Jobs lists, with its reason and a
+**Review and approve** link. Its next-run cell and future calendar entries show the
+hold instead of promising a start. Use **Needs approval / review** in the status
+filter to find these jobs and tool-setting review warnings. Open the job, review its
+settings and save to renew approval. Merely opening a page never grants approval.
 
 ARMADA shares execution capacity across the desktop, scheduler and command line: up to
 four executions, two per provider, two per realm and one per conversation at a time.

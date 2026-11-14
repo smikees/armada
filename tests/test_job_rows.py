@@ -321,7 +321,7 @@ def test_delete_moved_into_the_expanded_view(realm):
     head, body = row.split("</summary>", 1)
     assert "mcDeleteJob" not in head, "delete is still in the collapsed row"
     assert "mcDeleteJob" in body.split("</details>")[0]
-    assert body.index("Edit job") < body.index("mcDeleteJob"), "delete should sit after Edit"
+    assert body.index('href="/job/finance/alpha"') < body.index("mcDeleteJob"), "delete should sit after the edit/review action"
 
 
 def test_the_column_is_next_run_not_last_run(realm):

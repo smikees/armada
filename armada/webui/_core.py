@@ -466,7 +466,7 @@ def _jc_norm(st) -> str:
 def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
     """Job occurrences in [d_from, d_to]: projected from each job's schedule, with past slots
     resolved to their actual run status (success/failed/warn/missed); manual/ad-hoc runs added too."""
-    from .. import scheduler as S, job_history, job_waits
+    from .. import scheduler as S, job_history, job_waits, run_policy
     realm_root = Path(realm_root)
     now = clock.now().replace(tzinfo=None)
     today_d = now.date()
@@ -492,6 +492,7 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
         run_now = _running_jobs(realm_root, a.id)
         task2job = {(j.report_task or j.id): j for j in a.jobs}
         for j in a.jobs:
+            approval = run_policy.approval_reason(realm_root, a.id, {**_job_prompt(realm_root, a.id, j.id), 'id': j.id})
             sched = j.cadence or "manual"
             task = j.report_task or j.id
             cron = isinstance(sched, str) and S.is_cron(sched)
@@ -539,9 +540,11 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
                             status = 'queued'
                         else:
                             status = "missed"
+                    if not past and approval:
+                        status = 'approval'
                     out.append({"agent": a.id, "agent_disp": a.display, "job": j.id, "job_name": j.name,
                                 "ts": dt.strftime("%Y-%m-%dT%H:%M"), "status": status, "past": past,
-                                "cad": _cadence_bucket(j.cadence),
+                                "cad": _cadence_bucket(j.cadence), "approval_reason": approval if status == "approval" else "",
                                 "wait_reason": waits.get(a.id+'/'+j.id, {}).get('reason', '') if status == 'queued' else '',
                                 "attempt_count": occurrence.get("attempt_count", 0), "run_id": occurrence.get("run_id")})
         for (dd, task), rs in idx.items():
@@ -560,9 +563,8 @@ def _jobcal_events(realm, realm_root, d_from, d_to) -> list[dict]:
 def _sysjobcal_events(realm_root, d_from, d_to, jobs=None) -> list[dict]:
     """System-job occurrences in [d_from, d_to], in the same shape as _jobcal_events.
 
-    Known history and projected hourly/daily slots. Frequent inbox jobs are always
-    visible in the calendar's dedicated live section; their minute-by-minute
-    projections would otherwise swamp every date cell."""
+    Known history and projected hourly/daily slots. Frequent jobs show recorded
+    activity and their next due time, without flooding the grid with projections."""
     from .. import sysjobs as _sj
     now = clock.now().replace(tzinfo=None)
     lo = datetime.datetime.combine(d_from, datetime.time.min)
@@ -577,8 +579,6 @@ def _sysjobcal_events(realm_root, d_from, d_to, jobs=None) -> list[dict]:
             last = datetime.datetime.fromisoformat(str(j.get("last_run") or ""))
         except ValueError:
             last = None
-        if mins < 60:
-            continue
         history = j.get('runs') or ([{'ts':j['last_run'],'status':j['status']}] if last else [])
         for record in history:
             try:
@@ -593,7 +593,16 @@ def _sysjobcal_events(realm_root, d_from, d_to, jobs=None) -> list[dict]:
                 out.append({**ev,'ts':now.strftime('%Y-%m-%dT%H:%M'),'status':j['status'],'past':True})
             continue
         if not j.get("enabled"):
-            continue                       # sub-hourly: unplottable. Switched off: nothing upcoming.
+            continue                       # Switched off: nothing upcoming.
+        if mins < 60:
+            try:
+                due = datetime.datetime.fromisoformat(str(j.get('next_due') or '')).replace(tzinfo=None)
+            except ValueError:
+                due = now
+            due = max(now, due)
+            if lo <= due <= hi:
+                out.append({**ev, 'ts': due.strftime('%Y-%m-%dT%H:%M'), 'status': 'scheduled', 'past': False})
+            continue
         step = datetime.timedelta(minutes=mins)
         nxt = (last.replace(tzinfo=None) + step) if last is not None else now
         while nxt < max(lo, now):          # fast-forward to the first future slot inside the window

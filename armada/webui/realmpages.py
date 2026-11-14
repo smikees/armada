@@ -611,10 +611,18 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     """One job, expandable, identical on both pages bar the Kind and Owner cells."""
     if a.record_error or j.record_error:
         problem = a.record_error or j.record_error
-        return (f'<div style="padding:16px" role="alert"><a href="/job/{E(a.id)}/{E(j.id)}">'
+        return (f'<div class="mc-job" data-owner="{E(a.id)}" data-name="{E(j.name.lower())}" '
+                f'data-jstatus="approval" data-jcad="{_cadence_bucket(j.cadence)}" data-review-required="true" '
+                f'style="padding:16px" role="alert"><span class="mc-job-review">Needs review</span> '
+                f'<a href="/job/{E(a.id)}/{E(j.id)}">'
                 f'{E(a.display)} / {E(j.name)} — Needs repair</a><p>{E(problem)}</p></div>')
     grid = _JOB_GRID_OWNED if show_owner else _JOB_GRID
     jc = _job_prompt(realm_root, a.id, j.id)
+    from .. import run_policy, job_tools
+    approval = run_policy.approval_reason(realm_root, a.id, {**jc, 'id': j.id})
+    review = approval or job_tools.warning(jc)
+    review_label = 'Needs approval' if approval else 'Needs review'
+    review_badge = (f'<span class="mc-job-review" title="{E(review)}">{review_label}</span>' if review else '')
     from .job_readiness import wait_label
     waiting_label = wait_label(realm_root, a.id, j.id) if j.enabled else ''
     _run = jc.get("run")
@@ -633,7 +641,9 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     # Next run, not last run: the last one is already in the week strip and in the history below,
     # whereas when it fires next is the thing the row could not tell you at all.
     _nd = None
-    if not on:
+    if approval:
+        nxt_txt, nxt_style = "Needs approval", "color:var(--status-warn)"
+    elif not on:
         nxt_txt, nxt_style = "off", "color:var(--text-muted)"
     elif j.id in running:
         nxt_txt, nxt_style = "running now", f"color:{_RUNNING_COLOR}"
@@ -656,7 +666,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     badge = _model_chip(job_model, job_effort, verbosity=job_verbosity) if j.kind != "command" else "—"
     # The filter reads the same strip the row draws, rather than last_status — see
     # _week_filter_bucket for what that mismatch did.
-    jstatus = _week_filter_bucket(week7)
+    jstatus = "approval" if review else _week_filter_bucket(week7)
     toggle = (f'<label class="mc-toggle" onclick="event.stopPropagation()" '
               f'title="{"On — click to stop it running on its schedule" if on else "Off — click to let it run again"}">'
               f'<input type="checkbox" {"checked" if on else ""} '
@@ -672,13 +682,13 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
         f'<summary style="display:grid;{grid};gap:8px;align-items:center;padding:9px 10px;cursor:pointer;'
         f'list-style:none">'
         f'<span style="min-width:0">'
-        f'<span style="display:flex;align-items:baseline;gap:6px">'
+        f'<span style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">'
         # chevron-right, the same glyph the capability rows use. CHEVR is the up/down "unfold"
         # pair and was never the disclosure icon on either page.
         f'<span class="mc-jcaret" style="display:inline-flex;flex:none;align-self:center;'
         f'color:var(--text-muted)">{_icon("chevron-right", 14)}</span>'
         f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">{E(j.name)}</span>'
-        f'{kind_tag}</span>'
+        f'{kind_tag}{review_badge}</span>'
         # The summary sits under the title rather than beside it: the row already spends its width
         # on cadence, cost and next-run, and a sentence competing with three columns is what made
         # the name column feel cramped.
@@ -700,19 +710,22 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
     # collapsed row answers "how has the schedule been going" and already has a Missed square for a
     # day nothing ran; repeating it here said the same thing twice and said nothing about the runs
     # themselves. Fewer than seven rows means the job has run fewer than seven times.
+    runnable = on and not approval
     body = (f'<div style="padding:4px 10px 16px 28px">'
+            + (f'<p class="mc-job-review-reason" role="status">{E(review)}</p>' if review else '')
+            +
             # Run now is dead while the job is off. The switch says "this job does not run"; a live
             # button beside it that runs the job says otherwise, and one of the two has to be wrong.
             # Switching it back on is one click away, which is what the tooltip says.
             f'<div class="mc-job-actions" style="margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
             f'<button class="btn btn-primary btn-sm" style="'
             f''
-            f'{"" if on else ";opacity:.45;cursor:not-allowed"}" '
-            f'{"" if on else "disabled "}'
-            f'title="{"Run this job now" if on else "This job is switched off — switch it on to run it"}" '
+            f'{"" if runnable else ";opacity:.45;cursor:not-allowed"}" '
+            f'{"" if runnable else "disabled "}'
+            f'title="{"Run this job now" if runnable else ("Review and approve this job before running it" if approval else "This job is switched off — switch it on to run it")}" '
             f'onclick="mcRun({_J(a.id)},{_J(j.id)},\'auto\',this)">{_icon("play",12)}Run now</button>'
             f'<a href="/job/{E(a.id)}/{E(j.id)}" class="btn btn-secondary btn-sm" style="'
-            f'text-decoration:none">{_icon("edit",12)}Edit job</a>'
+            f'text-decoration:none">{_icon("edit",12)}{"Review and approve" if approval else "Review job" if review else "Edit job"}</a>'
             # Delete sits beside Edit, inside the expanded view: it belongs with the other things
             # you do to a job you have opened and read, not one stray click away in a collapsed row
             # you were only scrolling past.
@@ -744,7 +757,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
             f'data-cost="{tok:012d}" data-next="{E(_nd.isoformat() if _nd else "zzzz")}" '
             f'data-kind="{"cmd" if j.kind == "command" else "agent"}" '
             f'data-owner="{E(a.id)}" data-ownername="{E(a.display.lower())}" '
-            f'data-jstatus="{jstatus}" data-jcad="{jcad}" '
+            f'data-review-required="{str(bool(review)).lower()}" data-jstatus="{jstatus}" data-jcad="{jcad}" '
             f'style="border-bottom:1px solid var(--color-divider)"{is_open}>{summary_row}{body}</details>')
 
 
@@ -868,7 +881,7 @@ def _system_jobs_pane(realm, realm_root, today, now) -> str:
                                table="mc-sysjobstable", f1key="cost", f1_label="Any cost")
     legend = f'<div style="display:flex;justify-content:flex-end;margin:0 0 8px">{_status_legend()}</div>'
     cal_note = ('<div style="font-size:11.5px;color:var(--text-muted);margin-top:8px">'
-                'System jobs and inbox processing stay visible in the live section above. '
+                'System jobs, including recorded inbox processing, appear as individual calendar entries. '
                 'The date grid shows recorded runs and upcoming hourly or daily due times; '
                 'unknown past activity stays blank.</div>')
     cal_view = (f'<div class="mc-jobs-cal" style="display:none">'
@@ -889,7 +902,7 @@ def _jobs_filter_bar(owners, n: int, now, lead: str = "", pfx: str = "jf",
     first dropdown matches on — owner for user jobs, cost for system jobs, which have one owner
     (the app) and so would get a pointless one-item list otherwise."""
     f1_opts = [("", f1_label, "")] + [(oid, disp, "") for oid, disp in owners]
-    status_opts = [("", "All statuses", "")] + [(v, lbl, _STATUS_FILTER_COLOR.get(v, "")) for v, lbl in _STATUS_FILTERS]
+    status_opts = ([("", "All statuses", "")] + ([("approval", "Needs approval / review", "Warning")] if f1key == "owner" else [])) + [(v, lbl, _STATUS_FILTER_COLOR.get(v, "")) for v, lbl in _STATUS_FILTERS]
     cad_opts = [("", "All cadences", "")] + [(v, lbl, "") for v, lbl in _CADENCE_FILTERS]
     asof = now.strftime("%a %H:%M")
     muted = "var(--text-soft)"
