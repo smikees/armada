@@ -2,6 +2,7 @@
 import datetime as dt
 import json
 import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -65,8 +66,13 @@ def test_actual_approval_hold_does_not_stop_other_jobs_realms_or_next_pass(tmp_p
     job = json.loads(path.read_text())
     run_policy.seal_job(roots[0], 'a', job)
     util.write_json_atomic(path, {**job, 'prompt': 'Changed without owner approval'})
+    from armada import execution_admission
+    # Force queue advancement to require subsequent daemon pumps, regardless
+    # of how quickly a CI worker completes the first job.
+    monkeypatch.setattr(execution_admission, 'PER_PROVIDER', 1)
     calls, passes = [], []
     completed = threading.Event()
+    deadline = time.monotonic() + 20
     def run(root, agent, job, **kw):
         calls.append((root.name, job))
         if len(calls) == 3: completed.set()
@@ -79,8 +85,9 @@ def test_actual_approval_hold_does_not_stop_other_jobs_realms_or_next_pass(tmp_p
         return rows
     monkeypatch.setattr(scheduler, 'tick', tick)
     def pause(_):
-        assert completed.wait(5), 'Healthy jobs were not dispatched'
-        if len(passes) >= 4: raise KeyboardInterrupt
+        # Do not block the pump waiting for work that is still queued.
+        if completed.wait(.02) and len(passes) >= 4: raise KeyboardInterrupt
+        assert time.monotonic() < deadline, 'Healthy jobs were not dispatched'
         scheduler._work_changed.set()
     monkeypatch.setattr(scheduler, 'time', SimpleNamespace(sleep=pause))
     assert scheduler.run_daemon(roots[0], also=[roots[1]], engine='mock', interval=5) == 0
