@@ -30,7 +30,7 @@ def realm(tmp_path):
     for jid, cron in (("due", "0 1 * * *"), ("later", "0 1 1 1 *")):
         (ad / "jobs" / f"{jid}.json").write_text(json.dumps(
             {"id": jid, "name": jid.title(), "cron": cron, "prompt": "p",
-             "created": born.isoformat()}), encoding="utf-8")
+             "allow_tools": True, "created": born.isoformat()}), encoding="utf-8")
     return root
 
 

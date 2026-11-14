@@ -91,3 +91,14 @@ def test_broken_saved_job_is_in_review_filter(saved):
     html=row(root)
     assert 'Needs repair' in html and 'Needs review' in html
     assert 'data-jstatus="approval"' in html
+
+
+def test_missing_tool_choice_is_marked_for_review(saved):
+    root,p,job=saved
+    job.pop('allow_tools')
+    util.write_json_atomic(p,job)
+    run_policy.seal_job(root,'a',job)
+    html=row(root)
+    assert 'Needs review' in html and 'Review job' in html
+    assert 'data-jstatus="approval"' in html
+    assert 'Needs approval' not in html

@@ -33,7 +33,7 @@ def realm(tmp_path):
         for jid in jobs:
             (ad / "jobs" / f"{jid}.json").write_text(json.dumps({
                 "id": jid, "name": jid.title(), "cron": "0 9 * * *", "prompt": "do the thing",
-                "summary": f"{jid} summary"}), encoding="utf-8")
+                "allow_tools": True, "summary": f"{jid} summary"}), encoding="utf-8")
     return root
 
 
