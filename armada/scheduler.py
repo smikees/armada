@@ -437,12 +437,16 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
             except Exception:  # noqa — upkeep must never break scheduling
                 swallowed(log, 'tick: failed; ignored')
         for agent_id, job_id, job in iter_jobs(realm_root):
+            # Holds before due-time/admission checks are outcomes too. Keep the
+            # same identity/type fields as queued and completed jobs.
+            rec = {"agent": agent_id, "job": job_id, "kind": job.get("kind") or "agent",
+                   "schedule": job.get("schedule") or job.get("cron")}
             if realmops.archived(realm_root):
                 break
             # Switched off in the UI. Checked here rather than in due_now() so a manual "Run now"
             # still works on a disabled job — off means "does not fire on its own", not "cannot run".
             if job.get("_record_error"):
-                fired.append({"agent": agent_id, "job": job_id, "status": "held",
+                fired.append({**rec, "status": "held",
                               "detail": job["_record_error"]})
                 continue
             if job.get("enabled") is False:
@@ -452,28 +456,28 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 try:
                     why = run_policy.held_reason(realm_root, agent_id, {**job, 'id': job_id})
                     if why:
-                        fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': why})
+                        fired.append({**rec, 'status': 'held', 'detail': why})
                         continue
                 except OSError as exc:
-                    fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': str(exc)})
+                    fired.append({**rec, 'status': 'held', 'detail': str(exc)})
                     continue
             from . import records, util
             try:
                 records.admit_agent(realm_root, agent_id)
             except (OSError, ValueError) as exc:
-                fired.append({"agent": agent_id, "job": job_id, "status": "held", "detail": str(exc)})
+                fired.append({**rec, "status": "held", "detail": str(exc)})
                 continue
             from . import job_retries, job_waits
             try:
                 waiting = job_retries.pending(realm_root, agent_id, job_id)
             except OSError as exc:
-                fired.append({"agent": agent_id, "job": job_id, "kind": job.get("kind", "agent"),
+                fired.append({**rec,
                               "status": "held", "detail": str(exc)})
                 continue
             try:
                 fire = _due_time(job, now, grace)
             except (ValueError, TypeError) as exc:
-                fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': str(exc)})
+                fired.append({**rec, 'status': 'held', 'detail': str(exc)})
                 continue
             prerequisite_wait = job_waits.pending(realm_root, agent_id, job_id)
             if prerequisite_wait:
@@ -484,9 +488,9 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                             'Scheduled start skipped: the previous start is still waiting for prerequisites.',
                             prerequisite_wait['fire'])
                         if skipped:
-                            fired.append({'agent': agent_id, 'job': job_id, **skipped})
+                            fired.append({**rec, **skipped})
                     except OSError as exc:
-                        fired.append({'agent': agent_id, 'job': job_id, 'status': 'held', 'detail': str(exc)})
+                        fired.append({**rec, 'status': 'held', 'detail': str(exc)})
                         continue
                 fire = previous_fire
             if waiting:
@@ -501,10 +505,8 @@ def tick(realm_root, engine: str = "auto", grace_min: Optional[int] = None,
                 if not waiting and already_ran:
                     continue
             except OSError as exc:
-                fired.append({"agent": agent_id, "job": job_id, "status": "held", "detail": str(exc)})
+                fired.append({**rec, "status": "held", "detail": str(exc)})
                 continue
-            rec = {"agent": agent_id, "job": job_id, "kind": job.get("kind", "agent"),
-                   "schedule": job.get("schedule") or job.get("cron")}
             if dry_run:
                 try:
                     attempt = _state.inspect_attempt(realm_root, agent_id, job_id, day_iso)
@@ -938,8 +940,9 @@ def run_daemon(realm_root, engine: str = "auto", interval: int = 60,
                     continue
                 where = "" if p == realm_root else f"{p.name}: "
                 for r in fired:
-                    print(f"  [{now.strftime('%H:%M')}] {where}fired {r['agent']}/{r['job']} "
-                          f"({r['kind']}) → {r['status']}", flush=True)
+                    # Display metadata must never bring down scheduling across realms.
+                    print(f"  [{now.strftime('%H:%M')}] {where}job {r.get('agent', '?')}/{r.get('job', '?')} "
+                          f"({r.get('kind') or 'unknown'}) → {r.get('status', 'unknown')}", flush=True)
                     if r.get("detail") or r.get("error"):
                         print(f"    {r.get('detail') or r.get('error')}", flush=True)
             dispatcher.pump()

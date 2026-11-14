@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.151** is prepared: held-job status reporting can no longer crash
+the scheduler. Release validation and publication are in progress.
+[Investigation](dev/SCHEDULER_HELD_OUTCOME.md).
+
 Version **0.99.150** is published: reviewed job-change proposals, per-occurrence
 cron starts, quieter fresh connector checks and durable interrupted-chat evidence.
 **4,680 local tests**, exact-source Windows CI,
