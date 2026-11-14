@@ -28,6 +28,21 @@ def realm(tmp_path):
     return tmp_path
 
 
+@pytest.mark.parametrize('attempted', [False, True])
+def test_optional_connector_diagnostic_only_affects_job_when_attempted(realm, monkeypatch, attempted):
+    def stream(self, system, prompt, **kwargs):
+        if attempted:
+            kwargs['on_event']({'kind':'tool','name':'mcp__filesystem__read_file','id':'read'})
+        return RunResult(ok=True, output='Finished the independent report.', raw={
+            'connector_runtime':[{'server':'filesystem','state':'failed','tool_names':[],
+                                  'error':'Connection closed'}]})
+    monkeypatch.setattr(ClaudeEngine, 'run_stream', stream)
+    report = runner.run_job(realm, 'a', 'work', engine=ClaudeEngine())
+    assert report['status'] == ('warn' if attempted else 'ok')
+    assert bool(report['result']['app_errors']) == attempted
+    assert report['connector_runtime'][0]['state'] == 'failed'
+
+
 @pytest.mark.parametrize("override", [False, True])
 @pytest.mark.parametrize("provider", [CodexEngine, ClaudeEngine])
 def test_job_settings_and_live_output_are_isolated_and_durable(realm, monkeypatch, override, provider):

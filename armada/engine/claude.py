@@ -334,11 +334,19 @@ class ClaudeEngine(EngineAdapter):
         # Native claude.ai grants do not necessarily have explicit endpoint bindings.
         # Their absence must still be recorded, including a successful CLI exit with
         # only local servers after Anthropic's connector inventory failed to load.
+        from .mcp import claude_aliases
         present = set(entries) | {row['name'] for row in rows}
+        # provider_policy admits both the original registration and its safe
+        # direct-registration alias. They are alternatives, not two required servers.
+        for sid in self.allowed_mcp_ids or ():
+            aliases = claude_aliases(sid)
+            if aliases & present:
+                present.update(aliases)
         absent = set(self.allowed_mcp_ids or ()) - present - {row['server'] for row in issues}
+        absent -= {alias for sid in absent for alias in claude_aliases(sid) - {sid} if alias in absent}
         native_list_missing = not any(row['name'].startswith('claude.ai ') for row in rows)
         for sid in sorted(absent):
-            issues.append({'server': sid, 'state': 'missing', 'tool_names': [],
+            issues.append({'server': _mcp_server_id(sid), 'state': 'missing', 'tool_names': [],
                            'error': 'The claude.ai connector list was not returned; this granted connector is unavailable.'
                            if native_list_missing and sid.startswith(('claude_ai_', 'claude.ai ')) else
                            'This granted connector was absent from the engine inventory.'})
@@ -514,7 +522,7 @@ class ClaudeEngine(EngineAdapter):
             return failed(str(exc), code="connector_discovery", model=model or "")
         if allow_tools and getattr(self, 'connector_unavailable', None):
             from .mcp_runtime import prompt as connector_prompt
-            system += connector_prompt(self.connector_unavailable)
+            system += connector_prompt(self.connector_unavailable, preflight=True)
         # The prompt goes on STDIN, not argv: a long thread as a command-line arg overflows Windows'
         # ~32K command-line limit (WinError 206). `claude -p` with no positional prompt reads stdin.
         args = ["-p", "--output-format", "json"]
@@ -608,7 +616,7 @@ class ClaudeEngine(EngineAdapter):
             return failed(str(exc), code="connector_discovery", model=model or "")
         if allow_tools and getattr(self, 'connector_unavailable', None):
             from .mcp_runtime import prompt as connector_prompt
-            system += connector_prompt(self.connector_unavailable)
+            system += connector_prompt(self.connector_unavailable, preflight=True)
         # prompt via STDIN (see run(): keeps a long thread off the command line — WinError 206)
         args = ["-p", "--output-format", "stream-json", "--verbose",
                 "--include-partial-messages"]
@@ -693,13 +701,25 @@ class _ClaudeStream:
         self.texts, self.output, self.error = [], "", ""
         self.usage, self.completed = Usage(), False
         self.terminal = {}
+        self.late_events = 0
+        self.connector_runtime = []
         self._partial_text = False
 
     def accept(self, event):
         kind = event["type"]
         if self.completed:
-            raise ValueError("Claude emitted an event after its terminal result")
+            # Claude can flush background notifications after its result. The
+            # first validated terminal result owns output, usage and status. Do
+            # not deliver late text/tools again or replace that result.
+            self.late_events += 1
+            self.terminal['protocol_warnings'] = [
+                f'Ignored {self.late_events} late Claude event(s) after the terminal result.']
+            if self.late_events == 1:
+                log.warning('Claude emitted late events after its terminal result; retaining the terminal result.')
+            return
         if kind == "system" and event.get("subtype") == "init":
+            from .mcp_runtime import claude_startup
+            self.connector_runtime = claude_startup(event)
             self.emit({"kind": "start"})
         elif kind == "stream_event":
             stream = event.get("event")
@@ -752,6 +772,8 @@ class _ClaudeStream:
                 self._partial_text = False
         elif kind == "result":
             self.terminal = event
+            if self.connector_runtime:
+                self.terminal['connector_runtime'] = self.connector_runtime
             self.usage = _usage_from_event(event)
             self.error = self.error or _result_error(event)
             self.model = _concrete_model(event.get("model"), event.get("modelUsage"), self.model)

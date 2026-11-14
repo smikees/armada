@@ -251,6 +251,7 @@ class TurnCoordinator:
         from .policy_tools import PolicyAudit
         policy_audit = PolicyAudit(root, aid)
         execution_started = time.time()
+        attempted_tools = set()
         from .job_history import JOB_PREFIX
         scheduled_job = bool(req.task) and thread.startswith(JOB_PREFIX)
         grant = None
@@ -260,6 +261,8 @@ class TurnCoordinator:
 
         def _event(ev):
             nonlocal last_checkpoint, current_activity
+            if ev.get('kind') == 'tool' and ev.get('name'):
+                attempted_tools.add(ev['name'])
             if watchdog is not None:
                 watchdog.event(ev)
             if admission is not None:
@@ -597,8 +600,10 @@ class TurnCoordinator:
                 job_result = job_results.evaluate(raw_answer, run_id=context.run_id, job=result_job,
                     root=root, started=execution_started, runtime_execution=runtime_execution,
                     runtime_error=result.error, roots=grant.roots if grant else (), checks=result_checks)
-                connector_errors = [f"Connector {row['server']}: {row['error']}" for row in result.raw.get("connector_runtime", [])
-                                    if row.get("state") != "ready"]
+                from .engine.mcp_runtime import job_errors
+                connector_errors = job_errors(result.raw.get("connector_runtime", []),
+                    result_job.get('requires_connectors', []), attempted_tools, root=root,
+                    provider=getattr(eng, 'name', 'unknown'))
                 job_result["app_errors"].extend(connector_errors)
                 job_result["app_errors"].extend(access_audit['warnings'])
                 if result.raw.get("startup_failure"):
@@ -639,6 +644,8 @@ class TurnCoordinator:
             if result.raw.get('stalled'):
                 report['stalled'] = result.raw['stalled']
             report['operational_warnings'] = access_audit['warnings']
+            if result.raw.get('protocol_warnings'):
+                report['protocol_warnings'] = result.raw['protocol_warnings']
             if managed_audit is not None:
                 report['inspector'] = managed_audit
             if req.job and req.job.get("_retry_series"):

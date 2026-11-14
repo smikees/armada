@@ -23,6 +23,11 @@ def server_id(name: str) -> str:
     return re.sub(r'[^A-Za-z0-9_-]', '_', name)
 
 
+def claude_aliases(name: str) -> frozenset[str]:
+    """Display, native tool namespace and optional direct registration of one grant."""
+    return frozenset((name, server_id(name), registration_id(name)))
+
+
 def connected_names(text: str) -> frozenset[str]:
     """Names with an explicit Connected health result, never inferred from an icon."""
     names = set()

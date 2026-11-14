@@ -10,6 +10,10 @@ Stable CLI-safe registration, separate from the logical capability identity.
 
 Claude-managed connectors use a collapsed, prefixed tool namespace.
 
+### `claude_aliases(name: str)`
+
+Display, native tool namespace and optional direct registration of one grant.
+
 ### `connected_names(text: str)`
 
 Names with an explicit Connected health result, never inferred from an icon.

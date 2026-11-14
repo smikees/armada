@@ -257,7 +257,9 @@ def claude_connection(cap: dict, inventory: dict[str, bool | None] | None) -> st
         return 'unsupported'
     if inventory is None:
         return "unknown"
-    for name in (cap.get("id"), cap.get("name"), registration_id(cap.get("id"))):
+    from .engine.mcp import claude_aliases
+    names = dict.fromkeys((cap.get('id'), cap.get('name'), *sorted(claude_aliases(str(cap.get('id') or '')))))
+    for name in names:
         key = _identity(name)
         if key in inventory:
             if inventory[key] is None:

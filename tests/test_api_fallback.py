@@ -205,6 +205,47 @@ def test_tool_side_effects_without_replay_evidence_prevent_restart(realm):
         return refusal()
     result = execute(realm, invoke, job=job)
     assert not result.ok and len(calls) == 1 and 'replay evidence' in result.error
+    assert result.raw['billing']['refused_attempt']['tools_ran'] == 1
+    assert 'replay evidence' in result.raw['billing']['fallback_blocked_reason']
+
+
+def test_chat_limit_explains_critical_only_policy_and_retains_partial_work(realm):
+    enable()
+    calls = []
+    def invoke(engine, request, **kw):
+        calls.append(request)
+        kw['on_event']({'kind':'tool', 'name':'Bash', 'input':{}})
+        result = refusal("You've hit your 5-hour limit")
+        result.output = 'Partial work already completed'
+        result.usage.input = 123
+        return result
+    result = execute(realm, invoke)
+    assert len(calls) == 1 and not result.ok
+    assert 'critical jobs' in result.error and 'replay evidence' not in result.error
+    assert result.output == 'Partial work already completed' and result.usage.input == 123
+    assert result.raw['billing']['refused_attempt']['tools_ran'] == 1
+    assert 'critical jobs' in result.raw['billing']['fallback_blocked_reason']
+
+
+def test_critical_mid_run_refusal_falls_back_with_valid_replay_evidence(realm):
+    job = critical(realm)
+    enable()
+    calls = []
+    def invoke(engine, request, **kw):
+        calls.append(request)
+        if len(calls) == 1:
+            kw['on_event']({'kind':'tool', 'name':'Read', 'input':{}})
+            result = refusal("You've hit your 5-hour limit")
+            block = {'schema_version':1, 'run_id':'fallback-test', 'execution':'failed',
+                     'audit_outcome':'not_applicable', 'delivery':[],
+                     'evidence':{'outputs':[], 'findings':[], 'missing_inputs':[],
+                                 'operational_errors':[], 'risk_gates':[]}}
+            result.output = '<armada_job_result>'+json.dumps(block)+'</armada_job_result>'
+            return result
+        return RunResult(ok=True, output='Completed on API', raw={'total_cost_usd':.21})
+    result = execute(realm, invoke, job=job)
+    assert result.ok and len(calls) == 2 and result.raw['billing']['lane'] == 'api'
+    assert result.raw['billing']['refused_attempt']['tools_ran'] == 1
 
 
 def test_subscription_only_connector_never_disappears_during_fallback(realm, monkeypatch):

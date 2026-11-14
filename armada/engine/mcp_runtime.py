@@ -43,13 +43,63 @@ def status(server: str, reply: dict) -> dict:
             "error": reason, "runtime_status": runtime, "auth_status": auth}
 
 
-def prompt(rows) -> str:
-    lines = ["\n\n# Verified connector startup for this turn",
-             "These are actual runtime checks, not stored sign-in labels. Use callable MCP tools directly or discover deferred tools if tool search is available. Do not require tool search when it is absent."]
+def prompt(rows, *, preflight=False) -> str:
+    lines = ["\n\n# Connector preflight for this turn" if preflight else "\n\n# Verified connector startup for this turn",
+             "These connection checks ran before the turn. The engine's actual callable tools take precedence if a connection recovered during startup." if preflight else
+             "These are actual runtime checks, not stored sign-in labels.",
+             "Use callable MCP tools directly or discover deferred tools if tool search is available. Do not require tool search when it is absent."]
     for row in rows:
         if row["state"] == "ready":
             lines.append(f"{row['server']}: ready. Tool names: " + ", ".join(row["tool_names"]))
         else:
             lines.append(f"{row['server']}: {row['state']}. Exact startup error: {row['error']}")
-    lines.append("Unavailable connectors do not prevent unrelated conversation. Their tools are withheld; use ARMADA's connect_connector tool to prepare setup when asked, and let the owner complete sign-in. Newly connected tools load on the next turn. If this task requires an unavailable connector, report the recorded error and the incomplete task; never invent a successful read or publication. Preserve incomplete evidence and risk gates.")
+    lines.append("Unavailable connectors do not prevent unrelated conversation or fail unrelated jobs. Do not put unused optional connector failures in the job's missing inputs, operational errors or risk gates. Their tools are withheld; use ARMADA's connect_connector tool to prepare setup when asked, and let the owner complete sign-in. Newly connected tools load on the next turn. If this task requires an unavailable connector, report the recorded error and the incomplete task; never invent a successful read or publication. Preserve incomplete evidence and risk gates.")
     return "\n".join(lines)
+
+
+def claude_startup(event):
+    """Actual per-turn init evidence, using the same namespaces as admission."""
+    from .mcp import server_id
+    from ..connector_health import public_error
+    rows = []
+    tools = event.get('tools', [])
+    servers = event.get('mcp_servers', [])
+    if not isinstance(tools, list) or not isinstance(servers, list):
+        return rows
+    for server in servers:
+        if not isinstance(server, dict) or not isinstance(server.get('name'), str):
+            continue
+        sid = server_id(server['name'])
+        prefix = f'mcp__{sid}__'
+        names = sorted(t for t in tools if isinstance(t, str) and t.startswith(prefix))
+        state = server.get('status')
+        if state == 'connected' and names:
+            rows.append({'server':sid, 'state':'ready', 'tool_names':names, 'error':''})
+        elif state in ('failed', 'needs-auth', 'disabled'):
+            rows.append({'server':sid, 'state':'sign_in' if state == 'needs-auth' else state,
+                         'tool_names':[], 'error':public_error(str(server.get('error') or f'Claude startup status: {state}'))})
+    return rows
+
+
+def job_errors(rows, required, attempted_tools, *, root, provider):
+    """Optional startup failures remain diagnostics, not evidence of a failed task.
+
+    Keep failures for owner-required registrations and any connector actually
+    attempted during the run. The model's own missing-input claims remain intact.
+    """
+    if not rows:
+        return []  # Admission may have failed before any engine/catalogue was available.
+    from .mcp import server_id, registration_id, claude_aliases
+    from .. import capabilities
+    from ..connector_registry import provider_cap
+    normalize = server_id if provider == 'claude' else registration_id
+    def identities(name):
+        return {server_id(s) for s in claude_aliases(name)} if provider == 'claude' else {registration_id(name)}
+    needed = set().union(*(identities(s) for s in required))
+    for kind, cap in capabilities.catalogue_flat(root) if required else ():
+        if kind in capabilities.MCP_KINDS and cap.get('id') in required:
+            needed.update(identities(provider_cap(cap, provider)['id']))
+    needed.update(name[5:].split('__', 1)[0] for name in attempted_tools
+                  if name.startswith('mcp__') and '__' in name[5:])
+    return [f"Connector {row['server']}: {row['error']}" for row in rows
+            if row.get('state') != 'ready' and normalize(row['server']) in needed]

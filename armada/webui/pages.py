@@ -239,7 +239,7 @@ def render_job(realm, realm_root, agent_id: str, job_id: str, dark: bool = False
         f'<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
         f'<label style="font-size:12px">Time <input id="j-time" type="time" value="{hh}:{mm}" style="padding:4px 6px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text)" oninput="mcCron()"></label>'
         f'<label style="font-size:12px"><input id="j-dom1" type="checkbox" {"checked" if dom1 else ""} onchange="mcCron()"> 1st of month</label>'
-        f'<label style="font-size:12px">cron <input id="j-cron" value="{E(cron_val)}" placeholder="0 9 * * *" style="width:130px;padding:4px 6px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font-family:ui-monospace,monospace;font-size:11.5px" oninput="mcCronManual()"></label></div>'
+        f'<label style="font-size:12px">cron <input id="j-cron" data-cadence="{E(cadence)}" value="{E(cron_val)}" placeholder="0 9 * * *" style="width:130px;padding:4px 6px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-bg);color:var(--color-text);font-family:ui-monospace,monospace;font-size:11.5px" oninput="mcCronManual()"></label></div>'
         f'<div id="j-next" style="font-size:11px;color:var(--text-muted);margin-top:6px"></div></div>'
         f'<label style="{lbl}">Allowed skills</label><div>{skill_chips}</div>'
         f'<label style="display:block;margin:12px 0;font-size:12px"><input id="j-inspector" type="checkbox" '

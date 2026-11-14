@@ -45,6 +45,7 @@ def setup(provider='claude', root=None, agent=''):
             f'<div class="mc-api-fallback-heading"><h3 id="{ident}-title">{E(title)}</h3>'
             f'<button type="button" class="btn btn-ghost" data-fallback-dismiss aria-label="Close API fallback setup" onclick="mcCloseApiFallback(this)">{_icon("x",18)}</button></div>'
             '<p>Use your subscription first. Approved critical jobs switch to API credit when a session or weekly limit is reached.</p>'
+            '<p class="mc-hint">Ordinary chats and inbox tasks stay on the subscription. If a critical job has already used tools, fallback requires safe replay evidence; it never blindly restarts completed actions.</p>'
             '<ol class="mc-fallback-steps">'
             '<li><a href="https://platform.claude.com/settings/billing" target="_blank" rel="noopener noreferrer">Check API credit</a> in the Console organization linked to your Claude plan. Keep auto-reload off if you only want to use existing credit.</li>'
             '<li><a href="https://platform.claude.com/settings/spend-limits" target="_blank" rel="noopener noreferrer">Set a spending limit</a> in Claude Console. Anthropic enforces it, including calls made outside Armada.</li>'

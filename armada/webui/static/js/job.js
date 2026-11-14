@@ -1,3 +1,4 @@
+let mcCadenceChanged=false;
 function mcCronHelp(show){const m=document.getElementById('mc-cronhelp');if(m)m.style.display=show?'flex':'none';}
 function mcSelDays(){return [...document.querySelectorAll('.mc-day')].filter(d=>d.dataset.on==='1').map(d=>+d.dataset.dow);}
 function mcTglDay(el){el.dataset.on=el.dataset.on==='1'?'0':'1';
@@ -6,14 +7,16 @@ function mcTglDay(el){el.dataset.on=el.dataset.on==='1'?'0':'1';
 // init day .on from server-rendered style
 document.querySelectorAll('.mc-day').forEach(d=>{d.dataset.on=d.style.background.includes('accent')?'1':'0';});
 function mcCron(){
+  mcCadenceChanged=true;
   const t=(document.getElementById('j-time').value||'09:00').split(':'); const mm=+t[1],hh=+t[0];
   const days=mcSelDays(); const dom1=document.getElementById('j-dom1').checked;
   const dom=dom1?'1':'*'; const dow=days.length?days.sort().join(','):'*';
   const cron=`${mm} ${hh} ${dom} * ${dow}`;
   document.getElementById('j-cron').value=cron; mcNext(cron);
 }
-function mcCronManual(){ mcNext(document.getElementById('j-cron').value); }
+function mcCronManual(){ mcCadenceChanged=true; mcNext(document.getElementById('j-cron').value); }
 function mcPreset(p){
+  mcCadenceChanged=true;
   const days={daily:[],weekdays:[1,2,3,4,5],weekly:[1],monthly:[]};
   document.querySelectorAll('.mc-day').forEach(d=>{const on=(days[p]||[]).includes(+d.dataset.dow)?'1':'0';d.dataset.on=on;
     d.style.background=on==='1'?'var(--color-accent-100)':'';d.style.borderColor=on==='1'?'var(--color-accent-300)':'var(--color-divider)';d.style.color=on==='1'?'var(--color-accent-800)':'';});
@@ -29,7 +32,7 @@ async function mcSaveJob(agent,job){
     summary:(document.getElementById('j-summary')||{}).value||'',
     prompt:document.getElementById('j-prompt').value,kind:document.getElementById('j-kind').value,
     thread:document.getElementById('j-thread').value,model:document.getElementById('j-model').value,
-    effort:document.getElementById('j-effort').value,verbosity:document.getElementById('j-verbosity').value,cron:cron,allowed_skills:skills,
+    effort:document.getElementById('j-effort').value,verbosity:document.getElementById('j-verbosity').value,allowed_skills:skills,
     retries:Number(document.getElementById('j-onfail').value),budget:document.getElementById('j-budget').value,
     timeout:document.getElementById('j-timeout').value===''?null:Number(document.getElementById('j-timeout').value),
     critical:document.getElementById('j-critical').checked,
@@ -48,6 +51,7 @@ async function mcSaveJob(agent,job){
     approve_dry_run_scripts:document.getElementById('j-dry-approve').checked,
     dry_run_command:document.getElementById('j-dry-command').value.trim()};
   const m=document.getElementById('j-savemsg'); m.textContent='saving…';
+  if(mcCadenceChanged)payload.cron=cron;
   try{Object.assign(payload,mcJobReadiness());}catch(e){m.textContent=e.message;return;}
   if(payload.kind==='command')payload.run=payload.prompt;
   try{let r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
@@ -56,8 +60,8 @@ async function mcSaveJob(agent,job){
       payload.confirm_connector_change=true;
       r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     }
-    m.textContent=r.ok?'saved ✓ · '+(r.path||''):'error: '+(r.error||'failed'); m.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';
-    if(r.ok)document.getElementById('j-dry-approve').checked=false;
+    m.textContent=r.ok?'saved ✓ · '+(r.schedule_changed?'Schedule changed: '+r.schedule_before+' → '+r.schedule_after+(r.start_window?' · start window '+r.start_window.from+'–'+r.start_window.until:'')+' · ':'')+(r.path||''):'error: '+(r.error||'failed'); m.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';
+    if(r.ok){document.getElementById('j-dry-approve').checked=false;mcCadenceChanged=false;}
   }catch(e){m.textContent='error: '+e;}
 }
 // Delete from the job's own page. Same two-press confirm as the list, but on success there is no
@@ -82,4 +86,6 @@ async function mcDeleteJobPage(btn,agent,job,name){
   }catch(e){ m.textContent='error: '+e; m.style.color='var(--status-bad)';
     btn.disabled=false; btn.dataset.armed='0'; }
 }
-mcNext(document.getElementById('j-cron')?document.getElementById('j-cron').value:'');
+const mcCadenceInput=document.getElementById('j-cron');
+if(mcCadenceInput&&mcCadenceInput.dataset.cadence&&mcCadenceInput.dataset.cadence!=='manual')document.getElementById('j-next').textContent='Current schedule: '+mcCadenceInput.dataset.cadence;
+else mcNext(mcCadenceInput?mcCadenceInput.value:'');

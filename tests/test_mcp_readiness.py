@@ -98,7 +98,7 @@ for line in sys.stdin:
     assert all(r.ok for r in results), [r.error for r in results]
 
 
-def test_connector_errors_are_separate_from_original_completed_job_answer(tmp_path, monkeypatch):
+def test_unused_connector_errors_remain_diagnostics_beside_completed_job_answer(tmp_path, monkeypatch):
     from armada import runner, job_history, util
     from armada.engine.mock import MockEngine
     from armada.engine.base import RunResult
@@ -111,6 +111,7 @@ def test_connector_errors_are_separate_from_original_completed_job_answer(tmp_pa
     monkeypatch.setattr(engine,'run',lambda **kwargs:RunResult(ok=True,output='Report complete; live audit unavailable.',
         raw={'connector_runtime':[{'server':'broker','state':'sign_in','error':'invalid_grant: Refresh token is not active'}]}))
     report=runner.run_job(tmp_path,'a','work',engine=engine)
-    assert report['result']['execution']=='completed' and report['status']=='warn'
-    assert 'invalid_grant' in report['result']['app_errors'][0]
+    assert report['result']['execution']=='completed' and report['status']=='ok'
+    assert not report['result']['app_errors']
+    assert 'invalid_grant' in report['connector_runtime'][0]['error']
     assert job_history.transcript(ad,report)['content']=='Report complete; live audit unavailable.'

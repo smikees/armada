@@ -90,7 +90,11 @@ def test_protocol_failures_preserve_partial_output(tmp_path, monkeypatch, provid
     elif failure == "oversized": script += f"print('x' * {process.MAX_LINE + 10}, flush=True)\n"
     engine = adapter(tmp_path, monkeypatch, provider, script)
     result = engine.run_stream("", "", allow_tools=True, timeout=5)
-    assert not result.ok and result.error and result.output
+    if provider == "claude" and failure == "after-terminal":
+        assert result.ok and not result.error and result.output
+        assert result.raw['protocol_warnings']
+    else:
+        assert not result.ok and result.error and result.output
 
 
 def test_large_connector_line_within_transport_limit_is_accepted(tmp_path):

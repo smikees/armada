@@ -104,6 +104,7 @@ def execute(engine, request, *, root, agent, job, run_id, on_event, on_proc, inv
     events = []
     reason, reset = exhausted(root, provider, request.model)
     refused = None
+    plan_result = None
     started = time.time()
     def event(value):
         if value.get('kind') in ('tool', 'tool_result'):
@@ -118,35 +119,47 @@ def execute(engine, request, *, root, agent, job, run_id, on_event, on_proc, inv
             return result
         refused = {'attempt_id':run_id+'-plan', 'reason':result.error, 'api_error_status':429,
                    'tools_ran':len([e for e in events if e.get('kind') == 'tool'])}
+        plan_result = result
         reason, reset = result.error, _reset(result.error)
         util.write_json_atomic(_refusal_path(provider), {'at':time.time(), 'reason':reason, 'reset_at':reset})
-        safe, detail = replay_safe(result, events, root=root, job=job, run_id=run_id, started=started)
-        if not safe:
-            result.error += '\nAPI fallback held: '+detail
-            from . import notify
-            notify.emit(root, 'api_credit', 'API fallback needs review', detail, f'/agent/{agent}/threads')
-            return result
     config = run_policy.settings(root,agent,job,provider)
     action = config['plan_limit_action']
     from . import api_fallback
     external = config.get('api_budget_mode') == 'provider'
+    blocked_reason = ''
     if external and action == 'api':
         fallback = api_fallback.settings(provider, root, agent)
         if not config.get('critical'):
             action = 'fail'
-            reason += '\nAPI fallback is reserved for approved critical jobs. Ordinary chats and jobs stay on the subscription.'
+            blocked_reason = 'API fallback is reserved for approved critical jobs. Ordinary chats and jobs stay on the subscription.'
         elif not fallback['ready']:
             action = 'fail'
-            reason += '\nClaude API fallback is off or its selected API key is not configured.'
+            blocked_reason = 'Claude API fallback is off or its selected API key is not configured.'
     if action == 'api':
         missing = connector_guard(root, agent, request)
         if missing:
-            reason = '; '.join(f'{name} is a claude.ai connector and is not available on the API key.' for name in missing)
+            blocked_reason = '; '.join(f'{name} is a claude.ai connector and is not available on the API key.' for name in missing)
             action = config['connector_limit_action']
+    if plan_result is not None and action in ('api', 'wait'):
+        safe, detail = replay_safe(plan_result, events, root=root, job=job, run_id=run_id, started=started)
+        if not safe:
+            action = 'fail'
+            blocked_reason = (blocked_reason+'\n' if blocked_reason else '')+'API fallback held: '+detail
+            from . import notify
+            notify.emit(root, 'api_credit', 'API fallback needs review', detail, f'/agent/{agent}/threads')
+    if blocked_reason:
+        reason += '\n'+blocked_reason
     if action == 'wait':
         return _wait(engine, request, root, agent, job, run_id, reason, reset, on_event, on_proc, invoke, started)
     if action != 'api':
-        return RunResult(ok=False, error=reason, raw={'billing':{'lane':'plan', 'fallback_reason':reason, 'refused_attempt':refused}})
+        # Retain partial work, usage and the provider receipt even when a policy
+        # guard stops fallback. The diagnostic must name the actual decision.
+        result = plan_result or RunResult(ok=False)
+        result.error = reason
+        result.raw['billing'] = {'lane':'plan', 'fallback_reason':reason,
+                                 'fallback_blocked_reason':blocked_reason or 'The owner policy does not allow API fallback.',
+                                 'refused_attempt':refused}
+        return result
     if external:
         return _execute_external(engine, request, root=root, agent=agent, config=config,
                                  run_id=run_id, reason=reason, refused=refused,

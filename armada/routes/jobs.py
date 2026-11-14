@@ -169,6 +169,9 @@ class JobRoutes:
             return {"ok": False, "error": f"no job {job}"}
         before = util.read_json_state(p)
         def change(jc):
+            nonlocal before
+            import copy
+            before = copy.deepcopy(jc)  # actual version under the mutation lock
             if 'model' in body and not jc.get('inspector') and jc.get('kind') != 'command':
                 from ..engine.selection import engine_for
                 from ..connector_registry import model_change_warning
@@ -202,13 +205,16 @@ class JobRoutes:
                     jc.pop(k, None)
             if body.get("allowed_skills") is not None:
                 jc["allowed_skills"] = body["allowed_skills"]
-            cron = (body.get("cron") or "").strip()
-            if cron:
-                jc["cron"] = cron
-                jc.pop("schedule", None)
-            else:
-                jc["schedule"] = "manual"
-                jc.pop("cron", None)
+            # An unrelated edit must preserve legacy schedules as well as cron.
+            # The editor sends cron only after the owner changes the cadence.
+            if "cron" in body:
+                cron = (body.get("cron") or "").strip()
+                if cron:
+                    jc["cron"] = cron
+                    jc.pop("schedule", None)
+                else:
+                    jc["schedule"] = "manual"
+                    jc.pop("cron", None)
             from ..tool_capture import KEYS, validate
             for key in KEYS:
                 if key in body:
@@ -248,7 +254,12 @@ class JobRoutes:
                 from ..draft_skills import approve
                 saved.setdefault('id', job)
                 approve(self.realm, agent, saved)
-            return {"ok": True, "path": f"agents/{agent}/jobs/{job}.json"}
+            old_cadence = before.get('cron') or before.get('schedule') or 'manual'
+            new_cadence = saved.get('cron') or saved.get('schedule') or 'manual'
+            return {"ok": True, "path": f"agents/{agent}/jobs/{job}.json",
+                    "schedule_changed": old_cadence != new_cadence or before.get('start_window') != saved.get('start_window'),
+                    "schedule_before": old_cadence, "schedule_after": new_cadence,
+                    "start_window": saved.get('start_window')}
         except ConnectorChange as exc:
             return {'ok': False, 'connector_warning': str(exc)}
         except Exception as e:  # noqa

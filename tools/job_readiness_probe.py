@@ -82,6 +82,17 @@ def run(output):
         def exercise():
             try:
                 check('Job start controls load',lambda:js("typeof mcJobReadiness==='function'&&typeof mcSaveJob==='function'&&document.readyState==='complete'"))
+                path=realm/'agents/captain/jobs/desk.json'
+                assert 'daily 16:00' in js("document.getElementById('j-next').textContent")
+                js("document.getElementById('j-critical').checked=true;mcSaveJob('captain','desk');true")
+                check('Critical-only edit finishes saving',lambda:'saved' in js("document.getElementById('j-savemsg').textContent"))
+                assert util.read_json_state(path)['schedule']=='daily 16:00'
+                assert 'cron' not in util.read_json_state(path)
+                assert run_policy.verify_job(realm,'captain',util.read_json_state(path))
+                result['checks'].append('Untouched legacy schedule and approval survive Critical edit')
+                js("mcPreset('weekdays');mcSaveJob('captain','desk');true")
+                check('Explicit schedule change is disclosed',lambda:'Schedule changed: daily 16:00' in js("document.getElementById('j-savemsg').textContent"))
+                assert util.read_json_state(path)['cron']=='0 9 * * 1,2,3,4,5'
                 js("document.getElementById('j-start-deadline').closest('details').open=true;document.getElementById('j-window-from').value='16:30';document.getElementById('j-window-until').value='18:30';document.querySelector('[data-required-connector]').checked=true;document.getElementById('j-dependencies').append(document.getElementById('j-dependency-template').content.cloneNode(true));document.querySelector('#j-dependencies [data-job]').value='captain/read';document.getElementById('j-coordinator-start').checked=true;mcSaveJob('captain','desk');true")
                 path=realm/'agents/captain/jobs/desk.json'
                 check('Owner saves window, connectors and dependency',lambda:util.read_json_state(path).get('after'))
