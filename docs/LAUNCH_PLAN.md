@@ -5,12 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.149** is prepared for publication: schedule preservation, late Claude
-result handling, connector evidence and scoped job audits, plus clearer API fallback
-diagnostics. Pre-release validation passed **4,663 tests**, **14 native editor checks**
-and an installed-CLI fallback/cap-refusal simulation with no paid requests.
-Release-specific gates and public artifact verification are pending.
-[Investigation](dev/AGENT_REPORTED_FAULTS.md).
+Version **0.99.149** is published: schedule preservation, late Claude result
+handling, consistent connector evidence, scoped job audit errors and clearer API
+fallback diagnostics. **4,663 local tests**, exact-source Windows CI,
+clean-source stabilization, **98 staged owner workflows** and
+**14 staged editor/recovery checks** passed. Public signed assets,
+installer hashes and website downloads were verified.
+[Investigation](dev/AGENT_REPORTED_FAULTS.md) · [Release evidence](dev/RELEASE_0_99_149.md).
 
 Version **0.99.148** is published: no-model connector monitoring,
 durable prerequisite waits, dependent start windows, approved fallback jobs,
