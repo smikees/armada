@@ -5,11 +5,13 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.150** is prepared: reviewed job-change proposals, per-occurrence
-cron dispatch, quieter fresh connector checks and durable interrupted-chat evidence.
-Native owner controls (19 checks) and shared thread windows (163 checks) passed.
-Publication gates and public download verification are pending.
-[Investigation](dev/AGENT_REPORTED_FAULTS_2.md).
+Version **0.99.150** is published: reviewed job-change proposals, per-occurrence
+cron starts, quieter fresh connector checks and durable interrupted-chat evidence.
+**4,680 local tests**, exact-source Windows CI,
+clean-source stabilization, **98 staged owner workflows** and
+**19 staged editor/recovery checks** passed. Public signed assets,
+installer hashes and website downloads were verified.
+[Investigation](dev/AGENT_REPORTED_FAULTS_2.md) · [Release evidence](dev/RELEASE_0_99_150.md).
 
 Version **0.99.149** is published: schedule preservation, late Claude result
 handling, consistent connector evidence, scoped job audit errors and clearer API
