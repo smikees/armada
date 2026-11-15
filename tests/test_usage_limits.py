@@ -129,7 +129,7 @@ const source=fs.readFileSync(process.argv[1], 'utf8');
 const input=JSON.parse(fs.readFileSync(0,'utf8'));
 const context={window:{}};
 vm.runInNewContext(input.icons,context);
-vm.runInNewContext(source.slice(0,source.indexOf('// Keep the Overview'))
+vm.runInNewContext(source.slice(0,source.indexOf('async function renderHeaderLimits('))
   +'globalThis.renderLimits=headerLimitsHTML;})();',context);
 process.stdout.write(context.renderLimits(...input.args));
 '''
@@ -193,7 +193,7 @@ def test_api_credit_and_bucket_controls_do_not_add_provider_grid_rows():
         {'window_minutes': 10080, 'pct': 12}]} for name in ('codex', 'other')]}
     html = _render_limits(claude, codex, gemini={'available': True, 'weekly': {'pct': 0}})
     grid = html.index('<div class="mc-limit-groups">')
-    assert html.index('Claude API $0.00 / $100') < grid
+    assert 'Claude API $' not in html and 'mc-limit-credit' not in html
     assert html.index('aria-label="Codex usage bucket"') < grid
     rows = _rows(html)
     assert len(rows) == 6 and rows[1].count('Not reported') == rows[5].count('Not reported') == 1

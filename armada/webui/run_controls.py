@@ -27,13 +27,14 @@ def panel(root=None, agent='', *, global_provider=False):
     from .. import run_policy
     values = run_policy._read().get('scopes', {}).get(run_policy.scope_id(root, agent), {})
     prefix = 'rp-agent-' if agent else 'rp-realm-'
-    title = 'Run limits & fallback'
+    title = 'Run limits & fallback' if agent else 'Jobs run limits & fallback'
     content = (setup('claude', root, agent) if agent else '')+fields(values, prefix=prefix)
+    if agent:
+        content += ('<label class="mc-label"><input type="checkbox" data-run-control="may_propose_job_changes" '
+                    + ('checked' if run_policy.proposal_permission(root, agent) else '')
+                    + '> Allow this agent to propose changes to other agents’ existing jobs</label>')
     numbers = []
     if not agent:
-        content += ('<label class="mc-label"><input type="checkbox" data-run-control="coordinator_may_propose_changes" '
-                    + ('checked' if values.get('coordinator_may_propose_changes') else '')
-                    + '> Allow coordinators to propose changes to other agents’ existing jobs</label>')
         numbers += [('default_job_timeout','Default agent-job ceiling — seconds (empty means No limit)',''),
                     ('agent_inactivity_minutes','Stop after no engine event — minutes',30),
                     ('agent_soft_mark_minutes','Notify after running — minutes (0 disables)',60),
@@ -43,8 +44,7 @@ def panel(root=None, agent='', *, global_provider=False):
         content += f'<label class="mc-label" for="{prefix}{key}">{label}</label><input class="mc-field" type="number" step="any" id="{prefix}{key}" data-run-control="{key}" value="{E(str(values.get(key, default)))}">'
     return (f'<details class="mc-run-controls" data-agent="{E(agent)}" data-global="{str(global_provider).lower()}"><summary>{title}</summary>'
             f'<p class="mc-hint">Owner-only choices, saved on this machine. API fallback requires an enabled key and compatible connectors. The provider enforces its spending limit.</p>{content}'
-            '<p><button type="button" class="btn btn-secondary" onclick="mcSaveRunControls(this)">Save run controls</button> '
-            '<span role="status" data-run-feedback></span></p></details>'+js('run_controls'))
+            '</details>'+js('run_controls'))
 
 
 def worker_controls():

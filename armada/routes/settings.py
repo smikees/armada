@@ -84,7 +84,8 @@ class SettingsRoutes:
             if action == 'save':
                 state = api_fallback.save(provider, root=self.realm, agent=agent,
                     enabled=body.get('enabled'), key_source=body.get('key_source'),
-                    api_key=api_key or None, remove_key=body.get('remove_key') is True)
+                    api_key=api_key or None, remove_key=body.get('remove_key') is True,
+                    **({'display_budget_usd': body['display_budget_usd']} if 'display_budget_usd' in body else {}))
                 return {'ok': True, 'state': state}
             if action == 'test':
                 message = api_fallback.verify(provider, root=self.realm, agent=agent,

@@ -86,13 +86,7 @@ function headerLimitsHTML(claude,codex,bucket,gemini){
   let select='';
   if(groups.length>1)select='<select class="mc-limit-bucket" aria-label="Codex usage bucket">'
     +groups.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===g.id?' selected':'')+'>'+esc(x.name)+'</option>').join('')+'</select>';
-  const credit=claude&&claude.api_credit;
-  const external=credit?.budget_managed==='provider';
-  const creditText=external?(credit.open?(typeof credit.spent_usd==='number'?'$'+credit.spent_usd.toFixed(2)+' reported':'usage not reported'):'fallback off'):
-    credit&&(typeof credit.spent_usd==='number'?'$'+credit.spent_usd.toFixed(2)+' / $'+esc(String(credit.cap_usd)):'closed');
-  const creditTitle=external?'Costs reported by Armada only; active runs, unreported costs and other apps are not included. Manage the spending cap and available credit in Claude Console.':credit?.reason||'Real API spend; active runs reserve their ceiling';
-  const creditHTML=credit?'<span class="mc-limit-credit" title="'+esc(creditTitle)+'">Claude API '+creditText+'</span>':'';
-  return '<div class="mc-limits-title">Subscription limits'+creditHTML+select+'</div><div class="mc-limit-groups">'
+  return '<div class="mc-limits-title">Subscription limits'+select+'</div><div class="mc-limit-groups">'
     +'<div class="mc-limit-periods" aria-hidden="true"><span class="mc-limit-label">Week</span><span class="mc-limit-label">Session</span></div>'
     +[['Codex',weekly,session,codex],['Claude',claude&&claude.weekly,claude&&claude.session,claude],
       ['Gemini',gemini&&gemini.weekly,null,gemini||{available:false,message:'Checking Gemini connection…'}]].map(([provider,week,session,d])=>
@@ -115,6 +109,7 @@ async function renderHeaderLimits(force){
   if(!codexEnabled)limitsData.codex={available:false,message:'Codex is not enabled for this realm.'};
   function paint(){
     if(generation!==limitsGeneration)return;
+    paintApiBudget(limitsData.claude?.api_credit);
     el.innerHTML=headerLimitsHTML(limitsData.claude,limitsData.codex,cacheGet('mc_openai_bucket'),limitsData.gemini);
     const sel=el.querySelector('select');if(sel)sel.onchange=()=>{cacheSet('mc_openai_bucket',sel.value);paint();};
   }
@@ -125,22 +120,26 @@ async function renderHeaderLimits(force){
     const d=await request;if(generation!==limitsGeneration)return;limitsData[provider]=d||{available:false};paint();
   }));
 }
-// Keep the Overview header's Tokens/30d + API-eq KPIs in sync with live usage (they're static at page
-// load otherwise). Called from render(), which runs on init, the 30-min tick, manual refresh and refreshAll.
+function paintApiBudget(credit){
+  const el=document.getElementById('mc-kpi-api-budget');if(!el||!credit)return;
+  const estimate=credit?.estimated_remaining_usd;
+  el.textContent=typeof estimate==='number'?'≈$'+estimate.toFixed(2):credit?.display_budget_usd==null?'Set budget':'Unavailable';
+  el.title=credit?.display_budget_usd==null?'Enter a monthly display budget in App Settings → Claude API usage fallback.':
+    'Estimated monthly budget remaining: $'+credit.display_budget_usd+' minus costs reported by Armada. Excludes other apps and ongoing calls; separate agent keys are included. Console enforces spending. Next month: '+(credit.resets_at||'')+(credit.unknown_runs?' Incomplete accounting: some completed runs did not report cost.':'');
+}
+// Keep token totals current without replacing the independent API budget estimate.
 function fixHeaderTotals(d){
   if(!d||!("total_30d" in d))return;
   cacheSet("mc_uc_h30",{total_30d:d.total_30d,usd_30d:d.usd_30d,
     unknown_token_runs_30d:d.unknown_token_runs_30d,unknown_cost_runs_30d:d.unknown_cost_runs_30d});
-  const tk=document.getElementById("mc-kpi-tokens"),ap=document.getElementById("mc-kpi-apieq");
+  const tk=document.getElementById("mc-kpi-tokens");
   if(tk){tk.textContent=d.total_30d!=null?htok(d.total_30d)+(d.unknown_token_runs_30d?'+':''):"—";
     tk.title='Reported tokens'+(d.unknown_token_runs_30d?'; partial total: '+d.unknown_token_runs_30d+' run(s) did not report tokens':'');}
-  if(ap){ap.textContent=d.usd_30d!=null?"≈$"+Math.round(d.usd_30d).toLocaleString()+(d.unknown_cost_runs_30d?'+':''):"—";
-    ap.title='Approximate standard-text API equivalent across all engines; excludes tool fees and long-context surcharges'+
-      (d.unknown_cost_runs_30d?'; partial total: '+d.unknown_cost_runs_30d+' run(s) have unavailable accounting':'');}}
+}
 // Fallback: replace any header KPI still showing its loading skeleton with the value the server
 // embedded in data-v. Covers a slow/failed usage fetch or a dashboard with the Usage widget removed,
 // so the skeleton never gets stuck. A successful fetch fills the value first, making this a no-op.
-function mcHeaderFallback(){["mc-kpi-tokens","mc-kpi-apieq"].forEach(function(id){
+function mcHeaderFallback(){["mc-kpi-tokens"].forEach(function(id){
   const el=document.getElementById(id);if(el&&el.querySelector(".mc-skel"))el.textContent=el.getAttribute("data-v")||"—";});}
 function drawLine(body,d,by){
   by=(by==="models")?"models":"agents";

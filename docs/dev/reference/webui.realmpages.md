@@ -50,6 +50,10 @@ When this job will actually run next: 'Mon 9/21, 20:00'.
 
 '3h ago' / 'in 2d' / '—'. Rendered server-side so the row is complete without JavaScript.
 
+### `_job_description(text)`
+
+—
+
 ### `_system_job_row(j, now, grid: str)`
 
 One system job, in the same row as a user job — minus the parts that don't apply.

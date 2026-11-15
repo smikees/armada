@@ -72,6 +72,7 @@ async function mcAppPost(url,body){
 }
 async function mcSaveAppSettings(){
   const msg=document.getElementById('app-msg'),button=document.querySelector('#st-app-pane .mc-settings-actions .btn-primary');
+  const dirty=window.mcDirtyCapture?.(button);
   const next=mcAppValues(),old=mcAppInitial;
   if(button)button.disabled=true;
   if(msg){msg.style.color='var(--text-muted)';msg.textContent='Saving…';}
@@ -92,7 +93,7 @@ async function mcSaveAppSettings(){
     if(mcAppAlexanderEdited){
       await mcAppPost('/api/alexander-settings',next.alexander);
     }
-    mcSettingsSaved('app');if(msg)msg.textContent='Saved.';
+    window.mcDirtySaved?.(dirty);mcSettingsSaved('app');if(msg)msg.textContent='Saved.';
     mcKeepScroll();setTimeout(()=>location.reload(),650);
   }catch(e){if(msg){msg.style.color='var(--status-bad)';msg.textContent='Could not save all changes: '+e.message+' Some earlier changes may have saved.';}
     if(button)button.disabled=false;}
@@ -105,7 +106,8 @@ async function mcSaveAppSettings(){
 function mcPickSetIcon(el){mcSetIcon=el.dataset.icon;
   document.querySelectorAll('.mc-seticon').forEach(s=>s.style.background=s.dataset.icon===mcSetIcon?'var(--text-12)':'');
   const cur=document.getElementById('st-iconcur');if(cur)cur.innerHTML=el.innerHTML;}
-async function mcSaveRealmSettings(){const m=document.getElementById('st-msg');m.textContent='saving…';
+async function mcSaveRealmSettings(){
+  const dirty=window.mcDirtyCapture?.('#st-realm-pane .mc-settings-actions .btn-primary');const m=document.getElementById('st-msg');m.textContent='saving…';
   const p={
     name:(document.getElementById('st-realmname')||{}).value||'',
     default_model:document.getElementById('st-model').value,
@@ -114,11 +116,12 @@ async function mcSaveRealmSettings(){const m=document.getElementById('st-msg');m
     default_max_budget_usd:document.getElementById('st-maxbudget').value,icon:mcSetIcon||'',
     timezone:(document.getElementById('st-tz')||{}).value||'',
     default_verbosity:(document.getElementById('st-verbosity')||{}).value||'',
+    run_controls:window.mcRunControlValues?.(''),
     inbox:mcA2APayload(),
     notifications:mcNotifPayload()};
   try{const r=await(await fetch('/api/save-realm-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})).json();
     if(!r.ok)throw Error(r.error||'failed');
-    mcSettingsSaved('realm');m.textContent='Saved.';
+    window.mcDirtySaved?.(dirty);mcSettingsSaved('realm');m.textContent='Saved.';
     mcKeepScroll();setTimeout(()=>location.reload(),650);
   }catch(e){m.textContent='error: '+e.message;}}
 async function mcSetAllAgentDefaults(button){

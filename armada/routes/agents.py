@@ -206,6 +206,8 @@ class AgentRoutes:
             util.write_text_atomic(adir / "mandate.md", (body.get("mandate") or f"You are {disp}.").rstrip() + "\n")
             util.write_text_atomic(adir / "soul.md", (body.get("soul") or "").rstrip() + "\n")
             util.write_text_atomic(adir / "skills.json", "[]")
+            from .. import run_policy
+            run_policy.save(self.realm, {"may_propose_job_changes": bool(body.get("coordinator"))}, agent=aid)
             self._refresh_system("agent-appointed")
             return {"ok": True, "id": aid}
         except Exception as e:  # noqa
@@ -541,6 +543,9 @@ class AgentRoutes:
         if not adir.is_dir():
             return {"ok": False, "error": f"no agent {agent}"}
         try:
+            from .. import run_policy
+            if 'run_controls' in body:
+                run_policy.prepare(body['run_controls'], agent=agent)
             aj = adir / "agent.json"
             # Locked: capabilities.py writes grants into this same file under the same lock (4.3 L4).
             with util.file_lock(aj):
@@ -609,6 +614,8 @@ class AgentRoutes:
                     else:
                         ac.pop("max_budget_usd", None)
                 util.write_json_atomic(aj, ac)
+            if 'run_controls' in body:
+                run_policy.save(self.realm, body['run_controls'], agent=agent)
             if "mandate" in body:
                 util.write_text_atomic(adir / ac.get("mandate", "mandate.md"), body["mandate"].rstrip() + "\n")
             if "soul" in body:

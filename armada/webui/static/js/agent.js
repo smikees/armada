@@ -7,7 +7,7 @@ async function mcRemoveAvatar(agent){const m=document.getElementById('c-avatarms
     if(r.ok){location.reload();}else{m.textContent='error: '+(r.error||'failed');}}catch(e){m.textContent='error: '+e;}}
 async function mcSaveAgent(agent){
   if(!mcReq(['c-name'])){return;}
-  const payload={agent, display:document.getElementById('c-name').value, role:document.getElementById('c-role').value,
+  const payload={agent, run_controls:window.mcRunControlValues?.(agent), display:document.getElementById('c-name').value, role:document.getElementById('c-role').value,
     leader:document.getElementById('c-profile').value, autonomy:document.getElementById('c-autonomy').value,
     inbox:{cadence:document.getElementById('c-freq').value,
            accepts:(document.getElementById('c-accepts')||{}).value||'',
@@ -22,6 +22,7 @@ async function mcSaveAgent(agent){
     is_inspector:document.getElementById('c-inspector').checked,
     mandate:document.getElementById('c-mandate').value,
     soul:document.getElementById('c-soul').value, tenets:document.getElementById('c-tenets').value};
+  const dirty=window.mcDirtyCapture?.('#c-save');
   const m=document.getElementById('c-savemsg'), btn=document.getElementById('c-save');
   m.style.color='var(--text-muted)'; m.textContent='saving…'; if(btn)btn.disabled=true;
   try{let r=await (await fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
@@ -30,7 +31,7 @@ async function mcSaveAgent(agent){
       payload.confirm_connector_change=true;
       r=await (await fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     }
-    if(r.ok){mcSavedTick(r);}else{m.textContent='error: '+(r.error||'failed'); m.style.color='var(--status-bad)';}
+    if(r.ok){window.mcDirtySaved?.(dirty);mcSavedTick(r);}else{m.textContent='error: '+(r.error||'failed'); m.style.color='var(--status-bad)';}
   }catch(e){m.textContent='error: '+e; m.style.color='var(--status-bad)';}
   finally{if(btn)btn.disabled=false;}
 }

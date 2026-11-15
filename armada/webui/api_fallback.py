@@ -28,7 +28,10 @@ def setup(provider='claude', root=None, agent=''):
     else:
         controls = (f'<label class="mc-fallback-enable"><input type="checkbox" data-fallback-enabled'
                     + (' checked' if state['enabled'] or not state['managed'] else '')
-                    + '> Enable fallback for critical jobs</label>')
+                    + '> Enable fallback for critical jobs</label>'
+                    + f'<label class="mc-label" for="{ident}-budget">Monthly budget for the Overview estimate — USD</label>'
+                    + f'<input id="{ident}-budget" class="mc-field" data-fallback-budget type="number" min="0" step="0.01" placeholder="100" value="{E(str(state.get("display_budget_usd") if state.get("display_budget_usd") is not None else ""))}">'
+                    + '<p class="mc-hint">Display only: subtracts costs reported by all Armada Claude API runs this calendar month, including separate agent keys. Excludes other apps and ongoing calls. Match your Console limit; this does not change it or report your credit balance.</p>')
     saved = state['key_saved'] if agent and state['key_source'] == 'agent' else state['engine_key_saved']
     key_area = (f'<div data-fallback-key-area{(" hidden" if agent and state["key_source"] != "agent" else "")}>'
                 f'<label class="mc-label" for="{ident}-key">Anthropic API key</label>'

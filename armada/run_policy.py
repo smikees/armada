@@ -141,6 +141,7 @@ def import_legacy(root):
     from . import appconfig
     import hashlib
     import json
+    remember_coordinators(root)
     identity_root = scope_id(root)
     grant_updates = []
     with util.file_lock(_path()):
@@ -206,13 +207,57 @@ def settings(root=None, agent='', job=None, provider='claude'):
     return result
 
 
-def save(root, values, *, provider='claude', agent='', global_provider=False):
+def proposal_permission(root, agent):
+    """Machine-owned permission; editing an agent profile cannot enable it."""
+    state = _read()
+    own = state.get('scopes', {}).get(scope_id(root, agent), {})
+    if 'may_propose_job_changes' in own:
+        return own['may_propose_job_changes'] is True
+    legacy = state.get('scopes', {}).get(scope_id(root), {})
+    if 'coordinator_may_propose_changes' in legacy:
+        return legacy['coordinator_may_propose_changes'] is True and agent in legacy.get('coordinator_change_proposers', [])
+    return agent in state.get('proposal_coordinators', {}).get(scope_id(root), [])
+
+
+def remember_coordinators(root, agents=None):
+    """Snapshot at upgrade, or update from an owner-approved team edit."""
+    with util.file_lock(_path()):
+        state = _read()
+        defaults = state.setdefault('proposal_coordinators', {})
+        key = scope_id(root)
+        if agents is None and key in defaults:
+            return
+        if agents is None:
+            agents = []
+            for path in (Path(root)/'agents').glob('*/agent.json'):
+                try:
+                    if util.read_json_state(path).get('coordinator') is True:
+                        agents.append(path.parent.name)
+                except (OSError, ValueError):
+                    continue  # One damaged profile cannot prevent realm startup.
+        legacy = state.get('scopes', {}).get(key, {})
+        if 'coordinator_may_propose_changes' in legacy:
+            for agent in set(agents) | set(legacy.get('coordinator_change_proposers', [])):
+                state.setdefault('scopes', {}).setdefault(scope_id(root, agent), {}).setdefault(
+                    'may_propose_job_changes', legacy['coordinator_may_propose_changes'] is True
+                    and agent in legacy.get('coordinator_change_proposers', []))
+        defaults[key] = list(agents)
+        util.write_json_atomic(_path(), state)
+
+
+def prepare(values, *, provider='claude', agent='', global_provider=False):
     allowed = {'plan_limit_action', 'connector_limit_action', 'api_model', 'api_run_ceiling_usd',
                'agent_inactivity_minutes', 'agent_soft_mark_minutes', 'critical_usage_percent'}
     if global_provider:
         allowed |= {'monthly_cap_usd', 'cycle_day', 'reserve_percent'}
     elif not agent:
         allowed |= {'default_job_timeout', 'coordinator_daily_cap', 'coordinator_may_propose_changes'}
+    if agent:
+        allowed.add('may_propose_job_changes')
+    if not isinstance(values, dict):
+        raise ValueError('Run controls must be an object.')
+    if 'may_propose_job_changes' in values and type(values['may_propose_job_changes']) is not bool:
+        raise ValueError('Job proposal permission must be true or false.')
     clean = {k: v for k, v in values.items() if k in allowed and v not in (None, '')}
     validate_job(clean)
     if 'coordinator_may_propose_changes' in clean and type(clean['coordinator_may_propose_changes']) is not bool:
@@ -225,6 +270,11 @@ def save(root, values, *, provider='claude', agent='', global_provider=False):
             value = clean[key]
             if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= maximum or key == 'cycle_day' and (value < 1 or int(value) != value):
                 raise ValueError(f'Invalid {key}.')
+    return clean
+
+
+def save(root, values, *, provider='claude', agent='', global_provider=False):
+    clean = prepare(values, provider=provider, agent=agent, global_provider=global_provider)
     with util.file_lock(_path()):
         state = _read()
         bucket = state.setdefault('providers' if global_provider else 'scopes', {})

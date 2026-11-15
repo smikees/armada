@@ -26,6 +26,7 @@ function mcPreset(p){
 }
 function mcNext(cron){document.getElementById('j-next').textContent=cron?('cron: '+cron):'on demand (manual only)';}
 async function mcSaveJob(agent,job){
+  const dirty=window.mcDirtyCapture?.('button[onclick^="mcSaveJob("]');
   const skills=[...document.querySelectorAll('.mc-skill:checked')].map(c=>c.value);
   const cron=document.getElementById('j-cron').value.trim();
   const payload={agent,job,name:document.getElementById('j-name').value,
@@ -61,7 +62,7 @@ async function mcSaveJob(agent,job){
       r=await (await fetch('/api/save-job',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})).json();
     }
     m.textContent=r.ok?'saved ✓ · '+(r.schedule_changed?'Schedule changed: '+r.schedule_before+' → '+r.schedule_after+(r.start_window?' · start window '+r.start_window.from+'–'+r.start_window.until:'')+' · ':'')+(r.path||''):'error: '+(r.error||'failed'); m.style.color=r.ok?'var(--status-ok)':'var(--status-bad)';
-    if(r.ok){document.getElementById('j-dry-approve').checked=false;mcCadenceChanged=false;}
+    if(r.ok){document.getElementById('j-dry-approve').checked=false;mcCadenceChanged=false;window.mcDirtySaved?.(dirty,['j-dry-approve']);}
   }catch(e){m.textContent='error: '+e;}
 }
 // Delete from the job's own page. Same two-press confirm as the list, but on success there is no

@@ -40,7 +40,7 @@ function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' �
  const base='display:block;cursor:pointer;border-radius:var(--r);font-size:10.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 4px;';
  const txt=WHITETEXT[e.status]?'#fff':'var(--color-text)';
  const style=hollow?(base+'border:1px solid '+c+';color:'+c+';background:transparent'):(base+'background:'+c+';color:'+txt);
- return '<div class="mc-jc-ev" data-job-state="'+esc(e.status)+'" title="'+esc(label)+'" data-href="'+href(e)+'" style="'+style+'">'+(e.agent==='system'?window.mcIcon('server-filled',12,'display:inline-block;vertical-align:-1px')+' ':'')+esc(t+' '+e.job_name+attempts(e)+(e.status==='approval'?' · Needs approval':''))+'</div>';}
+ return '<div class="mc-jc-ev" data-job-state="'+esc(e.status)+'" title="'+esc(label)+'" data-href="'+href(e)+'" style="'+style+'">'+(e.agent==='system'?'<span class="mc-armada-symbol" aria-label="Armada system job"></span>'+' ':'')+esc(t+' '+e.job_name+attempts(e)+(e.status==='approval'?' · Needs approval':''))+'</div>';}
 function byDay(evs){const m={};evs.forEach(e=>{const k=e.ts.slice(0,10);(m[k]=m[k]||[]).push(e);});Object.values(m).forEach(l=>l.sort((x,y)=>x.ts<y.ts?-1:1));return m;}
 function drawMonth(body,a,evs){const gs=monday(new Date(a.getFullYear(),a.getMonth(),1));const map=byDay(evs);const tk=iso(new Date());
  let h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--color-divider)">';
@@ -65,7 +65,7 @@ function drawDay(body,a,evs){const evd=byDay(evs)[iso(a)]||[];
   h+='<div class="mc-jc-ev" title="'+esc(e.ts.slice(11,16)+' · '+e.agent_disp+' · '+e.job_name+' · '+statusLabel(e))+'" data-href="'+href(e)+'" style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--color-divider);cursor:pointer">'
    +'<span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--text-dim);width:40px">'+e.ts.slice(11,16)+'</span>'
    +'<span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(hollow?'transparent':c)+';box-shadow:'+(hollow?('inset 0 0 0 1.5px '+c):'none')+'"></span>'
-   +'<span style="font-weight:600;font-size:12.5px">'+(e.agent==='system'?window.mcIcon('server-filled',12,'display:inline-block;vertical-align:-1px')+' ':'')+esc(e.job_name)+'</span>'
+   +'<span style="font-weight:600;font-size:12.5px">'+(e.agent==='system'?'<span class="mc-armada-symbol" aria-label="Armada system job"></span>'+' ':'')+esc(e.job_name)+'</span>'
    +'<span style="font-size:11.5px;color:var(--text-muted)">'+esc(e.agent_disp)+'</span>'
    +'<span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">'+esc(statusLabel(e)+attempts(e))+'</span></div>';});
  body.innerHTML=h;}
@@ -87,18 +87,22 @@ function applyFilters(evs,pfx){
 async function render(w,quiet=false){const v=w._view,a=w._anchor;const win=windowFor(v,a),generation=w._generation=(w._generation||0)+1;
  const lbl=w.querySelector('.mc-jc-label');if(lbl)lbl.textContent=fmtLabel(v,a);
  w.querySelectorAll('.mc-jc-view').forEach(b=>{const on=b.dataset.jc===v;b.style.background=on?'var(--text-9)':'transparent';b.style.color=on?'var(--color-text)':'var(--text-muted)';});
+ w.querySelectorAll('.mc-jc-source').forEach(b=>{const on=b.dataset.source===w._source;b.setAttribute('aria-pressed',String(on));b.style.background=on?'var(--text-9)':'transparent';b.style.color=on?'var(--color-text)':'var(--text-muted)';});
  const body=w.querySelector('.mc-jc-body'),scroll=body.scrollTop;
  if(body&&!quiet)body.innerHTML='<div style="padding:16px;font-size:12px;color:var(--text-soft)">Loading…</div>';
  try{
  const data=await fetchEvents(win[0],win[1],w.dataset.scope||'');if(generation!==w._generation)return;
- const evs=applyFilters(data.events,w.dataset.fpfx||'');
+ const sourced=data.events.filter(e=>w._source==='all'||(e.agent==='system')===(w._source==='system'));
+ const evs=applyFilters(sourced,w.dataset.fpfx||'');
  if(v==='month')drawMonth(body,a,evs);else if(v==='week')drawWeek(body,a,evs);else drawDay(body,a,evs);
  if(data.stale)body.insertAdjacentHTML('afterbegin','<p role="status">Refresh unavailable — showing the last reading.</p>');
  if(quiet)body.scrollTop=scroll;
  }catch(error){if(generation===w._generation)body.innerHTML='<p role="status">Calendar could not be refreshed. Change the view or try again shortly.</p>';}}
 // let the Jobs page re-draw the calendar when a filter changes
 window.mcJobcalRefresh=function(){document.querySelectorAll('.mc-jobcal').forEach(w=>{if(w._jc)render(w);});};
-function setup(w){if(w._jc)return;w._jc=1;w._view='week';w._anchor=new Date();
+function setup(w){if(w._jc)return;w._jc=1;w._view='week';w._anchor=new Date();w._source=w.dataset.scope==='system'?'system':'all';
+ try{const saved=localStorage.getItem('mc-jobcal-source');if(!w.dataset.scope&&['all','user','system'].includes(saved))w._source=saved;}catch(_){}
+ w.querySelectorAll('.mc-jc-source').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();w._source=b.dataset.source;try{localStorage.setItem('mc-jobcal-source',w._source);}catch(_){}render(w);}));
  w.querySelectorAll('.mc-jc-view').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();w._view=b.dataset.jc;render(w);}));
  w.querySelectorAll('.mc-jc-nav').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();const k=b.dataset.jc;
    if(k==='today'){w._anchor=new Date();}

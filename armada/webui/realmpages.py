@@ -403,6 +403,16 @@ def _sysjob_when(iso_ts: str, now) -> str:
     return f"in {v}" if ahead else f"{v} ago"
 
 
+def _job_description(text):
+    if not text:
+        return ''
+    return ('<span class="mc-job-description"><span class="mc-job-description-text mc-md">'+_md(text)+
+            '</span><button type="button" class="mc-job-description-toggle" aria-expanded="false" '
+            'onclick="event.preventDefault();event.stopPropagation();const box=this.parentElement;'
+            'const expanded=box.classList.toggle(\'is-expanded\');this.setAttribute(\'aria-expanded\',String(expanded));'
+            'this.textContent=expanded?\'show less\':\'...more\'">...more</button></span>')
+
+
 def _system_job_row(j, now, grid: str) -> str:
     """One system job, in the same row as a user job — minus the parts that don't apply.
 
@@ -460,8 +470,7 @@ def _system_job_row(j, now, grid: str) -> str:
             f'<span style="display:inline-flex;flex:none;width:14px"></span>'
             f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">'
             f'{E(j.get("name") or j["id"])}</span></span>'
-            f'<span style="display:block;margin-left:20px;font-size:11.5px;line-height:1.4;'
-            f'color:var(--text-muted)">{E(j.get("description") or "")}</span>'
+            + _job_description(j.get('description') or '')
             + (f'<span style="display:block;margin-left:20px;font-size:11px;line-height:1.4;'
                f'color:var(--text-muted)" data-system-detail>{E(detail)}</span>')
             + f'<span class="mc-sysjob-msg" data-for="{E(j["id"])}" style="display:none;'
@@ -692,9 +701,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
         # The summary sits under the title rather than beside it: the row already spends its width
         # on cadence, cost and next-run, and a sentence competing with three columns is what made
         # the name column feel cramped.
-        + (f'<span style="display:block;margin-left:18px;font-size:11.5px;line-height:1.4;'
-           f'color:var(--text-muted)">{E(j.summary)}</span>'
-           if j.summary else "")
+        + _job_description(j.summary)
         + (f'<span class="mc-hint" style="display:block;margin-left:18px">'
            f'Time limit: {E(str(jc.get("timeout") or rc.get("default_job_timeout"))+"s" if jc.get("timeout") or rc.get("default_job_timeout") else "No limit")}'
            f'{" · Critical" if jc.get("critical") else ""}</span>' if j.kind != 'command' else '')

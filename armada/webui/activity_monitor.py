@@ -69,7 +69,20 @@ def _content(realm,root):
             if task.startswith('chat:') and status.is_bad(status.normalize(outcome)):
                 thread=task[5:]
                 add('Failed replies',agent,href+'?'+urlencode({'thread':thread}),str(titles.get(thread) or thread.title()))
-    blocks=[]
+    from .agentbits import _running_jobs
+    running_jobs=[]
+    from ..job_history import JOB_PREFIX
+    for agent in realm.agents:
+        ids=_running_jobs(root,agent.id) | {row['thread'][len(JOB_PREFIX):] for row in live
+             if row['agent']==agent.id and row['state']=='running' and row['thread'].startswith(JOB_PREFIX)}
+        names={job.id:job.name for job in agent.jobs}
+        for jid in sorted(ids):
+            href=f'/agent/{quote(agent.id,safe="")}/jobs?'+urlencode({'job':jid})
+            running_jobs.append(f'<li><a class="mc-activity-job" href="{E(href)}" data-activity-key="job:{E(agent.id)}:{E(jid)}">'
+                +_portrait(root,agent,28,dot=True,dot_state='working')+
+                f'<span>{E(names.get(jid,jid))}<small>{E(agent.display)} · Running</small></span></a></li>')
+    blocks=['<section data-activity-group="running-jobs"><h3>Running jobs <span>'+str(len(running_jobs))+'</span></h3>'+
+            ('<ul class="mc-activity-jobs">'+''.join(running_jobs)+'</ul>' if running_jobs else '<p class="mc-activity-empty">None</p>')+'</section>']
     for title,rows in groups.items():
         key=title.lower().replace(' ','-')
         links=''

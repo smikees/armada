@@ -139,11 +139,8 @@ def review(root, proposer, job):
     from . import run_policy
     target = util.safe_seg(job.get('target_agent') or proposer, 'agent')
     if target != proposer:
-        settings = run_policy._read().get('scopes', {}).get(run_policy.scope_id(root), {})
-        allowed = settings.get('coordinator_may_propose_changes') is True and proposer in settings.get('coordinator_change_proposers', [])
-        coordinator = util.read_json_state(Path(root)/'agents'/proposer/'agent.json').get('coordinator') is True
-        if not allowed or not coordinator:
-            raise ValueError('The owner must allow coordinator job-change proposals in realm Settings.')
+        if not run_policy.proposal_permission(root, proposer):
+            raise ValueError('The owner must allow this agent to propose changes to other agents’ jobs in agent Settings.')
     jid = util.safe_seg(job['id'], 'job')
     path = Path(root)/'agents'/target/'jobs'/f'{jid}.json'
     before = util.read_json_state(path) if path.exists() else None
@@ -152,7 +149,7 @@ def review(root, proposer, job):
     from . import appconfig
     access = appconfig.get('job_access', {}).get(identity(root, target, jid))
     if target != proposer and before is None:
-        raise ValueError('Coordinators may propose changes to existing jobs only.')
+        raise ValueError('Other agents may propose changes to existing jobs only.')
     after = {k:v for k,v in job.items() if k not in ('target_agent', 'proposed_by', 'proposed_at', 'approved_at', 'created')}
     if before is not None:
         after.setdefault('enabled', before.get('enabled', True))

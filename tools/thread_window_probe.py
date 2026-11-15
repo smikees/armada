@@ -270,7 +270,7 @@ def run(output):
                     if(t.value!=='• ')return false;
                     t.value+='First';t.setSelectionRange(t.value.length,t.value.length);input();
                     key('Enter',true);key('Tab');
-                    const nested=t.value==='• First\\n  • ';
+                    const nested=t.value==='• First\\n    ◦ ';
                     key('Tab',true);const outdent=t.value==='• First\\n• ';
                     t.value='';t.setSelectionRange(0,0);input();
                     return nested&&outdent;

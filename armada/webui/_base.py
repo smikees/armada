@@ -75,7 +75,7 @@ def _md_inline(s: str) -> str:
 # Body lives in webui/static/js/reveal.js (Phase 2, 2.1).
 from ..assets import REVEAL_JS as _REVEAL_JS  # noqa: E402
 
-_BULLET = r"^\s*[-*+•]\s+"
+_BULLET = r"^\s*[-*+•◦]\s+"
 _NUMBER = r"^\s*(\d+)\.\s+"
 
 
@@ -180,7 +180,7 @@ def _md(text: str, *, preserve_breaks=False) -> str:
         if s == "":
             i += 1; continue
         para = [ln]; i += 1                                               # paragraph
-        while i < n and lines[i].strip() != "" and not re.match(r"^\s*([-*+•]\s+|\d+\.\s+|#{1,6}\s|\|)", lines[i]) \
+        while i < n and lines[i].strip() != "" and not re.match(r"^\s*([-*+•◦]\s+|\d+\.\s+|#{1,6}\s|\|)", lines[i]) \
                 and not lines[i].strip().startswith("```"):
             para.append(lines[i]); i += 1
         separator = '\n' if preserve_breaks else ' '

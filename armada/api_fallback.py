@@ -10,6 +10,7 @@ from pathlib import Path
 from . import util, provider_keys
 
 SUPPORTED = ('claude',)
+_UNSET = object()
 CLAUDE_API_ORIGIN = 'https://api.anthropic.com'
 
 
@@ -65,15 +66,19 @@ def settings(provider='claude', root=None, agent=''):
             'engine_enabled': bool(config.get('enabled', False)),
             'managed': provider in state.get('providers', {}),
             'error': error,
+            'display_budget_usd': config.get('display_budget_usd'),
             'agent_keys_configured': agent_keys,
             'ready': bool(enabled and (saved or not agent and agent_keys))}
 
 
-def save(provider, *, enabled=None, root=None, agent='', key_source=None, api_key=None, remove_key=False):
+def save(provider, *, enabled=None, root=None, agent='', key_source=None, api_key=None, remove_key=False, display_budget_usd=_UNSET):
     if provider not in SUPPORTED:
         raise ValueError('API usage fallback is currently available for Claude only.')
     if enabled is not None and type(enabled) is not bool:
         raise ValueError('Choose whether API fallback is enabled.')
+    if display_budget_usd is not _UNSET and display_budget_usd is not None:
+        if agent or reported_cost(display_budget_usd) is None:
+            raise ValueError('Enter a finite nonnegative monthly display budget in Claude engine settings.')
     if agent:
         util.safe_seg(agent, 'agent')
         if not root or not (Path(root)/'agents'/agent/'agent.json').is_file():
@@ -88,6 +93,7 @@ def save(provider, *, enabled=None, root=None, agent='', key_source=None, api_ke
         raise ValueError('Use a workspace API key, not an administrator key.')
     with util.file_lock(_path()):
         state = _read()
+        budget = state.get('providers', {}).get(provider, {}).get('display_budget_usd') if display_budget_usd is _UNSET else display_budget_usd
         first_setup = provider not in state.get('providers', {})
         # Stage disabled before writing a key: a failed first save must not enable
         # the old implicit, all-run fallback just because a key now exists.
@@ -96,7 +102,7 @@ def save(provider, *, enabled=None, root=None, agent='', key_source=None, api_ke
             agents = state.setdefault('agents', {}).setdefault(provider, {})
             agents[_identity(root, agent)] = {'key_source': 'off'}
         else:
-            state['providers'][provider] = {'enabled': False, 'critical_only': True}
+            state['providers'][provider] = {'enabled': False, 'critical_only': True, 'display_budget_usd': budget}
         util.write_json_atomic(_path(), state)
         if api_key:
             provider_keys.save(provider, api_key, root, agent, managed_externally=True)
@@ -113,11 +119,11 @@ def save(provider, *, enabled=None, root=None, agent='', key_source=None, api_ke
             if first_setup and key_source == 'agent':
                 state['providers'][provider]['enabled'] = True
         else:
-            state['providers'][provider] = {'enabled': bool(enabled), 'critical_only': True}
+            state['providers'][provider] = {'enabled': bool(enabled), 'critical_only': True, 'display_budget_usd': budget}
         util.write_json_atomic(_path(), state)
     from .run_policy import audit
     audit('save-api-fallback', root, provider=provider, agent=agent,
-          enabled=enabled, key_source=key_source, external_budget=True)
+          enabled=enabled, key_source=key_source, external_budget=True, display_budget_usd=budget)
     return settings(provider, root, agent)
 
 
@@ -243,7 +249,10 @@ def credit(provider='claude'):
     own_keys = any(provider_keys.configured(provider, *identity.rsplit('|', 1))
                    for identity, row in _read().get('agents', {}).get(provider, {}).items() if row.get('key_source') == 'agent')
     ready = config['enabled'] and (config['key_saved'] or own_keys)
-    return {'budget_managed': 'provider', 'cap_usd': None, 'spent_usd': None if unavailable else round(total, 6),
+    budget = reported_cost(config.get('display_budget_usd'))
+    unknown = sum(not known_cost(r) and r.get('status') == 'finished' for r in rows)
+    estimate = max(0, round(budget-total, 2)) if budget is not None and not unavailable and not unknown else None
+    return {'budget_managed': 'provider', 'display_budget_usd': budget, 'estimated_remaining_usd': estimate, 'cap_usd': None, 'spent_usd': None if unavailable else round(total, 6),
             'reserved_usd': 0, 'remaining_usd': None, 'resets_at': reset.isoformat(),
             'unknown_runs': sum(not known_cost(r) and r.get('status') == 'finished' for r in rows),
             'accounting_available': not unavailable,

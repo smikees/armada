@@ -153,6 +153,8 @@ def update(root, body: dict, agents: list) -> dict:
                     for src, dst in reversed(moves):
                         dst.rename(src)
                     raise
+        from . import run_policy
+        run_policy.remember_coordinators(root, [a['id'] for a in agents if a.get('coordinator')])
         try:
             memory.refresh_system_memory(root, trigger='setup-team-edited')
         except Exception:

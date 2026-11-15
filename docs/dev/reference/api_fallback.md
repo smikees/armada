@@ -25,7 +25,7 @@ usage is an observation of Armada calls, not the provider's authoritative balanc
 
 —
 
-### `save(provider, *, enabled=None, root=None, agent='', key_source=None, api_key=None, remove_key=False)`
+### `save(provider, *, enabled=None, root=None, agent='', key_source=None, api_key=None, remove_key=False, display_budget_usd=_UNSET)`
 
 —
 

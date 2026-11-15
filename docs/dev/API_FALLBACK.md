@@ -88,3 +88,10 @@ Provider references checked 13 November 2026:
 The monthly-credit FAQ includes self-run noninteractive Claude Code/Agent SDK use
 with the linked organization's API key; interactive first-party launches differ.
 Individual credit eligibility and expiry remain visible in Console.
+
+
+As of 0.99.153, an optional engine-level `display_budget_usd` feeds the Overview
+estimate. It subtracts known Armada API costs across agent keys in the UTC calendar
+month, clamps at zero, and suppresses the estimate for unreadable accounting or
+completed runs with unknown costs. `remaining_usd` and `cap_usd` remain null in provider
+budget mode: display preferences never participate in admission or enforce spending.

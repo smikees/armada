@@ -1,3 +1,14 @@
+function mcRunControlValues(agent=''){
+  const box=[...document.querySelectorAll('.mc-run-controls[data-agent]')].find(el=>el.dataset.agent===agent);
+  if(!box)return undefined;
+  const values={};
+  for(const input of box.querySelectorAll('[data-run-control]')){
+    const key=input.dataset.runControl.replace(/^rp-(global|agent|realm)-/,'');
+    values[key]=input.type==='checkbox'?input.checked:input.value===''?'':input.type==='number'?Number(input.value):input.value;
+  }
+  return values;
+}
+
 async function mcSaveRunControls(button){
   const box=button.closest('.mc-run-controls'), feedback=box.querySelector('[data-run-feedback]');
   const values={};

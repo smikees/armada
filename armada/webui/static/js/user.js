@@ -12,13 +12,13 @@ async function mcUploadUserAvatar(input){const f=input.files[0];if(!f)return;var
     URL.revokeObjectURL(img.src);const data=c.toDataURL('image/png');
     const r=await(await fetch('/api/user-avatar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:'avatar.png',data})})).json();
     if(r.ok){m.textContent='uploaded ✓ — reloading…';location.reload();}else{m.textContent='error: '+(r.error||'failed');}}catch(e){m.textContent='error: '+e;}}
-async function mcSaveUser(){var m=document.getElementById('us-msg');m.textContent='saving…';
+async function mcSaveUser(){const dirty=window.mcDirtyCapture?.('#st-user-pane .mc-settings-actions .btn-primary');var m=document.getElementById('us-msg');m.textContent='saving…';
   // No timezone here any more — it's a realm setting, saved from the Realm tab.
   const p={name:document.getElementById('us-name').value,
     gender:document.getElementById('us-gender').value,birthdate:document.getElementById('us-bday').value,
     about:(document.getElementById('us-about')||{}).value||''};
   try{const r=await(await fetch('/api/save-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})).json();
-    if(r.ok){m.textContent='Saved to this realm and your agents’ core memory.';m.style.color='var(--text-muted)';
+    if(r.ok){window.mcDirtySaved?.(dirty);m.textContent='Saved to this realm and your agents’ core memory.';m.style.color='var(--text-muted)';
       if(window.mcSettingsSaved)mcSettingsSaved('user');}
     else{m.textContent='error: '+(r.error||'failed');m.style.color='var(--status-bad)';}}catch(e){m.textContent='error: '+e;}}
 // The timezone picker lives in Realm settings now (it's what the scheduler runs this realm's jobs

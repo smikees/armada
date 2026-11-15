@@ -217,10 +217,19 @@ def _kpis(realm, tok30=_UNSUPPLIED, usd30=_UNSUPPLIED, *, unknown_token_runs=0, 
          ("Active jobs", str(sum(1 for a in realm.agents for j in a.jobs if j.enabled)), "", ""),
          ("Runs", str(sum(a.runs_30d for a in realm.agents)), "/30d", ""),
          ("Tokens", tok_disp, "/30d", "mc-kpi-tokens"),
-         ("API-eq", usd_disp, "", "mc-kpi-apieq")]
+         ("API budget", "Set budget", "", "mc-kpi-api-budget")]
     cells = ""
     for label, val, unit, vid in t:
-        if vid:
+        if vid == 'mc-kpi-api-budget':
+            from .. import run_policy
+            try:
+                credit = run_policy.credit()
+                remaining = credit.get('estimated_remaining_usd')
+                val = f'≈${remaining:.2f}' if remaining is not None else 'Set budget' if credit.get('display_budget_usd') is None else 'Unavailable'
+            except (OSError, ValueError):
+                val = 'Unavailable'
+            valhtml = f'<a id="{vid}" class="mc-kpi-v" href="/settings?tab=app" title="Estimated monthly budget remaining from Armada-reported API costs; configure in Claude API fallback.">{E(val)}</a>'
+        elif vid:
             # async KPI (usage.js fills it on load): show a shimmer skeleton, with the correct value
             # kept in data-v as a no-JS / fetch-failure fallback (see mcHeaderFallback in usage.js).
             missing = unknown_token_runs if vid == 'mc-kpi-tokens' else unknown_cost_runs
@@ -238,7 +247,7 @@ def _kpis(realm, tok30=_UNSUPPLIED, usd30=_UNSUPPLIED, *, unknown_token_runs=0, 
         # second line once the number is wide made this cell — and the whole header — grow.
         cells += (f'<div class="mc-kpi" style="height:62px;white-space:nowrap">'
                   f'<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;'
-                  f'color:var(--text-muted)">{E(label)}</div>'
+                  f'color:var(--text-muted);display:flex;align-items:center;gap:4px">{_icon("claude",12) if vid=="mc-kpi-api-budget" else ""}{E(label)}{" · est." if vid=="mc-kpi-api-budget" else ""}</div>'
                   f'<div style="font-family:var(--font-heading);font-weight:600;font-size:22px;line-height:1.05">{valhtml}'
                   f'<span style="font-size:12px;color:var(--text-soft);margin-left:3px">{E(unit)}</span></div></div>')
     return f'<div style="display:flex;gap:16px;margin-left:4px;flex:none">{cells}</div>'

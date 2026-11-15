@@ -165,13 +165,16 @@ def _jobcal(realm, realm_root, today, legend: bool = True, widget: bool = True,
         return (f'<button class="mc-jc-view" data-jc="{k}" style="border:0;background:transparent;cursor:pointer;'
                 f'font-size:11px;padding:4px 10px;border-radius:var(--r);line-height:1;'
                 f'color:var(--text-muted)">{label}</button>')
+    source_controls = ('<div class="mc-jc-sources" role="group" aria-label="Job source">'+''.join(
+        vbtn(k, label).replace('mc-jc-view', 'mc-jc-source').replace('data-jc=', 'data-source=')
+        for k,label in [('all','All'),('user','User'),('system','System')])+'</div>') if not scope else ''
     # controls live in the widget header itself (like Usage): [grip] Job calendar  ‹ Today ›  label … Month/Week/Day [⋮]
     grip = GRIP if widget else ""
     menu = _widget_menu("jobcal") if widget else ""
     tb = (f'<div class="mc-wid-h" style="display:flex;align-items:center;gap:4px;padding:8px 12px;'
           f'border-bottom:1px solid var(--color-divider)">'
           f'{grip}<span style="font-family:var(--font-heading);font-weight:600;font-size:15px;margin-right:20px">{title}</span>'
-          f'{nav("prev", "‹")}{nav("today", "Today")}{nav("next", "›")}'
+          f'{source_controls}{nav("prev", "‹")}{nav("today", "Today")}{nav("next", "›")}'
           f'<span class="mc-jc-label" style="display:inline-block;box-sizing:border-box;min-width:150px;text-align:center;'
           f'font-weight:400;font-size:11px;margin-left:4px;white-space:nowrap;'
           f'background:var(--text-9);padding:3px 9px;border-radius:var(--r)"></span>'

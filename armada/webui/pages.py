@@ -714,8 +714,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'color:var(--text-strong)">{_icon(ic,20)}</span>' for ic in _REALM_ICON_NAMES)
     # Realm name and icon share a row; realm selection belongs to the header.
     from .run_controls import panel as run_panel
-    realm_tab = (run_panel(realm_root) +
-        sect("Realm",
+    realm_tab = (sect("Realm",
              f'<div style="display:grid;grid-template-columns:minmax(240px,1fr) minmax(400px,1.3fr);'
              f'gap:22px;align-items:start">'
              f'<div><label class="mc-label" style="margin-top:0">Name</label>'
@@ -778,6 +777,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
            f'<div><label class="mc-label" style="margin-top:0">Max budget — USD per run</label><input id="st-maxbudget" type="number" min="0" step="0.01" value="{E(dmaxbudget)}" placeholder="no cap" class="mc-field">'
            f'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Hard spend ceiling for a single run. Blank or 0 = no cap.</div></div>'
            '</div>'
+           + run_panel(realm_root) +
            # The one machine-specific thing a realm carries, and the only setting on this page that
            # is about the machine rather than the realm: jobs written against {workspace} follow the
            # realm to another computer, jobs with a drive letter in them don't. It was sitting under
@@ -1168,7 +1168,7 @@ def render_section(realm, idx: int, dark=False) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{brand.NAME} — {E(name)}</title>
 {_CSS_LINKS}{_theme_style()}</head>
 <body class="{body_cls}"><div style="height:100vh;display:flex;flex-direction:column">
-{_titlebar(realm)}{_nav(realm, name)}<div style="flex:1;min-height:0">{body}</div></div></body></html>"""
+{_titlebar(realm)}{_nav(realm, name)}<div class="mc-appscroll" style="flex:1;min-height:0">{body}</div></div></body></html>"""
     if snapshot:
         # mirrored section: render the local copy (no firewall/iframe issues); refresh from source; link the live URL
         from ..routes.dashboard import _section_path
@@ -1192,7 +1192,7 @@ def render_section(realm, idx: int, dark=False) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{brand.NAME} — {E(name)}</title>
 {_CSS_LINKS}{_theme_style()}</head>
 <body class="{body_cls}"><div style="height:100vh;display:flex;flex-direction:column">
-{_titlebar(realm)}{_nav(realm, name)}<div style="flex:1;min-height:0">{body}</div></div></body></html>"""
+{_titlebar(realm)}{_nav(realm, name)}<div class="mc-appscroll" style="flex:1;min-height:0">{body}</div></div></body></html>"""
     if url:
         # External sites can't always be embedded (host firewalls / X-Frame-Options / a JS
         # "verifying your browser" challenge that never completes inside a cross-origin frame),
@@ -1216,7 +1216,7 @@ def render_section(realm, idx: int, dark=False) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>{brand.NAME} — {E(name)}</title>
 {_CSS_LINKS}{_theme_style()}</head>
 <body class="{body_cls}"><div style="height:100vh;display:flex;flex-direction:column">
-{_titlebar(realm)}{_nav(realm, name)}<div style="flex:1;min-height:0">{body}</div></div></body></html>"""
+{_titlebar(realm)}{_nav(realm, name)}<div class="mc-appscroll" style="flex:1;min-height:0">{body}</div></div></body></html>"""
 
 
 def render_approvals(realm, realm_root, dark=False) -> str:

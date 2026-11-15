@@ -1,5 +1,7 @@
 (function(){
   'use strict';
+  function values(box){return JSON.stringify([...box.querySelectorAll('input,select')].map(el=>el.type==='checkbox'?el.checked:el.value));}
+  function edited(box){box._edited=true;box.querySelector('[data-fallback-save]').classList.toggle('mc-save-dirty',values(box)!==box._baseline);}
   function boxOf(element){return element.closest('[data-api-fallback]');}
   function feedback(box,text){box.querySelector('[data-fallback-feedback]').textContent=text;}
   function summary(box,state){
@@ -23,9 +25,12 @@
     box._state=state;
     const enabled=box.querySelector('[data-fallback-enabled]');
     if(enabled&&!preserveEdits)enabled.checked=state.enabled||!state.managed;
+    const budget=box.querySelector('[data-fallback-budget]');
+    if(budget&&!preserveEdits)budget.value=state.display_budget_usd??'';
     const pick=box.querySelector('[data-fallback-source]');
     if(pick&&!preserveEdits)pick.value=state.key_source;
     keyStatus(box);summary(box,state);
+    if(!preserveEdits){box._baseline=values(box);box.querySelector('[data-fallback-save]').classList.remove('mc-save-dirty');}
     if(state.error)feedback(box,state.error);
   }
   async function request(box,action,extra={}){
@@ -45,7 +50,7 @@
     document.body.append(box);
     box.hidden=false;box.style.display='flex';feedback(box,'');
     const generation=box._generation=(box._generation||0)+1;
-    box._edited=false;box.oninput=()=>{box._edited=true;};
+    box._edited=false;box.querySelector('[data-fallback-save]').classList.remove('mc-save-dirty');box.oninput=()=>edited(box);box.onchange=()=>edited(box);
     box.querySelector('[data-fallback-key]').value='';
     box.querySelector('[data-fallback-remove]').checked=false;
     const dialog=box.querySelector('.mc-modal-box');
@@ -66,7 +71,7 @@
   };
   window.mcFallbackSource=function(element){
     const box=boxOf(element);
-    box._edited=true;
+    edited(box);
     box.querySelector('[data-fallback-key]').value='';
     box.querySelector('[data-fallback-remove]').checked=false;
     feedback(box,'');keyStatus(box);
@@ -89,6 +94,7 @@
     const box=boxOf(button);if(box._busy)return;
     const data=payload(box),enabled=box.querySelector('[data-fallback-enabled]');
     if(enabled)data.enabled=enabled.checked;
+    const budget=box.querySelector('[data-fallback-budget]');if(budget)data.display_budget_usd=budget.value===''?null:Number(budget.value);
     if(box.querySelector('[data-fallback-remove]').checked){
       delete data.api_key;data.remove_key=true;
       if(enabled&&!box._state?.agent_keys_configured)data.enabled=false;
@@ -100,6 +106,8 @@
     try{
       const result=await request(box,'save',data);
       stateOf(box,result.state);
+      box.querySelector('[data-fallback-save]').classList.remove('mc-save-dirty');
+      try{for(const key of Object.keys(sessionStorage))if(/^mc_uc_.*lim_v3/.test(key))sessionStorage.removeItem(key);}catch(_){}
       box.querySelector('[data-fallback-key]').value='';
       box._saving=false;
       if(box.dataset.agent&&!result.state.engine_enabled&&result.state.key_source!=='off'){

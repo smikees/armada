@@ -18,25 +18,25 @@ document.addEventListener('input',function(e){const t=e.target;if(!t||t.tagName!
   if(e.isComposing||(e.inputType&&e.inputType.startsWith('delete')))return;
   const p=t.selectionStart,v=t.value,ls=v.lastIndexOf('\n',p-1)+1,line=v.slice(ls,p);
   const m=line.match(/^([ \t]*)[-*] $/);
-  if(m&&p===t.selectionEnd)mcBulletEdit(t,ls,p,m[1]+'• ');});
+  if(m&&p===t.selectionEnd)mcBulletEdit(t,ls,p,m[1]+(m[1]?'◦ ':'• '));});
 document.addEventListener('keydown',function(e){const t=e.target;if(!t||t.tagName!=='TEXTAREA'||t.dataset.nobullet)return;
   if(e.defaultPrevented||e.isComposing||e.ctrlKey||e.metaKey||e.altKey)return;
   const p=t.selectionStart,v=t.value,ls=v.lastIndexOf('\n',p-1)+1;
-  const end=v.indexOf('\n',ls),line=v.slice(ls,end<0?v.length:end),m=line.match(/^([ \t]*)• (.*)$/);
+  const end=v.indexOf('\n',ls),line=v.slice(ls,end<0?v.length:end),m=line.match(/^([ \t]*)[•◦] (.*)$/);
   if(!m)return;
   if(e.key==='Tab'){
     // Outside a list Tab keeps its normal focus-navigation behavior.
     if(t.selectionEnd>ls+line.length)return;
-    e.preventDefault();const old=m[1],indent=e.shiftKey?old.replace(/(?: {1,2}|\t)$/,''):old+'  ';
+    e.preventDefault();const old=m[1],indent=e.shiftKey?old.replace(/(?: {1,4}|\t)$/,''):old+'    ';
     const finish=t.selectionEnd+indent.length-old.length;
-    mcBulletEdit(t,ls,ls+old.length,indent,Math.max(ls,p+indent.length-old.length));
+    mcBulletEdit(t,ls,ls+old.length+2,indent+(indent?'◦ ':'• '),Math.max(ls,p+indent.length-old.length));
     t.selectionEnd=Math.max(t.selectionStart,finish);
   }else if(e.key==='Enter'&&(t.id==='mc-msg'?e.shiftKey:!e.shiftKey)){
     e.preventDefault();
     if(!m[2].trim()){
-      const indent=m[1].replace(/(?: {1,2}|\t)$/,'');
-      mcBulletEdit(t,ls,ls+line.length,m[1]?indent+'• ':'');
-    }else mcBulletEdit(t,p,t.selectionEnd,'\n'+m[1]+'• ');
+      const indent=m[1].replace(/(?: {1,4}|\t)$/,'');
+      mcBulletEdit(t,ls,ls+line.length,m[1]?indent+(indent?'◦ ':'• '):'');
+    }else mcBulletEdit(t,p,t.selectionEnd,'\n'+m[1]+(m[1]?'◦ ':'• '));
   }
 });
 // Modal overlays close only on a CLEAN outside click: the press and release must both

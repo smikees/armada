@@ -172,3 +172,18 @@ Older exports without a manifest cannot be verified by this command; inspect and
 recover them separately. Verification checks integrity, not who created the ZIP:
 only restore archives you trust. Keep the original until recovery has been checked.
 There is no graphical restore control yet.
+
+
+Unsaved settings make the **Save** button pulse between dark and lighter blue. Reverting
+your edits or saving successfully clears it. With reduced motion enabled, the indicator
+is a steady blue highlight. Realm **Jobs run limits & fallback** is under **Advanced**
+and saves with the overall settings Save button. Cross-agent job-change proposals are
+controlled in each agent’s settings, enabled by default for owner-appointed coordinators
+and disabled by default for regular agents. Proposals always require owner approval.
+
+Claude’s API fallback modal has an optional **Monthly budget for the Overview estimate**.
+Overview displays that amount minus Armada-reported API costs for the current UTC calendar
+month, clearly labelled **est.** This includes separate agent keys, excludes other apps
+and ongoing calls, and is unavailable if a completed run lacks cost accounting. It is
+not the Console credit balance or a spending control. Configure actual spending limits
+in Claude Console. A promotional credit can expire independently of this monthly estimate.

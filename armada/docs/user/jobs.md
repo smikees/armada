@@ -569,8 +569,7 @@ including the complete prompt, schedule, tools and run controls. Approve replace
 re-seals the job; Reject removes only the proposal. If the job or proposal changes
 while the card is open, reload and review before approving.
 
-In Settings → Realm → Run limits & fallback, you can allow current coordinators to
-propose changes to other agents' existing jobs. They still write into their own pending
+In each agent’s Configure page, **Allow this agent to propose changes to other agents’ existing jobs** controls cross-agent proposals. It defaults on for owner-appointed coordinators and off for regular agents; explicit existing choices are preserved. They still write into their own pending
 folder and add `target_agent` to the proposal. Only the owner approves changes.
 Older approvals may have no stored snapshot; those cards explicitly compare the current
 saved file. New approvals retain a snapshot for subsequent reviews. Existing extra
@@ -594,3 +593,10 @@ provider reset message. Restart/Edit retains interruption evidence because it ca
 undo earlier file writes or other side effects. The next run gets the interrupted run
 ID and recorded file changes. Shell changes outside tracked artifacts and job files
 may not be identifiable; agents must inspect existing work before repeating actions.
+
+
+The calendar header filters **All / User / System** and remembers your last selection.
+System jobs use a monochrome Armada symbol. Job descriptions show one line; **...more**
+expands their formatted text and **show less** collapses it. Running jobs also appear
+in the Activity monitor. Realm limits are in **Settings → Realm → Advanced → Jobs run
+limits & fallback** and use the overall **Save** button.

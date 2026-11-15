@@ -440,7 +440,7 @@ def _jobs_capability(agent_dir: Path) -> str:
         "folder — create it if it doesn't exist; `./jobs/_pending/<slug>.json` relative to your "
         "working directory is the same place).\n"
         "- To CHANGE an existing job, copy its full JSON to your own _pending folder with the SAME id, then edit that proposal. Never edit the live jobs/<id>.json: that invalidates approval and holds the job. The approved version keeps running until the owner reviews the field-by-field diff and approves.\n"
-        "- A coordinator may propose changes to another agent's existing job only when the owner enables this in realm Settings. Put target_agent in the proposal, and still write it in YOUR OWN _pending folder. Other agents may propose only their own jobs.\n"
+        "- You may propose changes to another agent's existing job only when allowed in your agent Settings (enabled by default for owner-appointed coordinators). Put target_agent in the proposal, and still write it in YOUR OWN _pending folder. Only the owner can approve changes.\n"
         "- Multi-time cron schedules run at each scheduled time. Overlapping starts are skipped; missed times catch up only at the most recent eligible time.\n"
         "- File contents (JSON):\n"
         "    {\n"

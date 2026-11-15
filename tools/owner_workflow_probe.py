@@ -197,6 +197,7 @@ def run(output, *, system_jobs_only=False):
                     # Fresh native views give each viewport its real initial bounds.
                     window = webview.create_window('Synthetic System jobs layout', local_auth.browser_url(base, '/jobs'),
                                                    width=width, height=900, hidden=True)
+                    window.events.loaded += lambda: loaded.set()
                     views.append(window)
                     wait(lambda: window.native is not None and js("document.readyState==='complete'&&typeof mcJobsFilter==='function'"),
                          'System jobs view '+str(width)+' loaded')
@@ -238,7 +239,7 @@ def run(output, *, system_jobs_only=False):
                         for mode in ('month','week','day'):
                             selector='#jobs-pane-'+pane+' .mc-jobcal'
                             js("document.querySelector('"+selector+" .mc-jc-view[data-jc="+mode+"]').click();true")
-                            wait(lambda: js("!!document.querySelector('"+selector+" .mc-jc-ev svg')"),
+                            wait(lambda: js("!!document.querySelector('"+selector+" .mc-jc-ev .mc-armada-symbol')"),
                                  'System calendar entries in '+pane+' '+mode+' '+str(width))
                             assert js("!document.querySelector('"+selector+" .mc-jc-systems')")
                         if pane=='user':
@@ -246,6 +247,20 @@ def run(output, *, system_jobs_only=False):
                     js("mcJobsTab('system');mcJobsView('list',null,true);true")
                 js("const row=document.querySelector('.mc-sysjob');const text=row.querySelector('.mc-sysjob-msg');text.textContent='A long status '+('synthetic-path-without-breaks'.repeat(15));text.style.display='block';true")
                 aligned('Long system-job status stays inside its column')
+                js("const d=document.querySelector('.mc-sysjob .mc-job-description');window.__descHeight=d.getBoundingClientRect().height;d.querySelector('button').click();true")
+                assert js("document.querySelector('.mc-sysjob .mc-job-description').classList.contains('is-expanded')&&document.querySelector('.mc-sysjob .mc-job-description button').textContent==='show less'")
+                js("document.querySelector('.mc-sysjob .mc-job-description button').click();true")
+                assert js("!document.querySelector('.mc-sysjob .mc-job-description').classList.contains('is-expanded')")
+                result['checks'].append('Job descriptions expand and collapse without changing row actions')
+                js("mcJobsTab('user');mcJobsView('cal',null,true);document.querySelector('#jobs-pane-user .mc-jc-source[data-source=user]').click();true")
+                wait(lambda: js("!document.querySelector('#jobs-pane-user .mc-armada-symbol')"),'User calendar filter hides system entries')
+                navigate('/jobs?probe_source=remembered')
+                js((Path(__file__).resolve().parents[1]/'tests/system_jobs_layout_harness.js').read_text(encoding='utf-8'))
+                js("mcJobsTab('user');mcJobsView('cal',null,true);true")
+                wait(lambda: js("document.querySelector('#jobs-pane-user .mc-jc-source[data-source=user]').getAttribute('aria-pressed')==='true'"),'Calendar remembers source after navigation')
+                js("document.querySelector('#jobs-pane-user .mc-jc-source[data-source=system]').click();true")
+                wait(lambda: js("!!document.querySelector('#jobs-pane-user .mc-armada-symbol')"),'System filter restores system entries')
+                js("document.querySelector('#jobs-pane-user .mc-jc-source[data-source=all]').click();mcJobsTab('system');mcJobsView('list',null,true);true")
                 target = js("document.querySelector('.mc-sysjob').dataset.sysjob")
                 js("const row=document.querySelector('.mc-sysjob'),toggle=row.querySelector('input[type=checkbox]');toggle.checked=false;mcSysJobToggle(toggle,row.dataset.sysjob);true")
                 wait(lambda: js("document.querySelector('.mc-sysjob .btn-primary').disabled&&document.querySelector('.mc-sysjob [data-next-cell]').textContent==='off'"), 'System off refresh completes')
@@ -416,6 +431,8 @@ def run(output, *, system_jobs_only=False):
                 result['checks'].append('Escape clears an unsaved key, restores focus and does not enable fallback')
                 js("mcOpenApiFallback('mc-api-fallback-claude');true")
                 wait(lambda: js("!document.querySelector('#mc-api-fallback-claude [data-fallback-save]').disabled"), 'Fallback metadata reloads before save')
+                js("const budget=document.querySelector('#mc-api-fallback-claude [data-fallback-budget]');budget.value='100';budget.dispatchEvent(new Event('input',{bubbles:true}));true")
+                assert js("document.querySelector('#mc-api-fallback-claude [data-fallback-save]').classList.contains('mc-save-dirty')")
                 capture('api-fallback-light')
                 js("document.querySelector('#mc-api-fallback-claude [data-fallback-key]').value='sk-ant-synthetic-native-api-key';document.querySelector('#mc-api-fallback-claude [data-fallback-test]').click();true")
                 wait(lambda: js("document.querySelector('#mc-api-fallback-claude [data-fallback-feedback]').textContent.includes('synthetic free-check')"), 'Free key check is separate from saving and model execution')
@@ -453,6 +470,21 @@ def run(output, *, system_jobs_only=False):
                 assert not provider_keys.configured('claude', root, 'captain')
                 assert api_fallback.settings('claude', root, 'captain')['key_source'] == 'off'
                 assert provider_keys.key('claude') == 'sk-ant-synthetic-native-api-key'
+                navigate('/settings?tab=realm')
+                wait(lambda: js("document.querySelector('#st-realm-pane .btn-primary').dataset.unsaved==='false'"),'Realm settings baseline is clean')
+                js("window.__ceiling=document.querySelector('[data-run-control=rc-default_job_timeout]');true")
+                js("const f=document.querySelector('[data-run-control][type=number]');window.__runField=f;window.__runOld=f.value;f.value='47';f.dispatchEvent(new Event('input',{bubbles:true}));true")
+                assert js("document.querySelector('#st-realm-pane .mc-settings-actions .btn-primary').classList.contains('mc-save-dirty')")
+                js("window.__runField.value=window.__runOld;window.__runField.dispatchEvent(new Event('input',{bubbles:true}));true")
+                assert js("!document.querySelector('#st-realm-pane .mc-settings-actions .btn-primary').classList.contains('mc-save-dirty')")
+                js("window.__runField.value='47';window.__runField.dispatchEvent(new Event('input',{bubbles:true}));mcSaveRealmSettings();true")
+                wait(lambda: js("document.getElementById('st-msg').textContent==='Saved.'&&!document.querySelector('#st-realm-pane .mc-save-dirty')"),'Overall Realm Save persists run controls and clears dirty pulse')
+                assert 47 in run_policy._read()['scopes'][run_policy.scope_id(root)].values()
+                result['checks'].append('Unsaved settings pulse, revert, and save run controls through the overall Save')
+                navigate('/')
+                wait(lambda: js("document.getElementById('mc-kpi-api-budget').textContent==='≈$100.00'"),'Overview shows remaining estimated budget')
+                assert js("!document.querySelector('.mc-limit-credit')&&document.querySelector('#mc-kpi-api-budget').closest('.mc-kpi').textContent.includes('est.')")
+                capture('overview-budget-153')
                 system_jobs_layout()
                 result['ok'] = True
             except Exception:

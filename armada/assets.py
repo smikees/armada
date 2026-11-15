@@ -39,6 +39,7 @@ CSS_LINKS = (f'<link rel="stylesheet" href="/static/industry.css{CSSV}">'
              f'<script src="/static/js/math.js{CSSV}" defer></script>'
              f'<script src="/static/js/page_state.js{CSSV}" defer></script>'
              f'<script src="/static/js/navigation.js{CSSV}" defer></script>'
+             f'<script src="/static/js/settings_dirty.js{CSSV}" defer></script>'
              f'<script src="/static/js/dialogs.js{CSSV}"></script>'
              # Synchronous: scale stylesheet rules and parsed inline text before first paint.
              f'<script src="/static/js/font_size.js{CSSV}"></script>'

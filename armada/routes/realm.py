@@ -223,6 +223,9 @@ class RealmRoutes:
         if not rj.exists():
             return {"ok": False, "error": "no realm.json"}
         try:
+            from .. import run_policy
+            if 'run_controls' in body:
+                run_policy.prepare(body['run_controls'])
             with realm_registry.edit() as registered, util.file_lock(rj):
                 cfg = json.loads(rj.read_text(encoding="utf-8-sig"))
                 if isinstance(body.get("providers"), list):
@@ -305,6 +308,8 @@ class RealmRoutes:
                         n["cross_realm"] = bool(xr)
                     cfg["notifications"] = n
                 util.write_json_atomic(rj, cfg)
+            if 'run_controls' in body:
+                run_policy.save(self.realm, body['run_controls'])
             icon = (body.get("icon") or "").strip()
             if icon:  # a Lucide icon name chosen from the picker -> theme.json + drop any uploaded image
                 tj = Path(self.realm) / "theme.json"

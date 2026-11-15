@@ -45,6 +45,18 @@ Once on upgrade, preserve existing owner ceilings without changing job files.
 
 —
 
+### `proposal_permission(root, agent)`
+
+Machine-owned permission; editing an agent profile cannot enable it.
+
+### `remember_coordinators(root, agents=None)`
+
+Snapshot at upgrade, or update from an owner-approved team edit.
+
+### `prepare(values, *, provider='claude', agent='', global_provider=False)`
+
+—
+
 ### `save(root, values, *, provider='claude', agent='', global_provider=False)`
 
 —

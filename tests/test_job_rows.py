@@ -120,7 +120,8 @@ def test_the_summary_is_a_subtitle(realm):
     m = reader.read(str(realm))
     html = AF._tab_jobs(m, realm, m.agents[0], datetime.date.today())
     block = html.split("Does alpha things.")[0]
-    assert "display:block" in block.rsplit("<span", 1)[-1], "summary is not on its own line"
+    assert 'class="mc-job-description-text mc-md"' in block
+    assert 'class="mc-job-description-toggle"' in html
 
 
 def test_the_prompt_does_not_look_editable(realm):

@@ -26,6 +26,9 @@ def run(output, baseline=False):
         from armada import app, serve, local_auth, util
         from tests.golden_support import build_fixture
         realm = build_fixture(home / 'realm')
+        cfg=util.read_json_state(Path(realm)/'realm.json');cfg['sections']=[{'name':'Synthetic custom','assets':'section','entry':'index.html'}]
+        util.write_json_atomic(Path(realm)/'realm.json',cfg)
+        (Path(realm)/'section.html').write_text('<h1>Local synthetic section</h1>',encoding='utf-8')
         entered, release = threading.Event(), threading.Event()
         observed, observations = threading.Event(), []
         result = {'ok': False, 'checks': [], 'baseline': baseline}
@@ -197,6 +200,13 @@ def run(output, baseline=False):
                     js('history.back();true')
                     wait(lambda: js("location.pathname==='/settings'&&document.readyState==='complete'&&!document.querySelector('.mc-navigation-loading:not([hidden])')"), 'Back restores page')
                     result['checks'].append('Successful navigation and browser Back leave no stale loading view')
+                    navigate('/section/0')
+                    delayed_click()
+                    assert observed.wait(5) and observations[-1]['visible'] and observations[-1]['ms'] < 100
+                    assert js("document.querySelector('.mc-appscroll').inert")
+                    result['checks'].append('Custom section to Artefacts shows loading within 100ms while response is held')
+                    release.set()
+                    wait(lambda: js("location.pathname==='/artefacts'&&document.readyState==='complete'"), 'Custom section destination completes')
                 result['ok'] = True
             except Exception:
                 result['error'] = traceback.format_exc()
