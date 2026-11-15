@@ -5,6 +5,14 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.153** is published: remembered calendar source filters, expandable
+job descriptions, running-job activity, nested bullets, unified settings saves,
+agent proposal permissions, estimated Claude budget and immediate custom-section navigation.
+**4,740 local tests**, exact-source Windows CI, clean-source stabilization,
+native packaged checks and signed upgrade rehearsal passed. Public signatures,
+hashes and website downloads were verified.
+[Implementation](dev/UI_POLISH_153.md) · [Release evidence](dev/RELEASE_0_99_153.md).
+
 Version **0.99.152** is published: approval holds are visible in Jobs and
 system work appears as calendar entries without the duplicate top section.
 **4,717 local tests**, exact-source Windows CI, clean-source
