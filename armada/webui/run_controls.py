@@ -58,7 +58,7 @@ def worker_controls():
             f'<p data-worker-state role="status">{E("Ready: "+isolation["username"] if isolation["ready"] else isolation["error"] or "Not set up")}</p>'
             '<label class="mc-label" for="worker-folders">Folders shared with agents — one absolute path per line</label>'
             f'<textarea class="mc-field" id="worker-folders" data-worker-folders rows="3">{E(chr(10).join(folders))}</textarea>'
-            '<p><button type="button" class="btn btn-secondary" onclick="mcSetupWorker(this)">Set up / repair worker</button> '
+            '<p class="mc-worker-actions"><button type="button" class="btn btn-secondary" onclick="mcSetupWorker(this)">Set up / repair worker</button> '
             '<button type="button" class="btn btn-secondary" onclick="mcVerifyWorker(this)">Verify isolation</button></p></details>'+js('run_controls'))
 
 

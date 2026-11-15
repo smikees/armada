@@ -34,7 +34,7 @@ def render(root, agent, thread):
         '<meta name="armada-companion" content="thread">'
         f'<title>{E(a.display)} · {E(title)} — ARMADA</title>'
         f'{CSS_LINKS}{_theme_style()}{MODEBOOT_JS}</head><body class="mc-ax-window-page">'
-        '<div class="mc-ax is-window mc-thread-window"><section class="mc-ax-panel" aria-label="Thread">'
+        '<div class="mc-ax is-window mc-thread-window mc-companion-frame"><section class="mc-ax-panel" aria-label="Thread">'
         f'<main class="mc-thread-window-content" style="--thread-owner:{E(json.dumps(owner, ensure_ascii=False))}">'
         f'{_chat_center(root, a, thread, lead=heading, detached=True)}</main>'
         '<button type="button" class="mc-thread-resize" aria-label="Resize window" '
@@ -51,7 +51,7 @@ def unavailable(message):
     return (
         '<!doctype html><html class="mc-ax-window-root"><head><meta charset="utf-8">'
         f'{CSS_LINKS}{_theme_style()}{MODEBOOT_JS}</head><body class="mc-ax-window-page">'
-        '<div class="mc-ax is-window mc-thread-window"><section class="mc-ax-panel">'
+        '<div class="mc-ax is-window mc-thread-window mc-companion-frame"><section class="mc-ax-panel">'
         '<header class="mc-ax-head pywebview-drag-region"><div class="mc-ax-who">Thread unavailable</div>'
         f'<button class="mc-iconbtn" aria-label="Close window" data-thread-close>{_icon("x",16)}</button></header>'
         f'<p style="padding:20px">{E(message)}</p></section></div>{js("thread_window")}</body></html>'

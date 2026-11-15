@@ -29,7 +29,7 @@
 
   function build(){
     const model=document.getElementById('mc-ax-model-chip'),usage=document.getElementById('mc-ax-usage');
-    el=document.createElement('div');el.className='mc-ax'+(WINDOW?' is-window':'');el.innerHTML=
+    el=document.createElement('div');el.className='mc-ax'+(WINDOW?' is-window mc-companion-frame mc-alexander-window':'');el.innerHTML=
       '<div class="mc-ax-scrim" data-close></div>'
       +'<aside class="mc-ax-panel" role="dialog" aria-label="Alexander" aria-modal="false">'
       +'<header class="mc-ax-head'+(WINDOW?' pywebview-drag-region':'')+'">'
@@ -44,6 +44,15 @@
       +'<footer class="mc-ax-foot"><span>'+esc(usage?usage.content.textContent:'Counted as System usage')+'</span>'
       +'<button type="button" class="btn-link" data-report>Report an issue yourself</button></footer></aside>';
     document.body.appendChild(el);
+    if(WINDOW){
+      let frameTimer;
+      const refresh=()=>{if(!frameTimer)frameTimer=setTimeout(()=>{frameTimer=null;window.pywebview?.api?.refresh_frame?.();},150);};
+      new MutationObserver(refresh).observe(document.documentElement,{attributes:true,attributeFilter:['class','style','data-theme']});
+      new MutationObserver(refresh).observe(document.body,{attributes:true,attributeFilter:['class','style']});
+      $('.mc-ax-portrait img').addEventListener('load',refresh);
+      window.addEventListener('pywebviewready',refresh,{once:true});
+      refresh();
+    }
     if(WINDOW)el.addEventListener('click',e=>{const a=e.target.closest('a.mc-ax-cite[href^="/docs/"]');
       if(a){e.preventDefault();post('/api/alexander-main-action',{href:a.getAttribute('href')});}});
     el.querySelectorAll('[data-close]').forEach(b=>{b.onclick=close;

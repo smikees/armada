@@ -5,7 +5,7 @@ from ..icons import _icon
 from ._base import E
 
 
-def setup(provider='claude', root=None, agent=''):
+def setup(provider='claude', root=None, agent='', *, show_entry=True):
     if provider not in api_fallback.SUPPORTED:
         return ''
     state = api_fallback.settings(provider, root, agent)
@@ -39,9 +39,10 @@ def setup(provider='claude', root=None, agent=''):
                 'placeholder="Paste your workspace API key">'
                 '<p class="mc-hint" data-fallback-key-status>'+('A key is saved. Leave this empty to keep it.' if saved else 'No key saved for this selection.')+'</p>'
                 '<label data-fallback-remove-row'+('' if saved else ' hidden')+'><input type="checkbox" data-fallback-remove> Remove the saved key</label></div>')
-    return (f'<div class="mc-fallback-entry" data-fallback-entry="{E(suffix)}">'
+    entry = (f'<div class="mc-fallback-entry" data-fallback-entry="{E(suffix)}">'
             f'<button type="button" class="btn btn-secondary" data-fallback-open="{ident}" onclick="mcOpenApiFallback(\'{ident}\')">{label}</button>'
-            f'<span class="mc-hint" data-fallback-summary>{status}</span></div>'
+            f'<span class="mc-hint" data-fallback-summary>{status}</span></div>')
+    return ((entry if show_entry else '') +
             f'<div id="{ident}" class="mc-modal-ov" data-api-fallback data-provider="{provider}" data-agent="{E(agent)}" hidden '
             'onclick="if(event.target===this)mcCloseApiFallback(this)">'
             f'<div class="mc-modal-box mc-api-fallback-dialog" role="dialog" aria-modal="true" aria-labelledby="{ident}-title">'

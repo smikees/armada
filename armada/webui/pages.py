@@ -835,7 +835,7 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
             f'style="cursor:pointer;border:1px solid {"var(--color-accent)" if _sel else "var(--color-divider)"};'
             f'border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;gap:9px;'
             f'width:140px;box-sizing:border-box;flex:none;font:inherit;color:inherit;text-align:left;'
-            f'{"background:var(--color-accent-100)" if _sel else ""}">'
+            f'background:{"var(--color-accent-100)" if _sel else "var(--color-surface)"}">'
             f'<span style="width:30px;height:30px;border-radius:50%;flex:none;'
             f'background:linear-gradient(135deg,{_a} 0 50%,{_a2} 50% 100%)"></span>'
             f'<span style="min-width:0">'

@@ -39,3 +39,15 @@ def test_style_tag_wraps_css():
 def test_swatch_returns_two_colours():
     a, b = vtheme.swatch("slate")
     assert a.startswith("#") and b.startswith("#")
+
+
+def test_alternate_themes_have_distinct_dark_foregrounds_and_fills():
+    for theme in ('ember', 'forest', 'plum', 'slate'):
+        css = vtheme.theme_css(theme)
+        light, dark = css.split(':root.armada-dark,.armada-dark{')
+        light_tokens = dict(re.findall(r'(--[\w-]+):(#[0-9a-f]{6})', light))
+        dark_tokens = dict(re.findall(r'(--[\w-]+):(#[0-9a-f]{6})', dark))
+        assert light_tokens.keys() == dark_tokens.keys()
+        assert all(light_tokens[key] != dark_tokens[key] for key in dark_tokens)
+        assert sum(vtheme._hex(dark_tokens['--color-accent-100'])) < 150
+        assert sum(vtheme._hex(dark_tokens['--color-accent'])) > 400

@@ -24,7 +24,7 @@ One silhouette for native clipping and shadows; coordinates match brand.css.
 
 ### `shape(window)`
 
-Clip only the detached thread; Alexander retains his existing geometry.
+Clip a companion to the shared avatar and panel geometry.
 
 ### class `_Shadow`
 

@@ -45,7 +45,7 @@
     for(const button of box.querySelectorAll('[data-fallback-save],[data-fallback-test]'))button.disabled=value;
     box.querySelector('.mc-modal-box').setAttribute('aria-busy',String(value));
   }
-  window.mcOpenApiFallback=async function(id){
+  window.mcOpenApiFallback=async function(id,focus){
     const box=document.getElementById(id);if(!box||!box.hidden)return;
     document.body.append(box);
     box.hidden=false;box.style.display='flex';feedback(box,'');
@@ -55,7 +55,7 @@
     box.querySelector('[data-fallback-remove]').checked=false;
     const dialog=box.querySelector('.mc-modal-box');
     box._releaseFocus=window.mcDialogFocus(dialog,()=>window.mcCloseApiFallback(box),
-      dialog.querySelector('h3').textContent,box.querySelector('[data-fallback-source]')||box.querySelector('[data-fallback-key]'));
+      dialog.querySelector('h3').textContent,(focus==='budget'&&box.querySelector('[data-fallback-budget]'))||box.querySelector('[data-fallback-source]')||box.querySelector('[data-fallback-key]'));
     busy(box,true);
     try{const result=await request(box,'status');if(generation===box._generation)stateOf(box,result.state,box._edited);}
     catch(error){if(generation===box._generation)feedback(box,error.message||'Could not load API fallback.');}
@@ -108,6 +108,7 @@
       stateOf(box,result.state);
       box.querySelector('[data-fallback-save]').classList.remove('mc-save-dirty');
       try{for(const key of Object.keys(sessionStorage))if(/^mc_uc_.*lim_v3/.test(key))sessionStorage.removeItem(key);}catch(_){}
+      window.dispatchEvent(new Event('armada-api-budget-saved'));
       box.querySelector('[data-fallback-key]').value='';
       box._saving=false;
       if(box.dataset.agent&&!result.state.engine_enabled&&result.state.key_source!=='off'){

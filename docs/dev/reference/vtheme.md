@@ -22,6 +22,10 @@ Mix `pct` of `other` into `base` (0..1), return #rrggbb.
 
 —
 
+### `_dark_scale(prefix: str, base: str)`
+
+Dark surfaces need muted fills and lighter foreground accents.
+
 ### `swatch(theme_id: str)`
 
 —

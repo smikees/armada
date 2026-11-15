@@ -124,7 +124,7 @@ function paintApiBudget(credit){
   const el=document.getElementById('mc-kpi-api-budget');if(!el||!credit)return;
   const estimate=credit?.estimated_remaining_usd;
   el.textContent=typeof estimate==='number'?'≈$'+estimate.toFixed(2):credit?.display_budget_usd==null?'Set budget':'Unavailable';
-  el.title=credit?.display_budget_usd==null?'Enter a monthly display budget in App Settings → Claude API usage fallback.':
+    el.title=credit?.display_budget_usd==null?'Click to set a monthly display budget in Claude API usage fallback.':
     'Estimated monthly budget remaining: $'+credit.display_budget_usd+' minus costs reported by Armada. Excludes other apps and ongoing calls; separate agent keys are included. Console enforces spending. Next month: '+(credit.resets_at||'')+(credit.unknown_runs?' Incomplete accounting: some completed runs did not report cost.':'');
 }
 // Keep token totals current without replacing the independent API budget estimate.
@@ -271,6 +271,7 @@ function init(){
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshAll();});
   window.addEventListener("pageshow",e=>{if(e.persisted)refreshAll();});
   window.addEventListener("focus",()=>refreshAll());
+  window.addEventListener('armada-api-budget-saved',()=>renderHeaderLimits());
   setInterval(()=>{if(!document.hidden)refreshAll(true);},1800000);   // auto-refresh every 30 min (forces a fresh fetch)
   setInterval(()=>{if(!document.hidden)renderHeaderLimits();},30000);
 }

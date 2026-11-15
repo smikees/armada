@@ -1118,9 +1118,9 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-thmenu>button:hover,.mc-thmenu>button:focus-visible{background:var(--text-7)}
 .mc-thmenu>button:focus-visible,.mc-thread-resize:focus-visible{outline:2px solid var(--color-accent);outline-offset:-2px}
 /* Keep these coordinates in step with thread_frame._frame_path. */
-.mc-thread-window.is-window .mc-ax-panel{top:24px;border:0}
-.mc-thread-window.is-window .mc-ax-portrait{left:-40px;top:-16px;background:var(--color-bg);box-shadow:0 3px 8px rgba(0,0,0,.16)}
-.mc-thread-window.is-window .mc-ax-portrait img{width:100%;height:100%;border-radius:50%}
+.mc-companion-frame.is-window .mc-ax-panel{top:24px;border:0}
+.mc-companion-frame.is-window .mc-ax-portrait{left:-40px;top:-16px;background:var(--color-bg);box-shadow:0 3px 8px rgba(0,0,0,.16)}
+.mc-companion-frame.is-window .mc-ax-portrait img{width:100%;height:100%;border-radius:50%}
 .mc-thread-window-content{flex:1;min-height:0;min-width:0}
 .mc-thread-window .mc-chat-center>div:last-child{overflow:hidden;border-radius:0 0 14px 14px}
 .mc-thread-window .mc-chat-heading{position:relative;display:grid!important;grid-template-columns:minmax(0,1fr) 28px;gap:3px 8px!important;padding:8px 8px 10px 68px!important;min-height:68px;flex:none;cursor:move;user-select:none;border-bottom:0!important;border-radius:14px 14px 0 0;background:var(--color-bg);box-shadow:0 8px 10px -8px rgba(0,0,0,.22);z-index:2}
@@ -1484,9 +1484,27 @@ a:has(>.mc-modelmark[data-model]){padding-left:7px!important}
 .mc-job-description.is-expanded .mc-job-description-text{display:block;overflow-wrap:anywhere}
 .mc-job-description.is-expanded .mc-job-description-toggle{margin-top:3px}
 
-@keyframes mc-unsaved-pulse{0%,100%{background-color:#103d7b}50%{background-color:#356bb0}}
-button.mc-save-dirty:not(:disabled){animation:mc-unsaved-pulse 2s ease-in-out infinite;color:#fff!important}
+@keyframes mc-unsaved-pulse{0%,100%{background-color:#103d7b;box-shadow:0 0 0 2px #80b5ff,0 0 0 4px transparent}50%{background-color:#2969be;box-shadow:0 0 0 2px #b5d4ff,0 0 0 6px #4b8fe34d}}
+button.mc-save-dirty:not(:disabled){animation:mc-unsaved-pulse 1.6s ease-in-out infinite;color:#fff!important;border-color:#103d7b;font-weight:700}
 @media(prefers-reduced-motion:reduce){button.mc-save-dirty:not(:disabled){animation:none;background:#245b9d;outline:2px solid #79a8e2;outline-offset:2px}}
 .mc-activity-groups .mc-activity-jobs{display:grid;gap:8px}
 .mc-activity-job{display:flex;gap:8px;align-items:center;text-decoration:none;color:var(--color-text)}
 .mc-activity-job small{display:block;color:var(--text-muted)}
+
+/* Keep the amount a keyboard-accessible link without link typography. */
+#mc-kpi-api-budget,#mc-kpi-api-budget:hover{color:inherit;text-decoration:none}
+.mc-worker-controls .mc-worker-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+/* Only these two glyphs use the enlarged face; prose and indentation stay unchanged. */
+@font-face{font-family:'Armada List Markers';src:url('/static/fonts/ibm-plex-sans-400.woff2') format('woff2');unicode-range:U+2022,U+25E6;size-adjust:160%;font-display:swap}
+#mc-msg{font-family:'Armada List Markers',var(--font-body)!important}
+
+.armada-dark .btn-primary,.armada-dark .btn-primary:hover{color:var(--color-bg)}
+.mc-alexander-window .mc-ax-head{min-height:80px;padding:12px 12px 12px 68px;border-bottom:0;border-radius:14px 14px 0 0;background:var(--color-bg);box-shadow:0 8px 10px -8px rgba(0,0,0,.22);z-index:2}
+.mc-alexander-window .mc-ax-portrait{padding:3px}
+.mc-alexander-window .mc-ax-foot{border-radius:0 0 14px 14px}
+.mc-alexander-window.is-window .mc-ax-name{font-size:16px;line-height:1.25}
+/* Light accents need dark ink when used as solid fills in dark mode. */
+.armada-dark .mc-count,.armada-dark .mc-wnum,.armada-dark .mc-ax-send,.armada-dark .mc-ovl button{color:var(--color-bg)}
+.armada-dark{--status-ok:#76cda4;--status-warn:#e8bc76;--status-bad:#ee9d95}
+.armada-dark .btn-danger{color:var(--color-bg)}
+.armada-dark .mc-theme-status[data-job-state="running"]{background:var(--accent2-16);color:var(--color-accent-2)}

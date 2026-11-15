@@ -2,6 +2,6 @@
 
 Compact engine/agent entry points and the shared owner API setup dialog.
 
-### `setup(provider='claude', root=None, agent='')`
+### `setup(provider='claude', root=None, agent='', *, show_entry=True)`
 
 —

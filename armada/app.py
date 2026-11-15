@@ -249,9 +249,6 @@ class _AlexanderCompanionAPI:
             self._window.destroy()
 
 
-class _ThreadCompanionAPI(_AlexanderCompanionAPI):
-    """Only this detached thread can close or resize its own frame."""
-
     def refresh_frame(self):
         if self._window is None or sys.platform != 'win32':
             return
@@ -263,6 +260,10 @@ class _ThreadCompanionAPI(_AlexanderCompanionAPI):
                 edge.request()
         if not native.IsDisposed:
             native.BeginInvoke(Action(refresh))
+
+
+class _ThreadCompanionAPI(_AlexanderCompanionAPI):
+    """Only this detached thread can close or resize its own frame."""
 
     def resize_window(self):
         from .thread_frame import begin_resize
@@ -283,43 +284,8 @@ def _shape_thread(window):
 
 
 def _shape_alexander(window):
-    """Clip the Windows form to the portrait and panel; transparent margins stay click-through.
-
-    WebView2's transparent background alone still exposes the underlying WinForms rectangle.
-    Keep this native region in step with the logical geometry in brand.css, at the form's DPI.
-    """
-    if sys.platform != "win32":
-        return
-    try:
-        from System import Action
-        from System.Drawing import Region
-        from System.Drawing.Drawing2D import GraphicsPath, FillMode
-
-        native = window.native
-
-        def apply():
-            scale = float(native._scale) or 1
-            width, height = native.ClientSize.Width / scale, native.ClientSize.Height / scale
-            path = GraphicsPath(FillMode.Winding)  # union, not a hole where portrait overlaps panel
-            path.AddEllipse(8 * scale, 8 * scale, 96 * scale, 96 * scale)
-            left, top, right, bottom, diameter = 48, 40, width - 8, height - 8, 28
-            for x, y, angle in ((left, top, 180), (right - diameter, top, 270),
-                                (right - diameter, bottom - diameter, 0),
-                                (left, bottom - diameter, 90)):
-                path.AddArc(x * scale, y * scale, diameter * scale, diameter * scale, angle, 90)
-            path.CloseFigure()
-            old = native.Region
-            native.Region = Region(path)
-            path.Dispose()
-            if old is not None:
-                old.Dispose()
-
-        if native.InvokeRequired:
-            native.Invoke(Action(apply))
-        else:
-            apply()
-    except Exception:
-        log.warning("Could not shape Alexander's companion window", exc_info=True)
+    """Use the same antialiased perimeter and owned shadow as detached threads."""
+    _shape_thread(window)
 
 
 def open_alexander(request: dict | None = None) -> bool:

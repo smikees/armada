@@ -123,23 +123,25 @@ class DesktopLifecycleTests(unittest.TestCase):
             self.assertEqual(app._webview_options(),
                              {'private_mode': False, 'storage_path': 'private-profile'})
 
-    def test_companion_region_tracks_actual_client_size_and_dpi(self):
-        path, old = Mock(), Mock()
-        drawing = Mock(Region=Mock(return_value="new region"))
+    def test_alexander_uses_the_shared_antialiased_frame_and_shadow(self):
+        window = Mock()
+        with patch('armada.thread_frame.shape') as shape, patch('armada.thread_frame.attach') as attach:
+            app._shape_alexander(window)
+        shape.assert_called_once_with(window)
+        attach.assert_called_once_with(window)
+        self.assertTrue(callable(app._AlexanderCompanionAPI().refresh_frame))
+
+    def test_shared_companion_geometry_tracks_client_size_and_dpi(self):
+        from armada.thread_frame import _frame_path
+        path = Mock()
         geometry = Mock(GraphicsPath=Mock(return_value=path))
-        native = Mock(_scale=1.5, InvokeRequired=False, Region=old,
-                      ClientSize=Mock(Width=780, Height=1080))
-        with patch.object(app.sys, "platform", "win32"), patch.dict("sys.modules", {
-                "System": Mock(Action=lambda callback: callback), "System.Drawing": drawing,
-                "System.Drawing.Drawing2D": geometry}):
-            app._shape_alexander(Mock(native=native))
+        with patch.dict('sys.modules', {'System.Drawing': Mock(),
+                                       'System.Drawing.Drawing2D': geometry}):
+            self.assertIs(_frame_path(520, 720, 1.5), path)
         geometry.GraphicsPath.assert_called_once_with(geometry.FillMode.Winding)
         path.AddEllipse.assert_called_once_with(12, 12, 144, 144)
-        # Bottom-right follows the live 520 x 720 logical viewport, including at 150% DPI.
+        self.assertEqual(path.AddArc.call_args_list[0].args, (72, 36, 42, 42, 180, 90))
         self.assertEqual(path.AddArc.call_args_list[2].args, (726, 1026, 42, 42, 0, 90))
-        self.assertEqual(native.Region, "new region")
-        path.Dispose.assert_called_once()
-        old.Dispose.assert_called_once()
 
     def test_alexander_cards_open_local_pages_in_main_window(self):
         main = Mock()

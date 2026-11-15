@@ -103,7 +103,7 @@ def _frame_path(width, height, scale, padding=0, spread=0, offset=0):
 
 
 def shape(window):
-    """Clip only the detached thread; Alexander retains his existing geometry."""
+    """Clip a companion to the shared avatar and panel geometry."""
     if sys.platform != "win32":
         return
     from System import Action

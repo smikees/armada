@@ -11,9 +11,10 @@ import time
 import traceback
 
 
-def run(output, *, system_jobs_only=False):
+def run(output, *, system_jobs_only=False, appearance_only=False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     output = output.resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='armada-owner-workflow-', ignore_cleanup_errors=True) as directory:
         home = Path(directory)
         for name in ('HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA'):
@@ -295,8 +296,31 @@ def run(output, *, system_jobs_only=False):
                 for view in views:
                     view.destroy()
 
+        def appearance_checks():
+            navigate('/settings?tab=app')
+            js("document.getElementById('st-app-advanced').open=true;document.querySelector('.mc-worker-controls').open=true;true")
+            result['worker_gap']=js("document.querySelector('.mc-worker-actions').getBoundingClientRect().top-document.getElementById('worker-folders').getBoundingClientRect().bottom")
+            assert result['worker_gap']>=11.5, result['worker_gap']
+            capture('worker-spacing-154','.mc-worker-controls')
+            # Test all palettes in the actual WebView, including the unselected cards.
+            js(r"window.__contrast=(a,b)=>{const lum=c=>{const rgb=c.match(/[\d.]+/g).slice(0,3).map(v=>{v=Number(v)/255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};true")
+            for dark in (False,True):
+                for theme in ('armada','armada-ii','ember','forest','plum','slate'):
+                    assert js("document.querySelector('input[name=mc-mode][value="+json.dumps('dark' if dark else 'light')+"]').checked=true;mcPreviewMode("+json.dumps('dark' if dark else 'light')+");mcSelectTheme("+json.dumps(theme)+");true")
+                    assert js("document.documentElement.classList.contains('armada-dark')==="+json.dumps(dark)+"&&document.querySelector('.mc-themecard[data-selected=true]').dataset.themeId==="+json.dumps(theme)) is True
+                    assert js("[...document.querySelectorAll('.mc-themecard')].every(e=>{const c=getComputedStyle(e);return c.backgroundColor!=='rgba(0, 0, 0, 0)'&&__contrast(c.color,c.backgroundColor)>=4.5})"), (theme,dark)
+                    capture('theme-'+theme+('-dark' if dark else '-light'),'.mc-themecard')
+                    result['checks'].append(theme+(' dark' if dark else ' light')+' selected and unselected preview contrast')
+            assert js("[...document.querySelectorAll('.mc-save-dirty')].some(e=>getComputedStyle(e).animationDuration==='1.6s')")
+            capture('save-pulse-154','.mc-save-dirty')
+
+
         def exercise():
             try:
+                if appearance_only:
+                    appearance_checks()
+                    result['ok']=True
+                    return
                 wait(lambda: js("document.readyState==='complete'&&typeof mcConfirm==='function'&&!!document.getElementById('mc-grid')"), 'Overview ready')
                 if system_jobs_only:
                     system_jobs_layout()
@@ -484,7 +508,14 @@ def run(output, *, system_jobs_only=False):
                 navigate('/')
                 wait(lambda: js("document.getElementById('mc-kpi-api-budget').textContent==='≈$100.00'"),'Overview shows remaining estimated budget')
                 assert js("!document.querySelector('.mc-limit-credit')&&document.querySelector('#mc-kpi-api-budget').closest('.mc-kpi').textContent.includes('est.')")
-                capture('overview-budget-153')
+                assert js("getComputedStyle(document.getElementById('mc-kpi-api-budget')).textDecorationLine==='none'&&parseFloat(getComputedStyle(document.getElementById('mc-kpi-api-budget')).fontSize)<20")
+                assert js("document.getElementById('mc-kpi-api-budget').closest('.mc-kpi').textContent.includes('Remaining API')")
+                js("document.getElementById('mc-kpi-api-budget').focus();document.getElementById('mc-kpi-api-budget').click();true")
+                wait(lambda: js("location.pathname==='/'&&!document.getElementById('mc-api-fallback-claude').hidden&&!document.querySelector('[data-fallback-save]').disabled&&document.activeElement.matches('[data-fallback-budget]')"),'Overview amount opens the engine modal directly and focuses its budget')
+                capture('overview-budget-modal-154')
+                js("mcCloseApiFallback(document.querySelector('[data-api-fallback]'));true")
+                assert js("document.activeElement.id==='mc-kpi-api-budget'")
+                appearance_checks()
                 system_jobs_layout()
                 result['ok'] = True
             except Exception:
@@ -509,5 +540,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--system-jobs-only', action='store_true')
+    parser.add_argument('--appearance-only', action='store_true')
     args = parser.parse_args()
-    raise SystemExit(run(args.output, system_jobs_only=args.system_jobs_only))
+    raise SystemExit(run(args.output, system_jobs_only=args.system_jobs_only, appearance_only=args.appearance_only))

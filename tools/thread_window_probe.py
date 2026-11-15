@@ -562,8 +562,31 @@ def run(output):
                 finally:
                     pixel = edge.bitmap.GetPixel(edge.bitmap.Width//2,round(25*float(companion.native._scale)))
                     result['palette_diagnostics'] = {'expected':palette,'actual':[pixel.R,pixel.G,pixel.B,pixel.A], 'error':edge.error,'busy':edge.busy,'dirty':edge.dirty}
+                for view in (main,companion):
+                    check('composer uses enlarged bullet glyphs', view.evaluate_js("getComputedStyle(document.getElementById('mc-msg')).fontFamily.includes('Armada List Markers')"))
+                companion.evaluate_js("document.getElementById('mc-msg').value='• Item 1\\n    ◦ Item 2';document.getElementById('mc-msg').dispatchEvent(new Event('input',{bubbles:true}));true")
                 screenshot(companion, "thread-window-dark")
                 composite(companion, 'thread-window-orange-dark', 'thread-window-dark')
+                # Alexander uses the same native geometry, alpha perimeter and shadow.
+                check('Alexander companion opens', app.open_alexander())
+                alex = app._alex_window
+                wait_for(lambda: alex.evaluate_js("!!document.querySelector('.mc-alexander-window .mc-ax-body')"), 'Alexander content loads')
+                alex_shadow = wait_for(lambda: getattr(alex, '_thread_shadow', None), 'Alexander shadow attached')
+                alex_edge = wait_for(lambda: getattr(alex, '_thread_edge', None), 'Alexander alpha perimeter attached')
+                wait_for(lambda: alex_edge.current(), 'Alexander alpha perimeter captured')
+                check('Alexander frame aligns with detached geometry', alex.evaluate_js("document.querySelector('.mc-ax-panel').getBoundingClientRect().top===24&&document.querySelector('.mc-ax-portrait').getBoundingClientRect().top===8"))
+                check('Alexander shadow has a transparent centre', alex_shadow.bitmap.GetPixel(alex_shadow.bitmap.Width//2,alex_shadow.bitmap.Height//2).A==0)
+                screenshot(alex,'alexander-window-light')
+                composite(alex,'alexander-orange-light','alexander-window-light')
+                alex.resize(400,600)
+                alex.evaluate_js("document.documentElement.classList.add('armada-dark');document.body.classList.add('armada-dark');true")
+                wait_for(lambda: alex_edge.current() and alex_edge.bitmap.Width==alex.native.ClientSize.Width, 'Alexander perimeter follows resize')
+                screenshot(alex,'alexander-window-dark')
+                composite(alex,'alexander-orange-dark','alexander-window-dark')
+                check('Alexander narrow layout has no horizontal overflow',alex.evaluate_js("document.documentElement.scrollWidth<=innerWidth"))
+                alex.evaluate_js("document.querySelector('[data-close].mc-iconbtn').click();true")
+                wait_for(lambda: app._alex_window is None, 'Alexander closes independently')
+                check('Alexander native resources disposed',alex_edge.closed and alex_shadow.handle is None)
                 # Long labels must ellipsize without covering Close or creating overflow.
                 companion.evaluate_js("document.querySelector('.mc-ax-name').textContent='A very long synthetic agent name';document.querySelector('.mc-ax-subtitle').textContent='A very long realm name';document.getElementById('mc-cttitle').textContent='A very long thread name for responsive verification'")
                 check("long header labels stay inside the panel", companion.evaluate_js(

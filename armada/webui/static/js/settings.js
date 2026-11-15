@@ -43,7 +43,7 @@ function mcSelectTheme(id){
     el.dataset.selected=on?'true':'false';
     el.setAttribute('aria-pressed',String(on));
     el.style.borderColor=on?'var(--color-accent)':'var(--color-divider)';
-    el.style.background=on?'var(--color-accent-100)':'';
+    el.style.background=on?'var(--color-accent-100)':'var(--color-surface)';
     const label=el.querySelector('[data-theme-caption]');
     if(label)label.textContent=on?'selected':'\u200b';
   });

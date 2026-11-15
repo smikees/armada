@@ -45,6 +45,16 @@ def _scale(prefix: str, base: str) -> str:
     return ";".join(out)
 
 
+def _dark_scale(prefix: str, base: str) -> str:
+    """Dark surfaces need muted fills and lighter foreground accents."""
+    out = [f"{prefix}:{_mix(base, '#ffffff', .52)}"]
+    for step in range(100, 1000, 100):
+        value = (_mix('#0f1520', base, step / 1000)
+                 if step <= 300 else _mix(base, '#ffffff', .36 + (step - 400) / 1000))
+        out.append(f"{prefix}-{step}:{value}")
+    return ";".join(out)
+
+
 # id -> {name, accent, accent2}. armada is the built-in (empty override).
 THEMES: dict[str, dict] = {
     "armada": {"name": "ARMADA", "accent": "#0b3f86", "accent2": "#12a3b8"},
@@ -69,8 +79,10 @@ def theme_css(theme_id: str) -> str:
     t = THEMES[theme_id]
     if theme_id == "armada-ii":
         return (Path(__file__).parent / "webui" / "static" / "armada-ii.css").read_text(encoding="utf-8")
-    return ":root{" + _scale("--color-accent", t["accent"]) + ";" \
-           + _scale("--color-accent-2", t["accent2"]) + "}"
+    return (":root{" + _scale("--color-accent", t["accent"]) + ";"
+            + _scale("--color-accent-2", t["accent2"]) + "}"
+            + ":root.armada-dark,.armada-dark{" + _dark_scale("--color-accent", t["accent"]) + ";"
+            + _dark_scale("--color-accent-2", t["accent2"]) + "}")
 
 
 def theme_style(theme_id: str) -> str:
