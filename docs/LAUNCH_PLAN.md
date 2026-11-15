@@ -5,6 +5,14 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.154** is published: directly accessible Remaining API settings,
+larger bullets, stronger unsaved Save feedback, readable theme previews and dark
+palettes, and Alexander's shared smooth companion frame and shadow.
+**4,746 local tests**, exact-source Windows CI, clean-source stabilization,
+native packaged checks and signed upgrade rehearsal passed. Public signatures,
+hashes and website downloads were verified.
+[Implementation](dev/UI_POLISH_154.md) · [Release evidence](dev/RELEASE_0_99_154.md).
+
 Version **0.99.153** is published: remembered calendar source filters, expandable
 job descriptions, running-job activity, nested bullets, unified settings saves,
 agent proposal permissions, estimated Claude budget and immediate custom-section navigation.
