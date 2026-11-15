@@ -12,6 +12,7 @@ const context=vm.createContext({document:{getElementById:el,querySelectorAll:()=
   fetch:async(url,options)=>{const payload=JSON.parse(options.body);sent.push(payload);return {json:async()=>({
     ok:true,path:'brief.json',schedule_changed:'cron' in payload,
     schedule_before:'mon-fri 17:45',schedule_after:payload.cron||'manual'})};}});
+context.window=context;
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../armada/webui/static/js/job.js'),'utf8'),context);
 (async()=>{
   assert.match(el('j-next').textContent,/mon-fri 17:45/);
