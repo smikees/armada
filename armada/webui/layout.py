@@ -248,7 +248,7 @@ def _kpis(realm, tok30=_UNSUPPLIED, usd30=_UNSUPPLIED, *, unknown_token_runs=0, 
         cells += (f'<div class="mc-kpi" style="height:62px;white-space:nowrap">'
                   f'<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;'
                   f'color:var(--text-muted);display:flex;align-items:center;gap:4px">{_icon("claude",12) if vid=="mc-kpi-api-budget" else ""}{E(label)}{" · est." if vid=="mc-kpi-api-budget" else ""}</div>'
-                  f'<div style="font-family:var(--font-heading);font-weight:600;font-size:calc(22px - 2pt);line-height:1.05">{valhtml}'
+                  f'<div style="font-family:var(--font-heading);font-weight:600;font-size:19.333333px;line-height:1.05">{valhtml}'
                   f'<span style="font-size:12px;color:var(--text-soft);margin-left:3px">{E(unit)}</span></div></div>')
     from .api_fallback import setup
     return f'<div style="display:flex;gap:16px;margin-left:4px;flex:none">{cells}</div>' + setup(show_entry=False)

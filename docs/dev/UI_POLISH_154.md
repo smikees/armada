@@ -8,7 +8,8 @@ close, and refreshes after Save. No provider credentials or limits were changed.
 
 Composer bullets use a bundled font face restricted to U+2022 and U+25E6, enlarged
 160 percent. Ordinary text and four-space nested indentation are unchanged. Overview
-headlines are two typographic points smaller. Save has a stronger blue pulse and
+headlines are two typographic points smaller and retain the shared text-size scaling.
+The native owner check changes the reference size and verifies proportional scaling. Save has a stronger blue pulse and
 halo, with a static reduced-motion highlight. Worker controls have a 12px action gap.
 
 Theme cards explicitly use palette surfaces. Four alternate themes now generate

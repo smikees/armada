@@ -509,6 +509,10 @@ def run(output, *, system_jobs_only=False, appearance_only=False):
                 wait(lambda: js("document.getElementById('mc-kpi-api-budget').textContent==='≈$100.00'"),'Overview shows remaining estimated budget')
                 assert js("!document.querySelector('.mc-limit-credit')&&document.querySelector('#mc-kpi-api-budget').closest('.mc-kpi').textContent.includes('est.')")
                 assert js("getComputedStyle(document.getElementById('mc-kpi-api-budget')).textDecorationLine==='none'&&parseFloat(getComputedStyle(document.getElementById('mc-kpi-api-budget')).fontSize)<20")
+                js("window.__kpiReference=mcFontSize.get();window.__kpiSize=parseFloat(getComputedStyle(document.getElementById('mc-kpi-api-budget')).fontSize);mcFontSize.preview(20);true")
+                assert js("Math.abs(parseFloat(getComputedStyle(document.getElementById('mc-kpi-api-budget')).fontSize)-__kpiSize*20/__kpiReference)<.02") is True
+                js("mcFontSize.preview(__kpiReference);true")
+                result['checks'].append('Smaller Overview figures still follow the shared text-size setting')
                 assert js("document.getElementById('mc-kpi-api-budget').closest('.mc-kpi').textContent.includes('Remaining API')")
                 js("document.getElementById('mc-kpi-api-budget').focus();document.getElementById('mc-kpi-api-budget').click();true")
                 wait(lambda: js("location.pathname==='/'&&!document.getElementById('mc-api-fallback-claude').hidden&&!document.querySelector('[data-fallback-save]').disabled&&document.activeElement.matches('[data-fallback-budget]')"),'Overview amount opens the engine modal directly and focuses its budget')
