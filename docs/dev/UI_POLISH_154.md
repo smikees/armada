@@ -27,3 +27,9 @@ Impeccable's detector found seven pre-existing accent-border patterns elsewhere 
 the shared stylesheet; these are incumbent design, outside this requested refinement.
 Native owner journeys and the detached-thread probe provide regression coverage.
 Final release evidence is recorded in RELEASE_0_99_154.md after publication.
+
+The first packaged upgrade rehearsal exposed a test timing race: the primary
+scheduler lease appears before the next realm's lease during recovery. The probe
+now waits for both within its existing 45-second deadline and asserts both leases
+belong to the recovered PID. The same candidate then passed all 72 upgrade checks;
+the final release pipeline is rerun on the committed probe correction.

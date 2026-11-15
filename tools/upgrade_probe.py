@@ -297,14 +297,18 @@ def child(successor=None):
             if successor:
                 check('update restored Settings without a false rollback',window.evaluate_js('location.pathname')=='/settings')
             check(f"correct installed version: {info.get('version')} (expected {expected})",info['version']==expected)
+            from armada import scheduler, schedsvc
             deadline = time.monotonic()+45
             while time.monotonic()<deadline:
                 scheduler_status=js(window,"fetch('/api/scheduler-status').then(r=>r.json())")
-                if scheduler_status.get('running'):break
+                # Realms are claimed sequentially. The primary lease can be visible
+                # before the daemon reaches the next one; wait for the full contract.
+                other_holder = scheduler.lock_holder(other) or {}
+                if scheduler_status.get('running') and other_holder.get('pid') == scheduler_status.get('pid'):break
                 time.sleep(.2)
             check('real scheduler automatically acquired the active realm',scheduler_status.get('running'))
-            from armada import scheduler, schedsvc
-            check('real scheduler acquired another registered realm',bool(scheduler.lock_holder(other)))
+            check('real scheduler acquired another registered realm',
+                  (scheduler.lock_holder(other) or {}).get('pid') == scheduler_status.get('pid'))
             if successor or config.get('scheduler_recovery'):
                 check('normal startup has no scheduler warning',not window.evaluate_js(
                     'document.getElementById("mc-schedbar").innerText').strip())
@@ -318,11 +322,14 @@ def child(successor=None):
                 deadline=time.monotonic()+45
                 while time.monotonic()<deadline:
                     scheduler_status=js(window,"fetch('/api/scheduler-status').then(r=>r.json())")
-                    if scheduler_status.get('running') and scheduler_status['pid']!=original_pid:break
+                    other_holder = scheduler.lock_holder(other) or {}
+                    if (scheduler_status.get('running') and scheduler_status['pid']!=original_pid
+                            and other_holder.get('pid') == scheduler_status['pid']):break
                     time.sleep(.2)
                 check('hidden desktop automatically replaced a stopped scheduler',
                       scheduler_status.get('running') and scheduler_status['pid']!=original_pid)
-                check('recovered scheduler owns every registered realm',bool(scheduler.lock_holder(other)))
+                check('recovered scheduler owns every registered realm',
+                      (scheduler.lock_holder(other) or {}).get('pid') == scheduler_status.get('pid'))
             font_testing = bool(successor or config.get('font_only'))
             if font_testing: font_checks(window, js, check)
             for route in ('/settings','/docs','/agent/captain/threads','/alexander'):
