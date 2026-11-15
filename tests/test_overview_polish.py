@@ -93,7 +93,9 @@ def test_header_counts_coordinator_and_keeps_partial_totals(tmp_path):
                       'unknown_token_runs_30d': 1, 'unknown_cost_runs_30d': 1}
     assert _usage_data(realm, tmp_path, 'line', 'today')['usd_30d'] == 40.5
     html = pages._overview_kpis(realm, tmp_path)
-    assert '6.0M+' in html and '≈$41+' in html and 'partial total: 1' in html
+    assert '6.0M+' in html and 'partial total: 1' in html
+    assert 'mc-kpi-api-budget' in html and 'Set budget' in html
+    assert '≈$41+' not in html, 'API-equivalent costs stay in Usage, not the remaining-budget headline'
     assert '>2<span' in html and 'mc-skel' not in html
 
 
