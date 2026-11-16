@@ -38,6 +38,11 @@ def test_every_bundled_font_is_in_the_notices():
     # Monospace assets are bundled for data/code but are not body-font choices.
     bundled_only = {"ibm-plex-mono": "IBM Plex Mono"}
     for path in fonts:
+        if path.name == 'list-markers.woff2':
+            assert path.name in notices and 'Original list markers' in notices
+            assert 'PolyForm Noncommercial License 1.0.0' in notices
+            assert (ROOT / 'LICENSE').is_file()
+            continue
         if path.parent == static / 'vendor/katex/fonts':
             assert 'KaTeX 0.19.1' in notices and 'MIT License' in notices
             licence = (path.parent.parent / 'LICENSE').read_text(encoding='utf-8')
