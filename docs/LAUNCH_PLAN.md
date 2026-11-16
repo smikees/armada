@@ -5,6 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.155** is prepared: thread drafts survive visits to other agent
+sections and composer bullets have matching size, fill and alignment.
+Publication gates and public download verification are pending.
+[Release evidence](dev/RELEASE_0_99_155.md).
+
 Version **0.99.154** is published: directly accessible Remaining API settings,
 larger bullets, stronger unsaved Save feedback, readable theme previews and dark
 palettes, and Alexander's shared smooth companion frame and shadow.

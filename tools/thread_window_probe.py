@@ -563,7 +563,7 @@ def run(output):
                     pixel = edge.bitmap.GetPixel(edge.bitmap.Width//2,round(25*float(companion.native._scale)))
                     result['palette_diagnostics'] = {'expected':palette,'actual':[pixel.R,pixel.G,pixel.B,pixel.A], 'error':edge.error,'busy':edge.busy,'dirty':edge.dirty}
                 for view in (main,companion):
-                    check('composer uses enlarged bullet glyphs', view.evaluate_js("getComputedStyle(document.getElementById('mc-msg')).fontFamily.includes('Armada List Markers')"))
+                    check('composer uses matching circular bullet glyphs', view.evaluate_js("getComputedStyle(document.getElementById('mc-msg')).fontFamily.includes('Armada List Markers')"))
                 companion.evaluate_js("document.getElementById('mc-msg').value='• Item 1\\n    ◦ Item 2';document.getElementById('mc-msg').dispatchEvent(new Event('input',{bubbles:true}));true")
                 screenshot(companion, "thread-window-dark")
                 composite(companion, 'thread-window-orange-dark', 'thread-window-dark')

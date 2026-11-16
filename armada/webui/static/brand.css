@@ -1494,8 +1494,8 @@ button.mc-save-dirty:not(:disabled){animation:mc-unsaved-pulse 1.6s ease-in-out 
 /* Keep the amount a keyboard-accessible link without link typography. */
 #mc-kpi-api-budget,#mc-kpi-api-budget:hover{color:inherit;text-decoration:none}
 .mc-worker-controls .mc-worker-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
-/* Only these two glyphs use the enlarged face; prose and indentation stay unchanged. */
-@font-face{font-family:'Armada List Markers';src:url('/static/fonts/ibm-plex-sans-400.woff2') format('woff2');unicode-range:U+2022,U+25E6;size-adjust:160%;font-display:swap}
+/* Equal circular outlines share a text-centred baseline; prose and spaces use the body face. */
+@font-face{font-family:'Armada List Markers';src:url('/static/fonts/list-markers.woff2') format('woff2');unicode-range:U+2022,U+25E6;font-display:block}
 #mc-msg{font-family:'Armada List Markers',var(--font-body)!important}
 
 .armada-dark .btn-primary,.armada-dark .btn-primary:hover{color:var(--color-bg)}

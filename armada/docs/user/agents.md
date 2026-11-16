@@ -87,6 +87,10 @@ background. Messages and reply progress started in either view appear in the oth
 drafts stay local to each view. A selected passage or an unsaved message edit stays in place
 until you finish reading or editing, then catches up with the latest saved content.
 
+Unsent text is remembered for each thread when you switch threads or visit another agent
+section, such as Memories. Returning to Threads restores the draft for the conversation
+that reopens, including a remembered sub-thread.
+
 ARMADA lets chat replies run past 20 minutes. **Stop** cancels the active reply from either view,
 including a window that did not start it. Job time limits still apply to jobs.
 Both views show **Stopping…** while cancellation finishes. If cancellation fails, the window

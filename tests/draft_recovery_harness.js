@@ -4,11 +4,11 @@ const path=require('path');
 const vm=require('vm');
 const source=fs.readFileSync(path.join(__dirname,'../armada/webui/static/js/chat.js'),'utf8').split('function mcAutosize()')[0];
 const saved=new Map();
-function load(realm,search){
+function load(realm,search,{pathname='/agent/scribe',agent='scribe',thread='main'}={}){
   const handlers={},messages=[];const input={value:'',addEventListener:(key,fn)=>handlers[key]=fn};
-  const document={getElementById:()=>input,querySelector:()=>({content:realm})};
+  const document={getElementById:id=>id==='mc-msg'?input:id==='mc-turns'?{dataset:{agent,thread}}:null,querySelector:()=>({content:realm})};
   const localStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)};
-  const window={__armadaNativeDrafts:true,location:{pathname:'/agent/scribe',search},addEventListener:(key,fn)=>handlers[key]=fn,chrome:{webview:{postMessage:m=>messages.push(m)}}};
+  const window={__armadaNativeDrafts:true,location:{pathname,search},addEventListener:(key,fn)=>handlers[key]=fn,chrome:{webview:{postMessage:m=>messages.push(m)}}};
   vm.runInNewContext(source,{document,localStorage,window,URLSearchParams});
   return {input,handlers,messages,window};
 }
@@ -30,4 +30,25 @@ page.window.mcRestoreChatDraft('armada-draft:synthetic:/agent/scribe?thread=main
 assert.equal(page.input.value,'recovered native draft');
 page.input.value='x'.repeat(70000);page.handlers.input();
 assert.equal(load('synthetic','?thread=main&_realm=synthetic').input.value.length,65536);
-console.log('Realm-bound recovery drafts preserve, migrate, clear and stay bounded');
+// Returning via an agent section has no thread query. The rendered thread,
+// including a remembered sub-thread, must still restore the same composer.
+saved.clear();
+page=load('synthetic','?thread=research',{pathname:'/agent/scribe/threads',thread:'research'});
+const text='  Unsent draft\n• Parent\n    ◦ Child  ';
+page.input.value=text;page.handlers.input();page.handlers.pagehide();
+page=load('synthetic','',{pathname:'/agent/scribe/threads',thread:'research'});
+assert.equal(page.input.value,text,'Threads → Memories → Threads preserves the selected-thread draft');
+assert.equal(load('synthetic','?thread=main',{pathname:'/agent/scribe/threads'}).input.value,'','Another thread has its own draft');
+assert.equal(load('synthetic','',{thread:'research'}).input.value,text,'The agent landing alias restores the same thread');
+assert.equal(load('synthetic','?thread=missing',{thread:'research'}).input.value,text,'Use the rendered fallback thread, not a stale requested slug');
+assert.equal(load('synthetic','?thread=research',{agent:'other',thread:'research',pathname:'/agent/other/threads'}).input.value,'','Agents stay separate');
+assert.equal(load('other-realm','',{thread:'research'}).input.value,'','Realms stay separate');
+assert.equal(load('synthetic','?agent=scribe&thread=research',{pathname:'/thread-window',thread:'research'}).input.value,'','The detached view keeps its own draft');
+page.input.value='';page.handlers.input();
+assert.equal(load('synthetic','?thread=research',{pathname:'/agent/scribe/threads',thread:'research'}).input.value,'','Clearing a draft clears every navigation alias');
+saved.clear();
+saved.set('armada-draft:synthetic:/agent/scribe/threads','Old implicit-thread draft');
+page=load('synthetic','',{pathname:'/agent/scribe/threads',thread:'research'});
+assert.equal(page.input.value,'Old implicit-thread draft','Migrate the old unqualified URL when it is visited');
+assert.equal(load('synthetic','?thread=research',{pathname:'/agent/scribe/threads',thread:'research'}).input.value,'Old implicit-thread draft');
+console.log('Conversation-bound drafts survive section navigation, aliases and recovery; migrate, clear, isolate and stay bounded');

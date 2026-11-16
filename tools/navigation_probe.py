@@ -26,6 +26,8 @@ def run(output, baseline=False):
         from armada import app, serve, local_auth, util
         from tests.golden_support import build_fixture
         realm = build_fixture(home / 'realm')
+        from armada.threads import Thread
+        Thread(Path(realm) / 'agents/captain', 'draft-probe').append('Synthetic draft test', 'Ready.')
         cfg=util.read_json_state(Path(realm)/'realm.json');cfg['sections']=[{'name':'Synthetic custom','assets':'section','entry':'index.html'}]
         util.write_json_atomic(Path(realm)/'realm.json',cfg)
         (Path(realm)/'section.html').write_text('<h1>Local synthetic section</h1>',encoding='utf-8')
@@ -130,7 +132,9 @@ def run(output, baseline=False):
 
         def navigate(path):
             window.load_url(local_auth.browser_url(base, path))
-            wait(lambda: js('document.readyState==="complete"&&location.pathname==='+json.dumps(path.split('?')[0])), path)
+            route, _, query = path.partition('?')
+            wait(lambda: js('document.readyState==="complete"&&location.pathname==='+json.dumps(route)
+                            +'&&(()=>{const q=new URLSearchParams(location.search);q.delete("_realm");return q.toString()==='+json.dumps(query)+'})()'), path)
 
         def delayed_click():
             entered.clear(); release.clear()
@@ -207,6 +211,26 @@ def run(output, baseline=False):
                     result['checks'].append('Custom section to Artefacts shows loading within 100ms while response is held')
                     release.set()
                     wait(lambda: js("location.pathname==='/artefacts'&&document.readyState==='complete'"), 'Custom section destination completes')
+                if not baseline:
+                    draft = '  Unsent synthetic draft\n• Parent\n    ◦ Child  '
+                    navigate('/agent/captain/threads?thread=draft-probe')
+                    js("document.getElementById('mc-msg').value="+json.dumps(draft)+";document.getElementById('mc-msg').dispatchEvent(new Event('input',{bubbles:true}));true")
+                    js("document.querySelector('a.mc-sub[href$=\"/memories\"]').click();true")
+                    wait(lambda: js("location.pathname==='/agent/captain/memories'&&document.readyState==='complete'"), 'Agent Memories loads')
+                    js("document.querySelector('a.mc-sub[href$=\"/threads\"]').click();true")
+                    wait(lambda: js("location.pathname==='/agent/captain/threads'&&document.readyState==='complete'&&!!document.getElementById('mc-msg')"), 'Threads returns without query')
+                    assert js("document.getElementById('mc-turns').dataset.thread==='draft-probe'&&!location.search.includes('thread=')"), 'Server reopens the remembered sub-thread'
+                    assert js("document.getElementById('mc-msg').value") == draft, 'Section navigation keeps the exact draft'
+                    result['checks'].append('Threads → Memory → Threads preserves the remembered sub-thread draft, spaces and nested bullets')
+                    navigate('/agent/captain/threads?thread=main')
+                    assert js("document.getElementById('mc-msg').value") == '', 'Another thread has no copied draft'
+                    navigate('/agent/captain/threads?thread=draft-probe')
+                    assert js("document.getElementById('mc-msg').value") == draft, 'Switching threads still preserves the draft'
+                    js("document.getElementById('mc-msg').value='';document.getElementById('mc-msg').dispatchEvent(new Event('input',{bubbles:true}));true")
+                    navigate('/agent/captain/memory')
+                    navigate('/agent/captain/threads')
+                    assert js("document.getElementById('mc-msg').value") == '', 'A cleared draft stays cleared after section navigation'
+                    result['checks'].append('Thread drafts stay separate and clearing a draft survives section navigation')
                 result['ok'] = True
             except Exception:
                 result['error'] = traceback.format_exc()
