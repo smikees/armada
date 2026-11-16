@@ -5,9 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.156** is prepared: skipped calendar checks have a light grey tint
-and an explicit Skipped legend with a no-work explanation. Publication checks
-and public download verification are pending.
+Version **0.99.156** is published: skipped calendar checks have a light grey tint
+and an explicit Skipped legend with a no-work explanation.
+**4,752 local tests**, exact-source Windows CI, native packaged lifecycle,
+owner/calendar workflows and signed upgrade rehearsal passed. Public signatures,
+hashes and website downloads were verified.
 [Release evidence](dev/RELEASE_0_99_156.md).
 
 Version **0.99.155** is published: thread drafts survive visits to other agent
