@@ -486,6 +486,7 @@ _HEALTH_STYLES = {
     "Success":       "background:color-mix(in srgb,var(--status-ok) 22%,var(--color-bg))",   # light green
     "Running":       f"background:{_RUNNING_COLOR}",                                          # theme teal
     "Scheduled":     "background:transparent;border:1.5px solid var(--color-accent-2)",       # hollow teal
+    "Skipped":       "background:var(--job-skipped-bg,color-mix(in srgb,var(--color-text) 8%,var(--color-bg)))",
     "Warning":       "background:color-mix(in srgb,var(--status-warn) 30%,var(--color-bg))",  # lighter orange
     "Failed":        "background:color-mix(in srgb,var(--status-bad) 20%,var(--color-bg))",   # light red
     # Missed also draws a ✕ (see _health_square) — against "Not scheduled" a grey a shade darker
@@ -545,16 +546,21 @@ def _filter_dropdown(fid: str, default_label: str, options, width: str = "", onp
             f'<div class="mc-fdrop-menu">{rows}</div></details>')
 
 
-def _health_legend_chips(exclude=()) -> str:
+def _health_legend_chips(exclude=(), *, include_skipped=False) -> str:
     """The shared status swatches (Jobs list legend + Job-calendar widget). Each swatch uses the
     same styling as the health squares — including the faint, border-less 'Not scheduled' fill.
     `exclude` drops states that don't apply to a given view (e.g. 'Not scheduled' on a calendar,
-    which shows occurrences per day, not per job)."""
+    which shows occurrences per day, not per job). `include_skipped` adds the
+    no-work outcome shown by system checks in calendars, rather than day rollups."""
     chips = ""
-    for label in _HEALTH_LEGEND_ORDER:
+    labels = list(_HEALTH_LEGEND_ORDER)
+    if include_skipped:
+        labels.insert(labels.index("Warning"), "Skipped")
+    for label in labels:
         if label in exclude:
             continue
-        chips += (f'<span class="mc-health-legend" data-job-state="{E(label.lower())}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;'
+        tip = ' title="Check skipped; no work was performed."' if label == "Skipped" else ""
+        chips += (f'<span class="mc-health-legend" data-job-state="{E(label.lower())}"{tip} style="display:inline-flex;align-items:center;gap:5px;font-size:11px;white-space:nowrap;'
                   f'color:var(--text-dim)">'
                   f'{_health_swatch(label)}{label}</span>')
     return chips
@@ -785,13 +791,13 @@ def _health7_header(today, larger_today: bool = False) -> str:
     return cells
 
 
-def _status_legend() -> str:
+def _status_legend(*, include_skipped=False) -> str:
     return (f'<div style="display:flex;align-items:center;gap:13px;flex-wrap:wrap">'
             f'<span style="font-size:10px;letter-spacing:.04em;text-transform:uppercase;'
             # What the strip actually covers, rather than a label that could mean either. This
             # week is centred on today: three days of what happened, then three of what is due.
             f'color:var(--text-42)">'
-            f'Last 3 days · next 3 days</span>{_health_legend_chips()}</div>')
+            f'Last 3 days · next 3 days</span>{_health_legend_chips(include_skipped=include_skipped)}</div>')
 
 
 # The order the rollup below reads as "worst". Missed and Failed are things that went wrong and the

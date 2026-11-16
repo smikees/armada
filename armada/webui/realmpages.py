@@ -804,7 +804,7 @@ def _realm_jobs(realm, realm_root, today) -> str:
                       list_id="mc-jobstable")
     n = sum(len(a.jobs) for a in realm.agents)
     filters = _jobs_filter_bar(owners, n, now, lead=_jobs_view_toggle())
-    legend = (f'<div style="display:flex;justify-content:flex-end;margin:0 0 8px">{_status_legend()}</div>' if n else "")
+    legend = (f'<div style="display:flex;justify-content:flex-end;margin:0 0 8px">{_status_legend(include_skipped=True)}</div>' if n else "")
     # the calendar simply replaces the list; filters + legend stay above both. No bottom legend
     # on the calendar here — the status legend already shows above it.
     list_view = f'<div class="mc-jobs-list">{table}</div>'
@@ -886,7 +886,7 @@ def _system_jobs_pane(realm, realm_root, today, now) -> str:
         return explainer + '<div style="font-size:12.5px;color:var(--text-muted)">No system jobs in this build.</div>'
     filters = _jobs_filter_bar(_SYSJOB_COST_FILTERS, n, now, lead=_jobs_view_toggle(), pfx="sf",
                                table="mc-sysjobstable", f1key="cost", f1_label="Any cost")
-    legend = f'<div style="display:flex;justify-content:flex-end;margin:0 0 8px">{_status_legend()}</div>'
+    legend = f'<div style="display:flex;justify-content:flex-end;margin:0 0 8px">{_status_legend(include_skipped=True)}</div>'
     cal_note = ('<div style="font-size:11.5px;color:var(--text-muted);margin-top:8px">'
                 'System jobs, including recorded inbox processing, appear as individual calendar entries. '
                 'The date grid shows recorded runs and upcoming hourly or daily due times; '

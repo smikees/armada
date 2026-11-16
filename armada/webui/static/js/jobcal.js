@@ -1,15 +1,16 @@
 (function(){
-// light tinted backgrounds with dark text; running = the app's theme teal, scheduled = hollow outline
+// Light tinted backgrounds with dark text; skipped checks are light grey, scheduled is hollow.
 const CLR={approval:'color-mix(in srgb,var(--status-warn) 20%,var(--color-bg))',missed:'var(--text-9)',
  failed:'color-mix(in srgb,var(--status-bad) 20%,var(--color-bg))',
  warn:'color-mix(in srgb,var(--status-warn) 30%,var(--color-bg))',
  success:'color-mix(in srgb,var(--status-ok) 22%,var(--color-bg))',
+ skipped:'var(--job-skipped-bg,color-mix(in srgb,var(--color-text) 8%,var(--color-bg)))',
  running:'var(--status-running)',
  queued:'color-mix(in srgb,var(--status-warn) 20%,var(--color-bg))',
  scheduled:'var(--color-accent-2)'};
 const WHITETEXT={running:1};   // running is saturated teal → white text; the light fills use dark text
 // saturated dot colours for the day-view list (the pale chip fills would be invisible as a small dot)
-const DOT={approval:'var(--status-warn)',missed:'var(--status-idle)',failed:'var(--status-bad)',warn:'var(--status-warn)',success:'var(--status-ok)',running:'var(--job-running-ink,var(--color-accent-2))',scheduled:'var(--job-scheduled-border,var(--color-accent-2))'};
+const DOT={approval:'var(--status-warn)',missed:'var(--status-idle)',failed:'var(--status-bad)',warn:'var(--status-warn)',success:'var(--status-ok)',skipped:'var(--job-skipped-ink,var(--text-muted))',running:'var(--job-running-ink,var(--color-accent-2))',scheduled:'var(--job-scheduled-border,var(--color-accent-2))'};
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -36,7 +37,7 @@ function href(e){return (e.agent==='system')?'/jobs?tab=system'
 function statusLabel(e){return e.status==='approval'?'Needs approval':e.status;}
 function attempts(e){return e.attempt_count>1?' · '+e.attempt_count+' attempts':'';}
 function chip(e){const t=e.ts.slice(11,16);const label=t+' · '+e.agent_disp+' · '+e.job_name+' · '+statusLabel(e)+attempts(e)+(e.approval_reason?' · '+e.approval_reason:'')+(e.wait_reason?' · '+e.wait_reason:'');
- const c=CLR[e.status]||CLR.scheduled;const hollow=(e.status==='scheduled');
+ const c=CLR[e.status]||CLR.missed;const hollow=(e.status==='scheduled');
  const base='display:block;cursor:pointer;border-radius:var(--r);font-size:10.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 4px;';
  const txt=WHITETEXT[e.status]?'#fff':'var(--color-text)';
  const style=hollow?(base+'border:1px solid '+c+';color:'+c+';background:transparent'):(base+'background:'+c+';color:'+txt);

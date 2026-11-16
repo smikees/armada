@@ -130,9 +130,9 @@ One status, at legend size. The single definition of what a status LOOKS like wh
 
 A custom dropdown matching the realm switcher: a pill <summary> + a <details> menu. options: list of (value, label, status|"") — a status renders the legend's own swatch next to the option, and the same swatch next to the summary once selected. `width` fixes the control's width so it doesn't resize when a shorter option is chosen (the label ellipsizes instead). `onpick` is the JS function (by name) called after a selection — so the same dropdown drives different lists.
 
-### `_health_legend_chips(exclude=())`
+### `_health_legend_chips(exclude=(), *, include_skipped=False)`
 
-The shared status swatches (Jobs list legend + Job-calendar widget). Each swatch uses the same styling as the health squares — including the faint, border-less 'Not scheduled' fill. `exclude` drops states that don't apply to a given view (e.g. 'Not scheduled' on a calendar, which shows occurrences per day, not per job).
+The shared status swatches (Jobs list legend + Job-calendar widget). Each swatch uses the same styling as the health squares — including the faint, border-less 'Not scheduled' fill. `exclude` drops states that don't apply to a given view (e.g. 'Not scheduled' on a calendar, which shows occurrences per day, not per job). `include_skipped` adds the no-work outcome shown by system checks in calendars, rather than day rollups.
 
 ### `_health_square(label: str, tooltip: str, size: int=11, margin: bool=True)`
 
@@ -162,7 +162,7 @@ The coordinator's laurel, for beside an agent's name.
 
 The day-initials over the health squares, today marked so the split between what happened and what is coming is visible without counting.
 
-### `_status_legend()`
+### `_status_legend(*, include_skipped=False)`
 
 —
 

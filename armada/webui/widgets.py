@@ -188,7 +188,7 @@ def _jobcal(realm, realm_root, today, legend: bool = True, widget: bool = True,
     legend_html = ""
     if legend:
         legend_html = (f'<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:5px 12px;'
-                       f'border-top:1px solid var(--color-divider)">{_health_legend_chips(exclude=("Not scheduled",))}</div>')
+                       f'border-top:1px solid var(--color-divider)">{_health_legend_chips(exclude=("Not scheduled",), include_skipped=True)}</div>')
     return (f'<div class="mc-widget mc-jobcal" data-scope="{scope}" data-fpfx="{fpfx}" '
             f'style="height:100%;display:flex;flex-direction:column;overflow:hidden">'
             f'{tb}'

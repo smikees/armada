@@ -123,6 +123,9 @@ Live system work appears there too. Jobs → System distinguishes running work f
 interrupted attempts that need review, and refreshes while the page is open.
 
 System jobs appear as individual calendar entries marked with the server icon.
+**Skipped** entries use a light grey tint and mean the check performed no work.
+For example, a Telegram polling check skips while the background listener is
+already handling messages, so the two do not compete for the same updates.
 There is no separate section above the calendar. Frequent Inbox delivery and
 Telegram processing show recorded activity, current running/queued work and the
 next due time; hourly and daily jobs also show projected due times.

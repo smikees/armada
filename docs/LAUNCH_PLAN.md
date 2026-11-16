@@ -5,6 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.156** is prepared: skipped calendar checks have a light grey tint
+and an explicit Skipped legend with a no-work explanation. Publication checks
+and public download verification are pending.
+[Release evidence](dev/RELEASE_0_99_156.md).
+
 Version **0.99.155** is published: thread drafts survive visits to other agent
 sections and composer bullets have matching size, fill and alignment.
 **4,750 local tests**, exact-source Windows CI, clean-source stabilization,
