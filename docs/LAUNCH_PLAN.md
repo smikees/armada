@@ -5,9 +5,12 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.157** is prepared: shared page, metadata and Claude tool setup;
+Version **0.99.157** is published: shared page, metadata and Claude tool setup;
 unused paths removed; the static cockpit follows the realm default provider.
-Release gates and publication remain pending.
+**4,797 local tests**, exact-source Windows CI, clean-source stabilization,
+native packaged lifecycle, staged owner workflows and signed upgrade rehearsal
+passed. Public signatures, package contents, installer hash and website links
+were verified.
 [Implementation](dev/SIMPLIFICATION_2026_11.md) · [Release evidence](dev/RELEASE_0_99_157.md).
 
 Version **0.99.156** is published: skipped calendar checks have a light grey tint
