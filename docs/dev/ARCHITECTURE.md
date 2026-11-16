@@ -130,10 +130,10 @@ infra        util.py (safe_seg, atomic writes, file_lock, pid_alive, swallowed, 
 
 Two things about `webui/` that surprise people:
 
-- **The namespace mirror.** `webui/__init__.py` and `pages.py` do
-  `globals().update(vars(_core))`, so every helper is reachable as `webui.<name>`. It's why
-  pyflakes reports "undefined name" in `pages.py`, and why a module-level name defined in `_core`
-  (a logger, say) must be redefined *after* the mirror line in `pages.py` to stay its own.
+- **The compatibility namespace.** `webui/__init__.py` re-exports `_core` and page
+  entrypoints so existing `webui.<name>` callers keep working. As of 0.99.157,
+  `pages.py` imports its dependencies explicitly. Patches to helper implementations
+  still belong in their defining module, not the package's copied export.
 - **L2 modules never import `_core`**; `_core` imports them back. That's what keeps the carve-up
   (Phase 3 of the old refactor, then 2.4) free of cycles.
 

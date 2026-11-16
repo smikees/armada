@@ -46,10 +46,6 @@ A system job's interval in the same shorthand the Cadence column uses for cron j
 
 When this job will actually run next: 'Mon 9/21, 20:00'.
 
-### `_sysjob_when(iso_ts: str, now)`
-
-'3h ago' / 'in 2d' / '—'. Rendered server-side so the row is complete without JavaScript.
-
 ### `_job_description(text)`
 
 —

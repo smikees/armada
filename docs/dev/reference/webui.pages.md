@@ -3,8 +3,8 @@
 ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3.
 
 These are the top-of-stack renderers called by serve.py. They are pure leaves — nothing in
-_core calls them — so they live here and pull every helper/constant they need from _core via
-the namespace mirror below (so call sites like _nav(...) / _page_shell(...) are unchanged).
+_core calls them. Dependencies are explicit; the webui package retains its compatibility
+exports for existing callers.
 
 ### `render_thread_rail(realm, realm_root, agent_id: str, thread: str)`
 

@@ -1,9 +1,11 @@
 # `armada/addons.py`
 
-Add-ons: the extension surface (Phase 2, 2.7 — ADR-002's homework). Designed and stubbed; nothing
-in the app reads it yet.
+Add-ons: a validated, data-only extension surface.
 
-ADR-002 says Alexander-the-developer, when it comes, changes a user's ARMADA only by writing into a
+Alexander installs approved manifests and the dashboard renders their widgets.
+The other contribution kinds retain their schemas but have no rendering consumers yet.
+
+ADR-002 says Alexander-the-developer changes a user's ARMADA only by writing into a
 defined surface — never by patching the app — so the user keeps running the official build plus
 their own files, updates keep applying, and undoing a change is deleting a folder. This module is
 that surface's contract and loader. The full contract, with examples, is docs/dev/EXTENSION_POINTS.md.

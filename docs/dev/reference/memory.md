@@ -18,10 +18,6 @@ knows the owner's name; only Travel knows he prefers hotels." Thread history is 
 
 The realm's North Star FRAMING only — title, mandate/guardrails, and the meta-objective — with the per-goal enumeration stripped out. Every agent shares the framing, but each agent's actual goals are injected SCOPED to it (goals_for_agent), so no one carries all nine. We cut at the first section heading that isn't 'Meta' (where the goal listing begins); if the doc isn't structured that way, it's kept whole.
 
-### `_frontmatter(text: str)`
-
-—
-
 ### `_memories(mem_dir: Path)`
 
 —

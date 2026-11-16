@@ -6,6 +6,7 @@ import json, re, datetime
 from pathlib import Path
 from .model import Realm, Agent, Job, Gap
 from . import status as _status, records
+from .util import parse_frontmatter as _frontmatter
 
 
 def _read(p: Path) -> str:
@@ -13,18 +14,6 @@ def _read(p: Path) -> str:
         return p.read_bytes().decode("utf-8-sig", "replace")
     except OSError:
         return ""
-
-
-def _frontmatter(text: str) -> tuple[dict, str]:
-    m = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", text, re.S)
-    if not m:
-        return {}, text
-    meta = {}
-    for line in m.group(1).splitlines():
-        if ":" in line and not line.lstrip().startswith("#"):
-            k, v = line.split(":", 1)
-            meta[k.strip()] = v.strip().strip('"')
-    return meta, m.group(2)
 
 
 def _first_headline(body: str, limit: int = 220) -> str:
@@ -169,6 +158,7 @@ def _resolve_theme(cfg: dict, theme: dict) -> tuple[str, str, str]:
 
 def read_native(root: Path, *, details=True) -> Realm:
     """Read a ARMADA-native realm (realm.json + theme.json + agents/*) — the greenfield format."""
+    from .engine.selection import engine_for
     now = datetime.datetime.now().astimezone()
     cfg = json.loads(_read(root / "realm.json") or "{}")
     theme = json.loads(_read(root / "theme.json") or "{}")
@@ -179,7 +169,7 @@ def read_native(root: Path, *, details=True) -> Realm:
         theme_agent=_agent,
         theme_coordinator=_coord,
         theme_icon=theme.get("icon", "🏛️"),
-        engine=(cfg.get("default_engine", "claude").title() + " (subscription)"),
+        engine=engine_for(root).title() + " (realm default)",
         generated_at=now.strftime("%A %d %B %Y, %H:%M"),
         sections=cfg.get("sections", []),
     )

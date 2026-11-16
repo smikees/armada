@@ -5,6 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.157** is prepared: shared page, metadata and Claude tool setup;
+unused paths removed; the static cockpit follows the realm default provider.
+Release gates and publication remain pending.
+[Implementation](dev/SIMPLIFICATION_2026_11.md) · [Release evidence](dev/RELEASE_0_99_157.md).
+
 Version **0.99.156** is published: skipped calendar checks have a light grey tint
 and an explicit Skipped legend with a no-work explanation.
 **4,752 local tests**, exact-source Windows CI, native packaged lifecycle,

@@ -8,10 +8,6 @@ Missing or unsupported legacy fields are reported as gaps rather than silently i
 
 —
 
-### `_frontmatter(text: str)`
-
-—
-
 ### `_first_headline(body: str, limit: int=220)`
 
 —

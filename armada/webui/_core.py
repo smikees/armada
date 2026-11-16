@@ -167,15 +167,6 @@ def _dot(status: str) -> str:
 # Token-consumption gradient (matches the design bar): light cream (low consumption) → orange →
 # green (low) → yellow → orange → red (high) — a traffic-light spectrum that reads intuitively as
 # cost. A model/agent icon is coloured by sampling this at its 0..99 index.
-def _ver_tuple(label: str) -> tuple:
-    """Version part of a pretty label as a sortable tuple: 'Opus 4.8'→(4,8), 'Opus 5'→(5,), 'Opus'→()."""
-    parts = (label or "").split()
-    if len(parts) < 2:
-        return ()
-    bits = parts[1].split(".")
-    return tuple(int(b) for b in bits) if all(b.isdigit() for b in bits) else ()
-
-
 def _model_color_map(labels) -> dict:
     """label → colour by token-consumption index on the shared gradient (light = low, dark = high).
     All versions of a family share a tier; non-provider labels fall back."""
@@ -236,46 +227,6 @@ def _totals_30d(realm, realm_root, today: datetime.date, *, details=False):
         return {'total_30d': total, 'usd_30d': cost,
                 'unknown_token_runs_30d': unknown_tok, 'unknown_cost_runs_30d': unknown_usd}
     return total, cost
-
-
-def _usage_stats(realm, realm_root: Path, today: datetime.date):
-    """Aggregate ARMADA's own run-report telemetry over the last 30 days → overall total,
-    per-agent totals (first), and per-model totals. Real data we log ourselves."""
-    lo = (today - datetime.timedelta(days=29)).isoformat()
-    per_model: dict[str, dict] = {}
-    per_agent = []
-    total_tok, total_usd = 0, 0.0
-    agents = ([realm.coordinator] if realm.coordinator else []) + list(realm.members)
-    for a in agents:
-        atok, ausd = 0, 0.0
-        for ev in _runs(realm_root, a.id):
-            if str(ev.get("ts", ""))[:10] < lo:
-                continue
-            tk = ev.get("tokens") if isinstance(ev.get("tokens"), dict) else {}
-            t = int(tk.get("total", 0) or 0)
-            usd = float(tk["api_equiv_usd"]) if tk.get("api_equiv_usd") is not None else None
-            atok += t
-            ausd = ausd + usd if ausd is not None and usd is not None else None
-            lbl = _pretty_model(ev.get("model"))
-            m = per_model.setdefault(lbl, {"tok": 0, "usd": 0.0})
-            m["tok"] += t
-            m["usd"] = m["usd"] + usd if m["usd"] is not None and usd is not None else None
-        per_agent.append((a, atok, ausd))          # every agent, even idle ones
-        total_tok += atok
-        total_usd = total_usd + ausd if total_usd is not None and ausd is not None else None
-    per_agent.sort(key=lambda x: (-x[1], x[0].display.lower()))   # top-usage → least
-    # every available model (from the catalog) + any recorded model, with its token use
-    labels: list[str] = []
-    for m in _MODELS:
-        p = _pretty_model(m)
-        if p not in labels:
-            labels.append(p)
-    for p in per_model:
-        if p not in labels:
-            labels.append(p)
-    models = [(p, per_model.get(p, {"tok": 0, "usd": 0.0})) for p in labels]
-    models.sort(key=lambda kv: (-kv[1]["tok"], kv[0].lower()))    # most-used → unused
-    return total_tok, total_usd, per_agent, models
 
 
 # ColorBrewer "Paired" (12) — concrete hex so they double as <input type=color> presets and stay
@@ -615,52 +566,6 @@ def _sysjobcal_events(realm_root, d_from, d_to, jobs=None) -> list[dict]:
     return out
 
 
-def _from_hand(realm, realm_root) -> str:
-    c = realm.coordinator
-    if not c:
-        return ""
-    quote = E(c.bulletin or f"{c.display} coordinates the realm.")
-    return (f'<div class="mc-widget" style="height:100%;background:var(--color-accent-2-100);'
-            f'border-color:color-mix(in srgb,var(--color-accent-2) 50%,var(--color-divider))">'
-            f'<div style="display:flex;align-items:center;gap:6px;padding:8px 12px 0">{GRIP}'
-            f'<span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-2-700)">'
-            f'From the {E(realm.theme_coordinator)}</span></div>'
-            f'<div style="display:flex;gap:12px;padding:8px 12px 12px;align-items:flex-start">'
-            f'<div style="flex:none">{_portrait(realm_root, c, 52)}</div>'
-            f'<div style="flex:1"><div style="font-family:var(--font-heading);font-weight:600;font-size:17px;line-height:1.2">'
-            f'&ldquo;{quote}&rdquo;</div>'
-            f'<div style="display:flex;gap:8px;margin-top:10px">'
-            f'<button class="btn btn-primary btn-sm">Reply</button>'
-            f'<button class="btn btn-secondary btn-sm">Main thread</button></div></div></div></div>')
-
-
-def _attention(realm, realm_root, today) -> str:
-    items = []
-    for a in realm.agents:
-        for ev in _runs(realm_root, a.id, since=today.isoformat()):
-            st = status.normalize(ev.get("status", ""))
-            if status.is_bad(st) and str(ev.get("ts", ""))[:10] == today.isoformat():
-                failed = st == status.FAILED
-                items.append((("var(--status-bad)" if failed else "var(--status-warn)"),
-                              E(str(ev.get("summary", "") or f"{a.display} job issue")[:120]),
-                              "Failure" if failed else "Issue", E(a.display), "today"))
-    body = ""
-    if items:
-        for dot, text, kind, who, age in items[:8]:
-            body += (f'<div class="mc-row" style="padding:9px 12px;border-bottom:1px solid '
-                     f'var(--text-8);display:flex;gap:9px;align-items:flex-start">'
-                     f'<i style="width:8px;height:8px;border-radius:50%;flex:none;margin-top:4px;background:{dot}"></i>'
-                     f'<div style="min-width:0;flex:1"><div style="font-size:12px;line-height:1.35">{text}</div>'
-                     f'<div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">'
-                     f'{kind} · {who} · {age}</div></div></div>')
-    else:
-        body = ('<div style="padding:16px 12px;font-size:12.5px;color:var(--text-muted)">'
-                'Nothing needs you right now.</div>')
-    return (f'<div class="mc-widget" style="height:100%">'
-            f'{_wid_header("Attention", "· " + str(len(items)))}'
-            f'<div style="overflow:auto;display:flex;flex-direction:column">{body}</div></div>')
-
-
 def _today(realm, realm_root, today) -> str:
     evs = []
     for a in realm.agents:
@@ -729,8 +634,6 @@ def _agent_memory_realm(realm_root: Path) -> list[tuple[str, str]]:
 # (value, title, icon, description, icon colour, icon hover)
 # migrate old values to the 3-mode model
 # value → (icon, title, colour, hover) derived from the modes above (one source)
-_MODELS = ["Claude Opus 5", "Claude Sonnet 5", "Claude Haiku 4.5", "Claude Fable 5",
-           "Claude Opus 4.8", "Claude Sonnet 4.5"]
 _DOWS = [("Mon", 1), ("Tue", 2), ("Wed", 3), ("Thu", 4), ("Fri", 5), ("Sat", 6), ("Sun", 0)]
 
 
@@ -771,16 +674,6 @@ _CRON_HELP = ('<div id="mc-cronhelp" class="mc-modal-ov" onclick="if(event.targe
 # Shared dropdown behaviour (used by the realm Jobs page and the agent Jobs tab).
 
 
-def _settings_realm(realm, realm_root) -> str:
-    return (f'<div style="display:flex;gap:10px;align-items:center">'
-            f'<span style="display:flex;color:var(--text-strong)">{_realm_icon(realm, 22)}</span>'
-            f'<div style="font-size:12.5px"><b>{E(realm.name)}</b> · <span class="mono">{E(str(realm_root))}</span></div>'
-            f'<label class="mc-frame" style="cursor:pointer;padding:5px 10px;border-radius:var(--r);font-size:12px;margin-left:auto">'
-            f'Upload icon<input type="file" accept="image/*" style="display:none" onchange="mcUploadRealmIcon(this)"></label></div>'
-            f'<div id="ri-msg" style="font-size:11.5px;color:var(--text-muted);margin-top:4px"></div>'
-            + _REALM_ICON_JS)
-
-
 _ABOUT = brand.ABOUT
 
 
@@ -806,23 +699,6 @@ _ICONS_PICK = ["🏛️", "🏢", "🏴‍☠️", "🧭", "🛰️", "🧠", "�
 
 from ..assets import js as _js  # noqa: E402
 _WIZ_JS = _js("newrealm_wizard")           # static/js/newrealm_wizard.js (UI audit L1)
-
-
-def _widget_section_title(realm, wid: str) -> str:
-    """A default nav title for a widget promoted to a section."""
-    if wid == "register":
-        return "Register"
-    if wid == "usage":
-        return "Usage"
-    if wid == "jobcal":
-        return "Job calendar"
-    if wid.startswith("thread:"):
-        p = wid.split(":", 2)
-        if len(p) == 3:
-            a = next((x for x in realm.agents if x.id == p[1]), None)
-            thr = "Main" if p[2] == "main" else p[2].replace("-", " ").title()
-            return (f"{a.display} · {thr}" if a else thr)
-    return "Section"
 
 
 def _render_widget_section(realm, realm_root, name, wid, dark=False) -> str:

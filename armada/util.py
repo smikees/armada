@@ -7,6 +7,20 @@ import contextlib, errno, json, logging, os, re, sys, tempfile, threading, time
 from pathlib import Path
 log = logging.getLogger(__name__)
 
+
+def parse_frontmatter(text: str) -> tuple[dict, str]:
+    """Read Armada's flat Markdown metadata; preserve non-frontmatter text verbatim."""
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", text, re.S)
+    if not m:
+        return {}, text
+    meta = {}
+    for line in m.group(1).splitlines():
+        if ":" in line and not line.lstrip().startswith("#"):
+            k, v = line.split(":", 1)
+            meta[k.strip()] = v.strip().strip('"')
+    return meta, m.group(2)
+
+
 # realm ids/slugs are lowercase alnum with -/_ (see setup.scaffold, _new_thread slugging).
 _SEG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 

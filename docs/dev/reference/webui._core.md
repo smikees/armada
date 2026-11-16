@@ -20,10 +20,6 @@ The owner's settings (source of truth in realm.json 'user'), falling back to the
 
 —
 
-### `_ver_tuple(label: str)`
-
-Version part of a pretty label as a sortable tuple: 'Opus 4.8'→(4,8), 'Opus 5'→(5,), 'Opus'→().
-
 ### `_model_color_map(labels)`
 
 label → colour by token-consumption index on the shared gradient (light = low, dark = high). All versions of a family share a tier; non-provider labels fall back.
@@ -35,10 +31,6 @@ label → colour by token-consumption index on the shared gradient (light = low,
 ### `_totals_30d(realm, realm_root, today: datetime.date, *, details=False)`
 
 Epoch-aware rolling-30-day (today-29 … today) token + api-eq totals from run telemetry. THE single source for both the Overview header KPIs (server-rendered) and the Usage endpoint's total_30d/usd_30d, so the header value doesn't change when usage.js refreshes it on load.
-
-### `_usage_stats(realm, realm_root: Path, today: datetime.date)`
-
-Aggregate ARMADA's own run-report telemetry over the last 30 days → overall total, per-agent totals (first), and per-model totals. Real data we log ourselves.
 
 ### `_usage_data(realm, realm_root, mode: str, window: str, by: str='agents')`
 
@@ -56,14 +48,6 @@ Job occurrences in [d_from, d_to]: projected from each job's schedule, with past
 
 System-job occurrences in [d_from, d_to], in the same shape as _jobcal_events.
 
-### `_from_hand(realm, realm_root)`
-
-—
-
-### `_attention(realm, realm_root, today)`
-
-—
-
 ### `_today(realm, realm_root, today)`
 
 —
@@ -72,17 +56,9 @@ System-job occurrences in [d_from, d_to], in the same shape as _jobcal_events.
 
 —
 
-### `_settings_realm(realm, realm_root)`
-
-—
-
 ### `_user_avatar_modal()`
 
 —
-
-### `_widget_section_title(realm, wid: str)`
-
-A default nav title for a widget promoted to a section.
 
 ### `_render_widget_section(realm, realm_root, name, wid, dark=False)`
 

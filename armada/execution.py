@@ -345,13 +345,8 @@ class TurnCoordinator:
                 self.on_proc(handle)
 
         def queued(reason='Queued — waiting for local execution capacity…'):
-            nonlocal turn, attachments, saved, waited
+            nonlocal waited
             waited = True
-            if turn is None and not req.task:
-                saved = r._save_images(agent_dir, thread, list(req.images))
-                attachments = [{'kind': 'image', 'name': s['name'], 'file': s['file']} for s in saved]
-                attachments += [{'kind': 'file', 'name': str(fn)} for fn in req.files if str(fn).strip()]
-                turn = th.begin_turn(message, attachments=attachments or None, queued=True)
             if turn:
                 th.save_progress(turn, '', reason)
             event({'kind': 'status', 'text': reason})

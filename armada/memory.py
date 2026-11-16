@@ -13,7 +13,7 @@ import re, os, json, datetime
 from . import clock
 from pathlib import Path
 import logging
-from .util import swallowed
+from .util import swallowed, parse_frontmatter as _frontmatter
 log = logging.getLogger(__name__)
 
 
@@ -36,18 +36,6 @@ def _mission_framing(text: str) -> str:
             break
     out = "\n".join(lines[:cut]) if cut is not None else text
     return out.rstrip().rstrip("-").rstrip()          # drop a dangling '---' separator
-
-
-def _frontmatter(text: str) -> tuple[dict, str]:
-    m = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)$", text, re.S)
-    if not m:
-        return {}, text
-    meta = {}
-    for line in m.group(1).splitlines():
-        if ":" in line and not line.lstrip().startswith("#"):
-            k, v = line.split(":", 1)
-            meta[k.strip()] = v.strip().strip('"')
-    return meta, m.group(2)
 
 
 def _memories(mem_dir: Path) -> list[tuple[str, str]]:

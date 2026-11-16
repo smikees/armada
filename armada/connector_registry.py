@@ -154,15 +154,6 @@ def inventory(provider, realm_root=None):
     raise ValueError('Unknown connector engine.')
 
 
-def verify_registrations(requirements, registrations):
-    """A linked name cannot silently start pointing an agent at another service."""
-    for name, expected in requirements.items():
-        if name not in registrations:
-            raise ValueError(f'Connector {name} is missing or disabled in this engine. Reconnect it in Capabilities.')
-        if expected and registrations[name] != expected:
-            raise ValueError(f'Connector {name} has different settings in this engine. Review its connection in Capabilities.')
-
-
 def unavailable_registrations(requirements, registrations):
     """Withhold individual missing/mismatched registrations without stopping a conversation."""
     rows = []

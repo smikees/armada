@@ -8,7 +8,7 @@
 | [`__main__`](__main__.md) |  |
 | [`access_policy`](access_policy.md) | Strict, provider-neutral connector tool and filesystem write policy. |
 | [`activerealm`](activerealm.md) | Which realm the app opens when nobody says — the last one you were actually in. |
-| [`addons`](addons.md) | Add-ons: the extension surface (Phase 2, 2.7 — ADR-002's homework) |
+| [`addons`](addons.md) | Add-ons: a validated, data-only extension surface. |
 | [`agentdates`](agentdates.md) | Appointment dates are profile history, not configuration modification times. |
 | [`agentops`](agentops.md) | Agent lifecycle — retire, reinstate, delete. |
 | [`alexander.__init__`](alexander.__init__.md) | Alexander — ARMADA's guide (Phase 6; docs/dev/ALEXANDER.md, ADR-012). |

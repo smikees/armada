@@ -1,7 +1,13 @@
 # Extension points — the add-on contract
 
 *Phase 2, step 2.7 — ADR-002's homework. Contract v1, written 2026-09-24. Loader: `armada/addons.py`.
-Tests: `tests/test_addons.py`. **Designed and stubbed: nothing in the app reads add-ons yet.***
+Tests: `tests/test_addons.py`. The original contract below was designed in Phase 2.*
+
+**Current implementation, 16 November 2026:** Alexander validates and installs
+owner-approved manifests through `alexander.support.install_addon`; the dashboard
+loads and renders their widgets through `webui.pages._addon_widgets` and
+`_addon_widget`. Other contribution kinds have validated schemas but no rendering
+consumers yet. Add-ons are active functionality, not an unused stub.
 
 ADR-002 decided that when Alexander-the-developer arrives (DEFERRED D.1), it changes a user's ARMADA
 only by writing into a defined surface — never by patching the app. The user keeps running the

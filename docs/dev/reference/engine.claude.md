@@ -73,6 +73,7 @@ Concrete versioned model id for logging (so usage shows 'Opus 4.8', not bare 'Op
 - `ClaudeEngine._direct(self)` — True when we invoke Claude directly (native or node) — empty-string args survive. False only for the cmd-shim fallback, which eats empty args.
 - `ClaudeEngine._env(self)` — —
 - `ClaudeEngine.doctor(self)` — —
+- `ClaudeEngine._tool_args(self, allow_tools, only_tools, mcp_args)` — Keep tool-mode precedence identical for JSON and streaming turns.
 - `ClaudeEngine.run(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int=DEFAULT_TIMEOUT, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None, only_tools: Optional[list]=None, verbosity: Optional[str]=None, env=None)` — —
 - `ClaudeEngine.run_stream(self, system: str, prompt: str, model: Optional[str]=None, cwd: Optional[str]=None, allow_tools: bool=False, timeout: int | None=None, on_event: Optional[Callable[[dict], None]]=None, on_proc: Optional[Callable]=None, effort: Optional[str]=None, fallback_model: Optional[str]=None, max_budget_usd: Optional[float]=None, disallowed_tools: Optional[list]=None, only_tools: Optional[list]=None, verbosity: Optional[str]=None, env=None)` — Run a turn in streaming mode, calling on_event(dict) for each intermediate step (thinking / tool use / tool result / text) as Claude Code emits them (stream-json NDJSON). Returns the final RunResult; malformed or missing terminal output fails the turn.
 

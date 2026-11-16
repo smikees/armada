@@ -498,6 +498,19 @@ class ClaudeEngine(EngineAdapter):
     # The coordinator supervises unattended inactivity; only owner-chosen deadlines apply.
     DEFAULT_TIMEOUT = None
 
+    def _tool_args(self, allow_tools, only_tools, mcp_args):
+        """Keep tool-mode precedence identical for JSON and streaming turns."""
+        if getattr(self, "managed_tools", None):
+            from ..managed_tools import claude_args
+            return claude_args(self)
+        if only_tools is not None:
+            return _sealed_tool_args(only_tools)
+        if allow_tools:
+            return ["--tools", "default", "--dangerously-skip-permissions", *mcp_args]
+        if self._direct():
+            return ["--safe-mode", "--tools", ""]
+        return ["--safe-mode", "--disallowedTools", _DENY, "--permission-prompts", "none"]
+
     def run(self, system: str, prompt: str, model: Optional[str] = None,
             cwd: Optional[str] = None, allow_tools: bool = False, timeout: int = DEFAULT_TIMEOUT,
             effort: Optional[str] = None, fallback_model: Optional[str] = None,
@@ -540,20 +553,7 @@ class ClaudeEngine(EngineAdapter):
         # one travels by file; see _system_args.
         sys_args, sys_file = _system_args(_verbosity_system(system, verbosity))
         args += sys_args
-        if getattr(self, "managed_tools", None):
-            from ..managed_tools import claude_args
-            args += claude_args(self)
-        elif only_tools is not None:
-            args += _sealed_tool_args(only_tools)
-        elif allow_tools:
-            # NO --safe-mode: load the real MCP servers / skills / plugins so the agent can actually
-            # use its capabilities (Telegram, filesystem, skills, …), not just be told they exist.
-            args += ["--tools", "default", "--dangerously-skip-permissions"]
-            args += mcp_args
-        elif self._direct():
-            args += ["--safe-mode", "--tools", ""]     # no-tool turn: skip the harness + strip schemas (lean)
-        else:
-            args += ["--safe-mode", "--disallowedTools", _DENY, "--permission-prompts", "none"]
+        args += self._tool_args(allow_tools, only_tools, mcp_args)
         chunks = []
         size = 0
         def collect(line):
@@ -627,19 +627,7 @@ class ClaudeEngine(EngineAdapter):
         args += _advanced_args(fallback_model, max_budget_usd)
         sys_args, sys_file = _system_args(_verbosity_system(system, verbosity))  # large context travels by file
         args += sys_args
-        if getattr(self, "managed_tools", None):
-            from ..managed_tools import claude_args
-            args += claude_args(self)
-        elif only_tools is not None:
-            args += _sealed_tool_args(only_tools)
-        elif allow_tools:
-            # NO --safe-mode: real MCP/skills/plugins load so the agent can actually use its capabilities.
-            args += ["--tools", "default", "--dangerously-skip-permissions"]
-            args += mcp_args
-        elif self._direct():
-            args += ["--safe-mode", "--tools", ""]     # no-tool turn: lean, no harness
-        else:
-            args += ["--safe-mode", "--disallowedTools", _DENY, "--permission-prompts", "none"]
+        args += self._tool_args(allow_tools, only_tools, mcp_args)
         state = _ClaudeStream(emit, model or "")
         interactive=bool(getattr(on_event,'interactive_questions',False))
         def accept(line):

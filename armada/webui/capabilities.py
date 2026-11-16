@@ -593,27 +593,6 @@ def _cap_touch_cell(it: dict) -> str:
     return _cap_cell("Can touch", chips)
 
 
-def _cap_badges(it: dict) -> str:
-    out = ""
-    runs = (it.get("runs") or "").lower()
-    if runs in _RUNS_META:
-        rl, rc = _RUNS_META[runs]
-        out += _pill(E(rl), _tone(rc))
-    # Riskiest first, so the leading icon is the one that set the card's stripe. Sorted here
-    # rather than trusted from the file: the order a capability happens to list its abilities
-    # in is not a statement about them.
-    touch = sorted((str(x).lower() for x in (it.get("touch") or [])),
-                   key=lambda s: _ABILITY_RANK.index(s) if s in _ABILITY_RANK else 99)
-    if touch:
-        for s in touch:
-            c = _SCOPE_CLR.get(s, "var(--text-muted)")
-            out += f'<span class="mc-cap-scope" style="background:color-mix(in srgb,{c} 14%,transparent);color:{c}">{E(s)}</span>'
-    elif runs:
-        out += ('<span class="mc-cap-scope" style="background:var(--text-8);'
-                'color:var(--text-muted)">no local access</span>')
-    return out
-
-
 def _cap_has_update(it: dict) -> bool:
     v = str(it.get("version") or "").strip()
     l = str(it.get("latest") or "").strip()

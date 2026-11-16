@@ -74,3 +74,21 @@ def test_missing_live_catalogue_never_uses_the_ui_seed(monkeypatch):
     monkeypatch.setattr(models, "fetch_live_result", lambda: (None, "unreachable"))
     assert choose({"claude": {"connected": True}})["default_model"] == "claude:default"
     assert choose({"gemini": {"connected": True}})["default_model"] == "gemini:default"
+
+
+@pytest.mark.parametrize('config,provider', [
+    ({'default_model': 'gpt-6.1-sol', 'default_engine': 'claude'}, 'Codex'),
+    ({'default_model': 'gemini-3.8-flash', 'provider': 'codex'}, 'Gemini'),
+    ({'provider': 'codex', 'default_engine': 'claude'}, 'Codex'),
+    ({'default_engine': 'gemini'}, 'Gemini'),
+    ({}, 'Claude'),
+])
+def test_static_cockpit_reports_the_realm_default_without_changing_saved_choices(tmp_path, config, provider):
+    from armada import reader, render
+    path = tmp_path / 'realm.json'
+    saved = json.dumps({'name': 'Synthetic team', **config})
+    path.write_text(saved, encoding='utf-8')
+    realm = reader.read_native(tmp_path)
+    assert realm.engine == provider + ' (realm default)'
+    assert realm.engine in render.render(realm)
+    assert path.read_text(encoding='utf-8') == saved

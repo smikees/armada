@@ -30,10 +30,6 @@ Runtime facade; preserve the logical capability identity in grants/UI.
 
 Names and safe remote URLs only. Headers, env, OAuth and local commands stay private.
 
-### `verify_registrations(requirements, registrations)`
-
-A linked name cannot silently start pointing an agent at another service.
-
 ### `unavailable_registrations(requirements, registrations)`
 
 Withhold individual missing/mismatched registrations without stopping a conversation.

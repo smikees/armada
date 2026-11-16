@@ -379,30 +379,6 @@ def _sysjob_next(iso_ts: str, due_now: bool, now) -> str:
     return datefmt.moment(t)                      # `Thu 24 Sep, 22:30` (DESIGN_SYSTEM §9a)
 
 
-def _sysjob_when(iso_ts: str, now) -> str:
-    """'3h ago' / 'in 2d' / '—'. Rendered server-side so the row is complete without JavaScript."""
-    if not iso_ts:
-        return "—"
-    try:
-        t = datetime.datetime.fromisoformat(iso_ts)
-    except ValueError:
-        return "—"
-    if t.tzinfo is None:
-        t = t.astimezone()
-    secs = (now - t).total_seconds()
-    ahead = secs < 0
-    secs = abs(secs)
-    if secs < 60:
-        return "just now" if not ahead else "any moment"
-    if secs < 3600:
-        v = f"{round(secs / 60)}m"
-    elif secs < 86400:
-        v = f"{round(secs / 3600)}h"
-    else:
-        v = f"{round(secs / 86400)}d"
-    return f"in {v}" if ahead else f"{v} ago"
-
-
 def _job_description(text):
     if not text:
         return ''

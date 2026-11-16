@@ -1,26 +1,42 @@
 """ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3.
 
 These are the top-of-stack renderers called by serve.py. They are pure leaves — nothing in
-_core calls them — so they live here and pull every helper/constant they need from _core via
-the namespace mirror below (so call sites like _nav(...) / _page_shell(...) are unchanged).
+_core calls them. Dependencies are explicit; the webui package retains its compatibility
+exports for existing callers.
 """
 from __future__ import annotations
 
-from .. import clock
-from . import _core
-from . import layout as _layout
-# Phase 2, 2.1: scripts local to pages.py's own renderers (not re-exported via _core).
+import datetime
+import html
+import json
+import logging
+import re
+from pathlib import Path
+
+from .. import appconfig, brand, clock, vtheme
+from .. import goals as goalsmod
 from ..assets import (INBOX_JS as _INBOX_JS_ASSET, STA2A_TOGGLE_JS as _STA2A_TOGGLE_JS,
     ADDSECTION_JS as _ADDSECTION_JS, EDITSECTION_JS as _EDITSECTION_JS, SNAP_JS as _SNAP_JS,
     DOCSEARCH_JS as _DOCSEARCH_JS)
-# Mirror _core's namespace (helpers, constants, imports) so the moved render_* functions resolve
-# their names exactly as they did inside _core.
-globals().update({k: v for k, v in vars(_core).items() if not k.startswith('__')})
+from ..util import swallowed
+from . import layout as _layout
+from ._core import (
+    CHEVR, E, GRIP, _ABOUT, _AGENT_COLOR_JS, _AGENT_JS, _APPOINT_JS, _AUTONOMY_JS, _CHAT_JS,
+    _CRON_HELP, _CSS_LINKS, _DASH_JS, _DOWS, _FDROP_JS, _FORM_JS, _ICONS_JS, _JOBCAL_JS, _JOB_JS,
+    _LAYOUT_JS, _NEW_JS, _REALM_ICON_JS, _REALM_ICON_NAMES, _REVEAL_JS, _RUN_JS, _SETTINGS_JS,
+    _STAR, _USAGE_JS, _USER_JS, _WIZ_JS, _agent_body, _agent_header, _agent_memory,
+    _agent_model_effort, _appoint_modal, _bust, _changelog_modal, _chat_center, _consumption_js,
+    _cost_bar, _effort_options, _filter_dropdown, _fmt_ts, _humanize, _icon, _job_created,
+    _job_prompt, _jobcal, _kpis, _load_dashboard, _md, _model_chip_label, _model_options, _nav,
+    _new_agent_form, _ordered_threads, _page_shell, _page_title, _portrait, _realm_artefacts,
+    _realm_goals, _realm_icon, _realm_jobs, _realm_memory, _realm_ministers, _realm_skills,
+    _register, _render_turns, _render_widget_section, _sub, _tab_configure, _theme_style,
+    _thread_rail, _titlebar, _totals_30d, _tz_options, _usage, _user, _user_avatar,
+    _user_avatar_file, _user_avatar_modal, _wid_header,
+)
 from ._base import _J, _pill, _tone, _ask_alexander  # _J: JS-string-in-attribute escaping (5.8)
 from .capabilities import _reach_hint  # engine reach under the job's model picker
 from .attention import panel as _attention_summary
-import logging
-from ..util import swallowed
 log = logging.getLogger(__name__)
 
 # The "this one is selected" fill on a realm-icon tile. The server marks the realm's current icon
@@ -1163,13 +1179,7 @@ def render_section(realm, idx: int, dark=False) -> str:
                f'background:var(--color-surface);font-size:11.5px;color:var(--text-muted)">'
                f'<span>Local · {E(name)}</span><span style="margin-left:auto">{openbtn}</span></div>') if url else ""
         body = f'<div style="height:100%;display:flex;flex-direction:column;min-height:0">{bar}<div style="flex:1;min-height:0">{iframe}</div></div>'
-        body_cls = "armada-dark" if dark else ""
-        return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>{brand.NAME} — {E(name)}</title>
-{_CSS_LINKS}{_theme_style()}</head>
-<body class="{body_cls}"><div style="height:100vh;display:flex;flex-direction:column">
-{_titlebar(realm)}{_nav(realm, name)}<div class="mc-appscroll" style="flex:1;min-height:0">{body}</div></div></body></html>"""
-    if snapshot:
+    elif snapshot:
         # mirrored section: render the local copy (no firewall/iframe issues); refresh from source; link the live URL
         from ..routes.dashboard import _section_path
         try:
@@ -1187,13 +1197,7 @@ def render_section(realm, idx: int, dark=False) -> str:
         body = (f'<div style="height:100%;display:flex;flex-direction:column;min-height:0">{bar}'
                 f'<div style="flex:1;min-height:0">{iframe}</div></div>'
                 + _SNAP_JS)
-        body_cls = "armada-dark" if dark else ""
-        return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>{brand.NAME} — {E(name)}</title>
-{_CSS_LINKS}{_theme_style()}</head>
-<body class="{body_cls}"><div style="height:100vh;display:flex;flex-direction:column">
-{_titlebar(realm)}{_nav(realm, name)}<div class="mc-appscroll" style="flex:1;min-height:0">{body}</div></div></body></html>"""
-    if url:
+    elif url:
         # External sites can't always be embedded (host firewalls / X-Frame-Options / a JS
         # "verifying your browser" challenge that never completes inside a cross-origin frame),
         # so always offer a first-party open — that path works even when the inline preview is blocked.

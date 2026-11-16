@@ -74,6 +74,52 @@ def test_no_tool_turn_keeps_safe_mode(monkeypatch):
     assert "--safe-mode" in argv
 
 
+@pytest.mark.parametrize('streaming', [False, True])
+@pytest.mark.parametrize('mode', ['tools', 'sealed', 'sealed-empty', 'managed', 'direct', 'shim'])
+def test_tool_mode_precedence_is_preserved_on_both_transports(monkeypatch, tmp_path, streaming, mode):
+    from types import SimpleNamespace
+    from armada.engine.process import ProcessResult
+    engine = C.ClaudeEngine()
+    monkeypatch.setattr(engine, '_launcher', lambda: ['claude'])
+    monkeypatch.setattr(engine, '_direct', lambda: mode != 'shim')
+    inventory_calls, launches = [], []
+    def inventory(*args):
+        inventory_calls.append(args)
+        return ['--disallowedTools', 'mcp__blocked']
+    monkeypatch.setattr(engine, '_mcp_args', inventory)
+    def transport(argv, *, on_line, **kwargs):
+        launches.append(argv)
+        on_line(_R.stdout)
+        return ProcessResult(returncode=0)
+    monkeypatch.setattr(C, 'supervise', transport)
+    kwargs = {'allow_tools': mode in ('tools', 'sealed', 'sealed-empty', 'managed')}
+    if mode in ('sealed', 'managed'):
+        kwargs['only_tools'] = ['Read']
+    elif mode == 'sealed-empty':
+        kwargs['only_tools'] = []
+    if mode == 'managed':
+        engine.managed_tools = SimpleNamespace(config_path=tmp_path / 'managed.json')
+        expected = ['--setting-sources', '', '--disable-slash-commands', '--tools', '',
+                    '--strict-mcp-config', '--mcp-config', str(engine.managed_tools.config_path),
+                    '--allowedTools', 'mcp__armada_managed__*', '--permission-mode', 'dontAsk',
+                    '--settings', '{"disableAllHooks": true, "enabledPlugins": {}}']
+    elif mode == 'tools':
+        expected = ['--tools', 'default', '--dangerously-skip-permissions', '--disallowedTools', 'mcp__blocked']
+    elif mode in ('sealed', 'sealed-empty'):
+        expected = ['--safe-mode', '--tools', 'Read' if mode == 'sealed' else '', '--allowedTools',
+                    *(['Read'] if mode == 'sealed' else []), '--permission-prompts', 'none']
+    elif mode == 'direct':
+        expected = ['--safe-mode', '--tools', '']
+    else:
+        expected = ['--safe-mode', '--disallowedTools', C._DENY, '--permission-prompts', 'none']
+    result = (engine.run_stream if streaming else engine.run)(system='s', prompt='p', **kwargs)
+    assert result.ok and result.output == 'ok'
+    assert len(launches) == 1
+    argv = launches[0]
+    assert argv[argv.index('--system-prompt') + 2:] == expected
+    assert len(inventory_calls) == (1 if mode == 'tools' else 0)
+
+
 def test_fallback_model_reaches_cli(monkeypatch):
     argv = _argv_for(monkeypatch, False, fallback_model="claude-opus-4-8")
     assert argv[argv.index("--fallback-model") + 1] == "claude-opus-4-8"

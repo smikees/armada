@@ -97,10 +97,6 @@ One capability-row column: a small caption above its icon(s), on a single line.
 
 —
 
-### `_cap_badges(it: dict)`
-
-—
-
 ### `_cap_has_update(it: dict)`
 
 —

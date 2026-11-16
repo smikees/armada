@@ -4,6 +4,10 @@ Small shared utilities: filesystem-path safety and atomic writes.
 
 Kept dependency-free (stdlib only) so every module can import it cheaply.
 
+### `parse_frontmatter(text: str)`
+
+Read Armada's flat Markdown metadata; preserve non-frontmatter text verbatim.
+
 ### class `UnsafeSegment`
 
 A request-supplied path segment that would escape or is malformed.

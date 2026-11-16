@@ -15,7 +15,7 @@ from . import pages   # render_* entrypoints (carved from _core in P3.3)
 
 # Mirror every public and underscored name (helpers, render_*, constants) so the package namespace
 # is a drop-in replacement for the old module namespace. _core first (helpers/constants), then pages
-# (the render_* functions), which shadows nothing since render_* no longer live in _core.
+# (the render_* functions and their explicit dependencies).
 globals().update({k: v for k, v in vars(_core).items() if not k.startswith("__")})
 globals().update({k: v for k, v in vars(pages).items() if not k.startswith("__")})
 
