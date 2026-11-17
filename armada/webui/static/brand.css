@@ -246,9 +246,10 @@ html,body{margin:0;height:100%;background:var(--color-bg);color:var(--color-text
 .mc-tab{font-family:var(--font-heading);font-weight:600;font-size:15px;letter-spacing:.01em;padding:9px 2px;border-bottom:3px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;color:color-mix(in srgb,var(--color-text) 62%,transparent);cursor:pointer;white-space:nowrap;text-decoration:none}
 .mc-tab:hover{color:var(--color-text)}
 .mc-tab[aria-current="page"]{color:var(--color-text);border-bottom-color:var(--color-accent-2)}
-.mc-navigation-loading{position:fixed;left:16px;bottom:16px;z-index:100;color:var(--color-text);padding:12px 16px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);max-width:calc(100vw - 32px)}
+.mc-navigation-loading{position:fixed;left:0;right:0;bottom:0;z-index:90;overflow:auto;color:var(--color-text);padding:18px 24px 24px;background:var(--color-bg)}
 .mc-navigation-loading[hidden],.mc-navigation-slow[hidden]{display:none}
-.mc-navigation-status{display:flex;align-items:center;gap:10px;font-size:13px}
+.mc-navigation-outgoing{visibility:hidden!important}
+.mc-navigation-status{display:flex;align-items:center;gap:10px;min-height:96px;font-size:13px}
 .mc-navigation-slow{margin-top:10px}
 .mc-navigation-slow p{font-size:13px;line-height:1.5;margin:0 0 10px}
 .mc-loading-spinner{display:inline-block;flex:none;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;box-sizing:border-box;vertical-align:-2px;animation:mc-spin .8s linear infinite}

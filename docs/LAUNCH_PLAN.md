@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.161** is prepared: switch menu and destination loading content
+together, including when leaving an agent page. Publication is pending the
+final-source release and packaged UI gates. [Release evidence](dev/RELEASE_0_99_161.md).
+
 Version **0.99.160** is published: prompt navigation in realms with large inbox
 archives, complete active menu states and shared loading spinners. **4,843
 local tests**, exact-source CI, stabilization, packaged native workflows and

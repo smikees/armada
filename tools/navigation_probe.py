@@ -57,7 +57,7 @@ def run(output, baseline=False, *, capture_images=True):
                     self._json(200, bridge.next_command())
                 elif baseline and path == '/static/js/navigation.js':
                     self._send(200, '// Baseline: controller disabled', 'application/javascript')
-                elif path == '/artefacts' and 'probe_slow=1' in self.path:
+                elif path in ('/artefacts', '/skills') and 'probe_slow=1' in self.path:
                     entered.set()
                     if not release.wait(20):
                         self._send(503, 'Synthetic delay expired')
@@ -142,16 +142,16 @@ def run(output, baseline=False, *, capture_images=True):
             wait(lambda: js('document.readyState==="complete"&&location.pathname==='+json.dumps(route)
                             +'&&(()=>{const q=new URLSearchParams(location.search);q.delete("_realm");return q.toString()==='+json.dumps(query)+'})()'), path)
 
-        def delayed_click():
+        def delayed_click(page="artefacts"):
             entered.clear(); release.clear()
             observed.clear(); observations.clear()
-            js("""window.probeStart=performance.now();window.probeFeedback=null;
+            js("window.probeDestination="+json.dumps(page)+";"+"""window.probeStart=performance.now();window.probeFeedback=null;
                 const observer=new MutationObserver(()=>{const p=document.querySelector('.mc-navigation-loading');
                   if(p&&!p.hidden){window.probeFeedback=performance.now()-window.probeStart;observer.disconnect();}});
                 observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
                 setTimeout(()=>fetch('/probe-observation?data='+encodeURIComponent(JSON.stringify({
                   visible:!!document.querySelector('.mc-navigation-loading:not([hidden])'),ms:window.probeFeedback}))),300);
-                const a=document.querySelector('.mc-mainnav a[href*="/artefacts"]');
+                const a=[...document.querySelectorAll('.mc-mainnav a[href]')].find(a=>new URL(a.href).pathname==='/'+window.probeDestination);
                 const u=new URL(a.href);u.searchParams.set('probe_slow','1');a.href=u.href;a.click();true;""")
             assert entered.wait(5), 'Native navigation request started'
 
@@ -185,13 +185,16 @@ def run(output, baseline=False, *, capture_images=True):
                 else:
                     assert visible and result['feedback_dom_ms'] < 100, result
                     assert js("document.querySelector('.mc-mainnav a[href*=artefacts]').getAttribute('aria-busy')==='true'"), 'Target link shows progress'
-                    assert js("!document.querySelector('.mc-appscroll').inert&&getComputedStyle(document.querySelector('.mc-appscroll')).visibility!=='hidden'&&!document.querySelector('.mc-navigation-title')"), 'Outgoing page geometry retained'
-                    result['checks'].append('Link feedback appears under 100ms without replacing the outgoing content')
+                    assert js("document.querySelector('.mc-appscroll').inert&&getComputedStyle(document.querySelector('.mc-appscroll')).visibility==='hidden'&&document.querySelector('.mc-navigation-title').textContent==='Artefacts'"), 'Old content hidden while destination heading is visible'
+                    result['checks'].append('Menu and destination loading view appear together under 100ms while old content is hidden')
                     capture('navigation-light', 1280)
                     js("document.body.classList.add('armada-dark')")
                     window.resize(1024, 850)
                     time.sleep(.2)
-                    assert js("document.querySelector('.mc-navigation-loading').getBoundingClientRect().top>=document.querySelector('.mc-mainnav').getBoundingClientRect().bottom-1"), 'Menu remains uncovered'
+                    # An occluded WebView2 defers resize delivery with animation
+                    # frames. Deliver that browser event in this hidden fixture.
+                    js("window.dispatchEvent(new Event('resize'));true")
+                    wait(lambda: js("document.querySelector('.mc-navigation-loading').getBoundingClientRect().top>=document.querySelector('.mc-mainnav').getBoundingClientRect().bottom-1"), 'Menu remains uncovered after resize')
                     assert js("document.querySelectorAll('.mc-mainnav [aria-current=page]').length===1&&new URL(document.querySelector('.mc-mainnav [aria-current=page]').href).pathname==='/artefacts'"), 'Only the destination has the complete active style'
                     assert js("getComputedStyle(document.querySelector('.mc-navigation-loading .mc-loading-spinner')).animationName==='mc-spin'&&document.querySelector('.mc-navigation-label').getBoundingClientRect().width>20"), 'Pending navigation has a visible spinner and label'
                     result['checks'].append('Pending destination is fully active with one selected menu item and a visible loading spinner')
@@ -218,10 +221,22 @@ def run(output, baseline=False, *, capture_images=True):
                     navigate('/section/0')
                     delayed_click()
                     assert observed.wait(5) and observations[-1]['visible'] and observations[-1]['ms'] < 100
-                    assert js("!document.querySelector('.mc-appscroll').inert&&!document.querySelector('.mc-navigation-title')")
-                    result['checks'].append('Custom section navigation shows link feedback within 100ms without replacing the page')
+                    assert js("document.querySelector('.mc-appscroll').inert&&document.querySelector('.mc-navigation-title').textContent==='Artefacts'")
+                    result['checks'].append('Custom section navigation shows the destination within 100ms and hides its old iframe')
                     release.set()
                     wait(lambda: js("location.pathname==='/artefacts'&&document.readyState==='complete'"), 'Custom section destination completes')
+                if not baseline:
+                    for source, destination in [('/skills','artefacts'),('/artefacts','skills'),('/agent/captain/threads','artefacts')]:
+                        navigate(source)
+                        delayed_click(destination)
+                        assert observed.wait(5) and observations[-1]['ms'] < 100
+                        expected='Capabilities' if destination=='skills' else 'Artefacts'
+                        assert js("document.querySelector('.mc-navigation-title').textContent==="+json.dumps(expected))
+                        assert js("(()=>{const panel=document.querySelector('.mc-navigation-loading'),nav=document.querySelector('.mc-mainnav');return panel.getBoundingClientRect().top===nav.getBoundingClientRect().bottom&&[...document.querySelectorAll('.mc-appscroll,#mc-agent-header,.mc-crumb,.mc-sub')].every(el=>getComputedStyle(el).visibility==='hidden');})()"), 'No previous page, agent header or subtabs remain visible'
+                        if source=='/agent/captain/threads':capture('navigation-from-thread',1024)
+                        result['checks'].append(source+' to /'+destination+' switches the entire visible content with the menu')
+                        release.set()
+                        wait(lambda: js("location.pathname==="+json.dumps('/'+destination)+"&&document.readyState==='complete'&&!document.querySelector('.mc-navigation-loading:not([hidden])')"), 'Destination completes')
                 if not baseline:
                     draft = '  Unsent synthetic draft\nâ€¢ Parent\n    â—¦ Child  '
                     navigate('/agent/captain/threads?thread=draft-probe')

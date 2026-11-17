@@ -1,5 +1,16 @@
 # Immediate page-navigation feedback
 
+**17 November 2026, v0.99.161:** the menu and visible page now change together.
+The outgoing regions below the main menu, including agent chrome, become hidden,
+inert and excluded from accessibility while retaining their DOM and geometry.
+A full destination loading view covers that area. Its top follows the menu when
+it wraps or resizes. Cancellation restores the exact prior accessibility state,
+selection, scroll and fields. Native navigation errors also clear the transition.
+This supersedes v0.99.159/160's decision to leave outgoing content visible.
+The delayed native probe covers Capabilities → Artefacts, Artefacts → Capabilities,
+thread → Artefacts, custom sections, cancellation, rapid selection and Back.
+See [release evidence](RELEASE_0_99_161.md).
+
 **17 November 2026, v0.99.160:** navigation applies the destination's full active
 state immediately, removing the previous selection in the same menu. Cancellation
 restores that selection. A shared spinner accompanies the visible status; the

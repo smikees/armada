@@ -1,4 +1,4 @@
-// Indicate pending navigation on its link; the browser owns the document request,
+// Switch the menu and visible page together; the browser owns the document request,
 // authentication, history, redirects and cancellation. No HTML fetch/reinjection.
 (function(){
   'use strict';
@@ -22,7 +22,14 @@
     if(old.selected){old.selected.removeAttribute('aria-current');
       if(old.busy===null)old.selected.removeAttribute('aria-busy');else old.selected.setAttribute('aria-busy',old.busy);}
     old.current.forEach(el=>el.setAttribute('aria-current','page'));
+    old.outgoing.forEach(({el,inert,hidden})=>{
+      el.classList.remove('mc-navigation-outgoing');el.inert=inert;
+      if(hidden===null)el.removeAttribute('aria-hidden');else el.setAttribute('aria-hidden',hidden);
+    });
     panel.hidden=true;
+  }
+  function place(){
+    if(pending)panel.style.top=pending.nav.getBoundingClientRect().bottom+'px';
   }
   function show(value,signal){
     const url=destination(value);if(!url)return;
@@ -30,7 +37,8 @@
     reset();
     if(!panel){
       panel=document.createElement('section');panel.className='mc-navigation-loading';panel.hidden=true;
-      panel.innerHTML='<div class="mc-navigation-status" role="status" aria-live="polite">'
+      panel.innerHTML='<h2 class="mc-h-page mc-navigation-title"></h2>'
+        +'<div class="mc-navigation-status" role="status" aria-live="polite">'
         +'<span class="mc-loading-spinner" aria-hidden="true"></span><span class="mc-navigation-label"></span></div>'
         +'<div class="mc-navigation-slow" hidden><p>This page is taking longer than usual.</p>'
         +'<button type="button" class="btn btn-secondary btn-sm mc-navigation-stay">Stay on this page</button></div>';
@@ -46,14 +54,20 @@
     selected=sub||selected;
     const title=label(selected,pageNames[part]||'Overview');
     const current=selected?[...(sub?document:nav).querySelectorAll(sub?'.mc-sub[aria-current="page"]':'[aria-current="page"]')]:[];
-    const entry={selected,current,busy:selected?.getAttribute('aria-busy')??null,focus:document.activeElement};
+    const outgoing=[...nav.parentElement.children].filter(el=>
+      el!==nav&&el!==panel&&!['SCRIPT','STYLE','TEMPLATE','LINK'].includes(el.tagName)&&
+      (nav.compareDocumentPosition(el)&Node.DOCUMENT_POSITION_FOLLOWING));
+    const entry={nav,selected,current,outgoing:outgoing.map(el=>({el,inert:el.inert,hidden:el.getAttribute('aria-hidden')})),
+      busy:selected?.getAttribute('aria-busy')??null,focus:document.activeElement};
     pending=entry;
-    // Apply the complete destination state together. Cancellation restores the
-    // previous selection; the outgoing document's fields and scroll stay intact.
+    // Keep the original DOM and geometry for cancellation, pagehide persistence
+    // and browser Back. Cover the whole page below the menu, including agent chrome.
+    entry.outgoing.forEach(({el})=>{el.classList.add('mc-navigation-outgoing');el.inert=true;el.setAttribute('aria-hidden','true');});
     if(selected){current.forEach(el=>el.removeAttribute('aria-current'));
       selected.setAttribute('aria-current','page');selected.setAttribute('aria-busy','true');}
-    panel.querySelector('.mc-navigation-label').textContent='Opening '+title+'…';
-    panel.querySelector('.mc-navigation-slow').hidden=true;panel.hidden=false;
+    panel.querySelector('.mc-navigation-title').textContent=title;
+    panel.querySelector('.mc-navigation-label').textContent='Loading '+title.toLowerCase()+'…';
+    panel.querySelector('.mc-navigation-slow').hidden=true;place();panel.hidden=false;
     entry.timer=setTimeout(()=>{if(pending===entry)panel.querySelector('.mc-navigation-slow').hidden=false;},8000);
     signal?.addEventListener('abort',()=>{if(pending===entry)reset();},{once:true});
   }
@@ -62,6 +76,7 @@
       if(event.defaultPrevented||event.hashChange||event.downloadRequest!=null||event.formData||event.destination.sameDocument)return;
       show(event.destination.url,event.signal);
     });
+    navigation.addEventListener('navigateerror',reset);
   }else{
     // Older browser fallback: observe only ordinary same-window page links after
     // app handlers have had a chance to cancel or decorate them.
@@ -77,4 +92,7 @@
   window.mcNavigationPending=value=>{if(!window.navigation?.addEventListener)show(value);};
   window.addEventListener('pagehide',reset);
   window.addEventListener('pageshow',reset);
+  window.addEventListener('resize',place);
+  const nav=document.querySelector('.mc-mainnav');
+  if(nav&&window.ResizeObserver)new ResizeObserver(place).observe(nav);
 })();
