@@ -1,6 +1,8 @@
 # v0.99.160 — prompt inventory navigation and loading spinners
 
-Prepared on 17 November 2026. Publication awaits the final-source release gates.
+Published on 17 November 2026 from `c40c4eacd6abe9f4c0bb60c8f965eee52d7f8a4e`.
+[GitHub release](https://github.com/smikees/armada/releases/tag/v0.99.160) and
+[website](https://armada.stamih.com/) offer the matching installer.
 
 The previous inventory cache did not remove the work performed by the shared
 navigation. Its waiting-work badge called `inbox.all_messages`, which read every
@@ -49,4 +51,36 @@ the owner's running app.
 
 Evidence: `build/navigation-baseline-160.json`, `build/navigation-after-160.json`,
 `build/page-loading-160.json`, `build/navigation-160.json`,
-`build/release-defaults-0.99.160.json`. Final release results follow after the gates.
+`build/release-defaults-0.99.160.json`. Final release results follow below.
+
+
+The full isolated local suite passed **4,843 tests with 6 skips** in
+**872.84 seconds**. [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/44128525361) passed
+both Python jobs and relay checks. The final-source stabilization gate passed
+its fault matrix, 30-round concurrent soak, history performance budgets, three
+native shared-thread runs, page-work and owner workflows. Its unique evidence
+directory is `build/stabilization-20261117-174108-399419`.
+
+Packaged launcher recovery, DLL isolation, session, tray, three restart cases and
+presentation recovery passed. The staged runtime passed **124
+owner-workflow checks**, **32 page/loading checks** and
+**8 navigation checks**. The signed previous-release upgrade
+rehearsal passed **72 checks**. Packaged warm visits
+with 3,000 archived messages measured **105.95 ms**
+for Artefacts and **215.13 ms** for Capabilities. Packaged main and
+companion recovery screenshots were reviewed in light and dark modes.
+
+Public verification checked the Ed25519 signature, exact source commit, all
+**515 tracked package files**, installer hash and
+website links. Installer: **23,516,671 bytes**, SHA-256
+`f24a2bafed911c876276d639f4ebcfb02939a3ac3ad8523c14c979df958c1f98`.
+Package SHA-256: `a551fb9d14829f1fcbddd60f4a1a5791d6f79f521177ab3709663ac5cbd2297d`.
+
+Evidence: `build/release-evidence-0.99.160.json`,
+`build/public-verification-0.99.160.json`, `build/website-0.99.160-publication.json`,
+`build/stabilization-0.99.160.json`, `build/owner-staged-0.99.160.json`,
+`build/loading-staged-0.99.160.json`, `build/navigation-staged-0.99.160.json`,
+`build/page-loading-160.json`, `build/navigation-160-final.json`,
+`build/navigation-baseline-160.json`, `build/navigation-after-160.json`,
+`build/golden-review-160.diff`, `build/design-160.json`,
+`build/release-defaults-0.99.160.json` and `build/publish-0.99.160.log`.

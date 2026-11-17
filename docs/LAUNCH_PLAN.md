@@ -5,9 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.160** is prepared: remove archived-inbox reads from navigation,
-apply the full destination menu state and restore shared loading spinners.
-Publication is pending the final-source release and packaged UI gates.
+Version **0.99.160** is published: prompt navigation in realms with large inbox
+archives, complete active menu states and shared loading spinners. **4,843
+local tests**, exact-source CI, stabilization, packaged native workflows and
+signed upgrade rehearsal passed. Public artifacts and website links were verified.
 [Release evidence](dev/RELEASE_0_99_160.md).
 
 Version **0.99.159** is published: resizable Register columns, stable destination
