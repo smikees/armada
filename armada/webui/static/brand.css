@@ -11,7 +11,7 @@
 .mc-proposals{margin-block-end:18px;padding:12px 16px;border:1px solid var(--color-divider);border-radius:var(--r);background:var(--color-surface);font-size:12px;line-height:1.5;container-type:inline-size;}
 .mc-proposals-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-block-end:8px;}
 .mc-proposals-heading h3{font-size:13px;font-weight:600;margin:0;}
-.mc-proposals .mc-prop-note,.mc-prop-owner,.mc-prop-meta{color:var(--color-sand-700);}
+.mc-proposals .mc-prop-note,.mc-prop-owner,.mc-prop-meta{color:var(--text-strong);}
 .mc-prop{border-block-start:1px solid var(--color-divider);}
 .mc-prop>summary{display:flex;align-items:center;gap:8px;list-style:none;padding-block:12px;cursor:pointer;}
 .mc-prop>summary::-webkit-details-marker{display:none;}
@@ -31,7 +31,7 @@
 .mc-prop-field>h4{font-size:12px;font-weight:600;margin:0 0 8px;}
 .mc-prop-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-height:360px;overflow:auto;overscroll-behavior:contain;border-block:1px solid var(--color-divider);padding-block:12px;}
 .mc-prop-value{min-width:0;}
-.mc-prop-value>h5{font-size:12px;font-weight:600;margin:0 0 8px;color:var(--color-sand-700);}
+.mc-prop-value>h5{font-size:12px;font-weight:600;margin:0 0 8px;color:var(--text-strong);}
 .mc-prop .mc-md{font-size:12px;line-height:1.55;}
 .mc-prop-value>.mc-md{max-width:75ch;}
 .mc-prop .mc-md :is(h3,h4,h5,h6){font-size:13px;line-height:1.4;}

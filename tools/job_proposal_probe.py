@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-def run(output):
+def run(output, *, capture_images=True):
     import webview
     from armada import app, appconfig, local_auth, run_policy, serve, util, vtheme
     from tests.golden_support import build_fixture, fixture_inputs
@@ -74,6 +74,8 @@ def run(output):
                 time.sleep(.1)
             raise AssertionError(name)
         def capture(name, width, height):
+            if not capture_images:
+                return
             Fixture.capture_html = js("""(() => {
                 const d=document.documentElement.cloneNode(true),sources=[...document.querySelectorAll('style,link[rel=stylesheet]')];
                 d.querySelectorAll('style,link[rel=stylesheet]').forEach((node,i)=>{
@@ -97,6 +99,12 @@ def run(output):
             result['screenshots'].append(str(image))
         def fit():
             return js("(() => {const p=document.querySelector('.mc-proposals'),b=p.getBoundingClientRect();return p.scrollWidth<=p.clientWidth+1&&[...p.querySelectorAll('button,select,.mc-prop-values')].filter(x=>x.getClientRects().length).every(x=>{const r=x.getBoundingClientRect();return r.left>=b.left&&r.right<=b.right+1;});})()")
+        def contrast():
+            return js("""(() => {
+                const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d'),bg=getComputedStyle(document.querySelector('.mc-proposals')).backgroundColor;
+                function lum(ink){ctx.clearRect(0,0,1,1);ctx.fillStyle=bg;ctx.fillRect(0,0,1,1);if(ink){ctx.fillStyle=ink;ctx.fillRect(0,0,1,1);}const c=[...ctx.getImageData(0,0,1,1).data].slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return c[0]*.2126+c[1]*.7152+c[2]*.0722;}
+                const base=lum();return [...document.querySelectorAll('.mc-prop-note,.mc-prop-owner,.mc-prop-meta,.mc-prop-value>h5')].every(e=>{const ink=lum(getComputedStyle(e).color);return (Math.max(ink,base)+.05)/(Math.min(ink,base)+.05)>=4.5;});
+            })()""")
         def exercise():
             try:
                 check('Proposals load collapsed', lambda: js("!!document.querySelector('.mc-prop')&&!document.querySelector('.mc-prop').open&&typeof mcJobProposal==='function'"))
@@ -108,6 +116,7 @@ def run(output):
                 check('Prompt appears only in the comparison', lambda: js("!document.querySelector('.mc-prop-preview')&&document.querySelectorAll('.mc-prop-values').length>=2"))
                 check('Long values scroll within a bounded comparison', lambda: js("[...document.querySelectorAll('.mc-prop-values')].some(e=>e.scrollHeight>e.clientHeight&&e.clientHeight<=361)"))
                 check('Body and field headings use compact typography', lambda: js("parseFloat(getComputedStyle(document.querySelector('.mc-prop .mc-md')).fontSize)===12&&parseFloat(getComputedStyle(document.querySelector('.mc-prop-field>h4')).fontSize)<=13"))
+                check('Secondary text meets 4.5 to 1 contrast in light mode', contrast)
                 check('Desktop comparison columns share the available width', lambda: js("(() => {const c=[...document.querySelectorAll('.mc-prop-values:first-of-type>.mc-prop-value')];return c.length>=2&&Math.abs(c[0].clientWidth-c[1].clientWidth)<=1;})()") and fit())
                 js("document.querySelector('.mc-prop-values').focus();true")
                 check('Comparison accepts keyboard scrolling focus', lambda: js("document.activeElement.classList.contains('mc-prop-values')"))
@@ -117,6 +126,7 @@ def run(output):
                 window.resize(600, 1100)
                 js("document.body.classList.add('armada-dark');mcFontSize.preview(19);true")
                 check('Narrow scaled dark comparison fits', lambda: fit() and js("parseFloat(getComputedStyle(document.querySelector('.mc-prop .mc-md')).fontSize)>17&&getComputedStyle(document.querySelector('.mc-prop-values')).gridTemplateColumns.split(' ').length===1"))
+                check('Secondary text meets 4.5 to 1 contrast in dark mode', contrast)
                 capture('narrow-dark', 600, 1100)
                 js("document.querySelector('.mc-prop>summary').click();true")
                 check('Proposal collapses again without losing focusability', lambda: js("!document.querySelector('.mc-prop').open"))
@@ -141,4 +151,6 @@ def run(output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    raise SystemExit(run(parser.parse_args().output))
+    parser.add_argument('--no-captures', action='store_true')
+    args = parser.parse_args()
+    raise SystemExit(run(args.output, capture_images=not args.no_captures))

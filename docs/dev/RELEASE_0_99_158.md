@@ -23,11 +23,14 @@ semantics. `*/15 15-16 * * 1-5` becomes `weekdays every 15 min, 15:00–16:45`.
 Invalid schedules say they need review. No schedule or execution logic is changed.
 
 Focused checks passed 119 tests; the final formatting edge-case follow-up passed
-106 tests. The native proposal journey passed 14 checks and the existing native
+106 tests. The native proposal journey passed 16 checks and the existing native
 readiness/approval journey passed 19 checks. The final batched visual review
 covered Armada II light mode, collapsed and expanded rows, and narrow dark mode
 with enlarged text. The mechanical design scan found only existing, unchanged
 rules elsewhere in the shared stylesheet; no finding belongs to this change.
+The final contrast check found the inherited secondary grey below 4.5:1 on the
+panel surface. It now uses the stronger shared text token; the native journey
+also enforces 4.5:1 contrast in both light and dark themes.
 
 This is a presentation-only release. It does not change admission, persistence,
 history reads or desktop lifecycle, so the extended stabilization gate is outside
