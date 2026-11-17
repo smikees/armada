@@ -1,6 +1,8 @@
 # v0.99.158 — compact job proposals and readable cadence
 
-Prepared on 17 November 2026. Final release gates and publication are pending.
+Published on 17 November 2026 from `9d99109f48dd6d2a79f43244af1f31a7a139e6a8`.
+[GitHub release](https://github.com/smikees/armada/releases/tag/v0.99.158) and
+[website](https://armada.stamih.com/) offer the matching installer.
 
 Proposed jobs now start as compact, collapsed disclosure rows. Expanding a row
 shows each changed field above two equal-width values, with 12 px body text,
@@ -42,4 +44,34 @@ packaged runtime remains Python 3.14.10, checked against the
 [official Python release listing](https://www.python.org/doc/versions/).
 This continues the established unsigned maintenance beta: Ed25519 update signing
 is required; Windows publisher signing and clean Sandbox acceptance remain
-outside the verified boundary. The owner's running app is not restarted to publish.
+outside the verified boundary. The owner's running app was not restarted to publish.
+
+The mandatory isolated local suite passed **4,829 tests with 6 skips**
+in **912.86 seconds**. [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/44086479108) passed
+both Python jobs and relay validation. Generated-reference checks passed 371
+tests. Golden review found only added help text and the new Settings release
+entry; existing content was unchanged.
+
+Packaged launcher recovery, DLL isolation, session, tray, three restart cases and
+presentation recovery passed. The staged package passed **124
+owner-workflow checks** and **16 proposal checks**, including
+light/dark contrast, narrow enlarged-text layout, complete formatted comparisons,
+collapsed state, bounded scrolling, readable cadence and actual approval sealing.
+The signed previous-release upgrade rehearsal passed **72 checks**.
+The packaged main-window and companion recovery screenshots were reviewed in
+light and dark modes; text and controls were readable without clipping.
+
+Public verification checked the Ed25519 update signature, exact source commit,
+all **512 tracked package files**, the downloaded
+installer hash and matching website links. Installer: **23,515,101
+bytes**, SHA-256 `9d42517714d1105cd68731550e2720e34b93c1e4b09bc8b4cd98a0d8ab1823b4`.
+Package SHA-256: `098e47816ec058f24085734ad31d99cdef9194082b53d652bc9bf7ee3ae1d712`.
+
+Evidence: `build/release-evidence-0.99.158.json`,
+`build/public-verification-0.99.158.json`, `build/website-0.99.158-publication.json`,
+`build/owner-staged-0.99.158.json`, `build/proposal-staged-0.99.158.json`,
+`build/proposal-ui-158-final.json`, `build/proposal-ui-158-contrast.json`,
+`build/job-readiness-158.json`, `build/release-defaults-0.99.158.json` and
+`build/publish-0.99.158.log`. The initial release run was stopped before
+publication to include the measured contrast correction; only the final commit
+and its complete successful gate results were used for publication.

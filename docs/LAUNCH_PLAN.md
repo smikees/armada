@@ -5,9 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.158** is prepared: compact collapsed job proposals, formatted
-inline comparisons and readable cadence labels. Release gates and publication
-remain pending. [Release evidence](dev/RELEASE_0_99_158.md).
+Version **0.99.158** is published: compact collapsed job proposals, formatted
+inline comparisons and readable cadence labels. **4,829 local tests**,
+exact-source Windows CI, packaged lifecycle, staged owner/proposal workflows and
+signed upgrade rehearsal passed. Public signatures, package contents, installer
+hash and website links were verified. [Release evidence](dev/RELEASE_0_99_158.md).
 
 Version **0.99.157** is published: shared page, metadata and Claude tool setup;
 unused paths removed; the static cockpit follows the realm default provider.
