@@ -22,8 +22,8 @@ def frame(page, content, realm_root=None):
         # Controls retain their final geometry while their scripts are loading.
         header = header.replace('id="cap-actions"', 'id="cap-actions" data-page-controls inert')
         tabs = tabs.replace('data-page-controls', 'data-page-controls inert')
-        content = (f'<div class="mc-list-loading" role="status"><span class="mc-catdots" aria-hidden="true">'
-                   f'<i></i><i></i><i></i></span> Loading {title.lower()}…</div>')
+        content = (f'<div class="mc-list-loading" role="status"><span class="mc-loading-spinner" aria-hidden="true"></span>'
+                   f' Loading {title.lower()}…</div>')
     return (f'<div class="mc-list-page">{header}{tabs}'
             f'<div id="mc-page-content" data-endpoint="{endpoint}" aria-busy="{str(pending).lower()}">{content}</div></div>'
             + (js('page_content') if pending else ''))

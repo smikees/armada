@@ -5,6 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.160** is prepared: remove archived-inbox reads from navigation,
+apply the full destination menu state and restore shared loading spinners.
+Publication is pending the final-source release and packaged UI gates.
+[Release evidence](dev/RELEASE_0_99_160.md).
+
 Version **0.99.159** is published: resizable Register columns, stable destination
 loading and short-lived Artefacts/Capabilities caching. **4,839 local tests**,
 exact-source CI, stabilization, packaged native workflows and signed upgrade

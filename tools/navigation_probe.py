@@ -192,6 +192,9 @@ def run(output, baseline=False, *, capture_images=True):
                     window.resize(1024, 850)
                     time.sleep(.2)
                     assert js("document.querySelector('.mc-navigation-loading').getBoundingClientRect().top>=document.querySelector('.mc-mainnav').getBoundingClientRect().bottom-1"), 'Menu remains uncovered'
+                    assert js("document.querySelectorAll('.mc-mainnav [aria-current=page]').length===1&&new URL(document.querySelector('.mc-mainnav [aria-current=page]').href).pathname==='/artefacts'"), 'Only the destination has the complete active style'
+                    assert js("getComputedStyle(document.querySelector('.mc-navigation-loading .mc-loading-spinner')).animationName==='mc-spin'&&document.querySelector('.mc-navigation-label').getBoundingClientRect().width>20"), 'Pending navigation has a visible spinner and label'
+                    result['checks'].append('Pending destination is fully active with one selected menu item and a visible loading spinner')
                     capture('navigation-dark-1024', 1024)
                     wait(lambda: js("!document.querySelector('.mc-navigation-slow').hidden"), 'Slow-load recovery')
                     js("document.querySelector('.mc-navigation-stay').click();true")

@@ -489,6 +489,16 @@ def prompt_for(msg: dict) -> str:
     return "\n".join(lines)
 
 
+def count_waiting(realm_root) -> int:
+    """Live navigation count without opening the completed-message archive."""
+    adir = Path(realm_root) / "agents"
+    if not adir.is_dir():
+        return 0
+    return sum(len(_list(realm_root, d.name, state))
+               for d in adir.iterdir() if d.is_dir()
+               for state in (PENDING, RUNNING))
+
+
 def all_messages(realm_root, recent_hours: int = 24) -> dict:
     """Everything across every agent, split the way the page shows it: what's still waiting, what
     was handled recently, and the older pile that belongs in the archive."""

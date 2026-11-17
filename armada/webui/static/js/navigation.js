@@ -19,8 +19,9 @@
   }
   function reset(){
     const old=pending;if(!old)return;pending=null;clearTimeout(old.timer);
-    if(old.selected){old.selected.classList.remove('mc-navigation-target');
+    if(old.selected){old.selected.removeAttribute('aria-current');
       if(old.busy===null)old.selected.removeAttribute('aria-busy');else old.selected.setAttribute('aria-busy',old.busy);}
+    old.current.forEach(el=>el.setAttribute('aria-current','page'));
     panel.hidden=true;
   }
   function show(value,signal){
@@ -29,7 +30,8 @@
     reset();
     if(!panel){
       panel=document.createElement('section');panel.className='mc-navigation-loading';panel.hidden=true;
-      panel.innerHTML='<span class="mc-navigation-label" role="status" aria-live="polite"></span>'
+      panel.innerHTML='<div class="mc-navigation-status" role="status" aria-live="polite">'
+        +'<span class="mc-loading-spinner" aria-hidden="true"></span><span class="mc-navigation-label"></span></div>'
         +'<div class="mc-navigation-slow" hidden><p>This page is taking longer than usual.</p>'
         +'<button type="button" class="btn btn-secondary btn-sm mc-navigation-stay">Stay on this page</button></div>';
       document.body.append(panel);
@@ -43,11 +45,13 @@
     const sub=[...document.querySelectorAll('a.mc-sub[href]')].find(a=>new URL(a.href).pathname===url.pathname);
     selected=sub||selected;
     const title=label(selected,pageNames[part]||'Overview');
-    const entry={selected,busy:selected?.getAttribute('aria-busy')??null,focus:document.activeElement};
+    const current=selected?[...(sub?document:nav).querySelectorAll(sub?'.mc-sub[aria-current="page"]':'[aria-current="page"]')]:[];
+    const entry={selected,current,busy:selected?.getAttribute('aria-busy')??null,focus:document.activeElement};
     pending=entry;
-    // A progress mark belongs to the link. Do not paint a destination title in the
-    // outgoing page or alter its layout, scroll, agent header, fields or iframes.
-    if(selected){selected.setAttribute('aria-busy','true');selected.classList.add('mc-navigation-target');}
+    // Apply the complete destination state together. Cancellation restores the
+    // previous selection; the outgoing document's fields and scroll stay intact.
+    if(selected){current.forEach(el=>el.removeAttribute('aria-current'));
+      selected.setAttribute('aria-current','page');selected.setAttribute('aria-busy','true');}
     panel.querySelector('.mc-navigation-label').textContent='Opening '+title+'…';
     panel.querySelector('.mc-navigation-slow').hidden=true;panel.hidden=false;
     entry.timer=setTimeout(()=>{if(pending===entry)panel.querySelector('.mc-navigation-slow').hidden=false;},8000);

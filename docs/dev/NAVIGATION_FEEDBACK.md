@@ -1,5 +1,14 @@
 # Immediate page-navigation feedback
 
+**17 November 2026, v0.99.160:** navigation applies the destination's full active
+state immediately, removing the previous selection in the same menu. Cancellation
+restores that selection. A shared spinner accompanies the visible status; the
+status sits at the lower left to avoid the sign-in notice. Outgoing content and
+drafts remain intact. The global waiting-work badge now reads only pending and
+running inbox messages, eliminating an archive scan on every document request.
+The native page probe includes 3,000 archived messages and requires both cold
+frames and cached revisits in under 750 ms. See [release evidence](RELEASE_0_99_160.md).
+
 **17 November 2026, v0.99.159:** the implementation below is superseded where it
 describes replacing outgoing content. Feedback now stays on the clicked link;
 the outgoing page remains intact until native navigation completes. Artefacts and

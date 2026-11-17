@@ -26,6 +26,13 @@ def run(output, *, capture_images=True):
         os.environ.update(ARMADA_DATA_DIR=str(home/'data'), ARMADA_NO_MODEL_SYNC='1', ARMADA_NO_EXTERNAL_NOTIFY='1')
         appconfig.save(vtheme.preferences('armada-ii'))
         root = Path(build_fixture(home/'realm'))
+        # Mature realms must be as quick to navigate as new ones. The former nav
+        # badge opened every archived message, even on an inventory cache hit.
+        archive = root/'agents/captain/inbox/done';archive.mkdir(parents=True, exist_ok=True)
+        message = json.dumps({'id':'synthetic', 'from':'mate', 'ask':'Completed synthetic task.', 'finished':'2026-01-01T10:00:00'})
+        for index in range(3000):
+            (archive/f'{index}.json').write_text(message, encoding='utf-8')
+        result['archive_messages'] = 3000
         cfg=util.read_json_state(root/'realm.json')
         cfg['toolkit']={'skills':[{'id':'synthetic-notes','name':'Synthetic report notes','description':'Keep reports concise.','runs':'reads'}]}
         util.write_json_atomic(root/'realm.json',cfg)
@@ -139,6 +146,9 @@ def run(output, *, capture_images=True):
                     assert entered.wait(10)
                     check(page+' destination is visible before inventory arrives', lambda: js('location.pathname==='+json.dumps('/'+page)+"&&!!document.querySelector('.mc-list-heading')&&document.getElementById('mc-page-content').getAttribute('aria-busy')==='true'"))
                     result['timings'][page+'_cold_shell_ms']=round((time.monotonic()-start)*1000,2)
+                    assert result['timings'][page+'_cold_shell_ms'] < 750, result['timings']
+                    assert js("(()=>{const s=document.querySelector('.mc-list-loading .mc-loading-spinner');if(!s)return false;const c=getComputedStyle(s);return s.getBoundingClientRect().width>=14&&c.animationName==='mc-spin'&&c.borderRightColor==='rgba(0, 0, 0, 0)';})()")
+                    result['checks'].append(page+' cold destination has a visible animated spinner within 750ms with 3,000 archived messages')
                     assert js("!document.querySelector('.mc-sub')&&!document.querySelector('.mc-crumb')&&!document.querySelector('.mc-navigation-title')")
                     result['checks'].append(page+' destination has no outgoing thread header or tabs')
                     if page=='skills':
@@ -158,6 +168,7 @@ def run(output, *, capture_images=True):
                     js("document.querySelector('.mc-mainnav a[href^=\"/"+page+"\"]').click();true")
                     check(page+' warm revisit renders cached content immediately', lambda: js('location.pathname==='+json.dumps('/'+page)+'&&!!document.querySelector('+json.dumps(selector)+")&&!document.querySelector('script[src*=page_content]')"))
                     result['timings'][page+'_warm_ms']=round((time.monotonic()-start)*1000,2)
+                    assert result['timings'][page+'_warm_ms'] < 750, result['timings']
                     assert calls[page]==count
                     result['checks'].append(page+' warm revisit makes no inventory request')
                     held[0]=page;entered.clear();release.clear()

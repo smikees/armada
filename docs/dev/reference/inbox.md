@@ -124,6 +124,10 @@ Messages to act on right now, honouring the per-agent hourly ceiling.
 
 A self-contained prompt. The inbox thread is long-lived and carries unrelated asks, so an instruction must never depend on what else happens to be in that thread's history.
 
+### `count_waiting(realm_root)`
+
+Live navigation count without opening the completed-message archive.
+
 ### `all_messages(realm_root, recent_hours: int=24)`
 
 Everything across every agent, split the way the page shows it: what's still waiting, what was handled recently, and the older pile that belongs in the archive.

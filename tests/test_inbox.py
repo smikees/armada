@@ -28,6 +28,41 @@ def realm(tmp_path):
 
 # ---- the per-agent master switch ---------------------------------------------------------------
 
+def test_navigation_count_matches_waiting_without_reading_completed_archive(realm, monkeypatch):
+    r = realm()
+    for agent, state, name, text in [
+        ('galen', inbox.PENDING, 'valid', '{"id":"pending"}'),
+        ('steve', inbox.RUNNING, 'valid', '{"id":"running"}'),
+        ('marcus', inbox.PENDING, 'empty', '{}'),
+        ('marcus', inbox.PENDING, 'bad', 'malformed'),
+        ('marcus', inbox.PENDING, 'array', '[]'),
+        ('galen', inbox.DONE, 'old', '{"id":"completed"}')]:
+        folder = r / 'agents' / agent / 'inbox' / state
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / (name + '.json')).write_text(text, encoding='utf-8')
+    expected = len(inbox.all_messages(r)['waiting'])
+    read = inbox._read
+    def guarded_read(path):
+        assert path.parent.name != inbox.DONE, 'Navigation must not read archived messages'
+        return read(path)
+    monkeypatch.setattr(inbox, '_read', guarded_read)
+    assert inbox.count_waiting(r) == expected == 2
+    # Counts remain live after a pickup/completion; this is not a stale badge cache.
+    (r / 'agents/steve/inbox' / inbox.RUNNING / 'valid.json').unlink()
+    assert inbox.count_waiting(r) == 1
+    assert inbox.count_waiting(r / 'missing-realm') == 0
+
+
+def test_navigation_uses_waiting_count_not_full_inbox(realm, monkeypatch):
+    from armada import reader
+    from armada.webui.layout import _nav
+    r = realm()
+    monkeypatch.setattr(inbox, 'count_waiting', lambda root: 5)
+    def no_archive(*args, **kwargs):
+        raise AssertionError('Full inbox scan on navigation')
+    monkeypatch.setattr(inbox, 'all_messages', no_archive)
+    assert 'tasks waiting to be picked up">5</span>' in _nav(reader.roster(r))
+
 def test_agent_to_agent_is_on_by_default(realm):
     r = realm()
     assert inbox.agent_enabled(r, "steve") is True

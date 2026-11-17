@@ -720,7 +720,7 @@ def _cat_placeholder() -> str:
            'margin-bottom:8px;height:58px"></div>')
     return (f'<div id="cat-results" data-pending="1">'
             f'<div style="font-size:11.5px;color:var(--text-muted);margin:0 0 10px">'
-            f'Loading the catalogue\u2026</div>{row * 4}</div>')
+            f'<span class="mc-loading-spinner" aria-hidden="true"></span> Loading the catalogue\u2026</div>{row * 4}</div>')
 
 
 def _cat_source_notes(idx: dict) -> list:

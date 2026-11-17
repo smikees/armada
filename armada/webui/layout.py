@@ -74,7 +74,7 @@ def _nav(realm, active: str = "Overview", sec_edit: bool = False) -> str:
     # otherwise, since nobody asked for it.
     try:
         from .. import inbox as _inbox_mod
-        nwait = len(_inbox_mod.all_messages(realm.root, recent_hours=0)["waiting"])
+        nwait = _inbox_mod.count_waiting(realm.root)
     except Exception:  # noqa — a malformed message must never break the nav
         swallowed(log, '_nav: failed; using a default')
         nwait = 0
