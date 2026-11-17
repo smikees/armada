@@ -5,9 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.161** is prepared: switch menu and destination loading content
-together, including when leaving an agent page. Publication is pending the
-final-source release and packaged UI gates. [Release evidence](dev/RELEASE_0_99_161.md).
+Version **0.99.161** is published: menu and destination content switch together,
+including when leaving an agent page. **4,845 local tests**, exact-source
+Windows CI, packaged recovery/workflow/navigation checks and signed upgrade
+rehearsal passed. Public artifacts and website links were verified.
+[Release evidence](dev/RELEASE_0_99_161.md).
 
 Version **0.99.160** is published: prompt navigation in realms with large inbox
 archives, complete active menu states and shared loading spinners. **4,843
