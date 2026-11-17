@@ -12,6 +12,8 @@ stays in serve.py, only the handler bodies moved.
 
 - `RealmRoutes._get_index(self)` — —
 - `RealmRoutes._get_realm_page(self, page)` — —
+- `RealmRoutes._get_list_content(self, page)` — —
+- `RealmRoutes._get_artefacts_content(self)` — —
 - `RealmRoutes._get_new_realm(self)` — —
 - `RealmRoutes._get_switch(self)` — —
 - `RealmRoutes._get_pick_folder(self)` — —

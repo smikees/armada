@@ -68,5 +68,6 @@
     setTimeout(place,250);
   }
   window.addEventListener('pagehide',save);
+  document.addEventListener('armada:page-ready',restore,{once:true});
   if(document.readyState==='complete')restore();else window.addEventListener('load',restore,{once:true});
 })();

@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.159** is prepared: resizable Register columns, stable destination
+loading and short-lived Artefacts/Capabilities presentation caching. Release
+gates and publication remain pending. [Release evidence](dev/RELEASE_0_99_159.md).
+
 Version **0.99.158** is published: compact collapsed job proposals, formatted
 inline comparisons and readable cadence labels. **4,829 local tests**,
 exact-source Windows CI, packaged lifecycle, staged owner/proposal workflows and

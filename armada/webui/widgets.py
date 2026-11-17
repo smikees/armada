@@ -9,6 +9,7 @@ import html, json, datetime, time, re
 from pathlib import Path
 from .. import memory, model, models, brand, status
 from .. import clock
+from ..assets import js
 from .. import goals as goalsmod
 from ..icons import ICONS, _icon, _ICONS_JS, _file_icon, _realm_icon, _REALM_ICON_NAMES, GRIP, CHEVR, _ICON_REFRESH
 from ._base import E, _J, _STAR, _md_inline, _md, _page_title, _chip
@@ -110,7 +111,7 @@ def _register(realm, realm_root, today, section: bool = False) -> str:
     return (f'<div class="mc-widget" style="height:100%;display:flex;flex-direction:column;overflow:hidden">'
             f'{_wid_header("Register", meta, appoint, widget_id="register", chrome=not section)}'
             f'<div class="mc-scroll mc-register-scroll" tabindex="0" aria-label="Agent register; scroll for more columns" style="flex:1;min-height:0;overflow:auto">'
-            f'<table class="table" style="font-size:12.5px"><thead><tr>'
+            f'<table class="table mc-register-table" style="font-size:12.5px"><colgroup>{"<col>" * 7}</colgroup><thead><tr>'
             f'<th style="padding-left:12px">Member</th><th>Model</th>'
             f'<th style="text-align:center;width:60px">Goals</th>'
             f'<th style="text-align:center;width:44px">Jobs</th><th style="width:124px">Next run</th>'
@@ -119,7 +120,7 @@ def _register(realm, realm_root, today, section: bool = False) -> str:
             # needs to say what it is, not which weekday each cell was.
             f'<th title="Worst job outcome per day, across this member\'s jobs" '
             f'style="width:100px;white-space:nowrap">7D job status</th>'
-            f'</tr></thead><tbody>{rows}</tbody></table></div></div>')
+            f'</tr></thead><tbody>{rows}</tbody></table></div></div>' + js('register_columns'))
 
 
 _ICON_LINE = ('<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" '

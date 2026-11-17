@@ -4,7 +4,9 @@ For individual connector tools and file write folders, see
 [Limit tools and file writes](access-policy.md). Agent and realm access rules are
 enforced by the engine adapters and guarded filesystem tool, with refusal audits.
 
-The page opens immediately with a loading indicator while its local inventory is prepared.
+The page opens with its heading, actions and tabs in place while its local inventory is prepared.
+Returning within 30 seconds reuses the recent inventory. **Refresh** loads it again immediately;
+changes made in the app clear the cached inventory. Cached display data never grants access.
 Drag an agent onto a capability to give access, or remove its chip to revoke access. The saved
 change updates that card in place, preserving your filters, scroll position and expanded panels.
 Granting access does not sign the agent's provider into a connector; its connection status stays

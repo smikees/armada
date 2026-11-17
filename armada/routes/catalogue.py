@@ -16,8 +16,7 @@ log = logging.getLogger("armada.serve")
 
 class CatalogueRoutes:
     def _get_capabilities_content(self):
-        from ..webui.capabilities import _realm_skills
-        self._send(200, _realm_skills(reader.read(self.realm), self.realm))
+        self._get_list_content('skills')
 
     def _capability_review_start(self, body):
         from .. import capability_reviews

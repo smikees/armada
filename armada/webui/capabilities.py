@@ -1300,23 +1300,29 @@ from contextvars import ContextVar
 _render_access = ContextVar('capability_render_access', default=None)
 
 
-def loading_page(realm, dark=False):
-    from .layout import _page_shell
-    from ..assets import js
-    body = ('<div id="cap-content"><div class="mc-cap-loading" role="status" aria-live="polite">'
-            + _page_title('Capabilities', 'who made it · what it can touch · your risk')
-            + '<p><span class="mc-catdots"><i></i><i></i><i></i></span> Loading capabilities…</p>'
-            + '</div></div>' + js('capload'))
-    return _page_shell(realm, 'Capabilities', 'Capabilities', body, dark)
-
-
 def _realm_skills(realm, realm_root) -> str:
+    from .listpages import frame
+    return frame('skills', content(realm, realm_root), realm_root)
+
+
+def content(realm, realm_root) -> str:
     # Cache within this render only: grants on the next request are always fresh.
     token = _render_access.set({})
     try:
         return _realm_skills_content(realm, realm_root) + js("reviews")
     finally:
         _render_access.reset(token)
+
+
+def page_controls(realm_root):
+    actions = (f'<span id="cap-actions">{watch_controls(realm_root)}'
+               f'<button class="btn btn-secondary btn-sm" onclick="mcCapScan(this)">'
+               f'{_icon("refresh-cw",13)}Check for version updates</button>{_cap_manage_btn()}</span>')
+    tabs = ('<div class="mc-captabs mc-list-tabs" data-page-controls>'
+            '<a id="cap-tab-user" class="mc-captab" aria-selected="true" onclick="mcCapTab(\'user\')">User</a>'
+            '<a id="cap-tab-system" class="mc-captab" onclick="mcCapTab(\'system\')">System</a>'
+            '<a id="cap-tab-catalogue" class="mc-captab" onclick="mcCapTab(\'catalogue\')">Add a capability</a></div>')
+    return actions, tabs
 
 
 def _realm_skills_content(realm, realm_root) -> str:
@@ -1408,19 +1414,9 @@ def _realm_skills_content(realm, realm_root) -> str:
                f'color:var(--color-accent);padding:6px 4px">{_icon("x",12)}Clear</button>'
                + f'</div></div>')
     filter_js = _CAPFILTER_JS
-    scan_btn = (f'<button class="btn btn-secondary btn-sm" style="'
-                f'margin-right:8px" onclick="mcCapScan(this)">'
-                # "Check for updates" read as though it might update ARMADA itself; this checks the
-                # installed capabilities for newer releases and nothing else.
-                f'{_icon("refresh-cw",13)}Check for version updates</button>')
     # Three tabs: User (yours), System (ARMADA's own, locked) and Catalogue (what you could add).
     # The header actions and the legend belong to the User tab only — neither applies to bundled
     # system skills, and nothing in the Catalogue has a risk level yet to need a legend for.
-    tabs = (f'<div class="mc-captabs" style="display:flex;gap:2px;border-bottom:1px solid var(--color-divider);'
-            f'margin:10px 0 16px">'
-            f'<a id="cap-tab-user" class="mc-captab" onclick="mcCapTab(\'user\')">User</a>'
-            f'<a id="cap-tab-system" class="mc-captab" onclick="mcCapTab(\'system\')">System</a>'
-            f'<a id="cap-tab-catalogue" class="mc-captab" onclick="mcCapTab(\'catalogue\')">Add a capability</a></div>')
     user_pane = (f'<div id="cap-pane-user">'
                  f'<div style="display:flex;gap:32px;align-items:stretch">'
                  f'<div style="flex:1;min-width:0;max-width:900px">{filters}{realm_region}{per_region}</div>'
@@ -1442,11 +1438,8 @@ def _realm_skills_content(realm, realm_root) -> str:
     # is re-rendered from the server's answer rather than optimistically: a chip that appears and
     # then turns out not to have been saved is worse than a half-second wait.
     drag_js = _CAPDRAG_JS
-    return (f'<div style="padding:18px 24px 24px">'
-            f'<div style="display:flex;align-items:flex-start"><div style="flex:1">{_page_title("Capabilities", "who made it · what it can touch · your risk")}</div>'
-            f'<span id="cap-actions">{watch_controls(realm_root)}{scan_btn}{_cap_manage_btn()}</span></div>'
-            f'{tabs}{user_pane}{sys_pane}{cat_pane}'
-            f'{_CAP_HELP}{_CAP_EDIT_MODAL}{_CONNECTOR_MODAL}</div>'
+    return (f'{user_pane}{sys_pane}{cat_pane}'
+            f'{_CAP_HELP}{_CAP_EDIT_MODAL}{_CONNECTOR_MODAL}'
             # fdrop.js FIRST: both filter bars on this page are the app's dropdown, and the page
             # was rendering them without ever loading the script that makes them pick. Clicking an
             # option called an undefined function, so the Catalogue's filters did nothing at all.

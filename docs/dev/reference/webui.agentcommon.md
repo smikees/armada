@@ -42,6 +42,6 @@ Every artifact across the realm: input artifacts (owner attachments on user turn
 
 —
 
-### `_realm_artefacts(realm, realm_root, only_agent: str=None)`
+### `_realm_artefacts(realm, realm_root, only_agent: str=None, *, fragment=False)`
 
 —

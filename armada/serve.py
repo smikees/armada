@@ -310,6 +310,7 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
         "/api/capability-connections": "_get_capability_connections",
         "/api/connector-health": "_get_connector_health",
         "/api/capabilities-content": "_get_capabilities_content",
+        "/api/artefacts-content": "_get_artefacts_content",
         "/api/capability-reviews": "_get_capability_reviews",
         "/api/engine-impact": "_get_engine_impact",
         "/api/notifications": "_get_notifications", "/api/system-jobs": "_get_system_jobs",
@@ -431,6 +432,8 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
             return
         try:
             self._bind_request(mutation=True)
+            from . import page_cache
+            page_cache.invalidate()
             self._route_post()
         except RequestError as e:
             self.close_connection = True
@@ -451,6 +454,11 @@ class Handler(routes_voice.VoiceRoutes, routes_realm.RealmRoutes, routes_agents.
                 self._json(500, {"ok": False, "error": "internal error (see server log)"})
             except Exception:  # noqa
                 log.debug('do_POST: failed; ignored', exc_info=True)
+        finally:
+            # This caches presentation only; every mutation still validates live state.
+            # Also clear after a partial/failed write, and fence in-flight renderers.
+            from . import page_cache
+            page_cache.invalidate()
 
     # Most POSTs are uniform: take the JSON body, return a dict that's sent as JSON. Path → method.
     _POST_JSON = {

@@ -3,6 +3,10 @@
 Files your agents wrote, and files you attached to threads, across the whole realm (or one agent,
 on their Artefacts tab).
 
+The realm page opens before the file inventory finishes loading. Its title stays in place
+while the content appears below it. Returning within 30 seconds reuses the recent list;
+**Refresh** loads it again immediately. Changes made in the app clear the cached list.
+
 Each row: the file, whose thread it came from and which thread, whether it was an *input* (you gave
 it) or an *output* (an agent made it), its type, where it is, and when it was last touched.
 

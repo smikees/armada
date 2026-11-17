@@ -318,7 +318,7 @@ def _art_meta(name: str, agent, thread_title: str, thread_slug: str, kind: str, 
             "exists": exists, "date_iso": date_iso, "ymd": date_iso[:10]}
 
 
-def _realm_artefacts(realm, realm_root, only_agent: str = None) -> str:
+def _realm_artefacts(realm, realm_root, only_agent: str = None, *, fragment=False) -> str:
     rows = _gather_artifacts(realm, realm_root, only_agent)
     show_owner = only_agent is None
     owners = sorted({(r["owner_id"], r["owner"]) for r in rows}, key=lambda x: x[1])
@@ -410,16 +410,18 @@ def _realm_artefacts(realm, realm_root, only_agent: str = None) -> str:
                 f'<button id="art-clear" onclick="mcArtClear({dd_ids})" style="display:none;align-items:center;gap:4px;'
                 f'border:0;background:transparent;cursor:pointer;font-size:12px;color:var(--color-accent);padding:6px 4px">{_icon("x",12)}Clear</button>'
                 f'<span id="art-count" style="margin-left:auto;font-size:11.5px;color:{muted}"></span></div>')
-    title = "" if not show_owner else _page_title("Artefacts", "input & output files across the realm")
     def pager(position):
         return (f'<nav id="art-pager-{position}" class="mc-art-pager" aria-label="Artefact pages ({position})" '
                 f'style="display:none;align-items:center;gap:10px;margin:12px 0;scroll-margin-top:64px">'
                 f'<button type="button" class="btn btn-secondary btn-sm" data-art-prev onclick="mcArtPage(-1)">‹ Previous</button>'
                 f'<span data-art-range role="status" style="font-size:11.5px;color:{muted}"></span>'
                 f'<button type="button" class="btn btn-secondary btn-sm" data-art-next onclick="mcArtPage(1)">Next ›</button></nav>')
-    return (f'<div style="padding:{"12px 0 0" if not show_owner else "18px 24px 24px"}">'
-            f'{title}'
-            f'<div style="{"padding:0 24px" if not show_owner else ""}">'
-            f'{controls}{pager("top")}'
+    content = (f'{controls}{pager("top")}'
             f'<div style="overflow:auto"><table class="table" id="art-table" data-today="{today}" style="font-size:12.5px;width:100%">'
-            f'<thead><tr>{thead}</tr></thead><tbody>{body}</tbody></table></div>{pager("bottom")}</div></div>{_FDROP_JS}{_ARTEFACTS_JS}')
+            f'<thead><tr>{thead}</tr></thead><tbody>{body}</tbody></table></div>{pager("bottom")}{_FDROP_JS}{_ARTEFACTS_JS}')
+    if fragment:
+        return content
+    if not show_owner:
+        return f'<div style="padding:12px 24px 0">{content}</div>'
+    from .listpages import frame
+    return frame('artefacts', content)

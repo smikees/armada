@@ -146,11 +146,11 @@ def test_page_shell_does_not_render_inventory(realm, monkeypatch):
     from armada.routes.realm import RealmRoutes
     from armada.webui import capabilities as ui
     monkeypatch.setattr(ui, '_realm_skills', Mock(side_effect=AssertionError('Must load asynchronously')))
-    handler = RealmRoutes();handler.realm = realm;handler._dark = lambda: False
+    handler = RealmRoutes();handler.realm = realm;handler._dark = lambda: False;handler.headers = {}
     handler._send = Mock()
     handler._get_realm_page('skills')
     html = handler._send.call_args.args[1]
-    assert 'Loading capabilities' in html and 'capload.js' in html
+    assert 'Loading capabilities' in html and 'page_content.js' in html
 
 
 def test_render_cache_is_request_local(realm, monkeypatch):

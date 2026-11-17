@@ -32,14 +32,33 @@ class RealmRoutes:
     def _get_realm_page(self, page):
         from .. import webui
         try:
-            if page == 'skills':
-                from ..webui.capabilities import loading_page
-                self._send(200, loading_page(reader.read(self.realm), dark=self._dark()))
+            if page in ('skills', 'artefacts'):
+                from .. import page_cache
+                from ..webui.listpages import document
+                # Reload/Refresh explicitly bypasses the short-lived presentation cache.
+                if any(s in self.headers.get('Cache-Control', '') for s in ('no-cache', 'max-age=0')):
+                    page_cache.invalidate()
+                self._send(200, document(reader.roster(self.realm), self.realm, page, self._dark(),
+                                         page_cache.get(self.realm, page)))
                 return
             self._send(200, webui.render_realm_page(reader.read(self.realm), self.realm, page,
                                                     dark=self._dark(), query=self._query()))
         except SystemExit as e:
             self._err_page(e)
+
+    def _get_list_content(self, page):
+        from .. import page_cache
+        def build():
+            realm = reader.roster(self.realm)
+            if page == 'skills':
+                from ..webui.capabilities import content
+                return content(realm, self.realm)
+            from ..webui.agentcommon import _realm_artefacts
+            return _realm_artefacts(realm, self.realm, fragment=True)
+        self._send(200, page_cache.render(self.realm, page, build))
+
+    def _get_artefacts_content(self):
+        self._get_list_content('artefacts')
 
     def _get_new_realm(self):
         from .. import webui

@@ -24,6 +24,9 @@ Rates: [OpenAI](https://developers.openai.com/api/docs/pricing),
 - **Register** — the team. Each row: the agent, their model and effort, how many goals and jobs
   they own, their next run, their tokens, and a seven-square **week strip** (the last three days,
   today, the next three) coloured by how their jobs did. Click a row to open the agent.
+  Drag a column heading's right edge to resize it. Widths are remembered for this realm,
+  including when the Register is promoted to a section. Focus an edge and use the arrow keys
+  to resize with the keyboard; double-click it or press Home to reset that column.
 - **Usage** — who (or which model) used how much, over a window you choose (today, 7 days, …).
 - **Job calendar** — every scheduled run by day or week, coloured by outcome. Click a run to open
   its job.

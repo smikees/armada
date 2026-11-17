@@ -112,6 +112,7 @@
 | [`monitor_recovery`](monitor_recovery.md) | Keep native windows reachable after display topology changes, in physical pixels. |
 | [`notify`](notify.md) | Desktop notifications — native Windows toasts, best-effort. |
 | [`origins`](origins.md) | Where untrusted content is served from (launch plan 5.8a, THREAT_MODEL T3). |
+| [`page_cache`](page_cache.md) | Short-lived presentation fragments; never an authority for permissions or writes. |
 | [`policy_tools`](policy_tools.md) | Invocation-local filesystem tools and durable policy refusal evidence. |
 | [`preflight`](preflight.md) | Is this realm actually able to run *here*? |
 | [`provider_install`](provider_install.md) | Opt-in CLI installation through the vendors' official Windows installers. |
@@ -217,6 +218,7 @@
 | [`webui.job_readiness`](webui.job_readiness.md) | Owner-facing readiness controls; rendering reads local state only. |
 | [`webui.jobresults`](webui.jobresults.md) | Shared execution/audit/delivery evidence for realm and agent job outputs. |
 | [`webui.layout`](webui.layout.md) | Page chrome / layout (carved from _core.py in Phase 3). |
+| [`webui.listpages`](webui.listpages.md) | Stable destination frames for the two expensive, read-only inventory views. |
 | [`webui.memoryview`](webui.memoryview.md) | Memory rendering (realm + agent memory pages) (Layer 2, Phase 3). |
 | [`webui.pages`](webui.pages.md) | ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3. |
 | [`webui.provider_settings`](webui.provider_settings.md) | Shared connection controls for setup and App Settings; no probes during rendering. |

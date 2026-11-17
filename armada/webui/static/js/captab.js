@@ -12,7 +12,7 @@ var p=document.getElementById("cap-pane-"+n);if(p)p.style.display=(n===t)?"":"no
 var b=document.getElementById("cap-tab-"+n);
 if(b)b.setAttribute("aria-selected",(n===t)?"true":"false");});
 // header actions (scan / manage) act on user capabilities only
-var h=document.getElementById("cap-actions");if(h)h.style.display=(t==="user")?"":"none";
+var h=document.getElementById("cap-actions");if(h){h.style.visibility=(t==="user")?"":"hidden";h.inert=t!=="user";}
 // First time the Catalogue is opened, go and get the results. The server no longer
 // renders them, because doing so put a registry request on the critical path of a
 // page whose other two tabs don't need it.

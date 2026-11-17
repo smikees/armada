@@ -12,7 +12,7 @@ import time
 import traceback
 
 
-def run(output, baseline=False):
+def run(output, baseline=False, *, capture_images=True):
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root))
     output = output.resolve()
@@ -37,6 +37,13 @@ def run(output, baseline=False):
 
         class Fixture(serve.Handler):
             capture_html = ''
+            def _send(self, code, body, *args, **kwargs):
+                # Install the test bridge with the document. A native loaded callback
+                # can race a second navigation and lose its script acknowledgement.
+                if isinstance(body, str) and '</body>' in body and not self.path.startswith('/probe-screenshot'):
+                    body = body.replace('</body>', '<script>'+bridge_script+'</script></body>')
+                super()._send(code, body, *args, **kwargs)
+
             def _route_get(self):
                 path = self.path.split('?')[0]
                 if path == '/probe-screenshot':
@@ -58,7 +65,7 @@ def run(output, baseline=False):
                     super()._route_get()
                 elif path == '/api/providers':
                     self._json(200, {'providers': {p: {} for p in ('claude', 'codex', 'gemini')}, 'models': []})
-                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state'):
+                elif path.startswith('/api/') and path not in ('/api/font-size', '/api/thread-state', '/api/artefacts-content'):
                     self._json(200, {})
                 else:
                     super()._route_get()
@@ -99,7 +106,6 @@ def run(output, baseline=False):
             if(c){let value=null,error='';try{value=eval(c.code)??null;}catch(e){error=String(e);}
               await fetch('/api/probe-reply',{method:'POST',headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({id:c.id,value,error})});}}finally{busy=false;}},20);}true;"""
-        window.events.loaded += lambda: app._browser_result(window, bridge_script)
 
         def js(code):
             # The existing page drives this test-only bridge, so commands do not
@@ -150,6 +156,8 @@ def run(output, baseline=False):
             assert entered.wait(5), 'Native navigation request started'
 
         def capture(name, width):
+            if not capture_images:
+                return
             chrome = Path(os.environ.get('PROGRAMFILES', 'C:/Program Files')) / 'Google/Chrome/Application/chrome.exe'
             assert chrome.is_file()
             Fixture.capture_html = js("(() => {const c=document.documentElement.cloneNode(true);c.querySelectorAll('script').forEach(s=>s.remove());return '<!doctype html>'+c.outerHTML;})()")
@@ -176,9 +184,9 @@ def run(output, baseline=False):
                     wait(lambda: js("location.pathname==='/artefacts'&&document.readyState==='complete'"), 'Baseline destination')
                 else:
                     assert visible and result['feedback_dom_ms'] < 100, result
-                    assert js("document.querySelector('.mc-mainnav a[href*=artefacts]').getAttribute('aria-current')==='page'"), 'Target tab selected'
-                    assert js("document.querySelector('.mc-appscroll').inert&&getComputedStyle(document.querySelector('.mc-appscroll')).visibility==='hidden'"), 'Old content withheld'
-                    result['checks'].append('Loading content and target tab appear under 100ms before the server responds')
+                    assert js("document.querySelector('.mc-mainnav a[href*=artefacts]').getAttribute('aria-busy')==='true'"), 'Target link shows progress'
+                    assert js("!document.querySelector('.mc-appscroll').inert&&getComputedStyle(document.querySelector('.mc-appscroll')).visibility!=='hidden'&&!document.querySelector('.mc-navigation-title')"), 'Outgoing page geometry retained'
+                    result['checks'].append('Link feedback appears under 100ms without replacing the outgoing content')
                     capture('navigation-light', 1280)
                     js("document.body.classList.add('armada-dark')")
                     window.resize(1024, 850)
@@ -207,12 +215,12 @@ def run(output, baseline=False):
                     navigate('/section/0')
                     delayed_click()
                     assert observed.wait(5) and observations[-1]['visible'] and observations[-1]['ms'] < 100
-                    assert js("document.querySelector('.mc-appscroll').inert")
-                    result['checks'].append('Custom section to Artefacts shows loading within 100ms while response is held')
+                    assert js("!document.querySelector('.mc-appscroll').inert&&!document.querySelector('.mc-navigation-title')")
+                    result['checks'].append('Custom section navigation shows link feedback within 100ms without replacing the page')
                     release.set()
                     wait(lambda: js("location.pathname==='/artefacts'&&document.readyState==='complete'"), 'Custom section destination completes')
                 if not baseline:
-                    draft = '  Unsent synthetic draft\n• Parent\n    ◦ Child  '
+                    draft = '  Unsent synthetic draft\nâ€¢ Parent\n    â—¦ Child  '
                     navigate('/agent/captain/threads?thread=draft-probe')
                     js("document.getElementById('mc-msg').value="+json.dumps(draft)+";document.getElementById('mc-msg').dispatchEvent(new Event('input',{bubbles:true}));true")
                     js("document.querySelector('a.mc-sub[href$=\"/memories\"]').click();true")
@@ -221,7 +229,7 @@ def run(output, baseline=False):
                     wait(lambda: js("location.pathname==='/agent/captain/threads'&&document.readyState==='complete'&&!!document.getElementById('mc-msg')"), 'Threads returns without query')
                     assert js("document.getElementById('mc-turns').dataset.thread==='draft-probe'&&!location.search.includes('thread=')"), 'Server reopens the remembered sub-thread'
                     assert js("document.getElementById('mc-msg').value") == draft, 'Section navigation keeps the exact draft'
-                    result['checks'].append('Threads → Memory → Threads preserves the remembered sub-thread draft, spaces and nested bullets')
+                    result['checks'].append('Threads â†’ Memory â†’ Threads preserves the remembered sub-thread draft, spaces and nested bullets')
                     navigate('/agent/captain/threads?thread=main')
                     assert js("document.getElementById('mc-msg').value") == '', 'Another thread has no copied draft'
                     navigate('/agent/captain/threads?thread=draft-probe')
@@ -249,5 +257,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--baseline', action='store_true')
+    parser.add_argument('--no-captures', action='store_true')
     args = parser.parse_args()
-    raise SystemExit(run(args.output, args.baseline))
+    raise SystemExit(run(args.output, args.baseline, capture_images=not args.no_captures))

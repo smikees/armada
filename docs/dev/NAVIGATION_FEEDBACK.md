@@ -1,5 +1,16 @@
 # Immediate page-navigation feedback
 
+**17 November 2026, v0.99.159:** the implementation below is superseded where it
+describes replacing outgoing content. Feedback now stays on the clicked link;
+the outgoing page remains intact until native navigation completes. Artefacts and
+Capabilities return lightweight destination frames with stable headings and
+controls, then load only their inventory region. Successful inventory bodies are
+cached for 30 seconds in memory per realm/page, with bounded size and app-write
+invalidation; Refresh bypasses the cache. Warm revisits render the body directly.
+See [release evidence](RELEASE_0_99_159.md) and `tools/page_loading_probe.py`.
+The native cancellation, rapid-selection, Back and draft-preservation checks
+described below remain mandatory.
+
 8 November 2026, 0.99.135. A menu click must acknowledge the destination before
 server rendering finishes. Artefacts made the gap obvious: `_gather_artifacts`
 reads thread messages and checks referenced files before the full page is returned.

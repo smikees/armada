@@ -288,6 +288,7 @@ def routes_for(realm_path: str) -> list[tuple[str, str]]:
         ("capabilities", "/skills"),
         ("capabilities_content", "/api/capabilities-content"),
         ("artefacts", "/artefacts"),
+        ("artefacts_content", "/api/artefacts-content"),
         ("settings", "/settings"),
         ("approvals", "/approvals"),
         ("docs", "/docs"),
