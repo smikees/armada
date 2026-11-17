@@ -684,7 +684,7 @@ def _job_row(realm_root, a, j, now, runs_all, running, show_owner: bool, open_jo
         + (f'<span class="mc-hint" style="display:block;margin-left:18px">{E(waiting_label)}</span>' if waiting_label else '')
         + f'</span>{owner_cells}<span>{badge}</span>'
         f'<span class="mono" style="font-size:11.5px;color:var(--text-dim)">'
-        f'{_humanize(j.cadence)}</span>'
+        f'{E(_humanize(j.cadence))}</span>'
         f'<span>{cost_pill}</span>'
         f'<span class="mc-job-next" style="font-size:12px;white-space:nowrap;{nxt_style}">{E(nxt_txt)}</span>'
         f'<span class="mc-job-week" style="display:flex;align-items:center;white-space:nowrap">{week}</span>'

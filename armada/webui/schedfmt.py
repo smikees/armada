@@ -14,50 +14,78 @@ from .. import status
 _DOW_NAME = {0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat"}
 
 
+def _ranges(values, label=str):
+    """Compact sorted values into readable singletons/ranges, never cron syntax."""
+    values = sorted(values)
+    groups = []
+    for value in values:
+        if groups and value == groups[-1][-1] + 1:
+            groups[-1].append(value)
+        else:
+            groups.append([value])
+    return ", ".join(label(g[0]) if len(g) == 1 else
+                     ", ".join(map(label, g)) if len(g) == 2 else
+                     label(g[0]) + "–" + label(g[-1]) for g in groups)
+
+
+def _day_label(days):
+    if days == set(range(7)):
+        return "daily"
+    if days == {1, 2, 3, 4, 5}:
+        return "weekdays"
+    if days == {0, 6}:
+        return "weekends"
+    return _ranges({d or 7 for d in days}, lambda d: _DOW_NAME[d % 7])
+
+
+def _time_label(minutes, hours):
+    times = sorted(h * 60 + m for h in hours for m in minutes)
+    stamp = lambda t: f"{t // 60:02d}:{t % 60:02d}"
+    if len(times) <= 4:
+        return ", ".join(map(stamp, times))
+    gaps = {b-a for a, b in zip(times, times[1:])}
+    if len(gaps) == 1:
+        step = gaps.pop()
+        interval = ("every minute" if step == 1 else "hourly" if step == 60 else
+                    f"every {step // 60} hours" if step % 60 == 0 else f"every {step} min")
+        full_day = times[-1] + step == times[0] + 1440
+        if full_day and times[0] < step:
+            return interval + (f" at :{times[0]:02d}" if 0 < times[0] < 60 else
+                               f", from {stamp(times[0])}" if times[0] else "")
+        return f"{interval}, {stamp(times[0])}–{stamp(times[-1])}"
+    minute_label = "at minutes " + _ranges(minutes)
+    if hours == set(range(24)):
+        return minute_label + " each hour"
+    return minute_label + " during hours " + _ranges(hours, lambda h: f"{h:02d}")
+
+
 def _humanize(cadence: str) -> str:
-    """Turn a cron/schedule string into a short friendly label (design style: 'weekdays 14:00')."""
-    if not cadence or cadence == "manual":
+    """Describe the scheduler's actual grammar, including steps and DOM/DOW OR."""
+    if not cadence or cadence.strip().lower() in ("manual", "none", "on-demand"):
         return "on demand"
     from .. import scheduler as S
-    if S.is_cron(cadence):
-        f = cadence.split()
-        try:
-            mm, hh = int(f[0]), int(f[1])      # cron order is: minute hour ...
-            time = f"{hh:02d}:{mm:02d}"
-        except ValueError:
-            return cadence
-        dom, mon, dow = f[2], f[3], f[0 + 4]
-        if dom == "*" and dow == "*":
-            day = "daily"
-        elif dow == "1-5":
-            day = "weekdays"
-        elif dow in ("0", "7"):
-            day = "Sun"
-        elif dow == "6" and dom == "*":
-            day = "Sat"
-        elif "#" in dow:
-            weekday, ordinal = dow.split("#", 1)
-            names = {"sun": "Sun", "mon": "Mon", "tue": "Tue", "wed": "Wed",
-                     "thu": "Thu", "fri": "Fri", "sat": "Sat"}
-            day = f"{_ordinal(int(ordinal))} {names.get(weekday.lower(), _DOW_NAME.get(int(weekday) % 7, weekday) if weekday.isdigit() else weekday)}"
-        elif "," in dow:
-            day = ",".join(_DOW_NAME.get(int(x) % 7, x) for x in dow.split(","))
-        elif "-" in dow:
-            a, b = dow.split("-", 1)
-            day = f"{_DOW_NAME.get(int(a) % 7, a)}-{_DOW_NAME.get(int(b) % 7, b)}"
-        elif dow != "*":
-            try:
-                day = _DOW_NAME.get(int(dow) % 7, dow)
-            except ValueError:
-                day = dow
-        elif dom == "1" and mon != "*":
-            day = "quarterly"
-        elif dom == "1":
-            day = "1st"
-        else:
-            day = f"d{dom}"
-        return f"{day} {time}"
-    return cadence[:14]
+    if not S.is_cron(cadence):
+        parsed = S.parse_schedule(cadence)
+        if parsed:
+            days, hour, minute = parsed
+            return f"{_day_label({(d+1) % 7 for d in days})} {hour:02d}:{minute:02d}"
+        return "Schedule needs review"
+    try:
+        minutes, hours, doms, months, dow, dom_star, dow_star = S._cron_parse(cadence)
+        days = S.cron_dow_days(dow)
+        if not all((minutes, hours, doms, months, days)):
+            return "Schedule needs review"
+        nth = S._nth_weekday(dow)
+        weekday = f"{_ordinal(nth[1])} {_DOW_NAME[nth[0]]}" if nth else _day_label(days)
+        monthday = _ordinal(next(iter(doms))) if len(doms) == 1 else "days " + _ranges(doms)
+        day = ("daily" if dow_star else weekday) if dom_star else (
+              monthday if dow_star else monthday + " or " + weekday)
+        if months != set(range(1, 13)):
+            names = ("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+            day += " in " + _ranges(months, lambda m: names[m])
+        return day + " " + _time_label(minutes, hours)
+    except (ValueError, TypeError, IndexError):
+        return "Schedule needs review"
 
 
 def _cadence_bucket(cadence: str) -> str:

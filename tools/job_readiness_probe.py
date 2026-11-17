@@ -123,7 +123,8 @@ def run(output):
                 original = util.read_json_state(realm/'agents/captain/jobs/read.json')
                 util.write_json_atomic(realm/'agents/captain/jobs/_pending/read.json', {**original, 'timeout':1234, 'prompt':'Proposed replacement prompt.'})
                 window.load_url(local_auth.browser_url(base,'/jobs'))
-                check('Change proposal displays every changed field',lambda:js("!!document.querySelector('.mc-propdiff')&&document.querySelector('.mc-propdiff').textContent.includes('timeout')&&document.querySelector('.mc-propdiff').textContent.includes('Proposed replacement prompt.')"))
+                check('Change proposal displays every changed field',lambda:js("!!document.querySelector('.mc-propdiff')&&document.querySelector('.mc-propdiff').textContent.includes('Time limit (seconds)')&&document.querySelector('.mc-propdiff').textContent.includes('Proposed replacement prompt.')"))
+                js("document.querySelector('.mc-prop').open=true;true")
                 assert util.read_json_state(realm/'agents/captain/jobs/read.json') == original
                 assert run_policy.verify_job(realm,'captain',original)
                 result['checks'].append('Pending change leaves the approved job intact')

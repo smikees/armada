@@ -6,9 +6,21 @@ A pure lower layer: cron/cadence labelling, next-run computation, status bucketi
 timestamp formatting. Depends only on datetime, the scheduler (lazy) and the status module —
 never on _core rendering helpers — so _core imports these names back with no import cycle.
 
+### `_ranges(values, label=str)`
+
+Compact sorted values into readable singletons/ranges, never cron syntax.
+
+### `_day_label(days)`
+
+—
+
+### `_time_label(minutes, hours)`
+
+—
+
 ### `_humanize(cadence: str)`
 
-Turn a cron/schedule string into a short friendly label (design style: 'weekdays 14:00').
+Describe the scheduler's actual grammar, including steps and DOM/DOW OR.
 
 ### `_cadence_bucket(cadence: str)`
 

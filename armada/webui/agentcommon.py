@@ -3,6 +3,7 @@ from __future__ import annotations
 import html, json, datetime, time, re
 from pathlib import Path
 from .job_readiness import summary as readiness_summary
+from .job_proposals import review_html, value_html
 from .. import memory, model, models, brand, status
 from .. import clock
 from .. import goals as goalsmod
@@ -137,35 +138,31 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
         return ""
     cards = ""
     for aid, slug, job, ok, errs in items:
-        review_token, diffhtml = '', ''
+        review_token, diffhtml, review = '', '', None
         try:
             review = jobs_mod.review(realm_root, aid, job)
             review_token = review['token']
             if review['before'] is not None:
-                def value(value, absent=False):
-                    return E('Not set' if absent else json.dumps(value, ensure_ascii=False, indent=2))
-                rows = ''.join('<tr><th scope="row">'+E(c['field'])+'</th><td><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+value(c['before'], c['added'])
-                    +'</pre></td><td><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+value(c['after'], c['removed'])+'</pre></td></tr>' for c in review['changes'])
-                diffhtml = ('<section aria-label="Job changes"><h3>Change proposal — '+E(disp.get(review['target'], review['target']))
-                    +'</h3><p>This proposal does not change the saved job or its approval. Approve replaces the saved job; Reject discards only this proposal.</p>'
-                    +('<p>The saved file also differs from its last approved version. Review before approving.</p>' if review['approved'] and review['approved'] != review['before'] else '')
-                    +'<div style="overflow:auto"><table class="mc-propdiff" style="width:100%;table-layout:fixed"><thead><tr><th>Field</th><th>'
-                    +('Approved value' if review['approved'] else 'Saved value (older approval snapshot unavailable)')
-                    +'</th><th>Proposed value</th></tr></thead><tbody>'
-                    +rows+'</tbody></table></div></section>')
+                diffhtml = review_html(review)
                 if review['access']:
-                    diffhtml += '<p>Approval also retains these existing extra access and completion checks:</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+E(json.dumps({k:v for k,v in review['access'].items() if k!='fingerprint'}, ensure_ascii=False, indent=2))+'</pre>'
+                    diffhtml += ('<details class="mc-prop-options"><summary>Retained access and completion checks</summary>'
+                                 + value_html({k:v for k,v in review['access'].items() if k!='fingerprint'}) + '</details>')
         except (ValueError, OSError, KeyError, TypeError) as exc:
             ok, errs = False, [*errs, str(exc)]
         kind = job.get("kind", "agent")
         sched = job.get("cron") or job.get("schedule") or "manual"
-        _r = job.get("run")
-        _r = " ".join(str(x) for x in _r) if isinstance(_r, list) else _r
-        preview = E((job.get("prompt") or _r or "")[:600])
-        kbadge = ('<span class="tag mc-frame" style="font-size:9.5px;padding:0 5px;margin-left:2px">cmd</span>'
+        preview = '' if diffhtml else ('<div class="mc-prop-preview mc-md">'
+                    + value_html(job.get('prompt') if kind == 'agent' else job.get('run'),
+                                 field='prompt' if kind == 'agent' else 'run') + '</div>')
+        kbadge = ('<span class="mc-chip">Command</span>'
                   if kind == "command" else "")
-        owner = "" if only_agent else (f'<span style="font-size:11.5px;color:var(--text-muted)">'
+        owner = "" if only_agent else (f'<span class="mc-prop-owner">'
                                        f'proposed by {E(disp.get(aid, aid))}</span>')
+        if review and review['target'] != aid:
+            owner += f'<span class="mc-prop-owner">for {E(disp.get(review["target"], review["target"]))}</span>'
+        change_count = len(review['changes']) if review and review['before'] is not None else None
+        change_label = ('New job' if change_count is None else
+                        f'{change_count} change' + ('' if change_count == 1 else 's'))
         other_errs = [err for err in errs if err != job_tools.TOOLS_REQUIRED]
         errhtml = (f'<div style="color:var(--status-bad);font-size:11.5px;margin-top:6px">⚠ {E("; ".join(other_errs))}</div>'
                    if other_errs else "")
@@ -184,7 +181,7 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
                 options += f'<option value="{value}"{" selected" if selected else ""}>{label}</option>'
             status = ('Runs WITH tools' if choice is True else job_tools.WITHOUT_TOOLS
                       if choice is False else 'Tools setting required before approval')
-            toolshtml = (f'<div style="margin-top:10px"><label>Tools for this job '
+            toolshtml = (f'<div class="mc-prop-tools"><label>Tools for this job '
                          f'<select class="mc-proptools" data-needs-tools="{str(needs).lower()}" '
                          f'style="font:inherit;max-width:100%;padding:4px 6px;color:var(--color-text);'
                          f'background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r)" '
@@ -196,39 +193,36 @@ def _job_proposals_block(realm, realm_root, only_agent: str = "") -> str:
                          f'{"" if choice is False and needs else " hidden"}>'
                          f'This job appears to need tools. Review the prompt and required outputs before approving without tools.</div></div>')
         elif kind == 'command':
-            toolshtml = '<p>Command job: runs the command shown above.</p>'
+            toolshtml = '<p class="mc-prop-note">Command job: runs the proposed command.</p>'
         approve = (f'<button class="btn btn-primary btn-sm mc-propapprove"'
                    f'{"" if ok else " disabled title=\"fix the errors above first\""} '
                    f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'approve\',this)">Approve</button>')
-        cards += (f'<div class="mc-prop mc-frame" data-review-token="{E(review_token)}" style="border-radius:var(--r);padding:12px 14px;margin-bottom:10px">'
-                  f'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-                  f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">{E(job.get("name") or slug)}</span>{kbadge}'
-                  f'{owner}<span class="mono" style="font-size:11px;margin-left:auto;'
-                  f'color:var(--text-dim)">{E(_humanize(sched))}</span></div>'
-                  f'<pre style="white-space:pre-wrap;background:var(--color-sand-100);border:1px solid var(--color-sand-300);'
-                  f'border-radius:var(--r);padding:9px 11px;margin:8px 0 0;font-size:11.5px;max-height:160px;overflow:auto">{preview}</pre>'
-                  f'{diffhtml}{toolshtml}{errhtml}'
+        cards += (f'<details class="mc-prop" data-review-token="{E(review_token)}">'
+                  f'<summary><span class="mc-prop-chevron">{_icon("chevron-right",14)}</span>'
+                  f'<span class="mc-prop-heading"><strong>{E(job.get("name") or slug)}</strong>{owner}</span>{kbadge}'
+                  f'<span class="mc-prop-meta"><span>{change_label}{" · Needs attention" if not ok else ""}</span>'
+                  f'<span>{E(_humanize(sched))}</span></span></summary><div class="mc-prop-body">'
+                  f'{preview}{diffhtml}{toolshtml}{errhtml}'
+                  f'<details class="mc-prop-options"><summary>Run settings and start conditions</summary>'
                   f'<p>Time limit: {E(str(job["timeout"])+" seconds" if job.get("timeout") else "No limit (inherits a realm ceiling if set)")}. '
                   f'Critical: {"Yes" if job.get("critical") else "No"}. '
                   f'At subscription limit: {E(job.get("plan_limit_action") or "Inherit")}. '
                   f'Connector unavailable: {E(job.get("connector_limit_action") or "Inherit")}. '
                   f'API ceiling: {E(str(job.get("api_run_ceiling_usd") or "Inherit"))}. '
                   f'API model: {E(job.get("api_model") or "Same model")}.</p>'
-                  + readiness_summary(job)
+                  + readiness_summary(job) + '</details>'
                   +
-                  f'<div style="display:flex;gap:8px;margin-top:10px;align-items:center">{approve}'
+                  f'<div class="mc-prop-actions">{approve}'
                   f'<button class="btn btn-secondary btn-sm" '
                   f'onclick="mcJobProposal({_J(aid)},{_J(slug)},\'reject\',this)">Reject</button>'
                   f'<span class="mc-propmsg" style="font-size:12px;color:var(--text-muted)"></span>'
-                  f'</div></div>')
+                  f'</div></div></details>')
     n = len(items)
-    head = (f'<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px">'
-            f'<span style="font-family:var(--font-heading);font-weight:600;font-size:14px">Proposed jobs</span>'
+    head = (f'<div class="mc-proposals-heading">'
+            f'<h3>Proposed jobs</h3>'
             f'<span class="mc-count" style="margin-left:0">{n}</span>'
-            f'<span style="font-size:11.5px;color:var(--text-muted)">'
-            f'awaiting your approval — changes do not affect the saved job</span></div>')
-    return (f'<div style="margin-bottom:18px;padding:14px 16px;border:1px solid var(--color-accent-2);border-radius:var(--r);'
-            f'background:var(--accent2-7)">{head}{cards}</div>{_JOB_PROPOSAL_JS}')
+            f'<span class="mc-prop-note">Awaiting approval · Expand a job to review</span></div>')
+    return f'<section class="mc-proposals" aria-label="Proposed jobs">{head}{cards}</section>{_JOB_PROPOSAL_JS}'
 
 
 def _job_tools_warnings_block(realm_root, only_agent: str = "") -> str:

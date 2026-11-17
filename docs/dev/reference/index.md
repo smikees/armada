@@ -213,6 +213,7 @@
 | [`webui.consumption`](webui.consumption.md) | Token-consumption gradient + model-colour mapping (carved from _core.py in Phase 3). |
 | [`webui.dryruns`](webui.dryruns.md) | Inline draft-only job controls and review output, using existing Jobs styles. |
 | [`webui.goalsview`](webui.goalsview.md) | Goals rendering (realm goals page + agent goals tab) (Layer 2, Phase 3). |
+| [`webui.job_proposals`](webui.job_proposals.md) | Readable, escaped values and bounded inline comparisons for owner job review. |
 | [`webui.job_readiness`](webui.job_readiness.md) | Owner-facing readiness controls; rendering reads local state only. |
 | [`webui.jobresults`](webui.jobresults.md) | Shared execution/audit/delivery evidence for realm and agent job outputs. |
 | [`webui.layout`](webui.layout.md) | Page chrome / layout (carved from _core.py in Phase 3). |

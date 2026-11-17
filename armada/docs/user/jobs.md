@@ -455,6 +455,17 @@ reports that it could not validate their location.
 
 ## Approving proposals and checking tools
 
+Proposed jobs start collapsed. Expand a job to review its changes: field names sit
+above the approved and proposed values, with removals struck through and additions
+underlined. Prompts keep their Markdown formatting and line breaks. Long values
+scroll inside the comparison; the prompt is not repeated above it. Run settings
+and start conditions have a separate disclosure. Approve and Reject remain inside
+the expanded review.
+
+Cadence labels in job lists use readable days, times and intervals. For example,
+`*/15 15-16 * * 1-5` appears as **weekdays every 15 min, 15:00–16:45**. This changes
+only the label; the saved schedule and execution times stay the same.
+
 Every agent job proposal must explicitly set `allow_tools` to `true` or `false`.
 Missing values, strings such as `"true"`, and numbers are rejected. Command jobs
 are unaffected. Agents should draft `true` for work that reads or writes files,
