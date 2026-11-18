@@ -41,6 +41,29 @@ def test_allow_deny_and_realm_exceptions(realm):
     assert not P.load(realm, 'analyst').rule('ibkr').permits('create_order_instruction')
 
 
+def test_invocation_writer_checks_roots_policy_changes_and_stop(realm, tmp_path):
+    util.write_json_atomic(realm/'realm.json', {'name': 'Synthetic unscoped realm'})
+    util.write_json_atomic(realm/'agents/analyst/agent.json', {'id': 'analyst', 'allow_tools': True})
+    approved = tmp_path/'approved'
+    approved.mkdir()
+    stopped = [False]
+    audit = PolicyAudit(realm, 'analyst')
+    with PolicyTools(realm, 'analyst', audit, write_roots=[realm, approved], cancelled=lambda: stopped[0]) as tools:
+        tools.call('write_file', {'path': str(approved/'inside.txt'), 'content': 'allowed'})
+        with pytest.raises(ValueError, match='outside'):
+            tools.call('write_file', {'path': str(tmp_path/'outside.txt'), 'content': 'forbidden'})
+        P.save(realm, 'analyst', {'write_scope': ['Finance/data/**']})
+        with pytest.raises(ValueError, match='outside'):
+            tools.call('write_file', {'path': str(approved/'later.txt'), 'content': 'forbidden'})
+        tools.call('write_file', {'path': 'Finance/data/result.txt', 'content': 'scoped'})
+        stopped[0] = True
+        with pytest.raises(ValueError, match='stopped'):
+            tools.call('write_file', {'path': 'Finance/data/after-stop.txt', 'content': 'forbidden'})
+    assert (approved/'inside.txt').read_text() == 'allowed'
+    assert not (tmp_path/'outside.txt').exists() and not (approved/'later.txt').exists()
+    assert not (realm/'Finance/data/after-stop.txt').exists()
+
+
 @pytest.mark.parametrize('provider', ['claude', 'codex', 'gemini'])
 def test_denied_order_absent_allowed_read_present_in_engine_list(realm, monkeypatch, provider):
     audit = PolicyAudit(realm, 'analyst')

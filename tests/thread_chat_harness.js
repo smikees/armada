@@ -21,6 +21,7 @@ function view(hidden=false){
     addEventListener:()=>{},requestAnimationFrame:fn=>fn(),
     setTimeout:(fn,delay)=>{timers.set(++timerId,{fn,delay});return timerId;},
     clearTimeout:id=>timers.delete(id),
+    setInterval:()=>1,clearInterval:()=>{},
     fetch:async(url,options={})=>{
       const parsed=new URL('http://localhost'+url);
       const json=data=>({ok:true,json:async()=>data});
@@ -87,7 +88,7 @@ function same(a,b){assert.equal(a.nodes['mc-turns'].innerHTML,b.nodes['mc-turns'
   main.get('mcCtrl').abort();await sync(main,detached);same(main,detached);
   assert(main.get('mcGen')&&detached.get('mcGen'),'disconnect does not pretend the engine stopped');
   assert.equal(main.nodes['mc-chatmsg'].textContent,'','successful snapshot observation clears the connection warning');
-  assert(main.nodes['mc-msg'].disabled);const liveId=shared.run_id;
+  assert(!main.nodes['mc-msg'].disabled,'Drafting remains available during unsupported live runs');const liveId=shared.run_id;
   main.send('must not start another turn');assert.equal(shared.run_id,liveId);
   // Stop from the disconnected view targets the admitted conversation, not its lost transport.
   // This closed observer no longer needs completion; the backend still owns the running turn.

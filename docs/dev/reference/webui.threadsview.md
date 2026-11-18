@@ -78,7 +78,7 @@ Render an assistant turn's full activity trail: text notes (Markdown), tool-acti
 
 Thumbnails for image attachments + name chips for file attachments, in a user turn.
 
-### `_turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str='', userav: str='', seg=None, att=None, actions=True, status='', transcription='', work_result=None)`
+### `_turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str='', userav: str='', seg=None, att=None, actions=True, status='', transcription='', work_result=None, duration_s=None)`
 
 —
 
@@ -130,7 +130,7 @@ Render just the transcript turns for a thread (server-canonical Markdown, icons,
 
 One latest-action disclosure; older activity is materialized ten rows at a time.
 
-### `_working_turn(av: str, disp: str, progress: dict | None=None, *, key='working')`
+### `_working_turn(av: str, disp: str, progress: dict | None=None, *, key='working', started=None)`
 
 The agent is working on the message above, right now.
 

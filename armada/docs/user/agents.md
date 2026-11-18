@@ -34,16 +34,36 @@ Tabs across the top:
 - **Retire someone:** Configure, at the bottom (**Retire…**). Their folder is kept; you can
   reinstate them from **+ Appoint**. The coordinator can't be retired.
 
+## Read and copy a conversation
+
+Opening a thread shows its latest messages. Scroll up to read earlier work; incoming
+updates keep your reading position. The circular down-arrow above the message box
+returns to the latest message and disappears when you reach the bottom.
+
+Code and prompt blocks have their own **Copy** icon, preserving indentation and line
+breaks. **Copy response** below an answer copies the whole answer, including prompts
+written as ordinary text. A check mark confirms copying; a failure message appears
+if clipboard access is unavailable.
+
+A live clock appears when the agent starts working. The completed answer records
+**Worked for …**, including after you reopen the thread. Time spent waiting for a
+run slot is excluded. Older answers without recorded timing do not invent a duration.
+
 ## Steer an agent while it works
 
 For a supported active run, the message box stays available and shows **Steer**
 beside **Stop work**. Type a correction or extra instruction and press Enter or
-click Steer. It goes to that same running task, without starting another reply.
+click Steer. The provider handles it inside the active conversation, using its
+native message protocol. It may adjust the current response or continue within
+the same run, just as its CLI does.
 Both the main page and detached thread window support this.
 
-Currently this is available for Codex app-server conversations. The button
-appears once the engine has an active turn; Claude, Gemini, background jobs and
-Codex's fallback mode do not support it. Steering accepts text only and does not
+This is available for Codex app-server, Claude Code 2.1.286 or newer, and Gemini
+through Antigravity CLI 1.5.0 or newer. The button appears once the engine is ready;
+background jobs, older CLIs and Codex's fallback mode do not support it. Gemini
+configurations whose connector or individual write-tool limits require print mode
+keep that mode and cannot accept live input. You can
+still draft while a run cannot accept messages. Steering accepts text only and does not
 change the agent's model, permissions or file access. It cannot undo an action
 the agent has already taken; Stop remains available separately.
 

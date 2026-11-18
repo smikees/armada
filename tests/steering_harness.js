@@ -18,7 +18,7 @@ vm.runInContext(fs.readFileSync(path.join(__dirname,'../armada/webui/static/js/c
 const run=code=>vm.runInContext(code,ctx);
 const ta=nodes['mc-msg'],button=nodes['mc-send'];
 (async()=>{
- run("mcTid='exact-run';mcSetGen(true)");assert(ta.disabled);
+ run("mcTid='exact-run';mcSetGen(true)");assert(!ta.disabled,'Unsupported engines still allow drafting');
  ta.value='Unsupported';await ctx.mcSteer('captain','main');assert.equal(requests.length,0);
  run('mcSteerable=true;mcSetGen(true)');assert(!ta.disabled);assert.equal(ta.placeholder,'Steer this run…');
  assert.equal(button.dataset.label,'Steer');assert(nodes['mc-plus'].disabled);

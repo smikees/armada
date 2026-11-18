@@ -251,6 +251,7 @@ class TurnCoordinator:
         from .policy_tools import PolicyAudit
         policy_audit = PolicyAudit(root, aid)
         execution_started = time.time()
+        work_started = None
         attempted_tools = set()
         written_paths = set()
         write_calls = {}
@@ -385,6 +386,9 @@ class TurnCoordinator:
                     inbox_timing.require_eligible(root, inbox_message)
                 # Resolve permissions afresh after waiting; queued work carries no stale grant.
                 eng = selected
+                if turn is not None:
+                    th.start_work(turn)
+                    work_started = time.monotonic()
                 if waited:
                     eng, agent = r._prepare_agent_run(root, aid, req.engine, req.allow_tools or bool(req.images), req.job, scheduled_job)
                 if eng.name != selected.name:
@@ -529,6 +533,9 @@ class TurnCoordinator:
                 prompt = (convo + ("\n\n---\nRequest: " if req.task else "\n\n---\nOwner: ") + msg) if convo else msg
                 if turn is None:
                     turn = th.begin_turn(message, attachments=attachments or None)
+                if work_started is None:
+                    th.start_work(turn)
+                    work_started = time.monotonic()
                 cap = r._TurnCapture(root, agent_dir, use_tools, thread=th, provider=eng.name)
                 # Refresh grants after context construction to enforce revocations made meanwhile.
                 request = replace(request, system=core, prompt=prompt,
@@ -608,6 +615,9 @@ class TurnCoordinator:
                                 cap.outputs.append(item)
                     if policy_files is not None:
                         cap.outputs.extend(policy_files.writes.values())
+                    for output in result.raw.get('guarded_writes', []):
+                        if not any(item.get('path') == output.get('path') for item in cap.outputs):
+                            cap.outputs.append(output)
             if raw_capture is not None:
                 raw_capture.finish()
             if turn is None:
@@ -658,6 +668,7 @@ class TurnCoordinator:
                 if interruption['files']:
                     text += '\nRecorded file changes: '+', '.join(interruption['files'])
             th.complete_turn(turn, text, status=status, interruption=interruption, run_id=context.run_id,
+                             duration_s=time.monotonic()-work_started if work_started is not None else None,
                              spoken_reply=req.spoken_reply,
                              outputs=cap.outputs or None if cap else None,
                              caps=cap.caps or None if cap else None)

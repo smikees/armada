@@ -195,7 +195,7 @@ def _turn_actions(role: str, idx: int, aid: str, thread: str, is_last_user: bool
         return (f'<button class="mc-iconbtn mc-act {cls}" title="{title}" onclick="{onclick}">'
                 f'{_icon(icon, 14)}</button>')
     ts = (f'<span style="font-size:10.5px;color:var(--text-ghost)">{E(when)}</span>') if when else ""
-    acts = ts + btn("copy", "Copy", "mcCopyTurn(this)")
+    acts = ts + btn("copy", "Copy response" if role == "assistant" else "Copy message", "mcCopyTurn(this)")
     align = "flex-start"
     if role == "user":
         align = "flex-end"
@@ -329,11 +329,15 @@ def _attachments_html(att, aid: str, thread: str) -> str:
     return f'<div class="mc-att-row">{"".join(out)}</div>'
 
 
-def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="", transcription="", work_result=None) -> str:
+def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="", transcription="", work_result=None, duration_s=None) -> str:
     content = E(str(raw).strip())
     when = str(ts)[11:16]
     tpl = f'<template class="mc-raw">{content}</template>'
     caption = f'<div class="mc-speech-caption">{E(transcription)}</div>' if transcription else ''
+    if isinstance(duration_s, (int, float)) and 0 <= duration_s < 1e9:
+        seconds = int(duration_s)
+        amount, unit = (seconds // 60, 'min') if seconds >= 60 else (seconds, 'sec')
+        caption += f'<div class="mc-work-duration">Worked for {amount} {unit}{"s" if amount != 1 else ""}</div>'
     if role == "assistant":
         body = _render_segments(seg) if seg else f'<div class="mc-body mc-md">{_md(str(raw).strip())}</div>'
         if work_result is not None:
@@ -645,6 +649,7 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
         turns += _turn(m.get("role", ""), content, str(m.get("ts", "")),
                        i, i == last_user, a.id, selected, a.display, a.is_coordinator,
                        av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"), status=m.get('status', ''),
+                       duration_s=m.get('duration_s'),
                        work_result=m.get('work_result') if voice_state and content != m.get('work_result') else None,
                        transcription=(caption or ('Incomplete transcript · call ended before transcription finished'
                            if m.get('transcription_incomplete') else
@@ -668,7 +673,7 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
             if m.get('spoken_reply'):
                 progress = dict(progress, content='')
             if running:
-                turns += _working_turn(av, a.display, progress, key=str(m['turn']))
+                turns += _working_turn(av, a.display, progress, key=str(m['turn']), started=m.get('work_started_at'))
             else:
                 turns += _unanswered_turn(av, a.display, bool(progress.get('content')))
     # An owner message with nothing after it. Either the agent is working on it right now — in
@@ -678,7 +683,7 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
     if pending is not None and not pending.get('voice_request') and not pending.get('transcription_incomplete'):
         progress = th.progress(pending.get("turn", ""))
         if running:
-            turns += _working_turn(av, a.display, progress, key=str(pending.get('turn', 'working')))
+            turns += _working_turn(av, a.display, progress, key=str(pending.get('turn', 'working')), started=pending.get('work_started_at'))
         else:
             if progress.get("content"):
                 turns += _turn("assistant", progress["content"], "", len(msgs), False,
@@ -770,7 +775,7 @@ def _progress_steps(events, key="working") -> str:
             f'<template class="mc-activity-source">{"".join(reversed(out))}</template></details>')
 
 
-def _working_turn(av: str, disp: str, progress: dict | None = None, *, key="working") -> str:
+def _working_turn(av: str, disp: str, progress: dict | None = None, *, key="working", started=None) -> str:
     """The agent is working on the message above, right now.
 
     Rendered server-side, which is the whole point: the live reply streams over an SSE connection
@@ -782,6 +787,8 @@ def _working_turn(av: str, disp: str, progress: dict | None = None, *, key="work
     activity = str(progress.get("activity") or "working on it…")
     content = str(progress.get("content") or "")
     steps = _progress_steps(progress.get("events"), key)
+    timer = (f'<span class="mc-work-duration" data-work-started="{started}">Working…</span>'
+             if isinstance(started, (int, float)) and 0 < started < 1e12 else '')
     return (f'<div class="mc-turn mc-pending" data-role="pending" style="margin-bottom:12px">'
             f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av}</div>'
             f'<div style="flex:1;min-width:0">'
@@ -792,6 +799,7 @@ def _working_turn(av: str, disp: str, progress: dict | None = None, *, key="work
             f'<div class="mc-step"><div class="mc-step-h" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim)">'
             f'<span style="display:flex"><img src="/static/working.gif" width="34" height="34" style="display:block" alt=""></span>'
             f'<span class="mc-step-l" style="animation:mc-pulse 1.4s ease-in-out infinite">{E(activity)}</span>'
+            f'{timer}'
             f'</div></div></div></div></div></div>')
 
 
@@ -891,6 +899,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             # composer floats over the transcript; a gradient fades messages out beneath it (Claude-style).
             # right inset clears the 8px scroll gutter so the scrollbar stays fully visible (not hidden by the fade)
             f'<div id="mc-composer-overlay" style="position:absolute;left:0;right:10px;bottom:0;pointer-events:none">'
+            f'<button id="mc-jump-bottom" class="mc-jump-bottom" type="button" title="Jump to latest messages" aria-label="Jump to latest messages" hidden onclick="mcScrollBottom()">{_icon("arrow-down",18)}</button>'
             f'<div style="height:38px;background:linear-gradient(to bottom, transparent, var(--color-bg))"></div>'
             f'<div style="background:var(--color-bg);pointer-events:auto;padding:0 20px 14px">'
             '<div id="mc-questions" class="mc-questions mc-scroll" aria-label="Agent questions" hidden></div>'
@@ -923,6 +932,7 @@ def _chat_center(realm_root, a, selected: str, embed: bool = False, lead: str = 
             f'<button id="mc-stop" title="Stop" style="display:none;flex:none;border:1px solid var(--color-divider);background:transparent;'
             f'cursor:pointer;font-size:13px;padding:7px 14px;border-radius:10px;align-items:center;gap:6px;color:var(--color-text)" '
             f'onclick="mcStop()">{_icon("square",14)}Stop</button></div></div>'
+            '<div id="mc-followup-hint" class="mc-work-duration" hidden>You can keep drafting. Send becomes available when this run accepts messages.</div>'
             f'<div id="mc-chatmsg" style="font-size:11px;color:var(--text-muted);margin-top:4px"></div></div></div></div></div>')
 
 

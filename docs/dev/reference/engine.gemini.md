@@ -2,6 +2,14 @@
 
 Google Gemini through the supported Antigravity CLI; cached login, fresh scoped turns.
 
+### class `_GuardedProcess`
+
+Stop expires the invocation-local writer before requesting process cleanup.
+
+- `_GuardedProcess.__init__(self, process, stopped)` — —
+- `_GuardedProcess.__getattr__(self, name)` — —
+- `_GuardedProcess.kill(self)` — —
+
 ### `invalidate_auth()`
 
 —
@@ -33,6 +41,7 @@ A fresh project owns each run's grants; never edit the user's global policy.
 - `GeminiEngine.__init__(self, binary='agy')` — —
 - `GeminiEngine._launcher(self)` — —
 - `GeminiEngine._probe(self, args)` — —
+- `GeminiEngine._supports_acp(self)` — —
 - `GeminiEngine.auth_status(self, force=False)` — —
 - `GeminiEngine.doctor(self)` — —
 - `GeminiEngine.usage_limits(self)` — —

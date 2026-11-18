@@ -50,9 +50,10 @@ class PolicyAudit:
 
 class PolicyTools(ManagedTools):
     """File writes are checked on every call; no shell operation is provided."""
-    def __init__(self, root, agent, audit, *, cancelled=None):
+    def __init__(self, root, agent, audit, *, cancelled=None, write_roots=None):
         super().__init__(root, agent, cancelled=cancelled)
         self.audit = audit
+        self.write_roots = tuple(Path(p).resolve() for p in write_roots) if write_roots is not None else None
         self.server_name = 'armada_files_' + secrets.token_hex(8)
 
     def tools(self):
@@ -79,7 +80,7 @@ class PolicyTools(ManagedTools):
                     raise PermissionError('Unknown filesystem tool or invalid arguments.')
                 if name == 'write_file':
                     policy = access_policy.load(self.root, self.agent)
-                    path = access_policy.writable_path(self.root, policy, arguments['path'], agent_records=True)
+                    path = self._write_path(policy, arguments['path'])
                     if len(arguments['content'].encode('utf-8')) > MAX_BYTES:
                         raise ValueError('Files must be at most 1 MiB per write.')
                     content = self._validated_content(path, arguments['content'])
@@ -88,7 +89,7 @@ class PolicyTools(ManagedTools):
                     with worker.filesystem_lock(path):
                         # Re-read authorization while holding the target lock.
                         policy = access_policy.load(self.root, self.agent)
-                        if access_policy.writable_path(self.root, policy, arguments['path'], agent_records=True) != path:
+                        if self._write_path(policy, arguments['path']) != path:
                             raise PermissionError('Write target changed during authorization.')
                         with worker.filesystem_identity():
                             util.write_text_atomic(path, content, newline='\n')
@@ -109,8 +110,17 @@ class PolicyTools(ManagedTools):
                 self.audit.refuse(tool=name, path=arguments.get('path', '') if isinstance(arguments, dict) else '', reason=str(exc))
                 raise
 
+    def _write_path(self, policy, value):
+        if self.write_roots is None or policy.scoped:
+            return access_policy.writable_path(self.root, policy, value, agent_records=True)
+        from .inspection import checked_path
+        path = Path(value)
+        return checked_path(path if path.is_absolute() else self.root/path, self.write_roots)
+
     def _validated_content(self, path, content):
         from . import control_files, jobs
+        if not path.is_relative_to(self.root.resolve()):
+            return content
         if control_files.kind(self.root, path, agent=self.agent) != 'proposal':
             return content
         try:

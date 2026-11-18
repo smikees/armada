@@ -30,7 +30,33 @@ const MC_STEP_ICONS={think:window.mcIcon('think',13), tool:window.mcIcon('termin
 // green "available / done" indicator shown when a turn completes
 const MC_DONE_ICON=window.mcIcon('circle-check-fill',14,'color:var(--status-ok)');
 // scroll the transcript to the newest message on load (jump to the bottom of the conversation)
-function mcScrollBottom(){const b=document.getElementById('mc-turns');if(b)b.scrollTop=b.scrollHeight;}
+function mcScrollBottom(){const b=document.getElementById('mc-turns');if(b){b.scrollTop=b.scrollHeight;mcJumpState();}}
+function mcJumpState(){const b=document.getElementById('mc-turns'),jump=document.getElementById('mc-jump-bottom');
+  if(b&&jump)jump.hidden=b.scrollHeight-b.scrollTop-b.clientHeight<90;}
+function mcThreadTools(){
+  const box=document.getElementById('mc-turns');if(!box)return;
+  box.querySelectorAll('pre.mc-md-pre').forEach(pre=>{
+    if(pre.querySelector('.mc-code-copy'))return;
+    const button=document.createElement('button');button.type='button';button.className='mc-iconbtn mc-code-copy';
+    button.title='Copy code or prompt';button.setAttribute('aria-label',button.title);button.innerHTML=window.mcIcon('copy',15);
+    button.addEventListener('click',()=>mcCopyText(pre.querySelector('code')?.textContent||'',button));pre.appendChild(button);
+  });
+  mcWorkTimers();mcJumpState();
+}
+function mcWorkTimers(){document.querySelectorAll('#mc-turns [data-work-started]').forEach(el=>{
+  const start=Number(el.dataset.workStarted);if(!Number.isFinite(start)||start<=0)return;
+  const seconds=Math.max(0,Math.floor(Date.now()/1000-start)),mins=Math.floor(seconds/60);
+  el.textContent='Working for '+(mins?mins+'m ':'')+(seconds%60)+'s';
+});}
+(function(){const box=document.getElementById('mc-turns');if(!box)return;
+  box.addEventListener('scroll',mcJumpState,{passive:true});
+  box.addEventListener('load',()=>{if(document.getElementById('mc-jump-bottom')?.hidden)mcScrollBottom();},true);
+  let touched=false;for(const name of ['wheel','pointerdown','keydown'])box.addEventListener(name,()=>{touched=true;},{once:true,passive:true});
+  const latest=()=>{if(!touched)mcScrollBottom();};
+  window.addEventListener('load',latest,{once:true});document.fonts?.ready.then(latest);
+  const timer=setInterval(mcWorkTimers,1000);window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+  mcThreadTools();
+})();
 (function(){
   const box=document.getElementById('mc-turns'),composer=document.getElementById('mc-composer-overlay');
   if(!box||!composer||typeof ResizeObserver!=='function')return;
@@ -196,7 +222,8 @@ function mcApplyTurns(box,html){
       target.focus({preventScroll:true});
     }
   });
-  mcMarkDone();if(bottom&&![...states.values()].some(state=>state.open))mcScrollBottom();else box.scrollTop=top;
+  mcMarkDone();mcThreadTools();if(bottom&&![...states.values()].some(state=>state.open))mcScrollBottom();else box.scrollTop=top;
+  mcJumpState();
 }
 function mcRefreshTurns(agent,thread){
   const context=mcThreadCtx();
@@ -391,10 +418,11 @@ function mcSetGen(on,stopping=false){mcGen=on;const st=document.getElementById('
     if(st.lastChild?.nodeType===3)st.lastChild.textContent=stopping?'Stopping…':'Stop work';}
   if(ta){
     if(!ta.dataset.idlePlaceholder)ta.dataset.idlePlaceholder=ta.placeholder||'';
-    ta.disabled=on&&!mcSteerable&&!mcSteerRequest;
+    ta.disabled=false;
     ta.placeholder=on&&mcSteerable?'Steer this run…':ta.dataset.idlePlaceholder;
   }
   const plus=document.getElementById('mc-plus');if(plus)plus.disabled=on;
+  const hint=document.getElementById('mc-followup-hint');if(hint)hint.hidden=!on||mcSteerable||!!mcSteerRequest;
   mcSyncSend();
   if(!on&&mcFocusOnIdle){mcFocusOnIdle=false;if(!document.hidden)ta?.focus();}}
 function mcSteerObserve(receipts){
@@ -458,8 +486,21 @@ async function mcStop(){
 }
 // --- turn actions ---
 function mcRawText(turn){const t=turn.querySelector('template.mc-raw');if(t)return t.content.textContent;const b=turn.querySelector('.mc-body');return b?b.textContent:'';}
-function mcCopyTurn(btn){const txt=mcRawText(btn.closest('.mc-turn'));try{navigator.clipboard.writeText(txt);}catch(e){}
-  const old=btn.innerHTML;btn.innerHTML=MC_ACT.check;btn.style.color='var(--status-ok)';setTimeout(()=>{btn.innerHTML=old;btn.style.color='';},1200);}
+async function mcCopyText(text,btn){
+  if(btn.disabled)return;btn.disabled=true;
+  try{
+    try{await navigator.clipboard.writeText(text);}catch(error){
+      const active=document.activeElement,selection=window.getSelection(),ranges=[];
+      if(selection)for(let i=0;i<selection.rangeCount;i++)ranges.push(selection.getRangeAt(i).cloneRange());
+      const field=document.createElement('textarea');field.value=text;field.style.cssText='position:fixed;left:-10000px;top:0';document.body.appendChild(field);
+      try{field.select();if(!document.execCommand('copy'))throw error;}finally{field.remove();active?.focus({preventScroll:true});
+        if(selection){selection.removeAllRanges();ranges.forEach(range=>selection.addRange(range));}}
+    }
+    const old=btn.innerHTML,title=btn.title;btn.innerHTML=MC_ACT.check;btn.title='Copied';btn.setAttribute('aria-label','Copied');
+    setTimeout(()=>{btn.innerHTML=old;btn.title=title;btn.setAttribute('aria-label',title);btn.disabled=false;},1200);
+  }catch(error){btn.disabled=false;const note=document.getElementById('mc-chatmsg');if(note)note.textContent='Could not copy. Please select the text and copy it manually.';}
+}
+function mcCopyTurn(btn){return mcCopyText(mcRawText(btn.closest('.mc-turn')),btn);}
 function mcDropFrom(turn){let n=turn;const rm=[];while(n){if(n.classList&&n.classList.contains('mc-turn'))rm.push(n);n=n.nextElementSibling;}rm.forEach(x=>x.remove());}
 async function mcRestartTurn(btn,agent,thread,idx){const turn=btn.closest('.mc-turn');const txt=mcRawText(turn);
   await mcRestartRequest(turn,agent,thread,idx,txt);}

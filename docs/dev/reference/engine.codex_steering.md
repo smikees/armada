@@ -17,7 +17,7 @@ Bounded mid-turn input for Codex app-server; the RPC owner alone writes stdin.
 
 ### class `SteeringProcess`
 
-Expose steering only for this particular app-server process and active turn.
+Expose a provider control only for its particular supervised process.
 
 - `SteeringProcess.__init__(self, process, control)` — —
 - `SteeringProcess.pid(self)` — —

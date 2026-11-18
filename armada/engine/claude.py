@@ -289,7 +289,7 @@ from .contracts import ProviderCapabilities, RunRequest, validate_request
 
 class ClaudeEngine(EngineAdapter):
     name = "claude"
-    capabilities = ProviderCapabilities(streaming=True, cancellation=True, budget=True, fallback=True, sealed_tools=True, tool_denials=True, raw_tool_results=True)
+    capabilities = ProviderCapabilities(streaming=True, cancellation=True, budget=True, fallback=True, sealed_tools=True, tool_denials=True, raw_tool_results=True, steering=True)
 
     def __init__(self, binary: str = "claude"):
         self.binary = binary

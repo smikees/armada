@@ -18,6 +18,7 @@ def engine(monkeypatch, tmp_path):
     monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path/'home'))
     monkeypatch.setattr(g.GeminiEngine, '_launcher', lambda self: ['agy-fixture'])
     monkeypatch.setattr(g.GeminiEngine, 'auth_status', lambda self, force=False: {'ok':True,'logged_in':True})
+    monkeypatch.setattr(g.GeminiEngine, '_supports_acp', lambda self: False)
     monkeypatch.setattr(g, 'cached_models', lambda: [
         {'id':'gemini-3.8-flash','label':'Google · Gemini 3.8 Flash','efforts':['low','medium','high']},
         {'id':'gemini-3.1-pro','label':'Google · Gemini 3.1 Pro','efforts':['low','high']}])
@@ -34,6 +35,89 @@ def stream(monkeypatch, events, result=None, inspect=None):
 
 def final(response='Verified.', **extra):
     return {'event':'result','result':{'status':'SUCCESS','response':response,**extra}}
+
+
+def test_owner_acp_uses_existing_agent_project_and_accounting(engine, tmp_path, monkeypatch):
+    from armada.engine import gemini_acp
+    monkeypatch.setattr(engine, '_supports_acp', lambda: True)
+    observed = []
+    def call(selected, folder, project, roots, file_access, actual, prompt, line, timeout, env, on_proc, servers=()):
+        config = json.loads((Path(folder)/'.agents/agents/armada-turn.md').read_text(encoding='utf-8').split('---', 2)[1])
+        assert config['tools'] == [] and not config['inheritMcp'] and not config['inheritCustomizations']
+        assert config['commandExecutionPolicy'] == 'off'
+        settings = json.loads((Path.home()/'.gemini/config/projects'/f'{project}.json').read_text())
+        grants = settings['permissionGrants']['permissionGrants']
+        assert 'command(*)' in grants['deny'] and 'read_url(*)' in grants['deny']
+        assert not file_access and not grants['allow']
+        observed.append(actual)
+        line(json.dumps(final('ACP answer', usage={'input_tokens': 30, 'output_tokens': 12, 'cache_read_tokens': 10})))
+        # A completed RPC session is closed by the supervisor, not a CLI exit.
+        return ProcessResult(returncode=-15)
+    monkeypatch.setattr(gemini_acp, 'run', call)
+    def receive(event):pass
+    receive.interactive_questions = True
+    result = engine.run_stream('System', 'Task', cwd=str(tmp_path), model='gemini-3.8-flash', on_event=receive)
+    assert result.ok, result.error
+    assert result.output == 'ACP answer' and result.usage.total == 42
+    assert observed == ['gemini-3.8-flash-medium']
+
+
+@pytest.mark.parametrize('case', ['filtered-connector', 'partial-native-denial', 'missing-admission'])
+def test_acp_keeps_print_transport_when_grants_cannot_be_preserved(engine, tmp_path, monkeypatch, case):
+    monkeypatch.setattr(engine, '_supports_acp', lambda: True)
+    if case == 'filtered-connector':
+        monkeypatch.setattr(engine, '_connectors', lambda denied: [
+            {'name': 'approved', 'command': 'fixture', 'enabledTools': ['read_only']}])
+    launches = []
+    stream(monkeypatch, [final()], inspect=lambda args, kw: launches.append(args))
+    def receive(event):pass
+    receive.interactive_questions = True
+    result = engine.run_stream('', 'Task', cwd=str(tmp_path), allow_tools=True, on_event=receive,
+        disallowed_tools=['Write'] if case == 'partial-native-denial' else [])
+    assert result.ok and len(launches) == 1
+    assert '--output-format' in launches[0] and 'acp' not in launches[0]
+
+
+def test_stop_expires_guarded_writer_before_provider_cleanup():
+    import threading
+    stopped = threading.Event()
+    process = SimpleNamespace(kill=lambda: stopped.is_set() or pytest.fail('writer still active'), can_steer=True)
+    handle = g._GuardedProcess(process, stopped)
+    assert handle.can_steer
+    handle.kill()
+    assert stopped.is_set()
+
+
+def test_acp_replaces_native_writes_with_expiring_audited_writer(engine, tmp_path, monkeypatch):
+    from armada import util
+    from armada.engine import gemini_acp
+    from armada.policy_tools import PolicyAudit
+    from armada.tool_admission import ToolAdmission
+    root = tmp_path/'realm'
+    util.write_json_atomic(root/'realm.json', {'name': 'Synthetic guarded ACP'})
+    util.write_json_atomic(root/'agents/a/agent.json', {'id': 'a', 'allow_tools': True})
+    audit = PolicyAudit(root, 'a')
+    engine.tool_admission = ToolAdmission(root, 'a', 'gemini', audit)
+    monkeypatch.setattr(engine, '_supports_acp', lambda: True)
+    used = []
+    def call(selected, folder, project, roots, file_access, actual, prompt, line, timeout, env, on_proc, servers=()):
+        config = json.loads((Path(folder)/'.agents/agents/armada-turn.md').read_text(encoding='utf-8').split('---', 2)[1])
+        assert not set(config['tools']) & {'write_to_file', 'replace_file_content', 'multi_replace_file_content'}
+        tools = selected.policy_tools
+        assert [s['name'] for s in servers] == [tools.server_name]
+        tools.call('write_file', {'path': str(root/'inside.txt'), 'content': 'synthetic'})
+        with pytest.raises(ValueError, match='outside'):
+            tools.call('write_file', {'path': str(tmp_path/'outside.txt'), 'content': 'forbidden'})
+        used.append(tools)
+        line(json.dumps(final()))
+        return ProcessResult(returncode=-15)
+    monkeypatch.setattr(gemini_acp, 'run', call)
+    def receive(event):pass
+    receive.interactive_questions = True
+    result = engine.run_stream('', 'Task', cwd=str(root), allow_tools=True, on_event=receive)
+    assert result.ok and used[0].closed
+    assert result.raw['guarded_writes'][0]['path'] == str(root/'inside.txt')
+    assert audit.report()['denied_attempts'] and not (tmp_path/'outside.txt').exists()
 
 
 def test_model_routes_include_agent_and_job_overrides(tmp_path):

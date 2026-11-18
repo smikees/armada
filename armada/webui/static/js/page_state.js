@@ -19,7 +19,9 @@
   const bucket='armada-view-state',key=realm+':'+location.pathname+'?'+query.toString();
   let lastFocus='';
   document.addEventListener('focusin',event=>{if(event.target.id)lastFocus=event.target.id;});
-  const selectors=['.mc-appscroll','#mc-turns','#mc-threadlist','#mc-rail'];
+  // Entering a conversation always opens its latest messages. In-page transcript
+  // updates preserve reading position through chat.js instead of restoring history.
+  const selectors=['.mc-appscroll','#mc-threadlist','#mc-rail'];
   function read(){try{const value=JSON.parse(sessionStorage.getItem(bucket)||'[]');return Array.isArray(value)?value.filter(s=>s&&typeof s.key==='string'):[];}catch(_){return [];}}
   function save(){
     const scroll=selectors.map(s=>[s,document.querySelector(s)?.scrollTop||0]);

@@ -66,12 +66,14 @@
 | [`engine.claude`](engine.claude.md) | Claude engine adapter — drives Claude Code in headless/print mode on the user's Pro/Max subscription (SPEC §9, §17) |
 | [`engine.claude_isolation`](engine.claude_isolation.md) | Exercise installed Claude child-environment isolation without a real key or paid call. |
 | [`engine.claude_questions`](engine.claude_questions.md) | Claude's documented SDK stdio control protocol, restricted to AskUserQuestion. |
+| [`engine.claude_steering`](engine.claude_steering.md) | Native Claude streaming input, with receipts tied to answered message UUIDs. |
 | [`engine.codex`](engine.codex.md) | Codex CLI turns, using the owner's login and Armada's existing context and history. |
 | [`engine.codex_steering`](engine.codex_steering.md) | Bounded mid-turn input for Codex app-server; the RPC owner alone writes stdin. |
 | [`engine.codex_voice`](engine.codex_voice.md) | Experimental Codex WebRTC signaling |
 | [`engine.contracts`](engine.contracts.md) | Provider-independent requests, events and enforceable execution capabilities. |
 | [`engine.defaults`](engine.defaults.md) | Release-owned defaults for new teams, independent of Alexander's personal settings. |
 | [`engine.gemini`](engine.gemini.md) | Google Gemini through the supported Antigravity CLI; cached login, fresh scoped turns. |
+| [`engine.gemini_acp`](engine.gemini_acp.md) | Native Antigravity ACP prompts/steering inside one scoped owner run. |
 | [`engine.mcp`](engine.mcp.md) | Translate MCP display names to their tool namespace without granting access. |
 | [`engine.mcp_runtime`](engine.mcp_runtime.md) | Live MCP startup evidence; saved OAuth credentials are not a connection test. |
 | [`engine.mock`](engine.mock.md) | Mock engine — lets the runner + telemetry be tested end-to-end offline, with no Claude Code and no tokens spent |

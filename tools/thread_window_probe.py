@@ -45,6 +45,11 @@ def run(output):
         (root / "home").mkdir()
         realm = build_fixture(root / "realm")
         other = build_fixture(root / "other")
+        historical = Thread(Path(realm)/'agents/captain', 'main')
+        historical._store.truncate(0)
+        historical.append('Status?', 'All hands accounted for.\n\n'+
+            '\n\n'.join('Synthetic historical paragraph '+str(i)+': check the figures and keep this context.' for i in range(55))+
+            '\n\n```text\nCopy this prompt exactly:\n  Keep indentation & <tags>.\nSecond line.\n```')
         cfg_path = Path(realm) / "agents/captain/agent.json"
         cfg = util.read_json_state(cfg_path)
         cfg["color"] = "#bf6138"
@@ -167,7 +172,9 @@ def run(output):
             return window.evaluate_js("document.getElementById('mc-turns').textContent")
 
         def transcript(window):
-            return window.evaluate_js("document.getElementById('mc-turns').innerHTML")
+            # Live clocks are view-local; their start identity must match, while
+            # second-boundary text can differ between independently polled windows.
+            return window.evaluate_js("(()=>{const box=document.getElementById('mc-turns').cloneNode(true);box.querySelectorAll('[data-work-started]').forEach(el=>el.textContent='CLOCK');return box.innerHTML;})()")
 
         def idle(window):
             return window.evaluate_js("!mcGen && !mcCtrl")
@@ -262,6 +269,14 @@ def run(output):
                 ready(companion)
                 check("both views show the original transcript", "All hands accounted for." in text(main) and
                       "All hands accounted for." in text(companion))
+                for view,label in ((main,'main'),(companion,'companion')):
+                    wait_for(lambda: view.evaluate_js("(()=>{const b=document.getElementById('mc-turns');return b.scrollHeight-b.scrollTop-b.clientHeight<8;})()"),label+' opens at the latest message')
+                    view.evaluate_js("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.probeCopied=value;}}});document.querySelector('.mc-code-copy').click()")
+                    wait_for(lambda: view.evaluate_js("window.probeCopied==='Copy this prompt exactly:\\n  Keep indentation & <tags>.\\nSecond line.'"),label+' code copy keeps exact whitespace and characters')
+                    view.evaluate_js("document.getElementById('mc-turns').scrollTop=0;document.getElementById('mc-turns').dispatchEvent(new Event('scroll'))")
+                    check(label+' shows jump control above the composer',view.evaluate_js("(()=>{const b=document.getElementById('mc-jump-bottom');return !b.hidden&&b.getBoundingClientRect().bottom<=document.getElementById('mc-msg').getBoundingClientRect().top;})()"))
+                    view.evaluate_js("document.getElementById('mc-jump-bottom').click()")
+                    check(label+' jump reaches newest message and hides itself',view.evaluate_js("document.getElementById('mc-jump-bottom').hidden"))
                 bullet_probe = """(()=>{
                     const t=document.getElementById('mc-msg');
                     const input=()=>t.dispatchEvent(new Event('input',{bubbles:true}));
@@ -436,6 +451,12 @@ def run(output):
                          "Stop is available in the observing window")
                 wait_for(lambda: "Checking the synthetic figures." in text(main) and transcript(main) == transcript(companion),
                          "sender and occluded companion have identical live HTML and tool activity")
+                wait_for(lambda: main.evaluate_js("document.querySelector('[data-work-started]')?.textContent.startsWith('Working for ')") and
+                         companion.evaluate_js("document.querySelector('[data-work-started]')?.textContent.startsWith('Working for ')"), 'Both windows show an advancing work timer')
+                clock_start=main.evaluate_js("document.querySelector('[data-work-started]').dataset.workStarted")
+                main.load_url(local_auth.browser_url(url, '/probe-main'));ready(main)
+                wait_for(lambda: main.evaluate_js("document.querySelector('[data-work-started]')?.dataset.workStarted")==clock_start,
+                         'Reopening a working thread retains the original clock start')
                 for view, label in ((main, 'main'), (companion, 'companion')):
                     wait_for(lambda: view.evaluate_js("mcSteerable && !document.getElementById('mc-msg').disabled"),
                              label + ' permits typing during a supported run')
@@ -445,6 +466,7 @@ def run(output):
                     if label == 'companion':
                         view.resize(400,500)
                         view.evaluate_js("document.documentElement.classList.add('armada-dark')")
+                        main.evaluate_js("document.getElementById('mc-turns').scrollTop=0;document.getElementById('mc-turns').dispatchEvent(new Event('scroll'))")
                     screenshot(view, 'thread-steering-' + label)
                     check(label + ' steering composer has no horizontal overflow', view.evaluate_js(
                         "document.documentElement.scrollWidth<=innerWidth && document.getElementById('mc-msg').getBoundingClientRect().right<=innerWidth"))
@@ -454,6 +476,8 @@ def run(output):
                              label + ' steering is acknowledged and shared without a second turn')
                     check(label + ' keeps typing focus after confirmation', view.evaluate_js("document.activeElement.id==='mc-msg'"))
                     if label == 'companion':
+                        check('Incoming follow-up preserves a reader above the latest messages',main.evaluate_js("document.getElementById('mc-turns').scrollTop===0&&!document.getElementById('mc-jump-bottom').hidden"))
+                        main.evaluate_js("document.getElementById('mc-jump-bottom').click()")
                         view.resize(560,720)
                         view.evaluate_js("document.documentElement.classList.remove('armada-dark')")
                 check('two steering receipts preserve one open owner turn',
@@ -497,6 +521,8 @@ def run(output):
                          "both views receive the saved reply")
                 wait_for(lambda: idle(main) and idle(companion) and transcript(main) == transcript(companion),
                          "both views have identical terminal HTML")
+                check('Final work duration is saved and shared', 'Worked for ' in text(main) and
+                      Thread(Path(realm)/'agents/captain')._messages()[-1]['duration_s']>=0)
                 companion.evaluate_js("document.getElementById('mc-msg').value='Question from companion';mcChat('captain','main')")
                 wait_for(lambda: "Question from companion" in text(main), "main receives a message sent by the companion")
                 wait_for(lambda: len(Thread(Path(realm)/"agents/captain")._messages()) == 6, "each send is persisted exactly once")
@@ -536,7 +562,7 @@ def run(output):
                 main.evaluate_js("document.getElementById('mc-msg').value='Continue after disconnect';mcChat('captain','main')")
                 wait_for(started.is_set, "turn admitted before observer disconnect")
                 main.evaluate_js("mcCtrl.abort()")
-                wait_for(lambda: main.evaluate_js("!mcCtrl && mcGen && document.getElementById('mc-msg').disabled"),
+                wait_for(lambda: main.evaluate_js("!mcCtrl && mcGen && !document.getElementById('mc-msg').disabled"),
                          "interrupted transport retains the backend busy state")
                 release.set()
                 wait_for(lambda: idle(main) and idle(companion) and transcript(main) == transcript(companion),

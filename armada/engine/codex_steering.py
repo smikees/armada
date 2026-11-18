@@ -93,7 +93,7 @@ class SteeringControl:
 
 
 class SteeringProcess:
-    """Expose steering only for this particular app-server process and active turn."""
+    """Expose a provider control only for its particular supervised process."""
     def __init__(self, process, control):
         self.process, self.control = process, control
 

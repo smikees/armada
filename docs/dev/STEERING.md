@@ -1,5 +1,11 @@
 # Steering an active owner conversation
 
+**18 November 2026, v0.99.162:** Claude streaming input and Antigravity ACP now
+join Codex's app-server transport. The current provider semantics, version gates,
+delivery proof and native research are documented in [thread usability](THREAD_USABILITY.md).
+The durable admission and retry rules below still apply. The old paragraph naming
+Codex as the sole supported provider is historical.
+
 Version 0.99.138 adds text steering to an already admitted conversational run.
 `ProviderCapabilities.steering` declares adapter support; a live process handle's
 `can_steer` also must be true. Only Codex app-server advertises it today. Claude,

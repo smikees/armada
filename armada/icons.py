@@ -19,6 +19,7 @@ E = html.escape
 
 # Lucide icon bodies (design's icon set), + simple-icons Claude mark — inlined from Iconify.
 ICONS = {
+    "arrow-down": '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7 7 7 7-7"/></g>',
     # Boxicons server-filled, from Iconify (MIT).
     "server-filled": '<path fill="currentColor" d="M20 13H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2m-5 5h-2v-2h2zm4 0h-2v-2h2zm1-15H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-5 5h-2V6h2zm4 0h-2V6h2z"/>',
     # Microsoft Fluent window-new-24-regular (MIT).

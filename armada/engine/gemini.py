@@ -3,7 +3,7 @@ from __future__ import annotations
 from .. import worker
 from ..background import process_options
 import json, os, re, shutil, subprocess, tempfile, threading, time, uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from pathlib import Path
 from .base import EngineAdapter, RunResult, Usage
 from .contracts import ProviderCapabilities, RunRequest, validate_request
@@ -16,6 +16,17 @@ _SEED = [{'id':f'gemini-{v}-flash','label':f'Google · Gemini {v} Flash','effort
 MODEL_OPTIONS = [('gemini:auto','Google · Gemini Auto (latest Flash)')] + [(m['id'],m['label']) for m in _SEED]
 _FILE_TOOLS = ['view_file','list_dir','find_by_name','grep_search','write_to_file','replace_file_content','multi_replace_file_content']
 _ALIASES = {'Read':'view_file','Write':'write_to_file','Edit':'replace_file_content','Glob':'find_by_name','Grep':'grep_search','WebSearch':'search_web','WebFetch':'read_url_content'}
+
+class _GuardedProcess:
+    """Stop expires the invocation-local writer before requesting process cleanup."""
+    def __init__(self, process, stopped):
+        self.process, self.stopped = process, stopped
+    def __getattr__(self, name):
+        return getattr(self.process, name)
+    def kill(self):
+        self.stopped.set()
+        self.process.kill()
+    terminate = kill
 
 def invalidate_auth():
     global _auth_cache, _usage_cache
@@ -72,7 +83,7 @@ def parse_models(text):
 class GeminiEngine(EngineAdapter):
     name = 'gemini'
     # The CLI injects an internal task tool, so strict sealed review turns are rejected.
-    capabilities = ProviderCapabilities(streaming=True,cancellation=True,tool_denials=True,raw_tool_results=True)
+    capabilities = ProviderCapabilities(streaming=True,cancellation=True,tool_denials=True,raw_tool_results=True,steering=True)
     def __init__(self,binary='agy'):
         self.binary = binary
         self.allowed_mcp_ids = frozenset()
@@ -103,6 +114,10 @@ class GeminiEngine(EngineAdapter):
         if not launcher: raise FileNotFoundError("Install Gemini's Antigravity CLI in Settings → App.")
         return worker.run(launcher+args,stdin=subprocess.DEVNULL,capture_output=True,text=True,
             encoding='utf-8',errors='replace',timeout=25,**process_options())
+    def _supports_acp(self):
+        reply = self._probe(['--version'])
+        match = re.search(r'\b(\d+)\.(\d+)\.(\d+)\b', reply.stdout)
+        return not reply.returncode and bool(match) and tuple(map(int, match.groups())) >= (1, 5, 0)
     def auth_status(self,force=False):
         global _auth_cache
         with _auth_lock:
@@ -211,6 +226,12 @@ class GeminiEngine(EngineAdapter):
                        '\nCall these MCP tools directly. Do not look for them through resources. '
                        'A refused production write is an expected result: report it and finish, '
                        'do not try other servers or repeated variations. Return a final text answer.')
+        elif getattr(self, 'policy_tools', None):
+            system += ('\n\nARMADA filesystem MCP server: ' + self.policy_tools.server_name +
+                       '. Use exactly this server name for file writes, not a guessed alias. '
+                       'Native write tools are disabled. Available tools and exact input schemas:\n' +
+                       json.dumps(self.policy_tools.tools(), ensure_ascii=False) +
+                       '\nCall these MCP tools directly. Report a refused write and finish; do not try another route.')
         config = {'name':'armada-turn','description':'Current Armada request with explicit tool and memory boundaries.',
             'mainAgent':True,'subagent':False,'inheritMcp':False,'inheritCustomizations':False,
             'excludeDefaultComponents':True,'commandExecutionPolicy':'off','tools':selected,
@@ -281,16 +302,21 @@ class GeminiEngine(EngineAdapter):
                         params = original_params
                         canonical = next((alias for alias, original in _ALIASES.items() if original == name), name)
                         if name == 'multi_replace_file_content': canonical = 'MultiEdit'
-                        target = params.get('TargetFile') or params.get('AbsolutePath') or params.get('DirectoryPath') or params.get('SearchDirectory')
+                        target = params.get('TargetFile') or params.get('AbsolutePath') or params.get('DirectoryPath') or params.get('SearchDirectory') or params.get('Path')
                         if target: params = {**params, 'file_path':target}
                         if target and name in _FILE_TOOLS:
                             file_requests.append({'tool':name,'path':str(target)})
                         started.add(tid); safe_emit(on_event,{'kind':'tool','name':canonical,'id':tid,'input':params})
                     if step.get('state') in ('DONE', 'ERROR') and tid not in finished:
                         field = 'output' if 'output' in info else 'error'
+                        raw = {} if info.get('acp_result_unavailable') else {'raw_result': result_source(item, ('step_update','tool_info',field))}
+                        content = info.get('output') or str(info.get('error') or '')
+                        if isinstance(content, (dict, list)):
+                            content = json.dumps(content, ensure_ascii=False, indent=2)
+                        if info.get('acp_result_unavailable'):
+                            content = content or 'Result content not supplied by Antigravity ACP.'
                         finished.add(tid); safe_emit(on_event,{'kind':'tool_result','id':tid,'name':name,'input':original_params,
-                            'raw_result':result_source(item, ('step_update','tool_info',field)),
-                            'content':info.get('output') or str(info.get('error') or ''),'is_error':bool(info.get('error')) or step.get('state')=='ERROR'})
+                            **raw, 'content':content,'is_error':bool(info.get('error')) or step.get('state')=='ERROR'})
             elif kind=='result':
                 if terminal is not None: raise ValueError('Duplicate Gemini final result')
                 terminal = item.get('result')
@@ -318,7 +344,33 @@ class GeminiEngine(EngineAdapter):
         agent = self._agent(system,allow_tools,disallowed_tools or [])
         selected_tools = json.loads(agent.split('---',2)[1])['tools']
         file_access = bool(set(selected_tools) & set(_FILE_TOOLS))
-        with worker.temporary_directory(prefix='armada-gemini-') as folder:
+        acp = bool(getattr(on_event, 'interactive_questions', False) and self._supports_acp())
+        configured = self
+        guarded_files = None
+        stopped = threading.Event()
+        def guarded_proc(process):
+            if on_proc:
+                on_proc(_GuardedProcess(process, stopped))
+        connections = self._connectors(disallowed_tools or []) if allow_tools else []
+        native_writes = set(selected_tools) & {'write_to_file', 'replace_file_content', 'multi_replace_file_content'}
+        if native_writes and len(native_writes) != 3:
+            acp = False  # A generic writer cannot preserve individual native tool denials.
+        # ACP's standard server schema cannot express provider-specific per-tool
+        # filters. Retain print mode whenever it is needed to enforce those rules.
+        if any(spec.get('enabledTools') is not None or spec.get('disabledTools') for spec in connections):
+            acp = False
+        with ExitStack() as lifetime, worker.temporary_directory(prefix='armada-gemini-') as folder:
+            if acp and native_writes and not getattr(self, 'policy_tools', None) and not getattr(self, 'managed_tools', None):
+                admission = getattr(self, 'tool_admission', None)
+                if admission is None:
+                    acp = False  # No authenticated agent context for a guarded writer.
+                else:
+                    from ..policy_tools import PolicyTools
+                    guarded_files = lifetime.enter_context(PolicyTools(admission.root, admission.agent, admission.audit,
+                        write_roots=roots, cancelled=stopped.is_set))
+                    configured = guarded_files.configure(self)
+                    agent = configured._agent(system, allow_tools, disallowed_tools or [])
+                    connections = configured._connectors(disallowed_tools or [])
             path = Path(folder)/'.agents/agents/armada-turn.md'; path.parent.mkdir(parents=True)
             path.write_text(agent,encoding='utf-8')
             args = self._launcher()+['--agent','armada-turn'] + (['--model',actual] if actual else []) + ['--disable-slash-commands',
@@ -326,13 +378,20 @@ class GeminiEngine(EngineAdapter):
             if file_access:
                 for root in roots: args += ['--add-dir',str(root)]
             body = json.dumps({'event':'user','message':{'content':prompt}},ensure_ascii=False)
-            servers = [entry['name'] for entry in self._connectors(disallowed_tools or [])] if allow_tools else []
+            servers = [entry['name'] for entry in connections]
             with scoped_project(roots if file_access else [],servers,allow_tools and self.network_access) as project:
-                result = supervise(args+['--project',project],prompt=body,on_line=line,timeout=timeout,cwd=folder,env={**os.environ, **(env or {})},on_proc=on_proc)
+                if acp:
+                    from .gemini_acp import run
+                    result = run(configured, folder, project, roots, file_access, actual, prompt, line, timeout,
+                                 {**os.environ, **(env or {})}, guarded_proc if guarded_files else on_proc, servers=connections)
+                else:
+                    result = supervise(args+['--project',project],prompt=body,on_line=line,timeout=timeout,cwd=folder,env={**os.environ, **(env or {})},on_proc=on_proc)
         stats = (terminal or {}).get('usage') or {}; cached = stats.get('cache_read_tokens') or 0; incoming = stats.get('input_tokens')
         # CLI input includes cached tokens; Armada's total adds cache reads separately.
         usage = Usage(input=max(0,incoming-cached) if isinstance(incoming,int) else None,output=stats.get('output_tokens'),cache_read=cached)
-        error = result.error or ('Gemini CLI failed: '+result.stderr[-1500:] if result.returncode else '')
+        # RPC sessions are intentionally stopped after their terminal response;
+        # the supervisor reports premature exits/cancellation through error.
+        error = result.error or ('Gemini CLI failed: '+result.stderr[-1500:] if result.returncode and not acp else '')
         status = (terminal or {}).get('status')
         if not terminal: error = error or 'Gemini ended without a final result.'
         elif status!='SUCCESS': error = error or str(terminal.get('error') or 'Gemini ended with status '+str(status))
@@ -346,4 +405,5 @@ class GeminiEngine(EngineAdapter):
             error += ' Requested path: ' + file_requests[-1]['path'] + '.'
         return RunResult(ok=not error,output=output,model=actual,usage=usage,error=error,
             cancelled=result.cancelled or status in ('CANCELED','INTERRUPTED'),timed_out=result.timed_out,
-            raw={'result':terminal or {},'diagnostics':result.stderr,'file_requests':file_requests})
+            raw={'result':terminal or {},'diagnostics':result.stderr,'file_requests':file_requests,
+                 'guarded_writes':list(guarded_files.writes.values()) if guarded_files else []})

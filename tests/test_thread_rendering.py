@@ -14,6 +14,13 @@ from armada.threads import Thread
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for browser script checks")
+def test_copy_controls_preserve_text_and_report_clipboard_failures():
+    result = subprocess.run(["node", str(Path(__file__).with_name("thread_copy_harness.js"))],
+                            capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node is needed for browser script checks")
 def test_file_links_use_the_guarded_opener_and_display_errors():
     result = subprocess.run(["node", str(Path(__file__).with_name("thread_file_link_harness.js"))],
                             capture_output=True, text=True, timeout=15)

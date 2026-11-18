@@ -110,6 +110,12 @@ html,body{margin:0;height:100%;background:var(--color-bg);color:var(--color-text
 .mc-md code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em;background:color-mix(in srgb,var(--color-text) 8%,transparent);padding:1px 5px;border-radius:4px}
 .mc-md pre.mc-md-pre{background:var(--color-sand-100);border:1px solid var(--color-sand-300);border-radius:var(--r);padding:10px 12px;overflow:auto;margin:0 0 10px}
 .mc-md pre.mc-md-pre code{font-size:12px;white-space:pre;background:none;padding:0;border-radius:0}
+#mc-turns pre.mc-md-pre{position:relative;padding-top:38px}
+.mc-code-copy{position:absolute;right:6px;top:6px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--r);width:28px;height:28px}
+.mc-work-duration{font-size:11.5px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.mc-jump-bottom{position:absolute;left:50%;top:-8px;transform:translate(-50%,-100%);width:34px;height:34px;border:1px solid var(--color-divider);border-radius:50%;background:var(--color-bg);color:var(--color-text);display:flex;align-items:center;justify-content:center;cursor:pointer;pointer-events:auto}
+.mc-jump-bottom[hidden]{display:none}
+.mc-jump-bottom:hover{background:var(--color-sand-100)}
 .mc-md a{color:var(--color-accent);text-decoration:underline;text-underline-offset:2px}
 .mc-md table.mc-md-tbl{border-collapse:collapse;margin:0 0 10px;font-size:12.5px;display:block;overflow-x:auto}
 .mc-md .mc-md-tbl th,.mc-md .mc-md-tbl td{border:1px solid var(--color-divider);padding:5px 9px;text-align:left;vertical-align:top}
