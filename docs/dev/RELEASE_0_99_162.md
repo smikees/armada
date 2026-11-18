@@ -1,6 +1,8 @@
 # v0.99.162 — thread clocks, copying, navigation and live input
 
-Prepared on 18 November 2026. Final release gates and publication are pending.
+Published on 18 November 2026 from `11d03eadb889e8f6ec331d0eb0216c4eb5adb624`.
+[GitHub release](https://github.com/smikees/armada/releases/tag/v0.99.162) and
+[website](https://armada.stamih.com/) offer the matching installer.
 
 Agent conversations show a live work clock and persist their final duration.
 Timing starts after run-slot admission, excludes queue time, survives navigation
@@ -58,4 +60,39 @@ Evidence: `build/thread-window-162-final.json`, `build/thread-provider-162-final
 `build/gemini-adapter-followup-162.json`, `build/gemini-no-tools-inside-162.json`,
 `build/gemini-mcp-162.json`, `build/gemini-guarded-write-162.json`,
 `build/providers-policy-162-elevated.log`, `build/design-162.json`, `build/release-defaults-0.99.162.json`.
-Final release results follow after the gates.
+Final release results follow below.
+
+
+The full isolated local suite passed **4,864 tests with 6 skips** in
+**1040.77 seconds**. [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/44363789308) passed
+both Python jobs and relay checks. The final-source stabilization gate passed
+its fault matrix, 30-round concurrent soak, history performance budgets, three
+native shared-thread runs, page-work and owner workflows. Its unique evidence
+directory is `build/stabilization-20261118-185415-062072`.
+
+Packaged launcher recovery, DLL isolation, session, tray, three restart cases and
+presentation recovery passed. The staged runtime passed **124
+owner-workflow checks**, **32 page/loading checks** and
+**11 navigation checks**. The staged thread journey passed
+**193 checks** for main/detached timing, exact copying, latest-message
+entry, jump geometry, preserved reading position, native input receipts and Stop.
+The signed previous-release upgrade
+rehearsal passed **72 checks**. Packaged warm visits
+with 3,000 archived messages measured **103.07 ms**
+for Artefacts and **342.41 ms** for Capabilities. Packaged main and
+companion recovery screenshots were reviewed in light and dark modes.
+
+Public verification checked the Ed25519 signature, exact source commit, all
+**517 tracked package files**, installer hash and
+website links. Installer: **23,531,200 bytes**, SHA-256
+`e3b9d565056d1e09a79a6cb920dc21d9bfbb258146835ca10af21258caab1da3`.
+Package SHA-256: `05b7bf486d63bf18ad0d7d3b4916ae619ba3a7d97b8dc25a65a77cb690908eca`.
+
+Evidence: `build/release-evidence-0.99.162.json`,
+`build/public-verification-0.99.162.json`, `build/website-0.99.162-publication.json`,
+`build/stabilization-0.99.162.json`, `build/owner-staged-0.99.162.json`,
+`build/loading-staged-0.99.162.json`, `build/navigation-staged-0.99.162.json`,
+`build/thread-staged-0.99.162.json`, `build/thread-window-162-final.json`,
+`build/gemini-guarded-write-162.json`, `build/gemini-mcp-162.json`,
+`build/golden-review-162.diff`, `build/design-162.json`,
+`build/release-defaults-0.99.162.json` and `build/publish-0.99.162.log`.

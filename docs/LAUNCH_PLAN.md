@@ -5,9 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.162** is prepared: thread work clocks, copy controls, latest-message
-navigation and native live input for Claude, Codex and Gemini. Final-source gates
-and publication are pending. [Release evidence](dev/RELEASE_0_99_162.md).
+Version **0.99.162** is published: thread clocks, copy controls, latest-message
+navigation and provider-native live input with permission-preserving compatibility
+gates. **4,864 local tests**, exact-source Windows CI, stabilization,
+packaged native workflows and signed upgrade rehearsal passed. Public artifacts
+and website links were verified. [Release evidence](dev/RELEASE_0_99_162.md).
 
 Version **0.99.161** is published: menu and destination content switch together,
 including when leaving an agent page. **4,845 local tests**, exact-source
