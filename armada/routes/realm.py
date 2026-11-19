@@ -247,6 +247,15 @@ class RealmRoutes:
                 run_policy.prepare(body['run_controls'])
             with realm_registry.edit() as registered, util.file_lock(rj):
                 cfg = json.loads(rj.read_text(encoding="utf-8-sig"))
+                if 'env' in body:
+                    incoming = body['env']
+                    fields = ('Operating system', 'Machine', 'CPU', 'Memory', 'GPU', 'App', 'Notes')
+                    if not isinstance(incoming, dict) or any(
+                            key not in fields or not isinstance(value, str) or '\x00' in value
+                            or len(value) > (4000 if key == 'Notes' else 500)
+                            for key, value in incoming.items()):
+                        raise ValueError('Environment fields must contain text; notes allow up to 4,000 characters.')
+                    cfg['env'] = {**(cfg.get('env') or {}), **incoming}
                 if isinstance(body.get("providers"), list):
                     # Keep at least one engine selected — a realm with none can't run anything,
                     # and that's a broken state rather than a preference.

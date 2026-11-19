@@ -11,7 +11,12 @@
     const heading=element('h3','','The agent needs your input');form.append(heading);
     request.questions.forEach((question,index)=>{
       const fieldset=element('fieldset');fieldset.dataset.questionId=question.id;
-      fieldset.append(element('legend','',question.question));
+      const prompt=element('div','mc-question-text mc-md');
+      prompt.id='mc-question-'+request.id+'-'+index;
+      // This HTML comes from ARMADA's escaping Markdown renderer in the state endpoint.
+      if(typeof question.question_html==='string')prompt.innerHTML=question.question_html;
+      else {prompt.textContent=question.question;prompt.style.whiteSpace='pre-wrap';}
+      fieldset.setAttribute('aria-labelledby',prompt.id);fieldset.append(prompt);
       const inputs=[];
       question.options.forEach(option=>{
         const label=element('label','mc-question-option');

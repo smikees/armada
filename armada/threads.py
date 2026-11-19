@@ -139,7 +139,8 @@ class Thread:
         self._store.update_turn_request(turn, start, require_open=True)
 
     def complete_turn(self, turn: str, assistant: str, outputs=None, caps=None,
-                      status: str = "ok", spoken_reply: bool = False, interruption=None, run_id='', duration_s=None) -> None:
+                      status: str = "ok", spoken_reply: bool = False, interruption=None, run_id='', duration_s=None,
+                      memory_receipt=None) -> None:
         """Close a turn opened by begin_turn. `status` is 'ok', 'error' or 'stopped'.
 
         A turn is always closed, including when the run failed, because an owner message with
@@ -152,6 +153,8 @@ class Thread:
             rec['duration_s'] = round(max(0, duration_s), 2)
         if run_id:
             rec['run_id'] = run_id
+        if memory_receipt is not None:
+            rec['memory_receipt'] = memory_receipt
         if interruption:
             rec['interruption'] = interruption
             # Side effects cannot be undone by removing a conversation turn.

@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.163** is prepared: fresh System memory, recorded memory inputs,
+single usage-limit messages and formatted agent questions. Final-source
+release gates and publication are pending. [Release evidence](dev/RELEASE_0_99_163.md).
+
 Version **0.99.162** is published: thread clocks, copy controls, latest-message
 navigation and provider-native live input with permission-preserving compatibility
 gates. **4,864 local tests**, exact-source Windows CI, stabilization,

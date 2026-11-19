@@ -211,12 +211,13 @@ class SharedRoutes:
 
     def _refresh_system(self, trigger: str) -> None:
         """Regenerate the read-only System memory after a change that affects realm basics.
-        Best-effort — never let it break the triggering action."""
+        Report failures to the route instead of claiming that settings reached agents."""
         try:
             from .. import memory as _memory
             _memory.refresh_system_memory(self.realm, trigger=trigger)
         except Exception:  # noqa
             log.exception("system memory refresh failed (%s)", trigger)
+            raise
 
     @staticmethod
     def _write_data_image(base_no_ext: Path, dataurl: str) -> dict:

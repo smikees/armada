@@ -153,7 +153,12 @@ def start(root, agent, job_id, model="", *, requested_by="user", engine=None, ef
             # Context and job definition are captured at dispatch, never reread between candidates.
             from . import memory
             info['_agent'] = copy.deepcopy(_context[0]) if _context else util.read_json_state(ad / 'agent.json')
-            info['_core'] = _context[1] if _context else memory.assemble_core(root, ad, info['_agent'])
+            if _context:
+                info['_core'], info['_memories'] = _context[1], copy.deepcopy(_context[2])
+            else:
+                memory.refresh_system_memory(root, trigger='dry-run')
+                info['_memories'] = []
+                info['_core'] = memory.assemble_core(root, ad, info['_agent'], info['_memories'])
             info['_script_grant'] = script_grant
             util.write_json_atomic(folder / "job.json", job)
             _save_info(folder, info)
@@ -295,6 +300,8 @@ def _execute(root, folder, job, info, session, engine):
                         capture.on_event(ev)
                     if len(events) < 1000:
                         events.append(ev)
+                info['memory_receipt'] = {'captured': dt.datetime.now(dt.timezone.utc).isoformat(),
+                                          'items': info['_memories']}
                 result = execute_request(eng, request, on_event=event, on_proc=session.bind)
             info["result"] = job_results.evaluate(result.output, run_id=info["run_id"], job=test_job,
                 root=root, started=t0, runtime_execution="stopped" if result.cancelled else

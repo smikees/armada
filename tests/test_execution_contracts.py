@@ -1,5 +1,6 @@
 """Shared execution behavior at the public boundaries, with no live providers."""
 import json
+import re
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -32,6 +33,49 @@ def invoke(path, realm, engine, **kw):
     if path == "job":
         return runner.run_job(realm, "a", "work", engine=engine, **kw)
     return runner.run_job_prompt(realm, "a", "hello", engine=engine, **kw)
+
+
+@pytest.mark.parametrize("path", ["chat", "stream"])
+@pytest.mark.parametrize("partial_only", [False, True])
+def test_usage_credit_refusal_is_displayed_once(realm, monkeypatch, path, partial_only):
+    from armada import reader
+    from armada.webui.pages import render_thread_turns
+
+    refusal = ("You're out of usage credits. Switch to another model, or manage usage credits at "
+               "https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue.")
+    engine = ClaudeEngine()
+
+    def stream(**kw):
+        kw["on_event"]({"kind": "text", "text": refusal})
+        return RunResult(ok=False, output="" if partial_only else refusal, error=refusal)
+
+    monkeypatch.setattr(engine, "run_stream", stream)
+    report = invoke(path, realm, engine)
+    reply = Thread(realm / "agents/a", "main").snapshot()[1][-1]
+    assert report["status"] == reply["status"] == "error"
+    assert reply["content"].count(refusal) == 1
+    assert reply["content"].count("Interrupted at ") == 1
+    assert reply["interruption"]["reason"] == refusal
+    assert reply["interruption"]["run_id"] == reply["run_id"]
+    assert reply["run_id"] in reply["content"]
+    html = render_thread_turns(reader.read(realm), realm, "a", "main")
+    # The copy button keeps another, non-rendered copy in a template.
+    visible_html = re.sub(r"<template\b[^>]*>.*?</template>", "", html, flags=re.S)
+    assert visible_html.count("out of usage credits") == 1
+
+
+@pytest.mark.parametrize("output,error,partial,expected", [
+    ("Limit reached", "Limit reached", "", "Limit reached"),
+    (" Limit reached\n", "\nLimit reached ", "", " Limit reached\n"),
+    ("", "Limit reached", "Limit reached", "Limit reached"),
+    ("Partial reply", "Limit reached", "", "Partial reply\n\nLimit reached"),
+    ("", "Limit reached", "Partial reply", "Partial reply\n\nLimit reached"),
+    ("Limit reached", "Limit reached\nCLI stderr: details", "",
+     "Limit reached\n\nLimit reached\nCLI stderr: details"),
+    ("", "", "", "The run ended without producing a reply."),
+])
+def test_failed_output_preserves_reply_and_distinct_error(output, error, partial, expected):
+    assert runner._failed_output(RunResult(ok=False, output=output, error=error), partial) == expected
 
 
 @pytest.mark.parametrize("path", ["chat", "stream", "job", "inbox"])

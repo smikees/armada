@@ -17,6 +17,28 @@ QUESTION={'id':'color','header':'Color','question':'Which color?','options':[
     {'label':'Blue','description':'Synthetic choice'},{'label':'Green','description':'Another choice'}],'isOther':True}
 
 
+def test_question_markdown_is_safe_and_preserves_native_text():
+    from armada.webui.questions import presentation, history
+    text = ('Ready to continue?\nKeep this line break.\n\n'
+            '1. Create a **Testing** project.\n2. Save `client.json`.\n\n'
+            '<img src=x onerror=alert(1)> [unsafe](javascript:alert(1))')
+    question = normalize([{**QUESTION, 'question': text}], 'claude')[0]
+    request = {'id': 'request', 'questions': [question], 'status': 'answered',
+               'answers': {text: ['<Custom>']}}
+    presented = presentation(request)
+    rendered = presented['questions'][0]['question_html']
+    assert '<br>Keep this line break.' in rendered
+    assert '<ol><li>Create a <strong>Testing</strong> project.</li>' in rendered
+    assert '<li>Save <code>client.json</code>.</li></ol>' in rendered
+    assert '<img' not in rendered and 'href="javascript:' not in rendered
+    assert '&lt;img' in rendered
+    assert presented['questions'][0]['id'] == question['id'] == text
+    assert presented['questions'][0]['question'] == text
+    assert 'question_html' not in question
+    saved = history([request])
+    assert rendered in saved and '&lt;Custom&gt;' in saved
+
+
 def test_answer_requires_valid_choices_and_durability_before_delivery():
     control=QuestionControl(lambda _:None)
     control.add('native','codex',[QUESTION],lambda answers,skipped:{'answers':answers})
@@ -157,6 +179,7 @@ def test_owner_answers_are_run_bound_idempotent_and_survive_in_history(tmp_path)
         assert 'Question awaiting your answer' in monitor
         assert 'data-activity-key="working:captain"' not in monitor
         row=thread_windows.state(root,'captain','main')['questions'][0]
+        assert row['questions'][0]['question_html'] == '<p>Which color?</p>'
         body={'agent':'captain','thread':'main','run_id':context.run_id,'question_id':row['id'],'answers':{'color':['<Custom>']}}
         assert not server.post('/api/thread-answer',{**body,'run_id':'stale-run'})['ok']
         assert server.post('/api/thread-answer',body)['ok']

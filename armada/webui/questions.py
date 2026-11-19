@@ -1,5 +1,12 @@
-"""Escaped question/answer receipts retained with the original owner turn."""
-from ._base import E
+"""Safe formatted questions and answer receipts retained with the original owner turn."""
+from ._base import E, _md
+
+
+def presentation(request):
+    """Add rendered question text for the shared live panel without changing native IDs."""
+    return {**request, 'questions': [
+        {**question, 'question_html': _md(question['question'], preserve_breaks=True)}
+        for question in request.get('questions', [])]}
 
 
 def history(requests,*,running=False):
@@ -15,7 +22,7 @@ def history(requests,*,running=False):
         blocks=''
         for question in request.get('questions',[]):
             answers=request.get('answers',{}).get(question['id'],[])
-            blocks+=f'<p class="mc-question-text">{E(question["question"])}</p>'
+            blocks+=f'<div class="mc-question-text mc-md">{_md(question["question"], preserve_breaks=True)}</div>'
             if answers:
                 blocks+=f'<p><strong>{E(label)}:</strong> {E(", ".join(answers))}</p>'
         if not request.get('answers'):

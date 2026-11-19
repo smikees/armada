@@ -221,10 +221,11 @@
 | [`webui.jobresults`](webui.jobresults.md) | Shared execution/audit/delivery evidence for realm and agent job outputs. |
 | [`webui.layout`](webui.layout.md) | Page chrome / layout (carved from _core.py in Phase 3). |
 | [`webui.listpages`](webui.listpages.md) | Stable destination frames for the two expensive, read-only inventory views. |
+| [`webui.memory_receipts`](webui.memory_receipts.md) | Saved memory provenance for one run, never inferred from today's files. |
 | [`webui.memoryview`](webui.memoryview.md) | Memory rendering (realm + agent memory pages) (Layer 2, Phase 3). |
 | [`webui.pages`](webui.pages.md) | ARMADA page entrypoints (render_*), carved out of _core.py in Phase 3. |
 | [`webui.provider_settings`](webui.provider_settings.md) | Shared connection controls for setup and App Settings; no probes during rendering. |
-| [`webui.questions`](webui.questions.md) | Escaped question/answer receipts retained with the original owner turn. |
+| [`webui.questions`](webui.questions.md) | Safe formatted questions and answer receipts retained with the original owner turn. |
 | [`webui.realmpages`](webui.realmpages.md) | Realm-level management pages (Phase 3 split of agentpages): Ministers, Jobs (health grid + filters) and Artefacts. |
 | [`webui.recordrepair`](webui.recordrepair.md) | Owner repair UI, kept separate from ordinary configuration forms. |
 | [`webui.recovery`](webui.recovery.md) | A self-contained error screen: no realm/config reads, scripts or authenticated assets. |

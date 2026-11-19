@@ -29,6 +29,6 @@ def load() -> SystemMemory:
     return SystemMemory('ARMADA inbox timing', _validate(DEFAULT_PATH.read_text(encoding='utf-8')), DEFAULT_PATH)
 
 
-def prompt():
-    text = load().text.strip()
+def prompt(memory=None):
+    text = (memory or load()).text.strip()
     return '# ARMADA system memory — owner instructions for all realms\n' + text if text else ''

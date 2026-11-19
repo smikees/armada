@@ -629,6 +629,8 @@ class AgentRoutes:
             from ..webui._base import _md as _render_md
             rendered = {f"c-{k}": _render_md(str(body.get(k) or "").strip())
                         for k in ("mandate", "soul", "tenets") if k in body}
+            from .. import memory
+            memory.refresh_system_memory(self.realm, trigger='agent-settings')
             return {"ok": True, "path": f"agents/{agent}/", "display": ac.get("display", ""),
                     "rendered": rendered}
         except Exception as e:  # noqa

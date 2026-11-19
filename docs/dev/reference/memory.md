@@ -18,15 +18,19 @@ knows the owner's name; only Travel knows he prefers hotels." Thread history is 
 
 The realm's North Star FRAMING only — title, mandate/guardrails, and the meta-objective — with the per-goal enumeration stripped out. Every agent shares the framing, but each agent's actual goals are injected SCOPED to it (goals_for_agent), so no one carries all nine. We cut at the first section heading that isn't 'Meta' (where the goal listing begins); if the doc isn't structured that way, it's kept whole.
 
-### `_memories(mem_dir: Path)`
+### `_memory_receipt(receipts, path, title, body, scope, meta=None)`
 
 —
 
-### `_core_sections(realm_root, agent_dir, agent: dict)`
+### `_memories(mem_dir: Path, receipts=None)`
 
-The always-on core, as ordered (bucket, text) sections. `bucket` groups sections for the 'Loaded context' breakdown: 'mission' (objectives/tenets/mandate/soul), 'realm_memory', 'goals', 'agent_memory'. This is the SINGLE source of truth — assemble_core() joins these into the prompt and core_breakdown() sizes them, so the UI can't drift from what's injected.
+—
 
-### `assemble_core(realm_root, agent_dir, agent: dict)`
+### `_core_sections(realm_root, agent_dir, agent: dict, receipts=None)`
+
+The always-on core, as ordered (bucket, text) sections. `bucket` groups sections for the 'Current context' estimate: 'mission' (objectives/tenets/mandate/soul), 'realm_memory', 'goals', 'agent_memory'. This is the SINGLE source of truth — assemble_core() joins these into the prompt and core_breakdown() sizes them, so the UI can't drift from what's injected.
+
+### `assemble_core(realm_root, agent_dir, agent: dict, receipts=None)`
 
 —
 
@@ -84,4 +88,8 @@ The deterministic managed body (Markdown) — owner, environment, realm identity
 
 ### `refresh_system_memory(realm_root, trigger: str='')`
 
-Regenerate the read-only System memory from live sources. Only rewrites (and snapshots the prior version) when the substantive content actually changed. Returns {changed, path}.
+Regenerate the read-only System memory from live sources. Only snapshots the prior version when substantive content changes. Records the last regeneration separately, including checks with unchanged content. Returns {changed, path, refreshed}.
+
+### `refresh_startup(realm_root)`
+
+Refresh each registered realm on startup; log failures without hiding the app.

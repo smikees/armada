@@ -9,7 +9,7 @@ knows the owner's name; only Travel knows he prefers hotels." Thread history is 
 (threads.py) and IS subject to compaction; the core here is always re-assembled fresh.
 """
 from __future__ import annotations
-import re, os, json, datetime
+import re, os, json, datetime, hashlib
 from . import clock
 from pathlib import Path
 import logging
@@ -38,7 +38,16 @@ def _mission_framing(text: str) -> str:
     return out.rstrip().rstrip("-").rstrip()          # drop a dangling '---' separator
 
 
-def _memories(mem_dir: Path) -> list[tuple[str, str]]:
+def _memory_receipt(receipts, path, title, body, scope, meta=None):
+    if receipts is not None:
+        meta = meta or {}
+        receipts.append({'title': title, 'path': str(path), 'scope': scope,
+                         'updated': meta.get('updated', ''),
+                         'refreshed': meta.get('refreshed', meta.get('updated', '')),
+                         'sha256': hashlib.sha256(body.encode('utf-8')).hexdigest()})
+
+
+def _memories(mem_dir: Path, receipts=None) -> list[tuple[str, str]]:
     out = []
     if mem_dir.is_dir():
         for f in sorted(mem_dir.glob("*.md")):
@@ -46,20 +55,23 @@ def _memories(mem_dir: Path) -> list[tuple[str, str]]:
             body = body.strip()
             if body:
                 out.append((meta.get("title", f.stem), body))
+                _memory_receipt(receipts, f, meta.get('title', f.stem), body, 'agent', meta)
     return out
 
 
-def _core_sections(realm_root, agent_dir, agent: dict) -> list[tuple[str, str]]:
+def _core_sections(realm_root, agent_dir, agent: dict, receipts=None) -> list[tuple[str, str]]:
     """The always-on core, as ordered (bucket, text) sections. `bucket` groups sections for the
-    'Loaded context' breakdown: 'mission' (objectives/tenets/mandate/soul), 'realm_memory',
+    'Current context' estimate: 'mission' (objectives/tenets/mandate/soul), 'realm_memory',
     'goals', 'agent_memory'. This is the SINGLE source of truth — assemble_core() joins these
     into the prompt and core_breakdown() sizes them, so the UI can't drift from what's injected."""
     realm_root, agent_dir = Path(realm_root), Path(agent_dir)
     S: list[tuple[str, str]] = []
     from . import system_memory
-    shared = system_memory.prompt()
+    shared_memory = system_memory.load()
+    shared = system_memory.prompt(shared_memory)
     if shared:
         S.append(('mission', shared))
+        _memory_receipt(receipts, shared_memory.path, shared_memory.title, shared_memory.text.strip(), 'app')
 
     obj, ten = _read(realm_root / "objectives.md"), _read(realm_root / "tenets.md")
     if obj.strip():
@@ -70,7 +82,7 @@ def _core_sections(realm_root, agent_dir, agent: dict) -> list[tuple[str, str]]:
     # System memory (the managed digest) gets its own prominent section; the owner's own realm
     # memories follow as bullets. Both are loaded for every agent.
     mem_dir = realm_root / "memory"
-    sys_body, others = "", []
+    others = []
     if mem_dir.is_dir():
         for f in sorted(mem_dir.glob("*.md")):
             meta, body = _frontmatter(_read(f))
@@ -78,11 +90,14 @@ def _core_sections(realm_root, agent_dir, agent: dict) -> list[tuple[str, str]]:
             if not body:
                 continue
             if f.name == SYSTEM_MEMORY_FILE or (meta.get("kind", "").strip().lower() in ("system", "core")):
-                sys_body = body
+                refreshed = meta.get('refreshed', meta.get('updated', ''))
+                stamp = f'Last regenerated: {refreshed}\n\n' if refreshed else ''
+                S.append(("realm_memory", "# System memory — realm basics (managed; every agent has this)\n" + stamp + body))
+                scope = 'system'
             else:
                 others.append((meta.get("title", f.stem), body))
-    if sys_body:
-        S.append(("realm_memory", "# System memory — realm basics (managed; every agent has this)\n" + sys_body))
+                scope = 'realm'
+            _memory_receipt(receipts, f.relative_to(realm_root), meta.get('title', f.stem), body, scope, meta)
     if others:
         S.append(("realm_memory", "# Realm memory (known to every agent)\n"
                   + "\n".join(f"- **{t}** — {b}" for t, b in others)))
@@ -125,15 +140,20 @@ def _core_sections(realm_root, agent_dir, agent: dict) -> list[tuple[str, str]]:
             _verbosity.normalise(agent.get("verbosity")) or _verbosity.realm_level(realm_root))))
     except Exception:  # noqa — never let a preference break a run
         swallowed(log, '_core_sections: failed; ignored')
-    amem = _memories(agent_dir / "memory")
+    private_receipts = [] if receipts is not None else None
+    amem = _memories(agent_dir / "memory", private_receipts)
+    if receipts is not None:
+        for item in private_receipts:
+            item['path'] = str(Path(item['path']).relative_to(realm_root))
+        receipts.extend(private_receipts)
     if amem:
         S.append(("agent_memory", "# Your private memory (only you know this)\n"
                   + "\n".join(f"- **{t}** — {b}" for t, b in amem)))
     return S
 
 
-def assemble_core(realm_root, agent_dir, agent: dict) -> str:
-    return "\n\n".join(text for _, text in _core_sections(realm_root, agent_dir, agent))
+def assemble_core(realm_root, agent_dir, agent: dict, receipts=None) -> str:
+    return "\n\n".join(text for _, text in _core_sections(realm_root, agent_dir, agent, receipts))
 
 
 def core_breakdown(realm_root, agent_dir, agent: dict) -> dict:
@@ -353,14 +373,22 @@ def system_digest(realm_root) -> str:
     """The deterministic managed body (Markdown) — owner, environment, realm identity, roster, goals.
     No timestamp inside, so change-detection compares real content only."""
     realm_root = Path(realm_root)
-    cfg = _load_json_safe(realm_root / "realm.json")
+    from .util import read_json_state
+    cfg = read_json_state(realm_root / "realm.json", default=dict)
     user = cfg.get("user") or {}
     # environment: fresh probe, merged over whatever the prior digest held (keeps GPU etc.)
     prior = ""
     sysf = realm_root / "memory" / SYSTEM_MEMORY_FILE
     if sysf.exists():
         _, prior = _frontmatter(_read(sysf))
-    env = {**_parse_bullets(prior), **probe_environment()}
+    detected = probe_environment()
+    saved_env = cfg.get('env') or {}
+    env = {**_parse_bullets(prior), **detected}
+    for key, value in saved_env.items():
+        if str(value or '').strip():
+            env[key] = value
+        elif key not in detected:
+            env.pop(key, None)
     for stale in ("Owner", "Name", "Timezone", "Gender", "Birthdate"):     # owner facts live below, not in env
         env.pop(stale, None)
 
@@ -378,6 +406,9 @@ def system_digest(realm_root) -> str:
             "  " + ln for ln in about.splitlines()))
     env_lines = [f"- {k}: {env[k]}" for k in ("Operating system", "Machine", "CPU", "Memory", "GPU", "App")
                  if env.get(k)]
+    notes = str((cfg.get('env') or {}).get('Notes') or '').strip()
+    if notes:
+        env_lines.append('- Owner notes:\n' + '\n'.join('  ' + line for line in notes.splitlines()))
     roster = _roster(realm_root)
     coord = next((f"{d} — {r}" for d, r, _o, c in roster if c), "")
     realm_lines = [f"- Name: {cfg.get('name') or realm_root.name}"]
@@ -395,7 +426,7 @@ def system_digest(realm_root) -> str:
 
     intro = ("This is the realm's System memory — auto-maintained by ARMADA and loaded for every agent. "
              "It is read-only: change the source instead (owner facts in Settings → User settings, the "
-             "realm's timezone in Settings → Realm settings, goals in the Goals section, agents via "
+             "environment and timezone in Settings → Realm settings, goals in the Goals section, agents via "
              "Appoint) and it updates itself. Add your own realm-wide notes as a normal realm memory, "
              "not here.")
     parts = [intro, block("Owner", owner_lines), block("Environment", env_lines),
@@ -409,7 +440,7 @@ def _snapshot_system(realm_root: Path, old_text: str, trigger: str, changed_summ
     vd = Path(realm_root) / "memory" / _SYS_VERSIONS_DIR
     vd.mkdir(parents=True, exist_ok=True)
     ts = clock.now()
-    stamp = ts.strftime("%Y%m%dT%H%M%S")
+    stamp = ts.strftime("%Y%m%dT%H%M%S%f")
     write_text_atomic(vd / f"{Path(SYSTEM_MEMORY_FILE).stem}.{stamp}.md", old_text)
     with (vd / "_ledger.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps({"ts": ts.isoformat(timespec="seconds"), "trigger": trigger or "manual",
@@ -424,21 +455,38 @@ def _snapshot_system(realm_root: Path, old_text: str, trigger: str, changed_summ
 
 
 def refresh_system_memory(realm_root, trigger: str = "") -> dict:
-    """Regenerate the read-only System memory from live sources. Only rewrites (and snapshots the
-    prior version) when the substantive content actually changed. Returns {changed, path}."""
+    """Regenerate the read-only System memory from live sources. Only snapshots the
+    prior version when substantive content changes. Records the last regeneration
+    separately, including checks with unchanged content. Returns {changed, path, refreshed}."""
     from .util import write_text_atomic, file_lock
     realm_root = Path(realm_root)
     p = realm_root / "memory" / SYSTEM_MEMORY_FILE
-    body = system_digest(realm_root)
-    old_text = _read(p) if p.exists() else ""
-    _, old_body = _frontmatter(old_text)
-    if old_text and old_body.strip() == body.strip():
-        return {"changed": False, "path": str(p)}
-    updated = clock.now().isoformat(timespec="seconds")
-    front = (f"---\ntitle: System memory\nkind: system\nmanaged: true\nupdated_by: system\nupdated: {updated}\n---\n")
-    new_text = front + body
-    with file_lock(p):
-        if old_text.strip():
+    # Use the same lock order as settings saves. Build inside the locks so an older
+    # concurrent refresh cannot overwrite a digest made from newer settings.
+    with file_lock(realm_root / 'realm.json'), file_lock(p):
+        body = system_digest(realm_root)
+        old_text = _read(p) if p.exists() else ""
+        meta, old_body = _frontmatter(old_text)
+        changed = not old_text or old_body.strip() != body.strip()
+        refreshed = clock.now().isoformat(timespec="seconds")
+        updated = refreshed if changed else meta.get('updated', refreshed)
+        front = (f"---\ntitle: System memory\nkind: system\nmanaged: true\nupdated_by: system\n"
+                 f"updated: {updated}\nrefreshed: {refreshed}\n---\n")
+        new_text = front + body
+        if changed and old_text.strip():
             _snapshot_system(realm_root, old_text, trigger, f"updated ({trigger or 'manual'})")
-        write_text_atomic(p, new_text)
-    return {"changed": True, "path": str(p)}
+        if new_text != old_text:
+            write_text_atomic(p, new_text)
+    return {"changed": changed, "path": str(p), "refreshed": refreshed}
+
+
+def refresh_startup(realm_root):
+    """Refresh each registered realm on startup; log failures without hiding the app."""
+    from . import activerealm
+    roots = dict.fromkeys([str(realm_root), *activerealm.every()])
+    for root in roots:
+        if root and (Path(root) / 'realm.json').is_file():
+            try:
+                refresh_system_memory(root, trigger='startup')
+            except Exception:
+                log.exception('System memory startup refresh failed for %s', root)

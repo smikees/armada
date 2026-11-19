@@ -104,7 +104,9 @@ def run(output):
                     questions=QuestionControl(on_event)
                     on_proc(QuestionProcess(process,questions))
                     questions.add('synthetic-question','claude',[{
-                        'question':'Which format should this synthetic reply use?','header':'Format',
+                        'question':('Which format should this synthetic reply use?\nKeep this line break.\n\n'
+                                    '1. Review the **Testing** project.\n2. Save `client.json`.\n\n'
+                                    'Choose an answer below.'),'header':'Format',
                         'options':[{'label':'Brief','description':'A short synthetic reply'},
                                    {'label':'Detailed','description':'A longer synthetic reply'}],'multiSelect':False},
                         {'question':'Which sections should be included?','header':'Sections','multiSelect':True,
@@ -320,6 +322,7 @@ def run(output):
                     for view in (main,companion):
                         wait_for(lambda view=view:view.evaluate_js("!!document.querySelector('#mc-questions form')&&!document.getElementById('mc-questions').hidden"),'question is visible in '+label+' shared view')
                         check('questions do not preselect an answer',view.evaluate_js("!document.querySelector('#mc-questions input:checked')"))
+                        check('questions render lists, emphasis and normal body weight in '+label,view.evaluate_js("(()=>{const p=document.querySelector('#mc-questions .mc-question-text');const li=p.querySelectorAll('ol li');return getComputedStyle(p).fontWeight==='400'&&li.length===2&&li[1].getBoundingClientRect().top>li[0].getBoundingClientRect().top&&p.querySelector('strong').textContent==='Testing'&&p.querySelector('code').textContent==='client.json'&&!!p.querySelector('br')&&p.closest('fieldset').getAttribute('aria-labelledby')===p.id;})()"))
                     if label=='detached':
                         companion.load_url(local_auth.browser_url(url,'/thread-window?agent=captain&thread=questions-probe&_realm='+RealmContext.capture(realm).realm_id))
                         ready(companion)

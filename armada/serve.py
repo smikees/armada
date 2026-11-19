@@ -953,6 +953,8 @@ def serve(realm: str, port: int = 8756):
         from . import realmformat
         realmformat.ensure(realm)
         _reg_ensure(realm, reader.name(realm))
+        from . import memory
+        memory.refresh_startup(realm)
         try:
             from . import sysjobs
             if not os.environ.get("ARMADA_NO_MODEL_SYNC") and sysjobs.due(realm, "model-catalog"):

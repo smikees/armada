@@ -730,6 +730,12 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
         f'color:var(--text-strong)">{_icon(ic,20)}</span>' for ic in _REALM_ICON_NAMES)
     # Realm name and icon share a row; realm selection belongs to the header.
     from .run_controls import panel as run_panel
+    env = cfg.get('env') or {}
+    environment = ''.join(
+        f'<div><label class="mc-label" for="st-env-{i}">{E(label)}</label>'
+        f'<input id="st-env-{i}" data-env-field="{E(label)}" value="{E(env.get(label, ""))}" '
+        'maxlength="500" class="mc-field" placeholder="Use detected value"></div>'
+        for i, label in enumerate(('Operating system', 'Machine', 'CPU', 'Memory', 'GPU', 'App')))
     realm_tab = (sect("Realm",
              f'<div style="display:grid;grid-template-columns:minmax(240px,1fr) minmax(400px,1.3fr);'
              f'gap:22px;align-items:start">'
@@ -758,6 +764,13 @@ def render_settings(realm, realm_root, engine_ok, engine_detail, realms, dark=Fa
              f'<select id="st-tz" onchange="mcTzUpdate()" class="mc-field" style="height:36px">{_tz_options(cfg.get("timezone", ""))}</select>'
              f'<div id="us-tz-time" style="font-size:11px;color:var(--text-muted);margin-top:5px">'
              f'Job schedules in this realm will be based on this time.</div></div>')
+        + sect("Environment",
+               '<p style="font-size:12px;color:var(--text-muted)">Facts every agent receives. '
+               'Your saved values take precedence over automatic detection.</p>'
+               f'<div class="mc-environment-fields">{environment}</div>'
+               '<label class="mc-label" for="st-env-notes">Environment notes</label>'
+               f'<textarea id="st-env-notes" data-env-field="Notes" class="mc-field" rows="3" maxlength="4000" '
+               f'placeholder="For example: an always-on mini PC dedicated to this realm.">{E(env.get("Notes", ""))}</textarea>')
         + sect("Model defaults",
                f'<div style="font-size:11.5px;color:var(--text-muted);margin:-2px 0 10px">'
                f'Agents and threads inherit these unless you make specific agent and thread-level settings.'

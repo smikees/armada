@@ -160,7 +160,8 @@ def read_native(root: Path, *, details=True) -> Realm:
     """Read a ARMADA-native realm (realm.json + theme.json + agents/*) — the greenfield format."""
     from .engine.selection import engine_for
     now = datetime.datetime.now().astimezone()
-    cfg = json.loads(_read(root / "realm.json") or "{}")
+    from .util import read_json_state
+    cfg = read_json_state(root / "realm.json", default=dict, max_schema=None)
     theme = json.loads(_read(root / "theme.json") or "{}")
     _coord, _agent, _coll = _resolve_theme(cfg, theme)
     realm = Realm(

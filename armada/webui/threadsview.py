@@ -329,7 +329,7 @@ def _attachments_html(att, aid: str, thread: str) -> str:
     return f'<div class="mc-att-row">{"".join(out)}</div>'
 
 
-def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="", transcription="", work_result=None, duration_s=None) -> str:
+def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, thread: str, disp: str, coord: bool, av: str = "", userav: str = "", seg=None, att=None, actions=True, status="", transcription="", work_result=None, duration_s=None, memory_receipt=None) -> str:
     content = E(str(raw).strip())
     when = str(ts)[11:16]
     tpl = f'<template class="mc-raw">{content}</template>'
@@ -339,6 +339,8 @@ def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, threa
         amount, unit = (seconds // 60, 'min') if seconds >= 60 else (seconds, 'sec')
         caption += f'<div class="mc-work-duration">Worked for {amount} {unit}{"s" if amount != 1 else ""}</div>'
     if role == "assistant":
+        from .memory_receipts import render as render_memories
+        caption += render_memories(memory_receipt)
         body = _render_segments(seg) if seg else f'<div class="mc-body mc-md">{_md(str(raw).strip())}</div>'
         if work_result is not None:
             body += ('<details class="mc-voice-work"><summary>Work result</summary>'
@@ -586,8 +588,9 @@ def _thread_rail(realm_root, a, selected: str) -> str:
     arts_block = _thread_arts_rail(_ins, _outs, a.id)
     context_body = (f'<div style="display:flex;border-radius:3px;overflow:hidden;margin-bottom:12px">{bar}</div>{cards}'
                     f'<div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5">'
-                    f'≈ <b>{_est_tokens(total)}</b> tokens this reply. Core context is always present; the thread compacts as it grows.</div>')
-    context = _rail_section('context', f'Loaded context · {_est_tokens(total)} tokens', context_body)
+                    f'≈ <b>{_est_tokens(total)}</b> tokens estimated for the next reply. Core context is always present; the thread compacts as it grows. '
+                    'Each reply records its memory inputs under “Memories received”.</div>')
+    context = _rail_section('context', f'Current context · {_est_tokens(total)} tokens', context_body)
     return (f'<div id="mc-rail" data-agent="{E(a.id)}" data-thread="{E(selected)}" '
             f'style="background:var(--color-surface);padding:16px 18px;overflow:auto">'
             f'{context}{caps_block}{arts_block}</div>')
@@ -649,7 +652,7 @@ def _render_turns(realm_root, a, selected: str, *, state=None) -> str:
         turns += _turn(m.get("role", ""), content, str(m.get("ts", "")),
                        i, i == last_user, a.id, selected, a.display, a.is_coordinator,
                        av=av, userav=userav, seg=m.get("segments"), att=m.get("attachments"), status=m.get('status', ''),
-                       duration_s=m.get('duration_s'),
+                       duration_s=m.get('duration_s'), memory_receipt=m.get('memory_receipt'),
                        work_result=m.get('work_result') if voice_state and content != m.get('work_result') else None,
                        transcription=(caption or ('Incomplete transcript · call ended before transcription finished'
                            if m.get('transcription_incomplete') else

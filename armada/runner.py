@@ -1451,6 +1451,9 @@ def _result_status(result):
 def _failed_output(result, partial=""):
     text = result.output or partial
     why = (result.error or "").strip() or "The run ended without producing a reply."
+    # Providers can return the same refusal as both reply text and the terminal error.
+    if text.strip() == why:
+        return text
     return (text + "\n\n" if text else "") + why
 
 

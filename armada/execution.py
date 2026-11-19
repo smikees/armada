@@ -252,6 +252,8 @@ class TurnCoordinator:
         policy_audit = PolicyAudit(root, aid)
         execution_started = time.time()
         work_started = None
+        loaded_memories = []
+        memory_receipt = None
         attempted_tools = set()
         written_paths = set()
         write_calls = {}
@@ -439,7 +441,8 @@ class TurnCoordinator:
                     saved = r._save_images(agent_dir, thread, list(req.images))
                 attachments = [{"kind": "image", "name": s["name"], "file": s["file"]} for s in saved]
                 attachments += [{"kind": "file", "name": str(fn)} for fn in req.files if str(fn).strip()]
-                core = memory.assemble_core(root, agent_dir, run_agent)
+                memory.refresh_system_memory(root, trigger='run')
+                core = memory.assemble_core(root, agent_dir, run_agent, loaded_memories)
                 from .usage_snapshot import preamble as usage_preamble
                 core += usage_preamble(root)
                 from . import connector_health, job_waits
@@ -566,6 +569,8 @@ class TurnCoordinator:
                         request=replace(request,system=request.system+'\n\nIf you need clarification, '+tool+
                             ' presents questions to the owner in Armada. Wait for the answer in this run. '
                             'Credentials belong in Settings, never in a question.')
+                    memory_receipt = {'captured': memory.clock.now().isoformat(timespec='seconds'),
+                                      'items': loaded_memories}
                     result = billing.execute(eng, request, root=root, agent=aid, job=req.job,
                         run_id=context.run_id, on_event=event, on_proc=process, invoke=execute_request)
                     if watchdog is not None:
@@ -668,6 +673,7 @@ class TurnCoordinator:
                 if interruption['files']:
                     text += '\nRecorded file changes: '+', '.join(interruption['files'])
             th.complete_turn(turn, text, status=status, interruption=interruption, run_id=context.run_id,
+                             memory_receipt=memory_receipt,
                              duration_s=time.monotonic()-work_started if work_started is not None else None,
                              spoken_reply=req.spoken_reply,
                              outputs=cap.outputs or None if cap else None,
@@ -692,6 +698,8 @@ class TurnCoordinator:
             if raw_capture is not None:
                 report["capture"] = raw_capture.report()
             report['access_audit'] = access_audit
+            if memory_receipt is not None:
+                report['memory_receipt'] = memory_receipt
             report['billing'] = result.raw.get('billing', {'lane':'plan'})
             if result.raw.get('stalled'):
                 report['stalled'] = result.raw['stalled']

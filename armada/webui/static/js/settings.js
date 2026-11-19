@@ -115,6 +115,7 @@ async function mcSaveRealmSettings(){
     default_fallback_model:document.getElementById('st-fallback').value,
     default_max_budget_usd:document.getElementById('st-maxbudget').value,icon:mcSetIcon||'',
     timezone:(document.getElementById('st-tz')||{}).value||'',
+    env:Object.fromEntries(Array.from(document.querySelectorAll('[data-env-field]'),el=>[el.dataset.envField,el.value])),
     default_verbosity:(document.getElementById('st-verbosity')||{}).value||'',
     run_controls:window.mcRunControlValues?.(''),
     inbox:mcA2APayload(),

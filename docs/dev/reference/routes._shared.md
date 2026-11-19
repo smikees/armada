@@ -32,6 +32,6 @@ A concise topic-summary title from a cheap model (haiku), like the Claude app. B
 - `SharedRoutes._send_user_image(self, path: Path)` — —
 - `SharedRoutes._refresh_system_ep(self, body: dict)` — —
 - `SharedRoutes._slug(s: str)` — —
-- `SharedRoutes._refresh_system(self, trigger: str)` — Regenerate the read-only System memory after a change that affects realm basics. Best-effort — never let it break the triggering action.
+- `SharedRoutes._refresh_system(self, trigger: str)` — Regenerate the read-only System memory after a change that affects realm basics. Report failures to the route instead of claiming that settings reached agents.
 - `SharedRoutes._write_data_image(base_no_ext: Path, dataurl: str)` — —
 - `SharedRoutes._render_md(self, body: dict)` — Render markdown to HTML. Writes nothing, reads nothing — it exists so the browser can preview unsaved text without a second markdown renderer of its own. Two renderers is how a preview starts quietly disagreeing with the page; this way the preview IS the page's.

@@ -15,6 +15,6 @@ Read-only installation-wide instructions, loaded afresh for every agent turn.
 
 —
 
-### `prompt()`
+### `prompt(memory=None)`
 
 —

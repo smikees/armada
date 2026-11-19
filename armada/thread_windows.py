@@ -70,6 +70,8 @@ def state(root, agent, thread, revision=""):
                    "steerable": len(runs) == 1 and steering.available(runs[0])}
         from . import questions
         payload['questions']=[{**q,'run_id':run.context.run_id} for run in runs for q in questions.pending(run)]
+    from .webui.questions import presentation
+    payload['questions'] = [presentation(request) for request in payload['questions']]
     from . import voice
     from . import updater
     payload['admission_paused'] = updater.installed() and updater.admission_paused()

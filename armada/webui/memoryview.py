@@ -60,6 +60,8 @@ def _list_mem(mem_dir: Path) -> list[tuple[str, str, str, str, str, str]]:
             body = body.strip()
             if not body:
                 continue
+            if meta.get('kind') in ('core', 'system') and meta.get('refreshed'):
+                body = 'Last regenerated: ' + meta['refreshed'] + '\n\n' + body
             upd = (meta.get("updated") or "").strip()
             try:
                 modified = datefmt.day(datetime.date.fromisoformat(upd[:10])) if upd else \
@@ -380,6 +382,8 @@ def _realm_memory(realm, realm_root, tab=None) -> str:
                     f'<span style="display:flex">{_icon("brain",13)}</span>{len(_agent_memory(realm_root, a.id))} ›</span></a>'
                     for a in realm.agents)
     return (f'<div class="mc-memory-page">{header}'
+            '<p style="font-size:12px;color:var(--text-muted)">Realm notes are saved in this realm’s memory folder '
+            'and loaded for every agent. Each new reply and job result lists its memories under “Memories received”.</p>'
             f'{_covenant_block(realm, realm_root)}'
             f'<div class="mc-memory-columns">'
             f'<div>{_mem_search()}{cards}</div>'

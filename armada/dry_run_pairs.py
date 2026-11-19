@@ -62,7 +62,9 @@ def start(root, agent, job_id, model_a, model_b, *, requested_by='user', effort_
             raise ValueError('Blind model comparisons require an agent job.')
         ad = root / 'agents' / agent
         cfg = util.read_json_state(ad / 'agent.json')
-        context = (cfg, memory.assemble_core(root, ad, cfg))
+        memory.refresh_system_memory(root, trigger='paired-dry-run')
+        memories = []
+        context = (cfg, memory.assemble_core(root, ad, cfg, memories), memories)
         pair_id = uuid.uuid4().hex
         folder = directory(root, pair_id)
         folder.mkdir(parents=True)

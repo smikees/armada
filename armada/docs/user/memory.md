@@ -11,7 +11,10 @@ What your agents know before you say anything. Memory is plain text; short, spec
   **Read** shows them; **Edit** changes them for the whole realm.
 - **Realm memory** — loads for every agent.
 - **System memory** — written and kept up to date by ARMADA: who you are (from Settings → User),
-  your computer, the realm and its team. You don't edit it; change the settings it comes from.
+  your computer (Settings → Realm → Environment), the realm and its team. Saved environment values
+  take precedence over detection. Use **Environment notes** for details such as an always-on host.
+  ARMADA regenerates it when its source settings are saved, at startup and before agent runs.
+  Its **Last regenerated** time is visible both on the Memory page and to the agent.
 - **An agent's memory** — loads only for that agent. On the right of the Memory page, or on the
   agent's Memories tab.
 
@@ -24,6 +27,22 @@ disk. The same read-only view is available in **Settings → App**.
 - **Add a memory:** **+ Add memory**, for the realm or for one agent.
 - **Edit or delete:** open the memory.
 - **Find one:** the search box.
+
+Realm notes added here are UTF-8 Markdown files in `<realm>/memory/`. Every agent receives
+their non-empty contents on its next turn. Private notes live in
+`<realm>/agents/<agent>/memory/` and are supplied only to that agent. App memories are a separate
+installation-wide source; **Go to file** reveals the active file.
+
+Expand **Memories received** beneath a new reply or in a job result to see the titles, scopes,
+source paths and regeneration times supplied for that run. These records are captured from the
+same reads used to build its prompt; subsequent edits do not change them. A content fingerprint
+is available by hovering over an entry. Older runs have no saved receipt, so ARMADA cannot
+reconstruct exactly what they received. **Current context** in the thread sidebar estimates the
+next reply from today's files.
+
+System memory keeps the content-change date separately from the regeneration time. Unchanged
+refreshes do not create history copies. Invalid UTF-8 settings are reported as an error and left
+intact; ARMADA does not replace unreadable characters or regenerate from empty settings.
 
 Agents are instructed to write only their own memories. For Claude, ARMADA also requests file-tool
 restrictions on realm memory and other agents' existing folders. The current Codex integration

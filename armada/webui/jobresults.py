@@ -16,7 +16,8 @@ def capture_html(event):
 
 
 def result_html(event: dict, content: dict) -> str:
-    captured = capture_html(event)
+    from .memory_receipts import render as render_memories
+    captured = capture_html(event) + render_memories(event.get('memory_receipt'))
     audit = event.get('access_audit')
     if audit:
         captured += ('<div class="mc-job-result"><details><summary>Tools and access audit</summary>'
