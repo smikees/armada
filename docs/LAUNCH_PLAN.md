@@ -5,11 +5,11 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.163** is published: fresh System memory, recorded
+Version **0.99.163** is published and installed: fresh System memory, recorded
 memory inputs, single usage-limit messages and formatted live/saved questions.
 **4,899 local tests**, exact-source Windows CI, stabilization, packaged
 native workflows and signed upgrade rehearsal passed. Public artifacts and website
-downloads were verified. The installed update is queued behind active work. [Release evidence](dev/RELEASE_0_99_163.md).
+downloads and the installed version were verified. [Release evidence](dev/RELEASE_0_99_163.md).
 
 Version **0.99.162** is published: thread clocks, copy controls, latest-message
 navigation and provider-native live input with permission-preserving compatibility

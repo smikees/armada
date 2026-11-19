@@ -21,8 +21,9 @@ Raw HTML is escaped and unsafe link schemes remain inert.
 The release retains runtime compatibility and the standing unsigned maintenance
 beta boundary. Update packages are Ed25519-signed; Windows publisher signing and
 clean Sandbox acceptance are not claimed. The owner requested both publication
-and updating the installed app. The verified update is staged in the installed app. Its restart is queued
-until active work finishes; installation has not yet been claimed.
+and updating the installed app. The installed copy was updated through the
+authenticated in-app path, which waits for active work and restarts through the
+update bootstrap.
 
 Python's official Windows release list was checked on 19 November 2026:
 [3.14.10](https://www.python.org/downloads/windows/) remains the current patch in
@@ -57,13 +58,15 @@ Installer: **23,538,558 bytes**, SHA-256
 `a9cd8b5268b72149ab0c287cab1bb672a9ffe7ca01bdd23c3604fa9e1bce0ba8`.
 Package SHA-256: `cc3154667ea19d433e3dca33223001bb073a11e68f354df079f5d9ee50a072a8`.
 
-The authenticated installed app is still on 0.99.162, with 0.99.163 staged and a restart queued. Active work must finish before the version can be verified. The release does
+The installed app reports **0.99.163** through its authenticated version endpoint.
+Its startup refreshed System memory, and every nonblank saved environment field
+checked is present in the generated digest. The release does
 not rewrite historical duplicate error messages; existing saved questions use
 the corrected renderer without changing their stored source.
 
 Evidence: `build/release-evidence-0.99.163.json`,
 `build/public-verification-0.99.163.json`, `build/website-0.99.163-publication.json`,
- `build/stabilization-0.99.163.json`,
+`build/installed-verification-0.99.163.json`, `build/stabilization-0.99.163.json`,
 `build/owner-staged-0.99.163.json`, `build/thread-staged-0.99.163.json`,
 `build/inbox-staged-0.99.163.json`, `build/questions-native-163.json`,
 `build/question-history-shape-163.json`, `build/release-defaults-0.99.163.json`,
