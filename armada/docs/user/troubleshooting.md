@@ -11,6 +11,9 @@ tell ARMADA that you are viewing the other PC in this case; use the tray command
 
 Detached threads are remembered when you quit or restart ARMADA. They reopen together,
 offset by 20 pixels. Closing an individual detached window removes it from that session.
+Each thread remembers its resized width and height even after you close it. If it is too
+large for the monitor when reopened, ARMADA scales it down to fit within 80% of the usable
+screen area, keeping the same proportions. Sizes that already fit stay unchanged.
 Threads from different realms keep their original realm. Background windows do not
 mark new replies read until you focus them.
 

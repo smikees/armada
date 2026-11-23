@@ -201,14 +201,14 @@ def test_native_windows_reuse_close_reopen_and_separate_realms(realm, tmp_path, 
     other = build_fixture(tmp_path / "other")
     windows = []
     def create(*args, **kwargs):
-        window = Mock(events=MagicMock())
+        window = Mock(events=MagicMock(), min_size=kwargs['min_size'])
         windows.append((window, args, kwargs))
         return window
     monkeypatch.setattr(app, "_main_window", Mock())
     monkeypatch.setattr(app, "_app_url", "http://127.0.0.1:8756/")
     monkeypatch.setattr(app, "_thread_windows", {})
     monkeypatch.setattr(app, "_quitting", False)
-    monkeypatch.setattr(app, "_alexander_position", lambda: {"width": 520, "height": 720})
+    monkeypatch.setattr(app, "_alexander_position", lambda **kwargs: {"width": 520, "height": 720})
     monkeypatch.setattr(app.threading, "Thread", Mock())
     monkeypatch.setitem(__import__("sys").modules, "webview", Mock(create_window=create))
     monkeypatch.setattr("armada.local_auth.browser_url", lambda base, route: base.rstrip("/") + route)
@@ -218,6 +218,8 @@ def test_native_windows_reuse_close_reopen_and_separate_realms(realm, tmp_path, 
     window, args, options = windows[0]
     window.show.assert_called_once(); window.restore.assert_called_once()
     assert options["frameless"] and options["transparent"] and not options["easy_drag"]
+    window.resize.assert_called_once_with(options['width'], options['height'])
+    window.resize.reset_mock()
     assert "thread=main" in args[1] and RealmContext.capture(realm).realm_id in args[1]
     window.width, window.height = 400, 500
     assert options["js_api"].resize_step(-20, -20)

@@ -14,6 +14,10 @@ Keep native windows reachable after display topology changes, in physical pixels
 
 —
 
+### `fit_size(size, area)`
+
+Keep a saved size, or scale it to 80% of the working area without distortion.
+
 ### `recover_native(native, *, here=False, offset=0)`
 
 —

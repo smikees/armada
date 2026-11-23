@@ -11,7 +11,7 @@ mid-DAG renderers be carved out later without import cycles.
 
 A value as a JavaScript string literal, safe inside an HTML event attribute (onclick="…").
 
-### `_md_inline(s: str)`
+### `_md_inline(s: str, *, local_paths=False)`
 
 Inline Markdown on already-HTML-escaped text: code, bold, italic, links.
 
@@ -23,7 +23,7 @@ Collect one list's items, folding hard-wrapped continuation lines back into thei
 
 Preserve list indentation after a composer draft becomes a saved message.
 
-### `_md(text: str, *, preserve_breaks=False)`
+### `_md(text: str, *, preserve_breaks=False, local_paths=False)`
 
 Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-escaped first — only the whitelisted tags emitted below can appear. Supports headings, bullet/number lists, tables, code fences, inline code/bold/italic/links, and paragraphs. Composer messages preserve intentional newlines; prose documents fold soft wraps.
 

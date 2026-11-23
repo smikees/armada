@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.164** is prepared: remembered detached-window sizes, hanging
+indents while composing lists, and clickable local paths with unchanged styling.
+Final release gates and publication are pending. [Release evidence](dev/RELEASE_0_99_164.md).
+
 Version **0.99.163** is published and installed: fresh System memory, recorded
 memory inputs, single usage-limit messages and formatted live/saved questions.
 **4,899 local tests**, exact-source Windows CI, stabilization, packaged

@@ -31,5 +31,12 @@ async function run(){
   response={ok:true,revealed:true,error:'Scripts are shown in their folder.'};
   await ctx.mcOpenThreadFile(file);
   assert.equal(note.textContent,response.error);
+  response={ok:true};
+  const folder='D:\\Work\\folder with spaces';
+  for(const listener of listeners.click){listener({target:{closest:selector=>selector==='[data-reveal]'?{getAttribute:()=>folder}:null},
+    preventDefault:()=>{prevented=true;}});}
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(requests.at(-1).url,'/api/reveal');
+  assert.equal(JSON.parse(requests.at(-1).options.body).path,folder);
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

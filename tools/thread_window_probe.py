@@ -47,7 +47,10 @@ def run(output):
         other = build_fixture(root / "other")
         historical = Thread(Path(realm)/'agents/captain', 'main')
         historical._store.truncate(0)
+        linked_folder = root / 'exports folder'
+        linked_folder.mkdir()
         historical.append('Status?', 'All hands accounted for.\n\n'+
+            'Files are in `'+str(linked_folder)+'`.\n\n'+
             '\n\n'.join('Synthetic historical paragraph '+str(i)+': check the figures and keep this context.' for i in range(55))+
             '\n\n```text\nCopy this prompt exactly:\n  Keep indentation & <tags>.\nSecond line.\n```')
         cfg_path = Path(realm) / "agents/captain/agent.json"
@@ -56,6 +59,10 @@ def run(output):
         util.write_json_atomic(cfg_path, cfg)
 
         class Fixture(serve.Handler):
+            def _reveal(self, body):
+                result.setdefault('revealed_paths', []).append(body['path'])
+                return {'ok': True}
+
             def _chat_stop(self, query):
                 answer = super()._chat_stop(query)
                 result.setdefault("stop_calls", []).append({"answer": answer})
@@ -294,6 +301,20 @@ def run(output):
                 })()"""
                 check("main composer continues and nests bullets", main.evaluate_js(bullet_probe))
                 check("detached composer continues and nests bullets", companion.evaluate_js(bullet_probe))
+                composer_probe = Path(__file__).with_name('composer_probe.js').read_text(encoding='utf-8')
+                for view, label in ((main, 'main'), (companion, 'detached')):
+                    for passed in view.evaluate_js(composer_probe):
+                        check(label + ' composer: ' + passed, True)
+                    check(label + ' local path retains inline code styling', view.evaluate_js("""(()=>{
+                        const a=document.querySelector('a.mc-local-path'),code=a.querySelector('code');
+                        const plain=code.cloneNode(true);a.parentNode.appendChild(plain);
+                        const actual=getComputedStyle(code),expected=getComputedStyle(plain);
+                        const same=['color','fontFamily','fontSize','backgroundColor','padding','borderRadius'].every(k=>actual[k]===expected[k]);
+                        plain.remove();return same&&getComputedStyle(a).textDecorationLine==='none';
+                    })()"""))
+                    view.evaluate_js("document.querySelector('a.mc-local-path').click()")
+                wait_for(lambda: result.get('revealed_paths') == [str(linked_folder)] * 2,
+                         'both windows open the clicked local folder through the shared reveal action')
                 check("color crescent is visible", companion.evaluate_js("!!document.querySelector('.mc-ax-portrait .mc-avdisc')"))
                 check("native frame shaped", companion.native.Region is not None)
                 check('detached header includes model before realm',companion.evaluate_js("(()=>{const h=document.querySelector('.mc-thread-identity');return !!h.querySelector('.mc-agent-model-badge')&&h.innerHTML.indexOf('mc-agent-model-badge')<h.innerHTML.indexOf('mc-ax-subtitle');})()"))
@@ -623,6 +644,7 @@ def run(output):
 
                 check("narrow layout has no horizontal page overflow", companion.evaluate_js(
                     "document.documentElement.scrollWidth<=innerWidth"))
+                saved_size=(companion.width,companion.height)
                 companion.evaluate_js("document.querySelector('[data-thread-close]').click()")
                 wait_for(lambda: not app._thread_windows, "close clears only the companion registry")
                 check("native shadow closes with its thread", shadow.handle is None and shadow.bitmap is None)
@@ -631,6 +653,7 @@ def run(output):
                 check("closed window reopens", app.open_thread(realm, "captain", "main"))
                 reopened = next(iter(app._thread_windows.values()))
                 ready(reopened)
+                check('reopened thread remembers its resized dimensions',(reopened.width,reopened.height)==saved_size)
                 check("reopened view retains all conversation content", "Still in original realm" in text(reopened))
                 release.clear();started.clear()
                 reopened.evaluate_js("document.getElementById('mc-msg').value='Close while running';mcChat('captain','main')")
@@ -672,6 +695,7 @@ def run(output):
                 # retaining each original realm rather than switching the cockpit.
                 check('another realm thread opens independently',app.open_thread(other,'captain','main'))
                 for view in list(app._thread_windows.values()):ready(view)
+                saved_sizes={key:(view.width,view.height) for key,view in app._thread_windows.items()}
                 app._save_thread_windows()
                 saved=json.loads((root/'data/desktop-threads.json').read_text())['threads']
                 check('session records two realm-bound detached threads',len(saved)==2 and len({r['root'] for r in saved})==2)
@@ -683,7 +707,30 @@ def run(output):
                 wait_for(lambda:len(app._thread_windows)==2,'saved detached threads reopen across realms')
                 restored=list(app._thread_windows.values())
                 for view in restored:ready(view)
+                result['size_restore']=[{'key':key,'before':saved_sizes[key],
+                                        'saved':app._thread_window_size(key),'after':(view.width,view.height),
+                                        'initial':(view.initial_width,view.initial_height)}
+                                       for key,view in app._thread_windows.items()]
+                check('restart restores each detached threads own dimensions',
+                      all((view.width,view.height)==saved_sizes[key] for key,view in app._thread_windows.items()))
                 check('restored windows form a twenty-pixel cascade',restored[1].x-restored[0].x==20 and restored[1].y-restored[0].y==20)
+                # A saved size from a much larger screen must not be stretched or
+                # forced back above its fitted dimensions by the native minimum.
+                oversized_key=next(iter(app._thread_windows))
+                oversized_target=app._thread_windows[oversized_key]._armada_thread_target
+                app._thread_windows[oversized_key].destroy()
+                wait_for(lambda:oversized_key not in app._thread_windows,'close before smaller-display restore')
+                sizes_path=root/'data/desktop-thread-sizes.json'
+                sizes=util.read_json_state(sizes_path)
+                sizes[json.dumps(oversized_key)]=[700,10000]
+                util.write_json_atomic(sizes_path,sizes)
+                expected=app._alexander_position(thread_size=(700,10000),offset=20*len(app._thread_windows))
+                check('oversized saved thread opens',app.open_thread(oversized_target['root'],oversized_target['agent'],oversized_target['thread']))
+                fitted=app._thread_windows[oversized_key]
+                ready(fitted)
+                check('native restore respects proportional fit below normal minimum',
+                      abs(fitted.width-expected['width'])<=1 and abs(fitted.height-expected['height'])<=1
+                      and abs(fitted.width-fitted.height*.07)<=2)
                 result["ok"] = True
             except Exception:
                 result["error"] = traceback.format_exc()

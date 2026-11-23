@@ -450,10 +450,12 @@ class CapabilityRoutes:
         except Exception as e:  # noqa
             log.debug('_open_file: failed; error returned to the caller', exc_info=True)
             return {"ok": False, "error": f"bad path: {e}"}
-        if not p.is_file():
+        if not p.is_file() and not p.is_dir():
             return {"ok": False, "error": "file not found on disk"}
         if not self._within_artefact_roots(p):
             return {"ok": False, "error": self._OUTSIDE}
+        if p.is_dir():
+            return self._reveal({"path": str(p)})
         if p.suffix.lower() in self._RUNNABLE:
             r = self._reveal({"path": str(p)})
             r["revealed"] = True
@@ -699,9 +701,7 @@ class CapabilityRoutes:
         return {"ok": True}
 
     def _reveal(self, body: dict) -> dict:
-        """Open the OS file explorer at an OUTPUT artifact (selecting the file). ARMADA is a local,
-        single-user app, so revealing a path the agent itself wrote on this machine is safe; we still
-        require the path to exist and be a real file before handing it to the shell."""
+        """Reveal an existing file or open an existing directory after an owner click."""
         raw = str(body.get("path", "")).strip()
         if not raw:
             return {"ok": False, "error": "no path"}
@@ -710,17 +710,18 @@ class CapabilityRoutes:
         except Exception as e:  # noqa
             log.debug('_reveal: failed; error returned to the caller', exc_info=True)
             return {"ok": False, "error": f"bad path: {e}"}
-        if not p.is_file():
-            return {"ok": False, "error": "file not found on disk"}
+        directory = p.is_dir()
+        if not directory and not p.is_file():
+            return {"ok": False, "error": "file or folder not found on disk"}
         try:
             if os.name == "nt":
                 # explorer /select, "<path>" highlights the file in its folder. explorer returns a
                 # non-zero exit even on success, so we don't check returncode.
-                subprocess.Popen(["explorer", "/select,", str(p)])
+                subprocess.Popen(["explorer", *([] if directory else ["/select,"]), str(p)])
             elif sys.platform == "darwin":
-                subprocess.Popen(["open", "-R", str(p)])
+                subprocess.Popen(["open", *([] if directory else ["-R"]), str(p)])
             else:
-                subprocess.Popen(["xdg-open", str(p.parent)])
+                subprocess.Popen(["xdg-open", str(p if directory else p.parent)])
         except Exception as e:  # noqa
             log.exception("reveal failed for %s", p)
             return {"ok": False, "error": f"could not open: {e}"}

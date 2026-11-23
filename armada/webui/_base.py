@@ -29,7 +29,7 @@ def _J(value) -> str:
 _STAR = ''  # Required fields have no marker; optional fields are named explicitly.
 
 
-def _md_inline(s: str) -> str:
+def _md_inline(s: str, *, local_paths=False) -> str:
     """Inline Markdown on already-HTML-escaped text: code, bold, italic, links."""
     codes: list[str] = []
 
@@ -60,11 +60,32 @@ def _md_inline(s: str) -> str:
         links.append(rendered)
         return f"\x01{len(links)-1}\x01"
     s = re.sub(r"\[([^\]\n]+)\]\(((?:[^()\n]|\([^()\n]*\))*)\)", _link, s)
+    def path_link(escaped, *, code=False):
+        path = html.unescape(escaped)
+        label = f'<code>{escaped}</code>' if code else escaped
+        if (not re.match(r'^[a-z]:[/\\]', path, re.I)
+                or any(ord(c) < 32 or c in '<>"|?*' for c in path)):
+            return label
+        return (f'<a href="#" class="mc-local-path" data-reveal="{E(path)}" '
+                f'title="Show in folder">{label}</a>')
+    if local_paths:
+        def bare_path(m):
+            raw = m.group(0)
+            path = raw.rstrip('.,;:!?')
+            while path.endswith(')') and path.count(')') > path.count('('):
+                path = path[:-1]
+            rendered = path_link(path)
+            links.append(rendered)
+            return f'\x01{len(links)-1}\x01'+raw[len(path):]
+        # Whitespace-delimited prose paths; inline code and Markdown links retain
+        # complete paths containing spaces. Never inspect fenced code or HTML.
+        s = re.sub(r'(?<![\w/:\\])[A-Za-z]:[/\\][^\s<>"\x00\x01]*', bare_path, s)
     s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
     s = re.sub(r"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", s)
     s = re.sub(r"(?<![\w_])_(?!\s)([^_\n]+?)(?<!\s)_(?![\w_])", r"<em>\1</em>", s)
     s = re.sub(r"\x01(\d+)\x01", lambda m: links[int(m.group(1))], s)
-    return re.sub(r"\x00(\d+)\x00", lambda m: f"<code>{codes[int(m.group(1))]}</code>", s)
+    return re.sub(r"\x00(\d+)\x00", lambda m: path_link(codes[int(m.group(1))], code=True)
+                  if local_paths else f"<code>{codes[int(m.group(1))]}</code>", s)
 
 
 # Scrolling a just-opened <details> into view, inside .mc-appscroll (the element that actually
@@ -131,7 +152,7 @@ def _bullet_tree(lines, i, n, inline, *, preserve_breaks=False, depth=0):
     return '<ul>'+''.join('<li>'+inline(text)+children+'</li>' for text,children in items)+'</ul>',i
 
 
-def _md(text: str, *, preserve_breaks=False) -> str:
+def _md(text: str, *, preserve_breaks=False, local_paths=False) -> str:
     """Render a safe subset of Markdown to HTML. The input is untrusted, so it is HTML-escaped
     first — only the whitelisted tags emitted below can appear. Supports headings, bullet/number
     lists, tables, code fences, inline code/bold/italic/links, and paragraphs.
@@ -142,7 +163,7 @@ def _md(text: str, *, preserve_breaks=False) -> str:
     lines = src.split("\n")
     out: list[str] = []
     def inline(value):
-        rendered = _md_inline(value)
+        rendered = _md_inline(value, local_paths=local_paths)
         return rendered.replace('\n', '<br>') if preserve_breaks else rendered
     i, n = 0, len(lines)
     while i < n:
@@ -159,14 +180,14 @@ def _md(text: str, *, preserve_breaks=False) -> str:
             i += 2; rows = []
             while i < n and lines[i].strip().startswith("|"):
                 rows.append([c.strip() for c in lines[i].strip().strip("|").split("|")]); i += 1
-            th = "".join(f"<th>{_md_inline(c)}</th>" for c in hdr)
-            tb = "".join("<tr>" + "".join(f"<td>{_md_inline(c)}</td>" for c in r) + "</tr>" for r in rows)
+            th = "".join(f"<th>{inline(c)}</th>" for c in hdr)
+            tb = "".join("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in r) + "</tr>" for r in rows)
             out.append(f'<table class="mc-md-tbl"><thead><tr>{th}</tr></thead><tbody>{tb}</tbody></table>')
             continue
         m = re.match(r"^(#{1,6})\s+(.*)$", ln)                            # heading
         if m:
             lvl = min(len(m.group(1)) + 2, 6)
-            out.append(f"<h{lvl}>{_md_inline(m.group(2).strip())}</h{lvl}>")
+            out.append(f"<h{lvl}>{inline(m.group(2).strip())}</h{lvl}>")
             i += 1; continue
         if re.match(_BULLET, ln):                                         # unordered list
             rendered,i = _bullet_tree(lines,i,n,inline,preserve_breaks=preserve_breaks)

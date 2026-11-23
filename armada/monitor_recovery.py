@@ -31,6 +31,18 @@ def fit(bounds, area, offset=0):
     return (max(ax,min(x+offset,ax+aw-width)),max(ay,min(y+offset,ay+ah-height)),width,height)
 
 
+def fit_size(size, area):
+    """Keep a saved size, or scale it to 80% of the working area without distortion."""
+    width, height = size
+    _, _, available_width, available_height = area
+    if available_width <= 0 or available_height <= 0:
+        raise ValueError('No usable monitor working area')
+    if width <= available_width and height <= available_height:
+        return width, height
+    scale = min(.8 * available_width / width, .8 * available_height / height)
+    return max(1, int(width * scale)), max(1, int(height * scale))
+
+
 def recover_native(native, *, here=False, offset=0):
     from System.Drawing import Rectangle, Size
     from System.Windows.Forms import Screen, Cursor, FormWindowState

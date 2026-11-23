@@ -46,4 +46,4 @@ stays in serve.py, only the handler bodies moved.
 - `CapabilityRoutes._cap_request_reject(self, body: dict)` — —
 - `CapabilityRoutes._reveal_skill(self, body: dict)` — Open the OS file manager with a skill's SKILL.md selected.
 - `CapabilityRoutes._delete_capability(self, body: dict)` — —
-- `CapabilityRoutes._reveal(self, body: dict)` — Open the OS file explorer at an OUTPUT artifact (selecting the file). ARMADA is a local, single-user app, so revealing a path the agent itself wrote on this machine is safe; we still require the path to exist and be a real file before handing it to the shell.
+- `CapabilityRoutes._reveal(self, body: dict)` — Reveal an existing file or open an existing directory after an owner click.

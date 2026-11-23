@@ -18,6 +18,21 @@ existing threads are validated and reopened without switching the cockpit's real
 They use a 20-pixel cascade from the companion anchor. Unavailable entries are skipped.
 The restore loop reads its complete snapshot before opening windows can rewrite it.
 
+Detached dimensions are stored separately in owner-local `desktop-thread-sizes.json`,
+keyed by realm identity, agent and thread. The synchronous native closing event captures
+normal bounds before disposal, including when the app quits or the window is minimized
+or maximized. Sizes use logical pixels so display scaling is respected. Preference writes
+are locked and atomic; they never take the registry lock on the native UI thread.
+Individual close retains these preferences even though it removes the session entry.
+Reopening on a smaller monitor scales an oversized size uniformly to fit within 80% of
+the current monitor's working area, preserving its aspect ratio to pixel rounding.
+Sizes that already fit are kept. The cascade is clamped to that working area, and the
+native minimum size is reduced when necessary so it cannot override the fitted size.
+The fitted dimensions are reapplied once after native creation: WinForms removes its
+title bar after setting the initial outer size, which otherwise shrinks each reopened window.
+Missing or invalid dimensions fall back to the usual companion size. Failed preference
+writes are logged and do not block closing. Resizing does not write on every drag event.
+
 Detached headers share the standard model badge and coordinator, inspector and
 autonomy marks. The redundant main/sub-thread label is omitted in that view. Reading
 is acknowledged through an authenticated realm-bound action after focus, rather
@@ -64,3 +79,16 @@ reconstruction and its 20-pixel cascade, tray recovery and desktop teardown. The
 dashboard probe exercises working/unread transitions and light/dark responsive
 layouts. Actual hardware KVM switching and mixed-DPI monitor removal still require
 owner validation; no physical monitor configuration is changed by these probes.
+
+## Detached size persistence — 23 November 2026
+
+Included in the 0.99.164 release candidate. Initial validation: **4,920 tests passed, six skipped**
+under the pinned Python 3.14 test environment; **203 native thread-window checks** passed.
+The full stability gate passed fault recovery, concurrent load, history performance,
+three repeated native-window cycles, page state and owner workflows on the working tree.
+The initial native test exposed WinForms subtracting 16 by 39 logical pixels during
+frameless creation; the explicit post-creation resize fixes that cumulative shrink.
+The initial sandboxed stability run could not create its synthetic directory junction.
+The same junction test and both complete gates passed outside that sandbox, using
+isolated fixtures. Evidence is in `build/thread-size-release-verified.log`,
+`build/thread-size-native-3.json` and `build/thread-size-stabilization-verified.json`.

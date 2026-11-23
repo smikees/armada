@@ -45,9 +45,21 @@ breaks. **Copy response** below an answer copies the whole answer, including pro
 written as ordinary text. A check mark confirms copying; a failure message appears
 if clipboard access is unavailable.
 
+Local Windows paths in a conversation are clickable, including paths shown as inline
+code. Click a folder path to open it in Explorer, or a file path to show its containing
+folder with the file selected. The text keeps its existing appearance. Paths containing
+spaces should be enclosed in backticks or written as a Markdown link.
+
 A live clock appears when the agent starts working. The completed answer records
 **Worked for …**, including after you reopen the thread. Time spent waiting for a
 run slot is excluded. Older answers without recorded timing do not invent a duration.
+
+## Write lists in the message box
+
+Bulleted and numbered items keep a hanging indent while you type: wrapped lines align
+with the item's text, including nested items. This works in the main app and detached
+thread windows. **Shift+Enter** continues a list, **Tab** nests an item and **Shift+Tab**
+outdents it. On an empty item, **Shift+Enter** outdents or leaves the list. **Enter** sends.
 
 ## Steer an agent while it works
 
@@ -120,6 +132,10 @@ the view keeps checking the saved conversation and restores its progress and fin
 Opening an already-open thread brings its window forward. Closing the window does not delete
 the thread or cancel a running reply. Open it again from **Detach thread** to see the current
 conversation and use Stop.
+
+Each detached thread remembers its resized dimensions after closing and after restarting
+ARMADA. If they exceed the current monitor's usable area, the window scales down to fit
+within 80% of that area while keeping its proportions.
 
 A companion stays with its original realm when you switch the main app to another realm.
 If a thread is archived or deleted, its old window reports that it is unavailable.

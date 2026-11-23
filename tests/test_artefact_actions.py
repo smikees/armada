@@ -63,6 +63,24 @@ def test_open_rejects_missing_and_empty_paths(tmp_path):
     assert h._open_file({"path": str(tmp_path / "ghost.txt")})["ok"] is False
 
 
+def test_explicit_directory_link_opens_the_directory(tmp_path):
+    h = _H()
+    assert h._open_file({'path': str(tmp_path)})['ok']
+    assert h.revealed == str(tmp_path.resolve())
+
+
+@pytest.mark.parametrize('directory', [False, True])
+def test_reveal_opens_directory_or_selects_file_without_executing(tmp_path, monkeypatch, directory):
+    from armada.routes import caps
+    target = tmp_path / 'folder with spaces' if directory else tmp_path / 'script.ps1'
+    target.mkdir() if directory else target.write_text('must not run', encoding='utf-8')
+    opened = []
+    monkeypatch.setattr(caps.os, 'name', 'nt')
+    monkeypatch.setattr(caps.subprocess, 'Popen', lambda args: opened.append(args))
+    assert serve.Handler._reveal(None, {'path': str(target)})['ok']
+    assert opened == [['explorer', *([] if directory else ['/select,']), str(target.resolve())]]
+
+
 def test_delete_removes_the_file(tmp_path):
     f = tmp_path / "out.md"
     f.write_text("bye", encoding="utf-8")

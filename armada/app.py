@@ -52,6 +52,54 @@ def _save_thread_windows():
             util.write_json_atomic(path,{'threads':rows})
 
 
+def _valid_thread_size(size):
+    return (isinstance(size, (list, tuple)) and len(size) == 2
+            and all(type(value) is int and 0 < value <= 100000 for value in size))
+
+
+def _thread_window_size(key):
+    """Remember dimensions independently of the list of currently open threads."""
+    from . import util
+    try:
+        sizes = util.read_json_state(util.data_dir()/'desktop-thread-sizes.json', default=dict)
+        size = sizes.get(json.dumps(key)) if isinstance(sizes, dict) else None
+        if _valid_thread_size(size):
+            return tuple(size)
+    except (OSError, ValueError):
+        log.debug('Could not read detached thread size', exc_info=True)
+    return (520, 720)
+
+
+def _remember_thread_size(key, window):
+    """Capture normal bounds before native disposal, including during app shutdown."""
+    # The closing event runs on the native UI thread. Never acquire _window_lock
+    # here: a concurrent opener may hold it while waiting for that same UI thread.
+    if _thread_windows.get(key) is not window:
+        return
+    from . import util
+    try:
+        if sys.platform == 'win32':
+            from System.Windows.Forms import FormWindowState
+            native = window.native
+            rect = native.Bounds if native.WindowState == FormWindowState.Normal else native.RestoreBounds
+            scale = float(native._scale) or 1
+            size = (round(rect.Width / scale), round(rect.Height / scale))
+        else:
+            size = (window.width, window.height)
+        if not _valid_thread_size(size):
+            return
+        path = util.data_dir()/'desktop-thread-sizes.json'
+        with util.file_lock(path, timeout=1):
+            sizes = util.read_json_state(path, default=dict)
+            if not isinstance(sizes, dict):
+                raise ValueError('Invalid detached thread sizes')
+            sizes[json.dumps(key)] = list(size)
+            util.write_json_atomic(path, sizes)
+    except Exception:
+        # A preference-write failure must never prevent closing the window.
+        log.warning('Could not remember detached thread size', exc_info=True)
+
+
 def _restore_thread_windows():
     from . import util
     try:
@@ -222,19 +270,27 @@ def _alexander_bounds(main, area, width=520, height=720, gap=10):
     return dict(x=int(x), y=int(y), width=int(width), height=int(height))
 
 
-def _alexander_position():
-    """pywebview uses logical pixels; WinForms working areas use physical pixels."""
+def _alexander_position(*, thread_size=None, offset=0):
+    """Place companions in logical pixels, fitting saved thread sizes proportionally."""
+    width, height = thread_size if thread_size is not None else (520, 720)
     try:
         native = _main_window.native
         from System.Windows.Forms import Screen
         area = Screen.FromControl(native).WorkingArea
         scale = float(native._scale) or 1
-        return _alexander_bounds(
+        area = (area.X / scale, area.Y / scale, area.Width / scale, area.Height / scale)
+        from .monitor_recovery import fit, fit_size
+        if thread_size is not None:
+            width, height = fit_size((width, height), area)
+        position = _alexander_bounds(
             (_main_window.x, _main_window.y, _main_window.width, _main_window.height),
-            (area.X / scale, area.Y / scale, area.Width / scale, area.Height / scale))
+            area)
+        position.update(width=width, height=height)
+        bounds = fit(tuple(position[key] for key in ('x', 'y', 'width', 'height')), area, offset)
+        return dict(zip(('x', 'y', 'width', 'height'), map(int, bounds)))
     except Exception:
         log.debug("Could not determine Alexander's adjacent position", exc_info=True)
-        return dict(width=520, height=720)
+        return dict(width=width, height=height)
 
 
 class _AlexanderCompanionAPI:
@@ -273,7 +329,8 @@ class _ThreadCompanionAPI(_AlexanderCompanionAPI):
         if self._window is None:
             return False
         dx, dy = max(-40, min(40, int(dx))), max(-40, min(40, int(dy)))
-        self._window.resize(max(400, self._window.width + dx), max(500, self._window.height + dy))
+        min_width, min_height = self._window.min_size
+        self._window.resize(max(min_width, self._window.width + dx), max(min_height, self._window.height + dy))
         return True
 
 
@@ -363,19 +420,22 @@ def open_thread(realm_root, agent: str, thread: str) -> bool:
                 _thread_windows.pop(key, None)
         try:
             api = _ThreadCompanionAPI()
-            position=_alexander_position()
-            for axis in ('x','y'):
-                if axis in position:
-                    position[axis] += 20*len(_thread_windows)
+            position=_alexander_position(thread_size=_thread_window_size(key), offset=20*len(_thread_windows))
+            minimum=(min(400,position['width']),min(500,position['height']))
             window = webview.create_window(
                 f"{a.display} · {title} — ARMADA", browser_url(_app_url, route),
-                **position, min_size=(400, 500), text_select=True,
+                **position, min_size=minimum, text_select=True,
                 frameless=True, transparent=True, easy_drag=False, js_api=api)
+            # WinForms removes its title bar after setting the initial outer size,
+            # shrinking frameless windows. Reapply once after native creation so
+            # repeated close/reopen cycles cannot subtract that chrome each time.
+            window.resize(position['width'], position['height'])
             api._window = window
             _thread_windows[key] = window
             window._armada_thread_target={'root':str(context.root),'agent':a.id,'thread':thread}
             window.events.loaded += lambda: _shape_thread(window)
             window.events.resized += lambda *args: _shape_thread(window)
+            window.events.closing += lambda: _remember_thread_size(key, window)
             window.events.closed += lambda: _clear_thread_window(key, window)
             _save_thread_windows()
             threading.Thread(target=_apply_window_icon, daemon=True).start()

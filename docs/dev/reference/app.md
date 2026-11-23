@@ -18,6 +18,18 @@ dependency-free; only `armada app` needs pywebview installed.
 
 —
 
+### `_valid_thread_size(size)`
+
+—
+
+### `_thread_window_size(key)`
+
+Remember dimensions independently of the list of currently open threads.
+
+### `_remember_thread_size(key, window)`
+
+Capture normal bounds before native disposal, including during app shutdown.
+
 ### `_restore_thread_windows()`
 
 —
@@ -50,9 +62,9 @@ Deliver once the companion page is ready, across its auth redirect too.
 
 Place a companion beside the main window, within this monitor's working area.
 
-### `_alexander_position()`
+### `_alexander_position(*, thread_size=None, offset=0)`
 
-pywebview uses logical pixels; WinForms working areas use physical pixels.
+Place companions in logical pixels, fitting saved thread sizes proportionally.
 
 ### class `_AlexanderCompanionAPI`
 

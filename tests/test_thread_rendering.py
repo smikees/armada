@@ -59,6 +59,33 @@ def test_code_and_link_attributes_remain_escaped():
     assert '&quot;onclick=&quot;' in rendered
 
 
+@pytest.mark.parametrize('path', [r'D:\Work\exports', r'C:\A folder\résumé & notes', 'D:/_reports_/a (b)'])
+def test_inline_code_paths_link_to_folders_without_changing_code_markup(path):
+    rendered = _md(f'Files are in `{path}`.', local_paths=True)
+    escaped = html.escape(path, quote=True)
+    assert f'data-reveal="{escaped}"' in rendered
+    assert f'<code>{escaped}</code></a>.' in rendered
+    assert 'class="mc-local-path"' in rendered
+    assert '<a ' not in _md(f'`{path}`')  # only conversation renderers opt in
+
+
+def test_bare_paths_keep_punctuation_and_existing_link_labels():
+    rendered = _md(r'Files: D:\Work\_reports_\today. ([open](D:/a.txt)) (`D:/folder`).', local_paths=True)
+    assert 'data-reveal="D:\\Work\\_reports_\\today"' in rendered
+    assert 'today</a>.' in rendered and '<em>' not in rendered
+    assert rendered.count('<a ') == 3
+    assert rendered.count('data-local-file=') == 1
+    assert rendered.count('data-reveal=') == 2
+
+
+@pytest.mark.parametrize('text', ['`D:/<img>`', '`D:/bad|path`', '`D:/bad\x1fpath`',
+                                  '```text\nD:/script.ps1\n```', '`just code`',
+                                  'https://example.test/D:/path'])
+def test_invalid_paths_fenced_code_and_web_urls_are_not_auto_linked(text):
+    rendered = _md(text, local_paths=True)
+    assert 'data-reveal=' not in rendered and '<img>' not in rendered
+
+
 @pytest.mark.parametrize("provider", ["claude", "codex_delta", "codex_item"])
 def test_full_thinking_summary_survives_provider_and_navigation(tmp_path, provider):
     summary = "First checks. " + "Evidence and reasoning. " * 500 + "Final conclusion."

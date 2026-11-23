@@ -303,10 +303,10 @@ def _render_segments(segs) -> str:
         t = s.get("t")
         c = str(s.get("c", ""))
         if t == "text":
-            out.append(f'<div class="mc-md" style="margin-bottom:8px">{_md(c)}</div>')
+            out.append(f'<div class="mc-md" style="margin-bottom:8px">{_md(c, local_paths=True)}</div>')
         elif t == "think":
             out.append(f'<details class="mc-think"><summary>{_icon("sparkles",12)}Thought process</summary>'
-                       f'<div class="mc-md" style="margin-top:6px">{_md(c)}</div></details>')
+                       f'<div class="mc-md" style="margin-top:6px">{_md(c, local_paths=True)}</div></details>')
         elif t == "act":
             notes = s.get("notes") or 0
             nt = f' · {notes} note{"s" if notes != 1 else ""}' if notes else ""
@@ -341,10 +341,10 @@ def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, threa
     if role == "assistant":
         from .memory_receipts import render as render_memories
         caption += render_memories(memory_receipt)
-        body = _render_segments(seg) if seg else f'<div class="mc-body mc-md">{_md(str(raw).strip())}</div>'
+        body = _render_segments(seg) if seg else f'<div class="mc-body mc-md">{_md(str(raw).strip(), local_paths=True)}</div>'
         if work_result is not None:
             body += ('<details class="mc-voice-work"><summary>Work result</summary>'
-                     f'<div class="mc-md">{_md(str(work_result))}</div></details>')
+                     f'<div class="mc-md">{_md(str(work_result), local_paths=True)}</div></details>')
         return (f'<div class="mc-turn" data-role="assistant" data-status="{E(status)}" data-transcription="{1 if transcription else 0}" data-idx="{idx}" style="margin-bottom:12px">'
                 f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av or _bust(28, coord)}</div>'
                 f'<div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
@@ -356,7 +356,7 @@ def _turn(role: str, raw, ts: str, idx: int, is_last_user: bool, aid: str, threa
     return (f'<div class="mc-turn" data-role="user" data-idx="{idx}" style="margin-bottom:12px">'
             f'<div style="display:flex;flex-direction:row-reverse;gap:10px">{ubub}'
             f'<div style="max-width:72%">{_attachments_html(att, aid, thread)}'
-            f'<div class="mc-body mc-md" style="background:var(--color-sand-100);border-radius:var(--r);padding:8px 10px;font-size:13px;line-height:1.5">{_md(str(raw).strip(), preserve_breaks=True)}</div>'
+            f'<div class="mc-body mc-md" style="background:var(--color-sand-100);border-radius:var(--r);padding:8px 10px;font-size:13px;line-height:1.5">{_md(str(raw).strip(), preserve_breaks=True, local_paths=True)}</div>'
             f'{caption}{_turn_actions("user", idx, aid, thread, is_last_user, when) if actions else ""}</div></div>{tpl}</div>')
 
 
@@ -796,7 +796,7 @@ def _working_turn(av: str, disp: str, progress: dict | None = None, *, key="work
             f'<div style="display:flex;gap:10px"><div style="display:flex;flex:none">{av}</div>'
             f'<div style="flex:1;min-width:0">'
             f'<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">{E(disp)}</div>'
-            f'<div class="mc-answer mc-body mc-md">{_md(content) if content else ""}</div>'
+            f'<div class="mc-answer mc-body mc-md">{_md(content, local_paths=True) if content else ""}</div>'
             f'{steps}'
             f'<div class="mc-work" style="display:flex;flex-direction:column;gap:4px;margin-top:6px">'
             f'<div class="mc-step"><div class="mc-step-h" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim)">'
