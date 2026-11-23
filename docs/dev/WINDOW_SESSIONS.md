@@ -82,7 +82,7 @@ owner validation; no physical monitor configuration is changed by these probes.
 
 ## Detached size persistence — 23 November 2026
 
-Included in the 0.99.164 release candidate. Initial validation: **4,920 tests passed, six skipped**
+Published in [0.99.164](RELEASE_0_99_164.md); combined release gates passed. Initial validation: **4,920 tests passed, six skipped**
 under the pinned Python 3.14 test environment; **203 native thread-window checks** passed.
 The full stability gate passed fault recovery, concurrent load, history performance,
 three repeated native-window cycles, page state and owner workflows on the working tree.
