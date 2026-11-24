@@ -1,6 +1,8 @@
 # v0.99.166 — independent engines and latest-message navigation
 
-Prepared on 24 November 2026. Final release gates and publication are pending.
+Published on 24 November 2026 from `5652f303b2ab33e3812f9a33cf835ac2a70d2999`.
+[GitHub release](https://github.com/smikees/armada/releases/tag/v0.99.166) and
+[website](https://armada.stamih.com/) offer the matching installer.
 
 Claude, OpenAI and Gemini now have independent account-wide execution pools.
 The previous shared account and realm caps could queue an OpenAI conversation
@@ -38,4 +40,39 @@ This release follows the standing maintenance beta procedure: Ed25519-signed
 update assets and an unsigned Windows installer. Windows publisher signing and
 clean Sandbox acceptance are not claimed. Publication does not restart the owner's app.
 
-Final validation and publication evidence will be recorded after the gates pass.
+The full isolated local suite passed **4,944 tests with 6 skips** in
+**939.84 seconds**. [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/45467933664) passed
+both Python jobs and relay. Stabilization passed recovery, a 30-round concurrent
+soak, history performance, three native cycles of 277 checks each, page-work and
+owner workflows. Evidence is retained in `build/stabilization-20261124-201333-163891`.
+
+Packaged launcher recovery, DLL isolation, authenticated sessions, tray lifecycle,
+restart and presentation recovery passed. The signed update rehearsal from
+0.99.165 passed **72 checks**. The final packaged
+runtime passed **124 owner-workflow checks** and
+**277 thread-window checks**.
+
+Public verification checked the Ed25519 manifest signature, source commit, all
+**519 tracked package files**, installer hash and
+matching website release/download links. Installer: **23,544,615
+bytes**, SHA-256 `8b99c0ca6f2a0b3219933ccdeb1c3fbb34c1a48ba520b2b0dac9475126d28978`.
+Package SHA-256: `0859851baed073cc73bc36f1e722ead0260be84e65f2927ca7589e3cb1cc067c`.
+
+The first packaged owner-workflow attempt encountered a lock on the real Windows
+account ledger: changing HOME alone does not redirect account identity. The staged
+harness explicitly isolated its execution ledger, then all packaged checks passed.
+The same fixture correction is retained in the owner-workflow probe for future runs.
+The runtime files and built artifacts were unchanged during this continuation.
+
+The running application was not restarted. Native page-work checks also passed
+against the staged runtime, including late layout and thread/minister navigation.
+
+Evidence: `build/release-evidence-0.99.166.json`,
+`build/prepared-publication-0.99.166.json`, `build/public-verification-0.99.166.json`,
+`build/website-0.99.166-publication.json`, `build/stabilization-0.99.166.json`,
+`build/owner-staged-0.99.166.json`, `build/thread-staged-0.99.166.json`,
+`build/page-work-staged-0.99.166.json`, `build/resume-preparation-0.99.166.log`,
+`build/owner-staged-0.99.166-isolation-failure.json`,
+`build/release-defaults-0.99.166.json`, `build/golden-review-166.diff`,
+`build/golden-review-166-parser.diff`, `build/prepare-publication-0.99.166-failed.log` and
+`build/prepare-publication-0.99.166.log`.

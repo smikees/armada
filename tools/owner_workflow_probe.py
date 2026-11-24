@@ -24,7 +24,11 @@ def run(output, *, system_jobs_only=False, appearance_only=False):
         os.environ['ARMADA_NO_MODEL_SYNC'] = '1'
         os.environ['ARMADA_NO_EXTERNAL_NOTIFY'] = '1'
         import webview
-        from armada import app, serve, local_auth, util, jobs
+        from armada import app, serve, local_auth, util, jobs, execution_admission
+        # Windows account identity ignores HOME by design. Keep this synthetic
+        # presentation probe off the owner's real execution ledger, like the
+        # thread-window and page-work probes.
+        execution_admission._directory = lambda: home / 'account' / 'execution'
         from tests.golden_support import build_fixture
         root = Path(build_fixture(home / 'realm'))
         cfg = util.read_json_state(root / 'realm.json')
