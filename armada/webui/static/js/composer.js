@@ -94,5 +94,7 @@
   editor.addEventListener('drop',event=>{event.preventDefault();});
   old.replaceWith(editor);editor.value=old.value;
   document.fonts?.ready.then(layout);
+  // Marker glyphs can load only after the first list is typed, after ready resolved.
+  document.fonts?.addEventListener('loadingdone',layout);
   window.addEventListener('resize',layout);
 })();

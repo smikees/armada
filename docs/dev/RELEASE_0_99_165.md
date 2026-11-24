@@ -24,6 +24,9 @@ cover voice controls during ordinary work, active audio, audio ending and draft
 preservation. The hidden WebView2 journey now switches to the OpenAI layout and
 inserts text using native editing in both main and detached steering composers,
 then verifies focus and editability survive polling and acknowledged delivery.
+Repeated native validation also exposed late font loading during list measurement.
+The composer recalculates hanging indents when lazy-loaded marker fonts finish;
+the geometry test waits for fonts before comparing actual rendered glyph positions.
 
 Python's [official release list](https://www.python.org/doc/versions/) was checked
 on 24 November 2026: 3.14.10 remains the current patch in the supported 3.14 branch.

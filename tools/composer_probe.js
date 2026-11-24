@@ -1,7 +1,7 @@
 // Executed in both real WebView2 thread surfaces by thread_window_probe.py.
 (()=>{
   const t=document.getElementById('mc-msg'),checks=[];
-  function check(label,ok){if(!ok)throw new Error(label+': '+JSON.stringify({value:t.value,html:t.innerHTML}));checks.push(label);}
+  function check(label,ok,details={}){if(!ok)throw new Error(label+': '+JSON.stringify({value:t.value,html:t.innerHTML,...details}));checks.push(label);}
   const input=()=>t.dispatchEvent(new Event('input',{bubbles:true}));
   const key=(name,shift=false)=>t.dispatchEvent(new KeyboardEvent('keydown',{key:name,shiftKey:shift,bubbles:true,cancelable:true}));
   const edit=(command,text)=>document.execCommand(command,false,text);
@@ -11,7 +11,8 @@
     const node=t.firstElementChild.firstChild,range=document.createRange(),rects=[];
     for(let i=prefix.length;i<node.length;i++){range.setStart(node,i);range.setEnd(node,i+1);rects.push(range.getBoundingClientRect());}
     const first=rects[0],next=rects.find(r=>r.top>first.top+2&&r.width>0);
-    check('wrapped '+JSON.stringify(prefix)+' aligns with item text',!!next&&Math.abs(next.left-first.left)<1.5);
+    check('wrapped '+JSON.stringify(prefix)+' aligns with item text',!!next&&Math.abs(next.left-first.left)<1.5,
+      {first:first.left,next:next?.left,font:getComputedStyle(t).font,fonts:document.fonts.status});
     check('wrapped item stays inside composer',t.scrollWidth<=t.clientWidth+1);
   }
   t.setAttribute('style',style);

@@ -303,6 +303,8 @@ def run(output):
                 check("detached composer continues and nests bullets", companion.evaluate_js(bullet_probe))
                 composer_probe = Path(__file__).with_name('composer_probe.js').read_text(encoding='utf-8')
                 for view, label in ((main, 'main'), (companion, 'detached')):
+                    view.evaluate_js("document.fonts.ready.then(()=>window.__composerFontsReady=true);true")
+                    wait_for(lambda:view.evaluate_js("!!window.__composerFontsReady"),label+' composer fonts finish loading before glyph measurements')
                     for passed in view.evaluate_js(composer_probe):
                         check(label + ' composer: ' + passed, True)
                     check(label + ' local path retains inline code styling', view.evaluate_js("""(()=>{
