@@ -34,7 +34,8 @@
     inputState.hidden=!call?.connected||ending;connecting.hidden=!call||call.connected||ending;panel.setAttribute('aria-busy',String(!connecting.hidden));
     if(call||foreign){title.textContent=dict?'Dictation · text replies':'Voice chat';help.textContent=dict?'Speech is sent to this thread · replies stay in text':'Same agent and tools · replies are spoken and saved';}
     if(foreign)note((busy?'Agent working · ':'')+(dict?'dictation':'voice chat')+' is active in another window');
-    input.disabled=!!call||ending||busy;if(typeof mcSyncSend==='function')mcSyncSend();
+    // Text work may accept steering (or a draft). Only an audio session owns input.
+    input.disabled=!!call||ending||foreign;if(typeof mcSyncSend==='function')mcSyncSend();
   }
   function gate(owned,on){if(owned.outputGain)owned.outputGain.gain.value=on&&owned.mode==='voice'&&!owned.switching?1:0;}
   function showState(owned,state){

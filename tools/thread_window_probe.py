@@ -468,6 +468,12 @@ def run(output):
                 check("main view keeps its avatar columns", main.evaluate_js(
                     "getComputedStyle(document.querySelector('#mc-turns>.mc-turn[data-role=assistant]>div:first-child>div:first-child')).display!=='none'"))
                 check("same thread reuses its window", app.open_thread(realm, "captain", "main") and len(app._thread_windows) == 1)
+                # Also exercise the actual OpenAI layout, which includes voice controls.
+                saved=app._browser_result(main,"fetch('/api/save-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:"+json.dumps(json.dumps({**cfg,'agent':'captain','model':'gpt-6.1-sol'}))+"}).then(r=>r.json())")
+                check('synthetic thread switches to the OpenAI composer',saved.get('ok'))
+                main.load_url(local_auth.browser_url(url, '/probe-main'));ready(main)
+                from armada.thread_windows import target
+                companion.load_url(local_auth.browser_url(url, target(realm, 'captain', 'main')[3]));ready(companion)
                 main.evaluate_js("document.getElementById('mc-msg').value='Synthetic question';mcChat('captain','main')")
                 wait_for(started.is_set, "sending invokes the shared transport")
                 wait_for(lambda: "Checking the synthetic figures." in text(companion), "companion shows progress started in main")
@@ -482,9 +488,15 @@ def run(output):
                 wait_for(lambda: main.evaluate_js("document.querySelector('[data-work-started]')?.dataset.workStarted")==clock_start,
                          'Reopening a working thread retains the original clock start')
                 for view, label in ((main, 'main'), (companion, 'companion')):
+                    check(label + ' includes OpenAI voice controls', view.evaluate_js("!!document.getElementById('mc-voice')"))
                     wait_for(lambda: view.evaluate_js("mcSteerable && !document.getElementById('mc-msg').disabled"),
                              label + ' permits typing during a supported run')
-                    view.evaluate_js("document.getElementById('mc-msg').value='Focus from " + label + "';mcAutosize();mcSyncSend();document.getElementById('mc-msg').focus()")
+                    check(label + ' accepts native text insertion during steering', view.evaluate_js(
+                        "(()=>{const t=document.getElementById('mc-msg');t.value='';t.focus();t.setSelectionRange(0,0);return document.execCommand('insertText',false,'Focus from " + label + "')&&t.value==='Focus from " + label + "';})()"))
+                    view.evaluate_js("window.mcThreadSync();true")
+                    time.sleep(.9)
+                    check(label + ' keeps steering editable through voice and thread polling', view.evaluate_js(
+                        "(()=>{const t=document.getElementById('mc-msg');return !t.disabled&&t.isContentEditable&&document.activeElement===t&&t.value==='Focus from " + label + "';})()"))
                     check(label + ' shows both Steer and Stop', view.evaluate_js(
                         "document.getElementById('mc-send').dataset.label==='Steer' && document.getElementById('mc-stop').style.display!=='none'"))
                     if label == 'companion':
@@ -778,7 +790,9 @@ def run(output):
                     thread.join(min(.05,max(0,deadline-time.monotonic())))
                 pending=bridge_workers()
             if pending:
-                result.update(ok=False,error='Native fixture callbacks did not finish teardown: '+', '.join(t.name for t in pending))
+                result['ok']=False
+                result['teardown_error']='Native fixture callbacks did not finish teardown: '+', '.join(t.name for t in pending)
+                result.setdefault('error',result['teardown_error'])
             else:
                 result['checks'].append('native bridge workers finish before interpreter teardown')
             output.write_text(json.dumps(result,indent=2),encoding='utf-8')

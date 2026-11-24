@@ -10,6 +10,10 @@ the conversation. All native resources and event handlers belong to that window.
 
 —
 
+### `position_decoration(user, handle, native, left, top, visible)`
+
+Keep an owned decoration immediately above its owner without raising either.
+
 ### `begin_resize(window)`
 
 Enter Windows' bottom-right sizing loop, including capture and minimum size.

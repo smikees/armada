@@ -23,6 +23,7 @@ def _api():
                                       ctypes.c_int, ctypes.c_int, w.HWND, w.HMENU, w.HINSTANCE, w.LPVOID]),
         (user.DestroyWindow, w.BOOL, [w.HWND]),
         (user.ShowWindow, w.BOOL, [w.HWND, ctypes.c_int]),
+        (user.GetWindow, w.HWND, [w.HWND, w.UINT]),
         (user.SetWindowPos, w.BOOL, [w.HWND, w.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, w.UINT]),
         (user.SendMessageW, ctypes.c_ssize_t, [w.HWND, w.UINT, ctypes.c_size_t, ctypes.c_ssize_t]),
         (user.GetDC, w.HDC, [w.HWND]),
@@ -37,6 +38,17 @@ def _api():
     for fn, result, args in signatures:
         fn.restype, fn.argtypes = result, args
     return user, gdi
+
+
+def position_decoration(user, handle, native, left, top, visible):
+    """Keep an owned decoration immediately above its owner without raising either."""
+    previous = user.GetWindow(int(native.Handle.ToInt64()), 3)  # GW_HWNDPREV
+    flags = 0x0001 | 0x0010 | 0x0200  # NOSIZE | NOACTIVATE | NOOWNERZORDER
+    if previous == handle:
+        flags |= 0x0004  # Already adjacent: NOZORDER avoids inserting after ourselves.
+    flags |= 0x0040 if visible else 0x0080  # SHOWWINDOW / HIDEWINDOW
+    if not user.SetWindowPos(handle, previous, left, top, 0, 0, flags):
+        raise ctypes.WinError(ctypes.get_last_error())
 
 
 def begin_resize(window):
@@ -239,10 +251,8 @@ class _Shadow:
                 if self.bitmap is not None:
                     self.bitmap.Dispose()
                 self.bitmap, self.size = bitmap, size
-            else:
-                self.user.SetWindowPos(self.handle, None, native.Left-pad, native.Top-pad, 0, 0,
-                                       0x0001 | 0x0004 | 0x0010)  # NOSIZE | NOZORDER | NOACTIVATE
-            self.user.ShowWindow(self.handle, 4 if native.Visible and str(native.WindowState) != "Minimized" else 0)
+            position_decoration(self.user, self.handle, native, native.Left-pad, native.Top-pad,
+                                native.Visible and str(native.WindowState) != "Minimized")
         except Exception:
             # Avoid retrying at every mouse movement if Windows refuses the decoration.
             log.warning("Could not update detached thread shadow", exc_info=True)

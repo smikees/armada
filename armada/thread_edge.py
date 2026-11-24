@@ -82,11 +82,10 @@ class Edge:
     def position(self):
         if self.closed:
             return
+        from .thread_frame import position_decoration
         native = self.native
         visible = self.current() and native.Visible and str(native.WindowState) != 'Minimized'
-        if self.current():
-            self.user.SetWindowPos(self.handle, None, native.Left, native.Top, 0, 0, 0x0015)
-        self.user.ShowWindow(self.handle, 4 if visible else 0)
+        position_decoration(self.user, self.handle, native, native.Left, native.Top, visible)
 
     def _clip(self, spread):
         from System.Drawing import Region

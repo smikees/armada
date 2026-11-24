@@ -418,7 +418,7 @@ function mcSetGen(on,stopping=false){mcGen=on;const st=document.getElementById('
     if(st.lastChild?.nodeType===3)st.lastChild.textContent=stopping?'Stopping…':'Stop work';}
   if(ta){
     if(!ta.dataset.idlePlaceholder)ta.dataset.idlePlaceholder=ta.placeholder||'';
-    ta.disabled=false;
+    ta.disabled=!!window.mcAudioBusy?.();
     ta.placeholder=on&&mcSteerable?'Steer this run…':ta.dataset.idlePlaceholder;
   }
   const plus=document.getElementById('mc-plus');if(plus)plus.disabled=on;

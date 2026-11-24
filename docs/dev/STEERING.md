@@ -42,6 +42,11 @@ instructions; unconfirmed ones are explicitly labelled, and rejected ones are
 excluded. The UI shows all outcomes without edit/restart controls for individual
 steering messages. Poll payloads include only receipt IDs, statuses and errors.
 
+From 0.99.165, the presence of voice controls does not disable text input while a
+run is working. Only an active local/remote audio session or its teardown locks
+the composer; both the voice and thread pollers respect that ownership. Ending
+audio permits text drafting and steering while the run continues.
+
 The composer uses the same request ID after transport errors, with a 15-second
 HTTP wait limit and explicit Check action. It never automatically replays a
 message or queues it for a future turn. Acknowledgement clears only the exact

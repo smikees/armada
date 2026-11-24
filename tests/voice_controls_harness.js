@@ -35,7 +35,18 @@ function view(){
   return {ctx,element,track,peers,events,contexts,async tick(){const next=timers.shift();if(next)await next();await settle();},meter(ms=100){clock+=ms;intervals.forEach(fn=>fn?.());},output(){return contexts[0].nodes[1];},gain(){return contexts[0].nodes[0].gain;}};
 }
 (async()=>{
+  const typing=view();typing.element('mc-msg').value='Steering draft';
+  typing.ctx.mcVoiceSync(null,true);
+  assert(!typing.element('mc-msg').disabled,'A running text turn must allow steering and drafting with voice controls present');
+  typing.ctx.mcVoiceSync({active:false},true);
+  assert(!typing.element('mc-msg').disabled,'An inactive audio session must not lock the composer');
+  typing.ctx.mcVoiceSync({active:true,mode:'dictation'},true);
+  assert(typing.element('mc-msg').disabled,'Audio in another window owns the composer until it ends');
+  typing.ctx.mcVoiceSync(null,true);
+  assert(!typing.element('mc-msg').disabled);
+  assert.equal(typing.element('mc-msg').value,'Steering draft');
   const a=view();a.element('mc-msg').value='Keep my draft';await a.element('mc-voice').click();await settle();
+  assert(a.element('mc-msg').disabled,'A connected local audio session owns the composer');
   assert.equal(a.gain().value,0,'native acknowledgements stay silent');assert(a.track.enabled);assert.equal(a.contexts.length,1);
   a.ctx.state.reply_ready='reply';await a.tick();assert.equal(a.gain().value,1);
   a.output().sample=.1;a.meter();a.ctx.state.playback_done=true;await a.tick();a.meter(3000);
@@ -50,7 +61,7 @@ function view(){
   a.ctx.state.reply_ready='second';await a.tick();assert.equal(a.gain().value,1);await a.element('mc-dictate').click();assert.equal(a.gain().value,0,'switch silences in-flight audio');
   a.element('mc-voice-mute').click();assert(!a.track.enabled);await a.element('mc-voice').click();assert(!a.track.enabled,'mode change preserves mute');
   a.element('mc-voice-mute').click();assert(a.track.enabled);a.ctx.mcVoiceSync(null,true);await a.element('mc-voice-end').click();
-  assert(a.track.stopped);assert.equal(a.contexts[0].state,'closed');assert(a.element('mc-msg').disabled,'End does not clear real work');assert.equal(a.element('mc-msg').value,'Keep my draft');
+  assert(a.track.stopped);assert.equal(a.contexts[0].state,'closed');assert(!a.element('mc-msg').disabled,'Ending audio permits steering while real work continues');assert.equal(a.element('mc-msg').value,'Keep my draft');
   assert(a.ctx.requests.every(r=>!r.url.includes('chat-stop')));
 
   const b=view();let connect;b.ctx.fetch=async()=>new Promise(resolve=>connect=()=>resolve({ok:true,json:async()=>({ok:true,sdp:'v=0',voice:{active:true,mode:'voice'}})}));

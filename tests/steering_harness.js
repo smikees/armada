@@ -40,5 +40,7 @@ const ta=nodes['mc-msg'],button=nodes['mc-send'];
  run('mcStopRequested=true;mcSyncSend()');await ctx.mcSteer('captain','main');assert.equal(button.disabled,true);
  run('mcSteerable=false;mcSetGen(false)');assert(!ta.disabled);assert(!nodes['mc-plus'].disabled);
  assert.equal(ta.placeholder,'Message Captain');assert.equal(button.dataset.label,'');
+ ctx.mcAudioBusy=()=>true;run('mcSetGen(true)');assert(ta.disabled,'Thread polling must respect an active audio session');
+ ctx.mcAudioBusy=()=>false;run('mcSetGen(true)');assert(!ta.disabled,'Text drafting resumes when audio ends, even during work');
  console.log('steering, explicit retries, late responses, draft preservation, Stop and unsupported engines passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,5 +1,10 @@
 # Monitor recovery, detached sessions and Activity monitor
 
+From 0.99.165, shadow and antialiased-edge refreshes place each owned HWND directly
+above its owner without raising the owner. A delayed background capture cannot
+cover a foreground thread. Native stacking tests run on an isolated desktop and
+cover refresh, hiding, re-showing and alternating window activation.
+
 Native bounds and Screen.WorkingArea are compared in physical pixels. Display-change
 notifications request a UI-thread recovery check; a two-second timer is the fallback.
 An adequate portion of the title/drag area must remain visible on a working area.
