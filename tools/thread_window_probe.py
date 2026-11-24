@@ -282,7 +282,9 @@ def run(output):
                     wait_for(lambda: view.evaluate_js("(()=>{const b=document.getElementById('mc-turns');return b.scrollHeight-b.scrollTop-b.clientHeight<8;})()"),label+' opens at the latest message')
                     view.evaluate_js("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.probeCopied=value;}}});document.querySelector('.mc-code-copy').click()")
                     wait_for(lambda: view.evaluate_js("window.probeCopied==='Copy this prompt exactly:\\n  Keep indentation & <tags>.\\nSecond line.'"),label+' code copy keeps exact whitespace and characters')
-                    view.evaluate_js("document.getElementById('mc-turns').scrollTop=0;document.getElementById('mc-turns').dispatchEvent(new Event('scroll'))")
+                    # Model an owner scroll, including the input event that stops
+                    # late font/load callbacks from doing initial auto-scroll.
+                    view.evaluate_js("(()=>{const b=document.getElementById('mc-turns');b.dispatchEvent(new WheelEvent('wheel',{deltaY:-500}));b.scrollTop=0;b.dispatchEvent(new Event('scroll'));})()")
                     check(label+' shows jump control above the composer',view.evaluate_js("(()=>{const b=document.getElementById('mc-jump-bottom');return !b.hidden&&b.getBoundingClientRect().bottom<=document.getElementById('mc-msg').getBoundingClientRect().top;})()"))
                     view.evaluate_js("document.getElementById('mc-jump-bottom').click()")
                     check(label+' jump reaches newest message and hides itself',view.evaluate_js("document.getElementById('mc-jump-bottom').hidden"))
