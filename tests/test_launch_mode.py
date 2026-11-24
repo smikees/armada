@@ -95,13 +95,24 @@ def test_instance_probe_identifies_realm_without_rendering_dashboard(tmp_path, m
 
 
 def test_occupied_default_port_selects_another_pair():
-    with socket.socket() as occupied:
-        occupied.bind(("127.0.0.1", 0))
-        port = occupied.getsockname()[1]
-        if port > 65330:
-            pytest.skip("OS assigned a port too close to the end of the range")
-        chosen = app._free_port_pair(port)
-        assert chosen != port and chosen >= port + 2
+    # Windows can assign an ephemeral port beside a reserved/busy range. Verify
+    # the fixture has an available pair before testing the production search.
+    for _ in range(32):
+        with socket.socket() as occupied, socket.socket() as first, socket.socket() as second:
+            occupied.bind(("127.0.0.1", 0))
+            port = occupied.getsockname()[1]
+            if port > 65330:
+                continue
+            try:
+                first.bind(("127.0.0.1", port + 2))
+                second.bind(("127.0.0.1", port + 3))
+            except OSError:
+                continue
+            first.close()
+            second.close()
+            assert app._free_port_pair(port) == port + 2
+            return
+    pytest.skip("No occupied-port fixture with a nearby free pair is available")
 
 
 def test_say_survives_broken_stream(monkeypatch):

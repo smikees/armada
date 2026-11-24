@@ -37,12 +37,28 @@ def final(response='Verified.', **extra):
     return {'event':'result','result':{'status':'SUCCESS','response':response,**extra}}
 
 
+def test_connector_values_can_contain_frontmatter_markers(engine, monkeypatch, tmp_path):
+    connector = {'name': 'fixture', 'command': 'fixture---server',
+                 'env': {'ARMADA_TOKEN': 'synthetic---token'}}
+    monkeypatch.setattr(engine, '_connectors', lambda denied: [connector])
+    observed = []
+    def inspect(args, kwargs):
+        content = (Path(kwargs['cwd'])/'.agents/agents/armada-turn.md').read_text(encoding='utf-8')
+        config = json.loads(content.splitlines()[1])
+        assert config['mcpServers'] == [connector]
+        assert 'run_command' not in config['tools']
+        observed.append(config)
+    stream(monkeypatch, [final()], inspect=inspect)
+    assert engine.run_stream('System\n---\nBody', 'Task', cwd=tmp_path, allow_tools=True).ok
+    assert len(observed) == 1
+
+
 def test_owner_acp_uses_existing_agent_project_and_accounting(engine, tmp_path, monkeypatch):
     from armada.engine import gemini_acp
     monkeypatch.setattr(engine, '_supports_acp', lambda: True)
     observed = []
     def call(selected, folder, project, roots, file_access, actual, prompt, line, timeout, env, on_proc, servers=()):
-        config = json.loads((Path(folder)/'.agents/agents/armada-turn.md').read_text(encoding='utf-8').split('---', 2)[1])
+        config = json.loads((Path(folder)/'.agents/agents/armada-turn.md').read_text(encoding='utf-8').splitlines()[1])
         assert config['tools'] == [] and not config['inheritMcp'] and not config['inheritCustomizations']
         assert config['commandExecutionPolicy'] == 'off'
         settings = json.loads((Path.home()/'.gemini/config/projects'/f'{project}.json').read_text())
@@ -101,7 +117,7 @@ def test_acp_replaces_native_writes_with_expiring_audited_writer(engine, tmp_pat
     monkeypatch.setattr(engine, '_supports_acp', lambda: True)
     used = []
     def call(selected, folder, project, roots, file_access, actual, prompt, line, timeout, env, on_proc, servers=()):
-        config = json.loads((Path(folder)/'.agents/agents/armada-turn.md').read_text(encoding='utf-8').split('---', 2)[1])
+        config = json.loads((Path(folder)/'.agents/agents/armada-turn.md').read_text(encoding='utf-8').splitlines()[1])
         assert not set(config['tools']) & {'write_to_file', 'replace_file_content', 'multi_replace_file_content'}
         tools = selected.policy_tools
         assert [s['name'] for s in servers] == [tools.server_name]
@@ -190,7 +206,7 @@ def test_scoped_project_and_custom_agent_never_inherit_ambient_tools(engine, mon
         assert grants['allow'] == [f'write_file({own.as_posix()})',f'write_file({(tmp_path/"realm").as_posix()})',f'write_file({extra.as_posix()})']
         assert 'command(*)' in grants['deny'] and 'read_url(*)' in grants['deny']
         agent = (Path(kwargs['cwd'])/'.agents/agents/armada-turn.md').read_text()
-        front = json.loads(agent.split('---')[1])
+        front = json.loads(agent.splitlines()[1])
         assert front['excludeDefaultComponents'] is True
         assert front['inheritMcp'] is front['inheritCustomizations'] is False
         assert 'run_command' not in front['tools'] and 'search_web' not in front['tools']
@@ -271,7 +287,7 @@ def test_missing_assigned_connector_is_withheld_without_aborting_unrelated_work(
     engine.allowed_mcp_ids=frozenset({'ibkr'})
     def inspect(args, kwargs):
         content=(Path(kwargs['cwd'])/'.agents/agents/armada-turn.md').read_text()
-        assert json.loads(content.split('---')[1])['mcpServers']==[]
+        assert json.loads(content.splitlines()[1])['mcpServers']==[]
         assert 'Not configured or disabled in Gemini' in content
     stream(monkeypatch,[final('Unrelated answer')],inspect=inspect)
     result=engine.run_stream('','',cwd=tmp_path,allow_tools=True)
@@ -296,7 +312,7 @@ def test_real_filesystem_extension_maps_to_scoped_native_tools(engine, monkeypat
     def inspect(args, kwargs):
         launches.append(args)
         content = (Path(kwargs['cwd'])/'.agents/agents/armada-turn.md').read_text()
-        front = json.loads(content.split('---')[1])
+        front = json.loads(content.splitlines()[1])
         servers=front['mcpServers']
         if path=='chat':
             assert len(servers)==1 and servers[0]['name'].startswith('armada_setup_')
@@ -327,7 +343,7 @@ def test_filesystem_server_name_alone_never_bypasses_mcp_configuration(engine, t
     assert engine._connectors(denied)==[]
     assert engine.connector_unavailable[0]['state']=='missing'
     agent=engine._agent('',True,denied)
-    assert json.loads(agent.split('---')[1])['mcpServers']==[]
+    assert json.loads(agent.splitlines()[1])['mcpServers']==[]
     assert 'Filesystem capability for this Gemini turn' not in agent
     assert not engine.writable_roots
 
@@ -336,9 +352,9 @@ def test_provider_local_connectors_are_explicitly_selected(engine):
     path=Path.home()/'.gemini/config/mcp_config.json';path.parent.mkdir(parents=True)
     path.write_text(json.dumps({'mcpServers':{'allowed':{'command':'fixture'},'ambient':{'command':'other'}}}))
     engine.allowed_mcp_ids=frozenset({'allowed'})
-    config=json.loads(engine._agent('system',True,[]).split('---')[1])
+    config=json.loads(engine._agent('system',True,[]).splitlines()[1])
     assert [s['name'] for s in config['mcpServers']]==['allowed']
-    assert not json.loads(engine._agent('',True,['mcp__allowed__*']).split('---')[1])['mcpServers']
+    assert not json.loads(engine._agent('',True,['mcp__allowed__*']).splitlines()[1])['mcpServers']
 
 
 def test_effort_and_estimated_gradient_match_effective_gemini_settings(engine, monkeypatch, tmp_path):

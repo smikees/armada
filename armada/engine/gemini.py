@@ -342,7 +342,9 @@ class GeminiEngine(EngineAdapter):
                    'the home folder, or a parent directory. The CLI launch folder is temporary runtime '
                    'scaffolding, not the task folder.\n')
         agent = self._agent(system,allow_tools,disallowed_tools or [])
-        selected_tools = json.loads(agent.split('---',2)[1])['tools']
+        # Delimiters occupy complete lines; connector values (including random
+        # authentication tokens) can legitimately contain three hyphens.
+        selected_tools = json.loads(agent.removeprefix('---\n').split('\n---\n', 1)[0])['tools']
         file_access = bool(set(selected_tools) & set(_FILE_TOOLS))
         acp = bool(getattr(on_event, 'interactive_questions', False) and self._supports_acp())
         configured = self

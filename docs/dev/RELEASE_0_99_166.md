@@ -23,6 +23,13 @@ capacity, engine-specific critical reservation, and late transcript growth in
 JavaScript and real hidden WebView2 geometry. Native navigation checks cover
 thread clicks, minister revisits, unsent drafts and manual scrolling.
 
+The full local gate also exposed an intermittent Gemini setup parser failure:
+three hyphens inside a connector value were treated as a frontmatter boundary.
+Parsing now recognizes the complete delimiter line, with a deterministic regression
+using synthetic connector values. The occupied-port native test verifies that its
+fixture has a nearby free pair, instead of assuming Windows assigned one beside
+an available range. The initial local failure is retained in the build logs.
+
 Read-only provider metadata on 24 November confirmed that all first-choice model
 defaults remain available. Defaults and the previously verified Python 3.14.10
 bundled runtime are unchanged.
