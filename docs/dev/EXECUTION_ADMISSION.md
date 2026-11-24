@@ -1,6 +1,7 @@
 # Bounded execution and scheduler dispatch (M8)
 
-Status: released in 0.99.130; maintainer acceptance pending.
+Status: released in 0.99.130; engine-independent capacity supersedes the original
+account/realm execution caps in 0.99.166 (24 November 2026). Maintainer acceptance pending.
 
 ## Decision and limits
 
@@ -10,9 +11,11 @@ callback. Only tickets granted capacity receive a worker. `schedule --once` reta
 synchronous result contract. Automatic attempts with uncertain outcomes are never replayed.
 
 Desktop, scheduler and CLI execution share account-wide admission, independent of the
-selected realm and install path. The initial conservative limits are four executions,
-two per provider (Claude, Codex and Gemini equally), two per realm, and one per
-conversation. Commands use a separate resource name with the same limit of two.
+selected realm and install path. Each engine has two execution slots across the account
+(Claude, Codex and Gemini equally), with one turn per conversation. Models on the same
+engine share its pool; different engines can run concurrently even in the same realm.
+There is no additional shared account or realm execution cap. Approved critical jobs
+reserve one slot only in their own engine's pool. Commands have a separate pool of two.
 There are at most 128 tickets and 32 per realm, including running work. These are
 application constants, not editable permissive policy. Queue saturation is explicit.
 

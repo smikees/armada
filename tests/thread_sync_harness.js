@@ -54,7 +54,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
  const titleContext={document:{getElementById:()=>header,querySelector:selector=>selector.startsWith('meta')?null:row},window:{}};
  const chat=fs.readFileSync(path.join(__dirname,'../armada/webui/static/js/chat.js'),'utf8');
  vm.createContext(titleContext);
- vm.runInContext(chat.slice(chat.indexOf('function mcSetThreadTitle('),chat.indexOf("if(document.getElementById('mc-turns')){requestAnimationFrame")),titleContext);
+ vm.runInContext(chat.slice(chat.indexOf('function mcSetThreadTitle('),chat.indexOf('// Refetch the right rail')),titleContext);
  titleContext.mcSetThreadTitle('main','New title');
  assert.equal(header.textContent,'draft title');assert.equal(row.textContent,'draft title');
  delete header.dataset.editing;delete row.dataset.editing;titleContext.mcSetThreadTitle('main','New title');

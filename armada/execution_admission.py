@@ -15,9 +15,7 @@ import uuid
 
 from . import util
 
-TOTAL = 4
 PER_PROVIDER = 2
-PER_REALM = 2
 MAX_TICKETS = 128
 PER_REALM_QUEUE = 32
 POLL_SECONDS = .1
@@ -102,23 +100,17 @@ def _blocking_reason(row, active, pending, rows):
     if any((r['realm'], r['agent'], r['thread']) == identity for r in pending[:pending.index(row)]):
         return 'Queued — an earlier request in this conversation goes first.'
     maintenance = row['provider'] == 'maintenance'
-    group = [r for r in active if (r['provider'] == 'maintenance') == maintenance]
-    reserved = not row.get('critical') and any(r.get('reserve_slot') for r in rows)
-    total_limit = 1 if maintenance else max(0, TOTAL-1) if reserved else TOTAL
-    provider_reserved = not row.get('critical') and any(
+    # Engines have separate subscription pools. A busy realm or another engine's
+    # critical job must not spend this engine's capacity. Model names never split
+    # a pool: all models routed through the same adapter share these slots.
+    group = [r for r in active if r['provider'] == row['provider']]
+    reserved = not maintenance and not row.get('critical') and any(
         r.get('reserve_provider', r.get('reserve_slot')) and r['provider'] == row['provider'] for r in rows)
-    provider_limit = max(0, PER_PROVIDER-1) if provider_reserved else PER_PROVIDER
-    realm_reserved = not row.get('critical') and any(
-        r.get('reserve_realm', r.get('reserve_slot')) and r['realm'] == row['realm'] for r in rows)
-    realm_limit = max(0, PER_REALM-1) if realm_reserved else PER_REALM
-    for count, limit, label, reserve in (
-        (len(group), total_limit, 'Armada execution', reserved and not maintenance),
-        (sum(r['provider'] == row['provider'] for r in group), provider_limit, row['provider'].title()+' execution', provider_reserved),
-        (sum(r['realm'] == row['realm'] for r in group), realm_limit, 'realm execution', realm_reserved)):
-        if count >= limit:
-            return (f'Queued — {count} of {limit} available {label} slots are occupied.'
-                    + (' One slot is reserved for critical jobs.' if reserve else '')
-                    + ' This is local concurrency, not a token-limit refusal.')
+    limit = 1 if maintenance else max(0, PER_PROVIDER-1) if reserved else PER_PROVIDER
+    if len(group) >= limit:
+        return (f'Queued — {len(group)} of {limit} available {row["provider"].title()} execution slots are occupied.'
+                + (' One slot is reserved for critical jobs.' if reserved else '')
+                + ' This is local concurrency, not a token-limit refusal.')
     return ''
 
 

@@ -36,7 +36,8 @@ Tabs across the top:
 
 ## Read and copy a conversation
 
-Opening a thread shows its latest messages. Scroll up to read earlier work; incoming
+Opening a thread or minister shows its latest messages, including after fonts or
+images finish loading. Scroll up to read earlier work; incoming
 updates keep your reading position. The circular down-arrow above the message box
 returns to the latest message and disappears when you reach the bottom.
 

@@ -138,7 +138,9 @@ filter to find these jobs and tool-setting review warnings. Open the job, review
 settings and save to renew approval. Merely opening a page never grants approval.
 
 ARMADA shares execution capacity across the desktop, scheduler and command line: up to
-four executions, two per provider, two per realm and one per conversation at a time.
+two runs per engine and one per conversation at a time. Claude, OpenAI and Gemini have
+independent pools, so different engines can work in parallel in the same realm. Models
+using the same engine share its slots. A critical job reserves one slot only in its engine.
 Other work waits in a bounded queue. Eligible realms take turns, so a slow job need not
 hold up the whole scheduler. Stop applies to queued work too; a stopped scheduled attempt
 does not run automatically again that day. If the queue is full, ARMADA reports it instead

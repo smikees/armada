@@ -54,6 +54,9 @@
         mcApplyTurns(box,state.html);revision=state.revision;
         mcRefreshRail(agent,thread);mcRefreshAgentDot();window.mcMarkThreadSeen?.();
       }
+      // WebView2 defers ResizeObserver in hidden/occluded windows. Its normal
+      // snapshot poll also settles initial layout, without overriding reading.
+      if(!reading&&!box.querySelector('textarea'))window.mcInitialThreadScroll?.();
     }catch(error){
       const status=document.getElementById('mc-chatmsg');
       if(status){status.textContent=error.message||'Thread updates are unavailable. Retrying…';status.dataset.syncError='1';}

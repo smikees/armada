@@ -25,6 +25,11 @@ def run(output, measure_only=False, captures=False):
         from tests.golden_support import build_fixture
         execution_admission._directory = lambda: home / 'account/execution'
         realm = build_fixture(home / 'realm')
+        from armada.threads import Thread
+        for name in ('main', 'navigation-probe'):
+            Thread(Path(realm) / 'agents/captain', name).append('Synthetic navigation history',
+                '\n\n'.join(f'Historical paragraph {n}: keep the latest message visible.' for n in range(55))
+                + '\n\nLatest navigation message.')
         util.write_json_atomic(Path(realm) / 'agents/captain/jobs/synthetic-daily.json',
                                {'id': 'synthetic-daily', 'name': 'Synthetic daily review',
                                 'schedule': 'manual', 'kind': 'agent', 'enabled': False,
@@ -131,10 +136,28 @@ def run(output, measure_only=False, captures=False):
                     result['checks'].append('Job search and status filter survive navigation')
                     navigate('/agent/captain/threads')
                     wait(lambda: js("!!document.getElementById('mc-msg')"), 'Conversation loaded')
+                    at_latest = "(()=>{const b=document.getElementById('mc-turns');return b.scrollHeight-b.scrollTop-b.clientHeight<8;})()"
+                    wait(lambda: js(at_latest), 'Minister conversation opens at latest')
+                    # A late image/font/math layout can grow a turn after load and
+                    # the initial animation frame. Exercise real WebView geometry.
+                    js("const growth=document.createElement('style');growth.id='probe-late-layout';growth.textContent='#mc-turns>.mc-turn:last-child{padding-bottom:900px}';document.head.append(growth)")
+                    wait(lambda: js(at_latest), 'Late transcript layout keeps latest visible')
+                    result['checks'].append('Conversation follows late layout until the owner starts reading')
+                    js("const b=document.getElementById('mc-turns');b.dispatchEvent(new WheelEvent('wheel',{deltaY:-500}));b.scrollTop=200;document.getElementById('probe-late-layout').textContent='#mc-turns>.mc-turn:last-child{padding-bottom:1200px}'")
+                    time.sleep(.4)
+                    assert js("document.getElementById('mc-turns').scrollTop<400"), 'Layout must preserve manual reading'
                     js("const input=document.getElementById('mc-msg');input.value='Synthetic unsent draft';input.dispatchEvent(new Event('input',{bubbles:true}));input.focus()")
                     navigate('/')
                     navigate('/agent/captain/threads')
                     wait(lambda: js("document.getElementById('mc-msg').value==='Synthetic unsent draft'"), 'Draft preserved')
+                    wait(lambda: js(at_latest), 'Reopened minister shows latest instead of saved scroll')
+                    for thread in ('navigation-probe', 'main'):
+                        loaded.clear()
+                        js("document.querySelector('.mc-thread[data-slug=\""+thread+"\"] > div[onclick]').click()")
+                        assert loaded.wait(15), 'Thread click loads destination'
+                        wait(lambda: js("document.getElementById('mc-turns')?.dataset.thread==="+json.dumps(thread)), 'Selected thread opens')
+                        wait(lambda: js(at_latest), 'Clicked thread opens at latest')
+                    result['checks'].append('Thread clicks and minister revisits open latest without restoring old reading position')
                     result['checks'].append('Unsent conversation draft survives navigation without submission')
                     if captures:
                         navigate('/settings?tab=realm')

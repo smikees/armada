@@ -92,9 +92,9 @@ def run(output, rounds=30):
                 ctx = RunContext.capture(root, 'captain', f'soak-{n}')
                 with admission.scope(ctx, ('claude', 'codex', 'gemini')[n]):
                     rows = [r for r in admission.snapshot() if r['state'] == 'running']
-                    check(len(rows) <= admission.TOTAL, 'Execution capacity exceeded')
-                    check(max(Counter(r['realm'] for r in rows).values(), default=0) <= admission.PER_REALM,
-                          'Realm capacity exceeded')
+                    check(len(rows) <= admission.MAX_TICKETS, 'Execution ticket capacity exceeded')
+                    check(max(Counter((r['realm'], r['agent'], r['thread']) for r in rows).values(), default=0) <= 1,
+                          'Conversation capacity exceeded')
                     check(max(Counter(r['provider'] for r in rows).values(), default=0) <= admission.PER_PROVIDER,
                           'Provider capacity exceeded')
                 with lock:

@@ -5,6 +5,10 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
+Version **0.99.166** is prepared: independent engine execution pools and
+latest-message positioning when opening threads or ministers.
+Final gates and publication are pending. [Release evidence](dev/RELEASE_0_99_166.md).
+
 Version **0.99.165** is published: correct stacking of detached-thread shadows
 and editable OpenAI steering with voice controls present. Local tests, Windows CI,
 packaged checks and public downloads are verified. [Release evidence](dev/RELEASE_0_99_165.md).

@@ -33,7 +33,7 @@ def tickets():
         ticket.close()
 
 
-def test_total_provider_realm_and_conversation_bounds(tmp_path, tickets):
+def test_provider_and_conversation_bounds(tmp_path, tickets):
     a = tickets(context(tmp_path, 'a', '1'))
     a2 = tickets(context(tmp_path, 'a', '2'))
     b = tickets(context(tmp_path, 'b'), 'codex')
@@ -51,7 +51,7 @@ def test_total_provider_realm_and_conversation_bounds(tmp_path, tickets):
 
 
 def test_round_robin_realms_and_fifo_threads(tmp_path, tickets, monkeypatch):
-    monkeypatch.setattr(admission, 'TOTAL', 1)
+    monkeypatch.setattr(admission, 'PER_PROVIDER', 1)
     first = tickets(context(tmp_path, 'a', 'first'))
     assert first.ready()
     a1 = tickets(context(tmp_path, 'a', 'x'))
@@ -91,6 +91,37 @@ def critical_realm(tmp_path, monkeypatch, *, pct=93, at=None, reset=None, **read
     usage_snapshot.remember(root, 'claude', {'available': True, 'session': {
         'pct': pct, 'resets_at': reset or dt.datetime.fromtimestamp(time.time()+3600, dt.timezone.utc).isoformat()}, **reading}, at=at)
     return ctx
+
+
+def test_all_engines_have_independent_capacity_in_the_same_realm(tmp_path, tickets):
+    running = [tickets(context(tmp_path, thread=f'{provider}-{n}'), provider)
+               for provider in ('claude', 'codex', 'gemini', 'command') for n in range(2)]
+    assert all(ticket.ready() for ticket in running)
+    for provider in ('claude', 'codex', 'gemini', 'command'):
+        waiting = tickets(context(tmp_path, thread=f'{provider}-waiting'), provider)
+        assert not waiting.ready()
+        assert f'{provider.title()} execution slots' in waiting.queue_reason
+    # A maintenance wrapper can still await its independently admitted child.
+    maintenance = tickets(context(tmp_path, thread='maintenance'), 'maintenance')
+    assert maintenance.ready()
+    assert not tickets(context(tmp_path, thread='maintenance-next'), 'maintenance').ready()
+
+
+def test_critical_reserve_only_consumes_its_engine_capacity(tmp_path, tickets, monkeypatch):
+    ctx = critical_realm(tmp_path, monkeypatch)
+    owner = tickets(ctx)
+    same_engine = tickets(context(tmp_path, thread='same-engine'))
+    assert owner.ready() and not same_engine.ready()
+    assert 'reserved for critical jobs' in same_engine.queue_reason
+    # Even two other engines in this realm must not borrow Claude's reserved slot.
+    for provider in ('codex', 'gemini'):
+        for n in range(2):
+            assert tickets(context(tmp_path, thread=f'{provider}-{n}'), provider).ready()
+    critical = tickets(RunContext.capture(ctx.realm.root, 'agent', 'job-run--desk'))
+    assert critical.ready() and not same_engine.ready()
+    owner.close()
+    critical.close()
+    assert same_engine.ready()
 
 
 def test_quota_reserve_does_not_block_owner_chat_but_preserves_critical_slots(tmp_path, monkeypatch):

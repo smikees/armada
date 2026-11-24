@@ -51,9 +51,30 @@ function mcWorkTimers(){document.querySelectorAll('#mc-turns [data-work-started]
 (function(){const box=document.getElementById('mc-turns');if(!box)return;
   box.addEventListener('scroll',mcJumpState,{passive:true});
   box.addEventListener('load',()=>{if(document.getElementById('mc-jump-bottom')?.hidden)mcScrollBottom();},true);
-  let touched=false;for(const name of ['wheel','pointerdown','keydown'])box.addEventListener(name,()=>{touched=true;},{once:true,passive:true});
+  let touched=false;for(const name of ['wheel','pointerdown','keydown'])box.addEventListener(name,()=>{touched=true;},{passive:true});
+  document.addEventListener('pointerdown',event=>{if(event.target?.closest?.('.mc-scroll-track'))touched=true;},{passive:true});
   const latest=()=>{if(!touched)mcScrollBottom();};
+  window.mcInitialThreadScroll=latest;
   window.addEventListener('load',latest,{once:true});document.fonts?.ready.then(latest);
+  window.addEventListener('armada-font-size',latest);
+  window.addEventListener('focus',latest);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)latest();});
+  document.fonts?.addEventListener?.('loadingdone',latest);
+  document.addEventListener('armada:page-ready',latest);
+  // Fonts, images and rendered formulas can change turn heights after load.
+  // Follow their actual layout until the owner interacts with the transcript.
+  // Observe turns as well as the viewport: its scrollHeight can grow while its
+  // own border box stays fixed. Rebind when polling replaces the saved turns.
+  let layout,turns;
+  const observe=()=>{if(!layout)return;layout.disconnect();layout.observe(box,{box:'border-box'});
+    for(const turn of box.children)layout.observe(turn,{box:'border-box'});};
+  if(typeof ResizeObserver==='function'){
+    layout=new ResizeObserver(latest);observe();
+    turns=new MutationObserver(observe);turns.observe(box,{childList:true});
+  }
+  window.addEventListener('pageshow',event=>{if(event.persisted){touched=false;observe();turns?.observe(box,{childList:true});latest();}});
+  window.addEventListener('pagehide',()=>{layout?.disconnect();turns?.disconnect();});
+  requestAnimationFrame(latest);setTimeout(latest,120);
   const timer=setInterval(mcWorkTimers,1000);window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});
   mcThreadTools();
 })();
@@ -131,7 +152,6 @@ function mcSetThreadTitle(thread,title){
   try{const sel='#mc-threadlist .mc-thread[data-slug="'+(window.CSS&&CSS.escape?CSS.escape(thread):thread)+'"] .mc-thtitle';
     const it=document.querySelector(sel); if(it&&!it.dataset.editing)it.textContent=title;}catch(e){}
 }
-if(document.getElementById('mc-turns')){requestAnimationFrame(mcScrollBottom);setTimeout(mcScrollBottom,120);}
 // Refetch the right rail (loaded context + capabilities + artifacts) after a reply, so newly created
 // output artifacts appear without a manual page reload. No-op if the rail isn't on the page.
 let mcRailRefresh=0;
