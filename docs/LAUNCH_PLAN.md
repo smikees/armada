@@ -5,9 +5,9 @@ alone do not complete a product acceptance gate.
 
 ## Where things stand
 
-Version **0.99.165** is prepared: correct stacking of detached-thread shadows
-and editable OpenAI steering with voice controls present.
-Final gates and publication are pending. [Release evidence](dev/RELEASE_0_99_165.md).
+Version **0.99.165** is published: correct stacking of detached-thread shadows
+and editable OpenAI steering with voice controls present. Local tests, Windows CI,
+packaged checks and public downloads are verified. [Release evidence](dev/RELEASE_0_99_165.md).
 
 Version **0.99.164** is published: remembered detached-window sizes, hanging
 indents while composing lists, and clickable local paths with unchanged styling.

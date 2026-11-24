@@ -1,6 +1,8 @@
 # v0.99.165 — detached shadows and editable steering
 
-Prepared on 24 November 2026. Final release gates and publication are pending.
+Published on 24 November 2026 from `d13745e680667c50d2a7236a0a91440c055aa366`.
+[GitHub release](https://github.com/smikees/armada/releases/tag/v0.99.165) and
+[website](https://armada.stamih.com/) offer the matching installer.
 
 Detached-window shadows and antialiased edges now remain immediately above their
 own window, below any foreground thread. Previously each refresh used
@@ -37,4 +39,33 @@ This release follows the standing maintenance beta procedure: Ed25519-signed
 update assets and an unsigned Windows installer. Windows publisher signing and
 clean Sandbox acceptance are not claimed. Publication does not restart the owner's app.
 
-Final validation and publication evidence will be recorded after the gates pass.
+The full isolated local suite passed **4,938 tests with 6 skips** in
+**911.96 seconds**. [Exact-source Windows CI](https://github.com/smikees/armada/actions/runs/45430900519) passed
+both Python jobs and relay. Stabilization passed recovery, a 30-round concurrent
+soak, history performance, three native cycles of 277 checks each, page-work and
+owner workflows. Evidence is retained in `build/stabilization-20261124-165430-710384`.
+
+Packaged launcher recovery, DLL isolation, authenticated sessions, tray lifecycle,
+restart and presentation recovery passed. The signed update rehearsal from
+0.99.164 passed **72 checks**. The final packaged
+runtime passed **124 owner-workflow checks** and
+**277 thread-window checks**.
+
+Public verification checked the Ed25519 manifest signature, source commit, all
+**519 tracked package files**, installer hash and
+matching website release/download links. Installer: **23,545,834
+bytes**, SHA-256 `1560970394788edfd3ea35a9ffe93bacb9bb386ffb901154b7bb211d44b7a230`.
+Package SHA-256: `0279eada5db8cf38ca4dd617f32f15ccb1629fde95b1c36a3a1adab304463e29`.
+
+Automatic approval review initially stopped release creation. Local preparation
+completed all enforced publication checks and paused at that final command. The
+owner explicitly approved the exact GitHub payload and website update, after
+which unchanged source, notes, artifact hashes and CI were rechecked and the
+pending publication completed. The running application was not restarted.
+
+Evidence: `build/release-evidence-0.99.165.json`,
+`build/prepared-publication-0.99.165.json`, `build/public-verification-0.99.165.json`,
+`build/website-0.99.165-publication.json`, `build/stabilization-0.99.165.json`,
+`build/owner-staged-0.99.165.json`, `build/thread-staged-0.99.165.json`,
+`build/release-defaults-0.99.165.json`, `build/golden-review-165.diff` and
+`build/prepare-publication-0.99.165.log`.
