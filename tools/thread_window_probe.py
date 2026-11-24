@@ -506,7 +506,7 @@ def run(output):
                     if label == 'companion':
                         view.resize(400,500)
                         view.evaluate_js("document.documentElement.classList.add('armada-dark')")
-                        main.evaluate_js("document.getElementById('mc-turns').scrollTop=0;document.getElementById('mc-turns').dispatchEvent(new Event('scroll'))")
+                        main.evaluate_js("(()=>{const b=document.getElementById('mc-turns');b.dispatchEvent(new WheelEvent('wheel',{deltaY:-500}));b.scrollTop=0;b.dispatchEvent(new Event('scroll'));})()")
                     screenshot(view, 'thread-steering-' + label)
                     check(label + ' steering composer has no horizontal overflow', view.evaluate_js(
                         "document.documentElement.scrollWidth<=innerWidth && document.getElementById('mc-msg').getBoundingClientRect().right<=innerWidth"))
